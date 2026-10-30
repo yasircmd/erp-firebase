@@ -20,6 +20,8 @@ const TREE_SEED_NODES = [
   // New development (not in Code.gs): docs/modules/TAX_ENGINE.md.
   { text: 'Tax Configuration', depth: 3, moduleId: 'TAXCONFIG' },
   { text: 'Tax Reports', depth: 3, moduleId: 'TAXREPORTS' },
+  // New development (not in Code.gs): docs/modules/BUDGET.md.
+  { text: 'Budget', depth: 3, moduleId: 'BUDGET' },
   { text: 'Accounts Payable (FI-AP)', depth: 2 },
   { text: 'Vendor Master Data & Evaluation', depth: 3 },
   { text: 'Invoice Processing & Automated Matching (3-Way Match)', depth: 3 },

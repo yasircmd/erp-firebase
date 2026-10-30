@@ -56,8 +56,9 @@ async function fixture() {
 test('the counts: every new category, in its group, browsable only where records may go one by one', async () => {
   await fixture();
   const c = await root('getDataResetCounts');
-  assert.equal(Object.keys(c).length, 18 + 32); // Tax Configuration the latest (TAX_ENGINE.md)
+  assert.equal(Object.keys(c).length, 18 + 34); // Budgets and Budget Setup the latest (BUDGET.md)
   assert.deepEqual([c.taxConfig.label, c.taxConfig.group], ['Tax Configuration', 'setup']);
+  assert.deepEqual([c.budgets.label, c.budgets.group, c.budgets.browse, c.budgetSetup.group], ['Budgets', 'transactional', true, 'setup']);
   assert.deepEqual([c.clearances.group, c.clearances.browse], ['transactional', true]);
   assert.deepEqual([c.repReceipts.label, c.repReceipts.group, c.repReceipts.browse], ['Sales Rep Receipts', 'transactional', true]);
   assert.deepEqual([c.employees.group, c.employees.count, c.employees.browse], ['master', 2, false], 'the employees, not their compensation or sign-ins');

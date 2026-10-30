@@ -37,7 +37,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const row = (list, key) => page.locator('#' + list + ' > div', { has: page.locator('input[data-key="' + key + '"]') });
 
   await check('every category in its group, with its count; Browse only where records may go one by one', async () => {
-    assert.equal(await page.locator('.dr-cat-checkbox').count(), 18 + 32); // Clearances (item 28), Sales Rep Receipts (items 30-31) and Tax Configuration since
+    assert.equal(await page.locator('.dr-cat-checkbox').count(), 18 + 34); // Clearances (item 28), Sales Rep Receipts (items 30-31), Tax Configuration, Budgets and Budget Setup since
     assert.match(await row('dr-master-list', 'employees').textContent(), /Employees\s*1 record/);
     assert.equal(await row('dr-master-list', 'employees').locator('.dr-browse-btn').count(), 0, 'a master others use is cleared whole');
     assert.equal(await row('dr-transactional-list', 'payrollRuns').locator('.dr-browse-btn').count(), 1);

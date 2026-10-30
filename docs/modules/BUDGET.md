@@ -160,3 +160,89 @@ Each step with tests, Help (a new page in Finance), What's new.
 | Q343 | **Multi-year projects** | (a) project budgets inside each financial year only; (b) a project's own budget for its whole life too | **(a)** now: one model; a life-of-project budget later if needed. |
 | Q344 | **Balance-sheet lines** (asked after Q338 (b)) | (a) monthly movements, the balance = actual opening + movements; (b) month-end closing balances | **(a)**: the balance always starts from reality. |
 | Q345 | **The cash flow forecast's sources** (asked after Q341 (c)) | (a) open items + the budget; (b) open items only; (c) the budget only | **(a)**: open items for the near term, the budget beyond them. |
+
+## As built: step B1 (2026-10-30)
+
+- **Server** (hand-written): `functions/src/budgetCalc.js` (pure: the
+  year's months and label, natural signs, which budget line an actual
+  line counts against, budget against actual, year to date, favourable,
+  seeds, spreading) and `functions/src/budget.js` (the callables).
+- **Data** (Firestore):
+  - `budgets/{BUD-…}`: one version of a company's year. Fields:
+    CompanyID, YearStart (yyyy-mm), YearLabel ("FY 2026",
+    "FY 2026-27"), Version (0 the Original), Number ("Budget FY 2026
+    Revision 1"), Status (Draft, Rejected, PendingApproval, Approved),
+    Current, BalanceSheetMethod, Lines, Total (the approval amount),
+    Notes and History. Each line holds AccountID, a snapshot of the
+    account's code, name and type, CostCenterID, ProjectID and
+    Amounts[12].
+  - At most 5,000 lines. Each account, cost centre and project
+    combination appears once.
+  - `budgetSetup/{CompanyID}`: `BalanceSheet` ('Movements' by default,
+    or 'Closing').
+- **Signs:** amounts are in the account's natural sign: credit-side
+  growth (revenue, liabilities, equity) and debit-side growth (costs,
+  assets) are both typed as positive.
+- **Which budget line an actual counts against:** the most specific line
+  of its account that fits, in this order: cost centre and project, then
+  cost centre, then project, then the account's company line. Anything
+  else is "not budgeted". The year-end closing entry and earlier years
+  are left out of the P&L.
+- **Balance-sheet actuals** count only when the budget has balance-sheet
+  lines; a P&L budget doesn't list the balance sheet as not budgeted.
+  With balance-sheet lines, the report also reads the years before, for
+  the opening balance:
+  - movements: `BudgetBalance` = the actual opening + the budgeted
+    movements;
+  - closing balances: the actual balance at each month-end against the
+    budgeted one, with the year to date being the month's balance, not
+    a sum.
+- **Versions and approval:**
+  - `createBudget` makes the Original, or a Revision copied from the
+    Current version (keeping its method). It is refused while another
+    version of that year is open.
+  - `submitBudget` sends it through Approval Configuration ("Budget";
+    the amount is the year's budgeted costs). With no levels, it is
+    approved at once.
+  - Once approved, a version becomes Current, and the previous Current
+    loses the flag but stays approved.
+  - `decideBudgetApproval` works from the screen (Approve and Reject,
+    for the approver's level; `getBudget` returns `MyLevel`) and from
+    the phone's approval card (`approvalCard.DECIDE.BUDGET`).
+- **Actuals by index:** `journalEntries` are queried by CompanyID and
+  JVDate (a new composite index in firestore.indexes.json, so it is
+  deployed with the rules first). Posted entries only; reports never
+  read the whole corporate.
+- **Screen** `screens/BUDGET.html` (hand-written):
+  - **Budgets:** the list; one budget on a grid with accounts down and
+    months across. You can add a line, fill from last year (actuals or
+    budget, ± %, by cost centre or not), paste rows from Excel into a
+    box on the screen, or type a year total, which is spread evenly or
+    like last year's actuals.
+  - The grid's foot shows revenue, costs and profit.
+  - Save, Submit, Delete, Approve and Reject; the History.
+  - **Budget vs Actual:** a version, the month, and the level (each
+    line, account, group or class, from the chart's headings). Columns:
+    month, YTD, variance and %, year. Variances are coloured, with
+    totals per type and the profit. An actual opens the GL Report; Copy
+    copies for Excel.
+  - **Setup.**
+- **The module:** `BUDGET` with rights access, write and setup; a tree
+  node under Financial Accounting; the Help page help/pages/budget.md
+  (Finance). Data Reset has a "Budgets" category (transactional) and
+  "Budget Setup" (setup); the chart of accounts and org units can't be
+  cleared while budgets use them.
+- **Not in B1, as planned:** forecasts (B2), the spending check (B3), the
+  cash flow forecast (B4), and life-of-project budgets (B5). Their Setup
+  options come with their steps.
+- **Tests:**
+  - unit/budget (9);
+  - emulator/budget (2): the whole life, refusals, the approval card;
+  - ui/budget (4).
+  - Negative controls, each caught and restored:
+    - the previous Current kept;
+    - the company line matched first;
+    - the colours inverted.
+- **Deploy:** "database rules" first (the index), then
+  `tools/deploy-sets/budget-b1.txt` (every function, `--screens`), then
+  "hosting".

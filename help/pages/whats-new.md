@@ -12,6 +12,15 @@ screen.
 
 ## 30/10/2026
 
+- **Budget.** The new [Budget](budget.html) screen holds each company's
+  budget for its financial year, by account and month, optionally per
+  cost centre or project, for the P&L and the balance sheet. Start from
+  last year's actuals or budget, paste from Excel, or spread a year
+  total. Budgets are approved through Approval Configuration; a change
+  later in the year is a revision, with the Original kept. **Budget vs
+  Actual** compares it with the posted figures, month and year to date,
+  better or worse coloured. Forecasts and the spending check follow.
+
 - **Help on a phone.** Every Help page has **Back to the ERP**, the way
   back from Help in the installed app. On a phone a page starts with its
   own text, not the list of pages; **All pages** jumps to the list. Bold

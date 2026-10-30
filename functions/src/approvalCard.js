@@ -33,6 +33,7 @@ const DECIDE = {
   FARETIRE: { fn: 'decideFaPostingApproval', id: 'postingId' },
   FAAUC: { fn: 'decideFaPostingApproval', id: 'postingId' },
   RECURRINGJV: { fn: 'decideRecurringJournalApproval', id: 'templateId' },
+  BUDGET: { fn: 'decideBudgetApproval', id: 'budgetId' },
   EMPCHANGE: { fn: 'decideEmployeeChangeApproval', id: 'changeId' },
   LEAVE: { fn: 'decideLeaveApproval', id: 'leaveId' },
   PAYROLL: { fn: 'decidePayrollApproval', id: 'runId' },
@@ -88,7 +89,8 @@ function summarize(inst, doc, names) {
       return {
         Text: String(first(l, ['ItemName', 'ItemCode', 'Description', 'AccountName', 'AccountCode', 'Category', 'Type', 'Name']) || '').slice(0, 80),
         Quantity: num(first(l, ['Quantity', 'OrderedQuantity', 'Days'])),
-        Amount: debit || credit ? Math.round(((debit || 0) - (credit || 0)) * 100) / 100 : num(first(l, ['Amount', 'LineTotal', 'TotalValue', 'Total', 'Value']))
+        // A budget line: its year's total.
+        Amount: debit || credit ? Math.round(((debit || 0) - (credit || 0)) * 100) / 100 : Array.isArray(l.Amounts) ? num(l.Amounts.reduce((s, v) => s + (Number(v) || 0), 0)) : num(first(l, ['Amount', 'LineTotal', 'TotalValue', 'Total', 'Value']))
       };
     });
   const lineCount = [].concat(listOf(d.Lines), listOf(d.ItemLines), listOf(d.DirectLines), listOf(d.NonStockLines)).length;

@@ -1,0 +1,449 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-scale-balanced text-blue-500"></i> Budget</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="bud-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="bud-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div class="flex gap-1 pb-0.5" role="tablist">
+        <button class="bud-tab bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-tab="list">Budgets</button>
+        <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="report">Budget vs Actual</button>
+        <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="setup">Setup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Budgets: the list ---------- -->
+  <div id="bud-list-view" class="space-y-3">
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="bud-new-year" class="block text-xs font-medium text-slate-300 mb-1">Financial year</label><select id="bud-new-year" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <button id="bud-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New budget or revision</button>
+    </div>
+    <p class="text-xs text-slate-400 max-w-3xl">A budget is a company's financial year: an amount per account per month, a line optionally for a cost centre or project. The first approved budget of a year is its Original; a change later is a Revision, approved again, and becomes the Current one. Every approved version is kept.</p>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Budget</th><th class="py-2 px-3">Status</th><th class="py-2 px-3 text-right">Lines</th><th class="py-2 px-3 text-right">Budgeted costs</th><th class="py-2 px-3">Updated</th></tr></thead>
+        <tbody id="bud-list-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ---------- Budgets: one budget ---------- -->
+  <div id="bud-entry-view" class="hidden space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div><p id="bud-entry-title" class="text-lg font-bold text-slate-100"></p><p id="bud-entry-sub" class="text-xs text-slate-400"></p></div>
+      <div class="flex flex-wrap gap-2">
+        <button id="bud-back" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-arrow-left"></i> Back</button>
+        <button id="bud-save" class="bud-edit bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
+        <button id="bud-submit" class="bud-edit bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+        <button id="bud-delete" class="bud-edit bg-red-700 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-trash"></i> Delete</button>
+        <button id="bud-approve" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-check"></i> Approve</button>
+        <button id="bud-reject" class="hidden bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-xmark"></i> Reject</button>
+        <button id="bud-to-report" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-chart-column"></i> Budget vs Actual</button>
+      </div>
+    </div>
+    <div id="bud-rejected" class="hidden bg-red-500/10 border border-red-500/30 text-red-200 text-sm px-4 py-2 rounded-xl"></div>
+    <div class="bud-edit flex flex-wrap items-end gap-2 bg-slate-800/40 border border-slate-700 rounded-xl p-3">
+      <div class="min-w-[16rem]"><label for="bud-add-account" class="block text-xs font-medium text-slate-300 mb-1">Account</label><select id="bud-add-account" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="bud-add-cc" class="block text-xs font-medium text-slate-300 mb-1">Cost centre</label><select id="bud-add-cc" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="bud-add-project" class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="bud-add-project" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <button id="bud-add" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add line</button>
+      <span class="w-px self-stretch bg-slate-700 mx-1"></span>
+      <div><label for="bud-seed-source" class="block text-xs font-medium text-slate-300 mb-1">Start from</label><select id="bud-seed-source" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="actual">Last year's actuals</option><option value="budget">Last year's budget</option></select></div>
+      <div><label for="bud-seed-pct" class="block text-xs font-medium text-slate-300 mb-1">Change %</label><input id="bud-seed-pct" type="number" step="0.1" value="0" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></div>
+      <label class="flex items-center gap-1 text-xs text-slate-300 pb-2"><input id="bud-seed-dim" type="checkbox" checked> By cost centre and project</label>
+      <button id="bud-seed" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-wand-magic-sparkles"></i> Fill</button>
+      <button id="bud-paste" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+      <label class="flex items-center gap-1 text-xs text-slate-300 pb-2" title="A year total typed in the Year column is spread over the months like last year's actuals; otherwise evenly."><input id="bud-spread-like" type="checkbox"> Spread a year total like last year</label>
+    </div>
+    <div id="bud-paste-box" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-3 space-y-2">
+      <label for="bud-paste-text" class="block text-xs text-slate-300">Paste rows from Excel: the account code, the cost centre code (or blank), the project code (or blank), then the twelve months, or one year total (spread over the months). A line already on the budget is replaced.</label>
+      <textarea id="bud-paste-text" rows="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-xs font-mono"></textarea>
+      <div class="flex gap-2"><button id="bud-paste-add" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg">Add the rows</button><button id="bud-paste-cancel" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-1.5 rounded-lg">Cancel</button></div>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table id="bud-grid" class="w-full text-left text-sm whitespace-nowrap"><thead id="bud-grid-head"></thead><tbody id="bud-grid-body"></tbody><tfoot id="bud-grid-foot"></tfoot></table>
+    </div>
+    <div><label for="bud-notes" class="block text-xs font-medium text-slate-300 mb-1">Notes</label><textarea id="bud-notes" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    <details class="text-xs text-slate-400"><summary class="cursor-pointer">History</summary><ul id="bud-history" class="mt-2 space-y-1"></ul></details>
+  </div>
+
+  <!-- ---------- Budget vs Actual ---------- -->
+  <div id="bud-report-view" class="hidden space-y-3">
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="bud-rep-budget" class="block text-xs font-medium text-slate-300 mb-1">Budget</label><select id="bud-rep-budget" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="bud-rep-through" class="block text-xs font-medium text-slate-300 mb-1">Year to date through</label><select id="bud-rep-through" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="bud-rep-level" class="block text-xs font-medium text-slate-300 mb-1">Show</label><select id="bud-rep-level" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="line">Each budget line</option><option value="account">By account</option><option value="1">By group</option><option value="0">By class</option></select></div>
+      <button id="bud-rep-run" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-play"></i> Run</button>
+      <button id="bud-rep-copy" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy</button>
+    </div>
+    <p class="text-xs text-slate-400 max-w-3xl">The budget against the company's posted entries, in the base currency, each account in its natural sign (revenue and costs as positive amounts). Variance is actual less budget; green is better than budget (more revenue, less cost), red worse. Click an actual to see its GL lines. A line without a cost centre or project counts everything of its account not budgeted more finely.</p>
+    <div id="bud-rep-out" class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto"></div>
+  </div>
+
+  <!-- ---------- Setup ---------- -->
+  <div id="bud-setup-view" class="hidden space-y-3 max-w-2xl">
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
+      <p class="text-sm font-semibold text-slate-200">Budget Setup for this company</p>
+      <div><label for="bud-setup-bs" class="block text-xs font-medium text-slate-300 mb-1">Balance-sheet lines are budgeted as</label>
+        <select id="bud-setup-bs" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Movements">Monthly movements (the balance: the actual opening plus the movements)</option><option value="Closing">Month-end closing balances</option></select></div>
+      <p class="text-xs text-slate-400">A budget keeps the method it was made with: a change here applies to the next budget of a year, and a revision follows its Original. The year starts as set in Period Closing → Setup (<span id="bud-setup-fy"></span>).</p>
+      <button id="bud-setup-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const plain = n => String(Math.round((Number(n) || 0) * 100) / 100);
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const PL = ['Revenue', 'COGS', 'Expense'];
+  const TYPE_ORDER = ['Revenue', 'COGS', 'Expense', 'Asset', 'Liability', 'Equity'];
+  const TYPE_LABEL = { Revenue: 'Revenue', COGS: 'Cost of sales', Expense: 'Expenses', Asset: 'Assets', Liability: 'Liabilities', Equity: 'Equity' };
+  const STATUS = { Draft: 'Draft', Rejected: 'Rejected', PendingApproval: 'Waiting for approval', Approved: 'Approved' };
+  const addMonths = (m, n) => { const y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7)) - 1 + n; return (y + Math.floor(mo / 12)) + '-' + String(((mo % 12) + 12) % 12 + 1).padStart(2, '0'); };
+  const monthsOf = start => Array.from({ length: 12 }, (_, i) => addMonths(start, i));
+  const yearLabel = s => (s.slice(5) === '01' ? 'FY ' + s.slice(0, 4) : 'FY ' + s.slice(0, 4) + '-' + String(Number(s.slice(0, 4)) + 1).slice(2));
+
+  let ctx = null;         // getBudgetSetup for the chosen company
+  let current = null;     // the budget open in the grid
+  let lines = [];         // its lines, as edited
+  let patterns = null;    // last year's months per line key (Spread like last year)
+  let report = null, reportRows = [];
+  let pendingOpenId = null;
+
+  const acc = id => (ctx.accounts.find(a => a.AccountID === id) || {});
+  const unit = (list, id) => (list.find(u => u.ID === id) || null);
+  const unitText = u => (u ? u.Code + ' ' + u.Name : '');
+  const keyOf = l => [l.AccountID, l.CostCenterID || '', l.ProjectID || ''].join('|');
+  const editable = () => current && ['Draft', 'Rejected'].includes(current.Status) && ctx.rights.canWrite;
+
+  function tab(name) {
+    document.querySelectorAll('.bud-tab').forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on); b.classList.toggle('bg-slate-700', !on); });
+    $('bud-list-view').classList.toggle('hidden', name !== 'list');
+    $('bud-entry-view').classList.add('hidden');
+    $('bud-report-view').classList.toggle('hidden', name !== 'report');
+    $('bud-setup-view').classList.toggle('hidden', name !== 'setup');
+    if (name === 'report') fillReportChoices();
+  }
+
+  // ---------- The company ----------
+  function loadCompany() {
+    const companyId = $('bud-company').value;
+    if (!companyId) return Promise.resolve();
+    return call('getBudgetSetup', { companyId }).then(s => {
+      ctx = s;
+      $('bud-new').classList.toggle('hidden', !s.rights.canWrite);
+      $('bud-setup-save').disabled = !s.rights.canSetup;
+      $('bud-setup-bs').disabled = !s.rights.canSetup;
+      $('bud-setup-bs').value = s.setup.BalanceSheet;
+      $('bud-setup-fy').textContent = s.fiscalYearStart === 'Apr' ? 'April to March' : 'January to December';
+      // This financial year, the next and the one before.
+      const m = new Date().toISOString().slice(0, 7), startMonth = s.fiscalYearStart === 'Apr' ? 4 : 1;
+      let y = Number(m.slice(0, 4)); if (Number(m.slice(5)) < startMonth) y -= 1;
+      const years = [y + 1, y, y - 1].map(n => n + '-' + String(startMonth).padStart(2, '0'));
+      $('bud-new-year').innerHTML = years.map(v => '<option value="' + v + '">' + esc(yearLabel(v)) + '</option>').join('');
+      $('bud-new-year').value = years[1];
+      $('bud-add-account').innerHTML = s.accounts.map(a => '<option value="' + esc(a.AccountID) + '">' + esc(a.AccountCode + ' ' + a.AccountName) + ' (' + esc(TYPE_LABEL[a.AccountType] || a.AccountType) + ')</option>').join('');
+      $('bud-add-cc').innerHTML = '<option value="">The company</option>' + s.costCenters.map(u => '<option value="' + esc(u.ID) + '">' + esc(unitText(u)) + '</option>').join('');
+      $('bud-add-project').innerHTML = '<option value="">None</option>' + s.projects.map(u => '<option value="' + esc(u.ID) + '">' + esc(unitText(u)) + '</option>').join('');
+      renderList();
+      if (pendingOpenId) { const id = pendingOpenId; pendingOpenId = null; openBudget(id); }
+    }, err => appAlert(err.message || 'Unable to load the company\'s budgets.'));
+  }
+
+  function renderList() {
+    const rows = ctx.budgets || [];
+    $('bud-list-body').innerHTML = rows.length ? rows.map(b => '<tr class="bud-row border-b border-slate-800 cursor-pointer hover:bg-slate-800/60" data-id="' + esc(b.BudgetID) + '">' +
+      '<td class="py-2 px-3 font-medium">' + esc(b.Number) + '</td>' +
+      '<td class="py-2 px-3">' + esc(STATUS[b.Status] || b.Status) + (b.Current ? ' <span class="ml-1 text-xs bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded">Current</span>' : '') + '</td>' +
+      '<td class="py-2 px-3 text-right">' + esc(b.LineCount) + '</td><td class="py-2 px-3 text-right font-mono">' + fmt(b.Total) + '</td>' +
+      '<td class="py-2 px-3 text-xs text-slate-400">' + esc(String(b.UpdatedAt || '').slice(0, 10)) + ' ' + esc(b.UpdatedBy || '') + '</td></tr>').join('')
+      : '<tr><td colspan="5" class="py-4 px-3 text-sm text-slate-400">No budgets for this company yet.</td></tr>';
+  }
+
+  // ---------- One budget ----------
+  function openBudget(id) {
+    return call('getBudget', { budgetId: id }).then(b => {
+      current = b; lines = (b.Lines || []).map(l => Object.assign({}, l, { Amounts: l.Amounts.slice() })); patterns = null;
+      $('bud-list-view').classList.add('hidden'); $('bud-entry-view').classList.remove('hidden');
+      $('bud-entry-title').textContent = b.Number;
+      $('bud-entry-sub').textContent = (STATUS[b.Status] || b.Status) + (b.Current ? ' · Current' : '') + ' · balance-sheet lines as ' + (b.BalanceSheetMethod === 'Closing' ? 'month-end closing balances' : 'monthly movements');
+      $('bud-rejected').classList.toggle('hidden', b.Status !== 'Rejected');
+      $('bud-rejected').textContent = b.Status === 'Rejected' ? 'Rejected: ' + (b.RejectionReason || '') : '';
+      $('bud-notes').value = b.Notes || '';
+      $('bud-paste-box').classList.add('hidden');
+      $('bud-notes').disabled = !editable();
+      document.querySelectorAll('.bud-edit').forEach(el => el.classList.toggle('hidden', !editable()));
+      $('bud-to-report').classList.toggle('hidden', b.Status !== 'Approved');
+      ['bud-approve', 'bud-reject'].forEach(id => $(id).classList.toggle('hidden', !b.MyLevel));
+      $('bud-history').innerHTML = (b.History || []).map(h => '<li>' + esc(String(h.At).slice(0, 10)) + ' · ' + esc(h.Event) + ' · ' + esc(h.By) + (h.Note ? ': ' + esc(h.Note) : '') + '</li>').join('');
+      renderGrid();
+    }, err => appAlert(err.message || 'Unable to open the budget.'));
+  }
+
+  function renderGrid() {
+    const months = monthsOf(current.YearStart), ed = editable();
+    $('bud-grid-head').innerHTML = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2 sticky left-0 bg-slate-900">Account</th><th class="py-2 px-2">Cost centre</th><th class="py-2 px-2">Project</th>' +
+      months.map(m => '<th class="py-2 px-2 text-right">' + esc(m) + '</th>').join('') + '<th class="py-2 px-2 text-right">Year</th><th></th></tr>';
+    const sorted = lines.map((l, i) => ({ l, i })).sort((a, b) => TYPE_ORDER.indexOf(acc(a.l.AccountID).AccountType) - TYPE_ORDER.indexOf(acc(b.l.AccountID).AccountType)
+      || String(acc(a.l.AccountID).AccountCode).localeCompare(String(acc(b.l.AccountID).AccountCode), undefined, { numeric: true }));
+    $('bud-grid-body').innerHTML = sorted.length ? sorted.map(({ l, i }) => {
+      const a = acc(l.AccountID), total = r2(l.Amounts.reduce((s, v) => s + v, 0));
+      return '<tr class="border-b border-slate-800" data-i="' + i + '"><td class="py-1 px-2 sticky left-0 bg-slate-900">' + esc((a.AccountCode || l.AccountCode) + ' ' + (a.AccountName || l.AccountName)) + '</td>' +
+        '<td class="py-1 px-2 text-xs">' + esc(unitText(unit(ctx.costCenters, l.CostCenterID)) || (l.CostCenterID ? l.CostCenterID : 'The company')) + '</td>' +
+        '<td class="py-1 px-2 text-xs">' + esc(unitText(unit(ctx.projects, l.ProjectID)) || l.ProjectID || '') + '</td>' +
+        l.Amounts.map((v, m) => '<td class="py-1 px-1 text-right">' + (ed ? '<input class="bud-amt w-24 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-right font-mono text-xs" data-m="' + m + '" value="' + esc(v || '') + '" inputmode="decimal">' : '<span class="font-mono">' + fmt(v) + '</span>') + '</td>').join('') +
+        '<td class="py-1 px-1 text-right">' + (ed ? '<input class="bud-year w-28 bg-slate-800 border border-slate-600 rounded py-1 px-1 text-right font-mono text-xs" value="' + esc(total || '') + '" title="A year total: spread over the months">' : '<span class="font-mono">' + fmt(total) + '</span>') + '</td>' +
+        '<td class="py-1 px-2">' + (ed ? '<button class="bud-del text-slate-400 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="17" class="py-4 px-3 text-sm text-slate-400">No lines yet: add one, fill from last year, or paste from Excel.</td></tr>';
+    renderTotals();
+  }
+  // The P&L at the foot: revenue, costs and the result, month by month.
+  function renderTotals() {
+    const sum = types => Array.from({ length: 12 }, (_, m) => r2(lines.filter(l => types.includes(acc(l.AccountID).AccountType)).reduce((s, l) => s + (Number(l.Amounts[m]) || 0), 0)));
+    const rev = sum(['Revenue']), cost = sum(['COGS', 'Expense']), res = rev.map((v, m) => r2(v - cost[m]));
+    const row = (label, a, cls) => '<tr class="' + cls + '"><td class="py-1 px-2 sticky left-0 bg-slate-900 font-semibold" colspan="3">' + label + '</td>' + a.map(v => '<td class="py-1 px-2 text-right font-mono">' + fmt(v) + '</td>').join('') + '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(a.reduce((s, v) => s + v, 0)) + '</td><td></td></tr>';
+    $('bud-grid-foot').innerHTML = row('Revenue', rev, 'text-slate-300') + row('Costs (cost of sales and expenses)', cost, 'text-slate-300') + row('Profit', res, 'border-t border-slate-600 text-slate-100');
+  }
+  function spreadYear(i, annual) {
+    const pattern = $('bud-spread-like').checked && patterns ? (patterns[keyOf(lines[i])] || patterns[lines[i].AccountID + '||']) : null;
+    const base = pattern && pattern.reduce((s, v) => s + Math.abs(v), 0) ? pattern.map(Math.abs) : Array(12).fill(1);
+    const sum = base.reduce((s, v) => s + v, 0);
+    const out = base.map(v => r2(annual * v / sum));
+    out[11] = r2(annual - out.slice(0, 11).reduce((s, v) => s + v, 0));
+    lines[i].Amounts = out;
+  }
+  // Last year's months per line, once, for "Spread like last year".
+  function loadPatterns() {
+    if (patterns || !current) return Promise.resolve();
+    return call('getBudgetSeed', { companyId: current.CompanyID, yearStart: current.YearStart, source: 'actual', pct: 0, byDimension: true }).then(r => {
+      patterns = {};
+      (r.lines || []).forEach(l => {
+        patterns[keyOf(l)] = l.Amounts;
+        const k = l.AccountID + '||';
+        patterns[k] = (patterns[k] || Array(12).fill(0)).map((v, m) => v + l.Amounts[m]);
+      });
+    }, () => { patterns = {}; });
+  }
+
+  function addLine() {
+    const l = { AccountID: $('bud-add-account').value, CostCenterID: $('bud-add-cc').value, ProjectID: $('bud-add-project').value, Amounts: Array(12).fill(0) };
+    if (!l.AccountID) return;
+    const a = acc(l.AccountID);
+    if (l.CostCenterID && !a.UsesCostCenter) { appAlert(a.AccountCode + ' does not use cost centres.'); return; }
+    if (l.ProjectID && !a.UsesProject) { appAlert(a.AccountCode + ' does not use projects.'); return; }
+    if (lines.some(x => keyOf(x) === keyOf(l))) { appAlert('That line is already on the budget.'); return; }
+    lines.push(l); renderGrid();
+  }
+  async function seed() {
+    if (lines.length && !(await appConfirm('Replace the lines with ' + $('bud-seed-source').selectedOptions[0].textContent.toLowerCase() + '?'))) return;
+    call('getBudgetSeed', { companyId: current.CompanyID, yearStart: current.YearStart, source: $('bud-seed-source').value, pct: Number($('bud-seed-pct').value) || 0, byDimension: $('bud-seed-dim').checked })
+      .then(r => { lines = (r.lines || []).filter(l => acc(l.AccountID).AccountID); renderGrid(); appAlert('Filled from ' + r.from + ': ' + lines.length + ' lines. Save the draft to keep them.'); },
+        err => appAlert(err.message || 'Unable to fill the budget.'));
+  }
+  // Excel: account code, cost centre code, project code, then twelve months (or one year total, spread evenly).
+  function paste() {
+    const textIn = $('bud-paste-text').value;
+    if (!textIn.trim()) return;
+    const byCode = (list, code) => list.find(u => String(u.Code).toLowerCase() === String(code).trim().toLowerCase());
+    const problems = [], added = [];
+    textIn.split(/\r?\n/).filter(r => r.trim()).forEach((r, n) => {
+      const c = r.split('\t');
+      const a = ctx.accounts.find(x => x.AccountCode === String(c[0] || '').trim());
+      if (!a) { if (n > 0 || /\d/.test(c[0] || '')) problems.push('Row ' + (n + 1) + ': account "' + (c[0] || '') + '" not found.'); return; }
+      const cc = c[1] && c[1].trim() ? byCode(ctx.costCenters, c[1]) : null, pj = c[2] && c[2].trim() ? byCode(ctx.projects, c[2]) : null;
+      if (c[1] && c[1].trim() && !cc) { problems.push('Row ' + (n + 1) + ': cost centre "' + c[1].trim() + '" not found.'); return; }
+      if (c[2] && c[2].trim() && !pj) { problems.push('Row ' + (n + 1) + ': project "' + c[2].trim() + '" not found.'); return; }
+      const nums = c.slice(3).map(v => Number(String(v).replace(/,/g, '').trim() || 0));
+      if (nums.some(v => !isFinite(v)) || (nums.length !== 12 && nums.length !== 1)) { problems.push('Row ' + (n + 1) + ': give twelve months or one year total.'); return; }
+      const l = { AccountID: a.AccountID, CostCenterID: cc ? cc.ID : '', ProjectID: pj ? pj.ID : '', Amounts: nums.length === 12 ? nums.map(r2) : Array(12).fill(0) };
+      const i = lines.findIndex(x => keyOf(x) === keyOf(l));
+      if (i >= 0) lines[i] = l; else lines.push(l);
+      if (nums.length === 1) spreadYear(i >= 0 ? i : lines.length - 1, nums[0]);
+      added.push(l);
+    });
+    renderGrid();
+    $('bud-paste-text').value = ''; $('bud-paste-box').classList.add('hidden');
+    appAlert(added.length + ' line' + (added.length === 1 ? '' : 's') + ' pasted.' + (problems.length ? ' Not pasted:\n' + problems.slice(0, 15).join('\n') : ''));
+  }
+  function save() {
+    return call('saveBudgetDraft', { budgetId: current.BudgetID, lines: lines.map(l => ({ AccountID: l.AccountID, CostCenterID: l.CostCenterID || '', ProjectID: l.ProjectID || '', Amounts: l.Amounts })), notes: $('bud-notes').value });
+  }
+  async function submit() {
+    if (!(await appConfirm('Submit ' + current.Number + ' for approval?'))) return;
+    save().then(() => call('submitBudget', { budgetId: current.BudgetID })).then(r => {
+      appAlert(r.status === 'Approved' ? 'Approved: it is now the Current budget.' : 'Submitted for approval.');
+      return loadCompany().then(() => openBudget(current.BudgetID));
+    }, err => appAlert(err.message || 'Unable to submit the budget.'));
+  }
+  async function decide(decision) {
+    let reason = '';
+    if (decision === 'Rejected') { reason = await appPrompt('Reject ' + current.Number + ': the reason?', ''); if (reason == null) return; if (!reason.trim()) { appAlert('A reason is required to reject.'); return; } }
+    else if (!(await appConfirm('Approve ' + current.Number + '?'))) return;
+    call('decideBudgetApproval', { budgetId: current.BudgetID, levelNumber: current.MyLevel, decision, reason })
+      .then(r => { appAlert(r.status === 'Approved' ? 'Approved: it is now the Current budget.' : r.status === 'Rejected' ? 'Rejected.' : 'Your approval is recorded.'); return loadCompany().then(() => openBudget(current.BudgetID)); },
+        err => appAlert(err.message || 'Unable to record the decision.'));
+  }
+  async function remove() {
+    if (!(await appConfirm('Delete ' + current.Number + '?'))) return;
+    call('deleteBudgetDraft', { budgetId: current.BudgetID }).then(() => { current = null; return loadCompany().then(() => tab('list')); }, err => appAlert(err.message || 'Unable to delete the budget.'));
+  }
+  async function newBudget() {
+    const year = $('bud-new-year').value;
+    if (!(await appConfirm('Start a budget for ' + yearLabel(year) + '? If one is already approved, this starts a revision of it.'))) return;
+    call('createBudget', { companyId: $('bud-company').value, yearStart: year }).then(r => loadCompany().then(() => openBudget(r.budgetId)), err => appAlert(err.message || 'Unable to start the budget.'));
+  }
+
+  // ---------- Budget vs Actual ----------
+  function fillReportChoices() {
+    if (!ctx) return;
+    const approved = (ctx.budgets || []).filter(b => b.Status === 'Approved');
+    const keep = $('bud-rep-budget').value;
+    $('bud-rep-budget').innerHTML = approved.length ? approved.map(b => '<option value="' + esc(b.BudgetID) + '">' + esc(b.Number) + (b.Current ? ' (Current)' : '') + '</option>').join('') : '<option value="">No approved budget yet</option>';
+    const pick = approved.find(b => b.BudgetID === keep) || approved.find(b => b.Current) || approved[0];
+    if (pick) $('bud-rep-budget').value = pick.BudgetID;
+    fillThrough();
+  }
+  function fillThrough() {
+    const b = (ctx.budgets || []).find(x => x.BudgetID === $('bud-rep-budget').value);
+    if (!b) { $('bud-rep-through').innerHTML = ''; return; }
+    const months = monthsOf(b.YearStart), now = new Date().toISOString().slice(0, 7);
+    $('bud-rep-through').innerHTML = months.map(m => '<option value="' + m + '">' + esc(m) + '</option>').join('');
+    $('bud-rep-through').value = now < months[0] ? months[0] : now > months[11] ? months[11] : now;
+  }
+  function runReport() {
+    const budgetId = $('bud-rep-budget').value;
+    if (!budgetId) { appAlert('Approve a budget first.'); return; }
+    $('bud-rep-out').innerHTML = '<p class="p-4 text-xs text-slate-500">Working it out…</p>';
+    call('getBudgetVsActual', { budgetId, through: $('bud-rep-through').value }).then(r => { report = r; renderReport(); },
+      err => { $('bud-rep-out').innerHTML = ''; appAlert(err.message || 'Unable to run the report.'); });
+  }
+  // Each row's ancestor at a heading level (0 class, 1 group), from the chart's headings.
+  function headingAt(parentId, level) {
+    const chain = [];
+    for (let p = parentId, hops = 0; p && ctx.headings[p] && hops < 20; p = ctx.headings[p].Parent, hops++) chain.unshift(ctx.headings[p]);
+    return chain[Math.min(level, chain.length - 1)] || null;
+  }
+  const favour = (type, budget, actual) => { const d = r2(actual - budget); if (!d || !PL.includes(type)) return 0; return (type === 'Revenue' ? d > 0 : d < 0) ? 1 : -1; };
+  function renderReport() {
+    const level = $('bud-rep-level').value;
+    const groups = new Map();
+    report.rows.forEach(r => {
+      let k, label, cc = '', pj = '';
+      if (level === 'line') { k = r.AccountID + '|' + r.CostCenterID + '|' + r.ProjectID + '|' + r.Budgeted; label = r.AccountCode + ' ' + r.AccountName; cc = r.CostCenter || (r.Budgeted ? 'The company' : ''); pj = r.Project; }
+      else if (level === 'account') { k = r.AccountID; label = r.AccountCode + ' ' + r.AccountName; }
+      else { const h = headingAt(r.Parent, Number(level)); k = h ? h.ID : r.AccountID; label = h ? h.Code + ' ' + h.Name : r.AccountCode + ' ' + r.AccountName; }
+      k = r.AccountType + '|' + k;
+      if (!groups.has(k)) groups.set(k, { label, cc, pj, type: r.AccountType, measure: r.Measure, budgeted: false, notBudgeted: false, rows: [], MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0, code: r.AccountCode });
+      const g = groups.get(k);
+      ['MonthBudget', 'MonthActual', 'YtdBudget', 'YtdActual', 'YearBudget'].forEach(f => { g[f] = r2(g[f] + r[f]); });
+      g.rows.push(r); g.budgeted = g.budgeted || r.Budgeted; g.notBudgeted = g.notBudgeted || !r.Budgeted;
+    });
+    reportRows = [...groups.values()].sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type) || String(a.label).localeCompare(String(b.label), undefined, { numeric: true }));
+    const head = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2 sticky left-0 bg-slate-900">' + (level === 'line' || level === 'account' ? 'Account' : 'Heading') + '</th>' +
+      (level === 'line' ? '<th class="py-2 px-2">Cost centre</th><th class="py-2 px-2">Project</th>' : '') +
+      '<th class="py-2 px-2 text-right">Month budget</th><th class="py-2 px-2 text-right">Month actual</th><th class="py-2 px-2 text-right">YTD budget</th><th class="py-2 px-2 text-right">YTD actual</th><th class="py-2 px-2 text-right">YTD variance</th><th class="py-2 px-2 text-right">%</th><th class="py-2 px-2 text-right">Year budget</th></tr>';
+    const cols = level === 'line' ? 10 : 8;
+    let html = '', profit = { MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0 };
+    TYPE_ORDER.forEach(type => {
+      const list = reportRows.map((g, i) => ({ g, i })).filter(x => x.g.type === type);
+      if (!list.length) return;
+      html += '<tr class="bg-slate-800/60"><td colspan="' + cols + '" class="py-1 px-2 text-xs font-semibold uppercase text-slate-300">' + esc(TYPE_LABEL[type]) + (!PL.includes(type) && report.budget.BalanceSheetMethod === 'Closing' ? ' (balances at the month\'s end)' : !PL.includes(type) ? ' (movements)' : '') + '</td></tr>';
+      const sub = { MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0 };
+      list.forEach(({ g, i }) => {
+        Object.keys(sub).forEach(f => { sub[f] = r2(sub[f] + g[f]); });
+        const v = r2(g.YtdActual - g.YtdBudget), fav = favour(type, g.YtdBudget, g.YtdActual);
+        const pct = g.YtdBudget ? Math.round(v / Math.abs(g.YtdBudget) * 1000) / 10 + '%' : '';
+        html += '<tr class="border-b border-slate-800" data-g="' + i + '"><td class="py-1 px-2 sticky left-0 bg-slate-900">' + esc(g.label) + (g.notBudgeted && !g.budgeted ? ' <span class="text-xs text-amber-300">not budgeted</span>' : '') + '</td>' +
+          (level === 'line' ? '<td class="py-1 px-2 text-xs">' + esc(g.cc) + '</td><td class="py-1 px-2 text-xs">' + esc(g.pj) + '</td>' : '') +
+          '<td class="py-1 px-2 text-right font-mono">' + fmt(g.MonthBudget) + '</td><td class="py-1 px-2 text-right font-mono"><button class="bud-drill hover:underline" data-g="' + i + '" data-p="month">' + fmt(g.MonthActual) + '</button></td>' +
+          '<td class="py-1 px-2 text-right font-mono">' + fmt(g.YtdBudget) + '</td><td class="py-1 px-2 text-right font-mono"><button class="bud-drill hover:underline" data-g="' + i + '" data-p="ytd">' + fmt(g.YtdActual) + '</button></td>' +
+          '<td class="py-1 px-2 text-right font-mono ' + (fav > 0 ? 'text-emerald-400' : fav < 0 ? 'text-red-400' : '') + '">' + fmt(v) + '</td><td class="py-1 px-2 text-right text-xs ' + (fav > 0 ? 'text-emerald-400' : fav < 0 ? 'text-red-400' : 'text-slate-400') + '">' + esc(pct) + '</td>' +
+          '<td class="py-1 px-2 text-right font-mono">' + fmt(g.YearBudget) + '</td></tr>';
+      });
+      const span = level === 'line' ? 3 : 1;
+      html += '<tr class="border-b border-slate-700 text-slate-200"><td colspan="' + span + '" class="py-1 px-2 sticky left-0 bg-slate-900 font-semibold">Total ' + esc(TYPE_LABEL[type].toLowerCase()) + '</td>' +
+        ['MonthBudget', 'MonthActual', 'YtdBudget', 'YtdActual'].map(f => '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(sub[f]) + '</td>').join('') +
+        '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(r2(sub.YtdActual - sub.YtdBudget)) + '</td><td></td><td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(sub.YearBudget) + '</td></tr>';
+      if (PL.includes(type)) Object.keys(profit).forEach(f => { profit[f] = r2(profit[f] + (type === 'Revenue' ? sub[f] : -sub[f])); });
+      if (type === 'Expense' || (type === 'COGS' && !reportRows.some(g => g.type === 'Expense')) || (type === 'Revenue' && !reportRows.some(g => g.type === 'COGS' || g.type === 'Expense'))) {
+        const v = r2(profit.YtdActual - profit.YtdBudget);
+        html += '<tr class="border-y-2 border-slate-500 text-slate-100"><td colspan="' + span + '" class="py-2 px-2 sticky left-0 bg-slate-900 font-bold">Profit</td>' +
+          ['MonthBudget', 'MonthActual', 'YtdBudget', 'YtdActual'].map(f => '<td class="py-2 px-2 text-right font-mono font-bold">' + fmt(profit[f]) + '</td>').join('') +
+          '<td class="py-2 px-2 text-right font-mono font-bold ' + (v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : '') + '">' + fmt(v) + '</td><td></td><td class="py-2 px-2 text-right font-mono font-bold">' + fmt(profit.YearBudget) + '</td></tr>';
+      }
+    });
+    $('bud-rep-out').innerHTML = '<div class="px-3 pt-3 text-sm text-slate-300">' + esc(report.budget.Number) + ' · through ' + esc(report.through) + '</div>' +
+      '<table class="w-full text-left text-sm whitespace-nowrap"><thead>' + head + '</thead><tbody>' + (html || '<tr><td class="p-4 text-slate-400">Nothing budgeted or posted in this year.</td></tr>') + '</tbody></table>';
+    $('bud-rep-copy').classList.remove('hidden');
+  }
+  // The GL lines behind an actual: one account (the first of a heading's), its cost centre and project, the month or the year to date.
+  function drill(i, period) {
+    const g = reportRows[i], r = g.rows[0];
+    const months = report.months, through = report.through;
+    const last = m => { const [y, mo] = m.split('-').map(Number); return m + '-' + String(new Date(Date.UTC(y, mo, 0)).getUTCDate()).padStart(2, '0'); };
+    openModule('GLREPORT', { AccountCode: r.AccountCode, FromDate: (period === 'month' ? through : months[0]) + '-01', ToDate: last(through), CompanyID: report.budget.CompanyID,
+      CostCenterID: $('bud-rep-level').value === 'line' ? r.CostCenterID : '', ProjectID: $('bud-rep-level').value === 'line' ? r.ProjectID : '' });
+  }
+  async function copyReport() {
+    const line = $('bud-rep-level').value === 'line';
+    const head = ['Type', 'Account'].concat(line ? ['Cost centre', 'Project'] : []).concat(['Month budget', 'Month actual', 'YTD budget', 'YTD actual', 'YTD variance', 'Year budget']);
+    const text = [head.join('\t')].concat(reportRows.map(g => [TYPE_LABEL[g.type], g.label].concat(line ? [g.cc, g.pj] : [])
+      .concat([g.MonthBudget, g.MonthActual, g.YtdBudget, g.YtdActual, r2(g.YtdActual - g.YtdBudget), g.YearBudget].map(plain)).join('\t'))).join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => appAlert('Copied: paste it into Excel.'), async () => (await appPrompt('Copy this text:', text)));
+    else await appPrompt('Copy this text:', text);
+  }
+
+  // ---------- Setup ----------
+  function saveSetup() {
+    call('saveBudgetSetup', { companyId: $('bud-company').value, BalanceSheet: $('bud-setup-bs').value })
+      .then(() => { appAlert('Saved. The next budget of a year uses it; budgets already made keep their own.'); return loadCompany(); }, err => appAlert(err.message || 'Unable to save the setup.'));
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-scale-balanced"></i> Budget';
+    document.querySelectorAll('.bud-tab').forEach(b => b.addEventListener('click', () => tab(b.dataset.tab)));
+    $('bud-company').addEventListener('change', () => { tab('list'); loadCompany(); });
+    $('bud-new').addEventListener('click', newBudget);
+    $('bud-list-body').addEventListener('click', e => { const r = e.target.closest('.bud-row'); if (r) openBudget(r.dataset.id); });
+    $('bud-back').addEventListener('click', () => { current = null; tab('list'); });
+    $('bud-add').addEventListener('click', addLine);
+    $('bud-seed').addEventListener('click', seed);
+    $('bud-paste').addEventListener('click', () => { $('bud-paste-box').classList.remove('hidden'); $('bud-paste-text').focus(); });
+    $('bud-paste-add').addEventListener('click', paste);
+    $('bud-paste-cancel').addEventListener('click', () => { $('bud-paste-text').value = ''; $('bud-paste-box').classList.add('hidden'); });
+    $('bud-spread-like').addEventListener('change', () => { if ($('bud-spread-like').checked) loadPatterns(); });
+    $('bud-save').addEventListener('click', () => save().then(r => { appAlert('Saved: ' + r.lines + ' lines.'); return loadCompany().then(() => openBudget(current.BudgetID)); }, err => appAlert(err.message || 'Unable to save the budget.')));
+    $('bud-submit').addEventListener('click', submit);
+    $('bud-delete').addEventListener('click', remove);
+    $('bud-approve').addEventListener('click', () => decide('Approved'));
+    $('bud-reject').addEventListener('click', () => decide('Rejected'));
+    $('bud-to-report').addEventListener('click', () => { const id = current.BudgetID; tab('report'); $('bud-rep-budget').value = id; fillThrough(); runReport(); });
+    $('bud-grid-body').addEventListener('change', e => {
+      const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+      const i = Number(tr.dataset.i), v = Number(String(e.target.value).replace(/,/g, '')) || 0;
+      if (e.target.classList.contains('bud-amt')) { lines[i].Amounts[Number(e.target.dataset.m)] = r2(v); renderGrid(); }
+      else if (e.target.classList.contains('bud-year')) loadPatterns().then(() => { spreadYear(i, r2(v)); renderGrid(); });
+    });
+    $('bud-grid-body').addEventListener('click', e => { const b = e.target.closest('.bud-del'); if (b) { lines.splice(Number(b.closest('tr').dataset.i), 1); renderGrid(); } });
+    $('bud-rep-budget').addEventListener('change', fillThrough);
+    $('bud-rep-run').addEventListener('click', runReport);
+    $('bud-rep-level').addEventListener('change', () => { if (report) renderReport(); });
+    $('bud-rep-copy').addEventListener('click', copyReport);
+    $('bud-rep-out').addEventListener('click', e => { const b = e.target.closest('.bud-drill'); if (b) drill(Number(b.dataset.g), b.dataset.p); });
+    $('bud-setup-save').addEventListener('click', saveSetup);
+    // Opened from Home (an approval), the budget opens itself.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) pendingOpenId = pending.OpenEntryId;
+    call('getActiveCompanies', {}).then(list => {
+      $('bud-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+    }, () => {}).then(() => {
+      // An approval opened from Home: its own company first.
+      if (!pendingOpenId) return loadCompany();
+      return call('getBudget', { budgetId: pendingOpenId }).then(b => { $('bud-company').value = b.CompanyID; }, () => {}).then(loadCompany);
+    });
+  };
+})();
+</script>
