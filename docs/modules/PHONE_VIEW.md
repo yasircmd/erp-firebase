@@ -1,9 +1,9 @@
 # A phone view (UX round 2, item 33)
 
-Status: **proposed** (2026-10-30). Q280 decided (owner, 2026-10-26): Home
+Status: **agreed** (2026-10-30). Q280 decided (owner, 2026-10-26): Home
 with its tasks and approvals, and the reports and balances (Stock
 Availability, the statements, aging, the Trial Balance): looked up and
-approved on a phone, not entered. Q335-Q337 open.
+approved on a phone, not entered. Q335-Q337 decided (owner, 2026-10-30), below.
 
 ## Today
 
@@ -49,7 +49,15 @@ approved on a phone, not entered. Q335-Q337 open.
 5. **What doesn't change.** Data entry screens, rights, the approval
    levels and every check stay as they are.
 
-## Open questions (the owner's)
+## The owner's decisions (2026-10-30)
+
+| # | Decision |
+|---|---|
+| Q335 | Screens not chosen stay as today on a phone, with a **closable notice** "This screen is best on a computer". |
+| Q336 | **A compact approval card** on Home: summary, lines in short, history; Approve, or Reject with a reason; "Open the full document" for more. |
+| Q337 | **By report**: the Trial Balance and aging keep their first column fixed and scroll the rest; Stock Availability and the statements show a card per row. |
+
+## The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|
