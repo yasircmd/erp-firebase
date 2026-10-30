@@ -935,7 +935,58 @@ const SCREEN_EDITS = [
     to: `      document.getElementById('coa-form-currency').value = '';\n      document.getElementById('coa-form-taxcode').value = '';\n      document.querySelectorAll('.coa-dim').forEach(el => { el.value = ''; });` },
   { mod: 'COA', from: `      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value,`,
     to: `      TaxCode: document.getElementById('coa-form-taxcode').value.trim().toUpperCase(),
-      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value,` }
+      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value,` },
+  // Rates from the firm's Google Sheet, applied only once confirmed (owner,
+  // 2026-10-30; docs/modules/FX_SHEET.md, Q281, Q329-Q331).
+  { mod: 'CURRENCYCONFIG', from: '<div id="cc-fx" ',
+    to: `<div id="cc-sheet" class="hidden max-w-5xl mx-auto mt-6 bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
+  <div class="flex flex-wrap items-center justify-between gap-2"><div class="text-sm font-semibold">Rates from the sheet</div>
+    <button id="cc-sheet-get" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg"><i class="fa-solid fa-cloud-arrow-down"></i> Get rates from the sheet</button></div>
+  <p class="text-xs text-slate-400">The firm's Google Sheet gives each currency's rate against the default currency (GOOGLEFINANCE: indicative, up to 20 minutes late). Nothing applies until you tick a rate and click Apply; a rate more than 5% from the last one is marked and left unticked.</p>
+  <div id="cc-sheet-result" class="hidden space-y-2">
+    <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-2"></th><th class="py-1 pr-3">Currency</th><th class="py-1 pr-3 text-right">Sheet rate</th><th class="py-1 pr-3 text-right">Last rate</th><th class="py-1 pr-3">Last from</th><th class="py-1 text-right">Change</th></tr></thead>
+      <tbody id="cc-sheet-body" class="divide-y divide-slate-700"></tbody></table>
+    <ul id="cc-sheet-problems" class="text-xs text-amber-300 list-disc pl-5"></ul>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label class="block text-xs text-slate-300 mb-1">Take effect from</label><input id="cc-sheet-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <button id="cc-sheet-apply" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg">Apply the ticked rates</button>
+      <span id="cc-sheet-note" class="text-xs text-emerald-400"></span>
+    </div>
+  </div>
+</div>
+<div id="cc-fx" ` },
+  { mod: 'CURRENCYCONFIG', from: "  // ---------- Exchange Gain / Loss account per company ----------",
+    to: `  // ---------- Rates from the firm's sheet (docs/modules/FX_SHEET.md) ----------
+  let sheetRows = [];
+  function initSheet() {
+    rpc.withSuccessHandler(r => { document.getElementById('cc-sheet').classList.toggle('hidden', !r.canEnter); }).withFailureHandler(() => {}).getExchangeRates({});
+    const d = new Date();
+    document.getElementById('cc-sheet-date').value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function getSheet() {
+    document.getElementById('cc-sheet-note').textContent = '';
+    rpc.withSuccessHandler(r => {
+      sheetRows = r.rows || [];
+      document.getElementById('cc-sheet-body').innerHTML = sheetRows.map((x, i) => '<tr class="' + (x.Big ? 'text-amber-300' : '') + '"><td class="py-1 pr-2"><input type="checkbox" class="cc-sheet-tick" data-i="' + i + '"' + (x.Big ? '' : ' checked') + '></td>' +
+        '<td class="py-1 pr-3">' + escapeHtml(x.Code + (x.Name ? ' ' + x.Name : '')) + '</td><td class="py-1 pr-3 text-right font-mono">' + escapeHtml(x.SheetRate) + '</td>' +
+        '<td class="py-1 pr-3 text-right font-mono">' + escapeHtml(x.LastRate == null ? '—' : x.LastRate) + '</td><td class="py-1 pr-3">' + escapeHtml(x.LastDate || '') + '</td>' +
+        '<td class="py-1 text-right font-mono">' + (x.ChangePct == null ? '' : escapeHtml((x.ChangePct > 0 ? '+' : '') + x.ChangePct + '%')) + (x.Big ? ' <i class="fa-solid fa-triangle-exclamation" title="More than ' + r.bigMove + '% from the last rate: tick it only if it is right"></i>' : '') + '</td></tr>').join('') ||
+        '<tr><td colspan="6" class="py-2 text-xs text-slate-500">No currency of this list is in the sheet.</td></tr>';
+      document.getElementById('cc-sheet-problems').innerHTML = (r.problems || []).map(p => '<li>' + escapeHtml(p) + '</li>').join('');
+      document.getElementById('cc-sheet-result').classList.remove('hidden');
+    }).withFailureHandler(err => appAlert(err.message || 'Unable to read the rates sheet.')).getSheetRates({});
+  }
+  function applySheet() {
+    const rates = [...document.querySelectorAll('.cc-sheet-tick:checked')].map(b => sheetRows[Number(b.dataset.i)]).map(x => ({ code: x.Code, rate: x.SheetRate }));
+    if (!rates.length) { appAlert('Tick the rates to apply.'); return; }
+    rpc.withSuccessHandler(r => { document.getElementById('cc-sheet-note').textContent = r.applied + ' rate' + (r.applied === 1 ? '' : 's') + ' applied.'; document.getElementById('cc-sheet-result').classList.add('hidden'); })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to apply the rates.'))
+      .applySheetRates({ effectiveDate: document.getElementById('cc-sheet-date').value, rates });
+  }
+
+  // ---------- Exchange Gain / Loss account per company ----------` },
+  { mod: 'CURRENCYCONFIG', from: "    loadFx();\n",
+    to: "    loadFx();\n    initSheet();\n    document.getElementById('cc-sheet-get').addEventListener('click', getSheet);\n    document.getElementById('cc-sheet-apply').addEventListener('click', applySheet);\n" }
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

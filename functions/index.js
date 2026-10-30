@@ -341,13 +341,16 @@ exports.receivePdcsFromRep = require('./src/pdc').receivePdcsFromRep;
 exports.getExchangeRateOn = require('./src/exchangeRates').getExchangeRateOn;
 exports.getFxSettings = require('./src/exchangeRates').getFxSettings;
 exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;
+// Exchange rates from the firm's Google Sheet, confirmed before they apply (docs/modules/FX_SHEET.md).
+['getSheetRates', 'applySheetRates'].forEach(n => { exports[n] = require('./src/fxSheet')[n]; });
 
 // Developer (docs/modules/MULTI_CORPORATE.md, M2): Corporate 100 only.
 const developer = require('./src/developer');
 ['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules',
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
   'getDeveloperTree', 'resetDeveloperTree',
-  'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers' // M4
+  'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers', // M4
+  'saveDeveloperFxSheet' // FX_SHEET.md
 ].forEach(name => { exports[name] = developer[name]; });
 
 // Support (docs/modules/MULTI_CORPORATE.md, M3): client corporates send
