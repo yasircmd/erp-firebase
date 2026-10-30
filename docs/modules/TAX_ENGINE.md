@@ -463,4 +463,9 @@ for the person who files (Section 4).
   - the period's dates ignored (caught only after the part-month period
     was added to the suite);
   - GSTR-1's copy without the tool's dates.
+- **Results:** full regression 731 passed, 0 failed. UI suites pass:
+  taxReports, taxConfig, rolesMatrix, developer, help, searchPicker,
+  singleCompany, smoke. The Developer suite's check for "no module after
+  the groups" had been out of date since Clearances (PR #176); it now
+  checks the later modules it lists.
 

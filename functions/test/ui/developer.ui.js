@@ -145,7 +145,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.ok(await p.isHidden('#dv-list'), 'the corporates are on their own tab');
     await p.click('#dv-group-add');
     await until(p, () => /Retail\s*no corporate yet/.test(document.getElementById('dv-groups').textContent));
-    assert.match(await p.textContent('#dv-groups'), /No module has come after the groups yet/);
+    // The modules added after the groups, to provide to a group (Clearances, Tax Configuration, Tax Reports …).
+    assert.match(await p.textContent('#dv-groups'), /Clearances[\s\S]*Tax Configuration[\s\S]*Tax Reports/);
     await p.click('#dv-pages [data-page="corporates"]');
     await p.click('#dv-list tr[data-id="200"]');
     await p.click('#dv-tabs [data-tab="connection"]');
