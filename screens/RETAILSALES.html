@@ -308,7 +308,11 @@
     const discount = r2(lines.reduce((s, l) => s + (Number(l.Discount) || 0), 0));
     const total = r2(list - discount);
     const paid = r2(payments.reduce((s, p) => s + (Number(p.Amount) || 0), 0));
-    return { rate, qty, list, discount, total, tax: r2(total * rate / (100 + rate)), paid, change: r2(Math.max(0, paid - total)), due: r2(Math.max(0, total - paid)) };
+    // Line tax (TAX_ENGINE.md, part 4): each line's tax at its item's rate, out of its price.
+    const tax = counter.lineTax
+      ? r2(lines.reduce((s, l) => { const it = counter.items.find(i => i.ItemID === l.ItemID) || {}; const r = Number(it.TaxPercent) || 0; return s + r2(lineAmount(l) * r / (100 + r)); }, 0))
+      : r2(total * rate / (100 + rate));
+    return { rate: counter.lineTax ? null : rate, qty, list, discount, total, tax, paid, change: r2(Math.max(0, paid - total)), due: r2(Math.max(0, total - paid)) };
   }
   // Discounts at the counter unless Setup switched them off (decision 116).
   const canDiscount = () => !!counter && counter.settings.AllowDiscount !== false;
@@ -349,7 +353,7 @@
     $('rs-totals').innerHTML = row('Items', '<span id="rs-qty">' + t.qty + '</span>', 'text-slate-400') +
       (t.discount ? row('Subtotal', money(t.list), 'text-slate-400') + row('Discount', '−' + money(t.discount), 'text-slate-400') : '') +
       row('Total', '<span id="rs-total">' + money(t.total) + '</span>', 'text-lg font-semibold') +
-      row('of which tax (' + t.rate + '%)', money(t.tax), 'text-xs text-slate-500') + row('Paid', money(t.paid), 'text-slate-300') +
+      row('of which tax' + (t.rate === null ? ' (by item)' : ' (' + t.rate + '%)'), money(t.tax), 'text-xs text-slate-500') + row('Paid', money(t.paid), 'text-slate-300') +
       (t.change ? row('Change', '<span id="rs-change">' + money(t.change) + '</span>', 'text-emerald-400 font-semibold') : '') +
       (t.due ? row(retail ? 'Still to pay' : 'Left on account', '<span id="rs-due">' + money(t.due) + '</span>', retail ? 'text-amber-300 font-semibold' : 'text-amber-200') : '');
     $('rs-confirm').disabled = !lines.length || !setup.canSell || !$('rs-customer').value || (retail && t.due > 0.005); // no customer: the search found none
@@ -535,9 +539,15 @@
       '<table class="w-full mt-2"><thead><tr><th class="py-1 px-2">Item</th><th class="r text-right py-1 px-2">Qty</th><th class="r text-right py-1 px-2">Price</th>' + (hasDiscount ? '<th class="rs-col-discount r text-right py-1 px-2">Discount</th>' : '') + '<th class="r text-right py-1 px-2">Amount</th></tr></thead><tbody>' +
       (s.Lines || []).map(l => '<tr>' + td(escapeHtml(l.ItemCode + ' ' + l.ItemName)) + td(escapeHtml(l.Quantity), 1) + td(money(l.UnitPrice), 1) + (hasDiscount ? td(Number(l.Discount) ? money(l.Discount) : '', 1) : '') + td(money(l.Amount), 1) + '</tr>').join('') +
       '</tbody></table>' +
-      '<div class="mt-2" style="text-align:right">Total <b>' + money(s.Total) + '</b><br>Includes tax ' + escapeHtml(s.TaxPercent) + '%: ' + money(s.TaxAmount) + '<br>' +
+      '<div class="mt-2" style="text-align:right">Total <b>' + money(s.Total) + '</b><br>' + receiptTaxText(s, '<br>') + '<br>' +
       (s.Payments || []).map(p => escapeHtml(p.Name) + (p.Reference ? ' (' + escapeHtml(p.Reference) + ')' : '') + ': ' + money(p.Amount)).join('<br>') +
       (Number(s.Change) ? '<br>Change: ' + money(s.Change) : '') + (Number(s.OnAccount) ? '<br>On account: ' + money(s.OnAccount) : '') + '</div>';
+  }
+  // The tax a receipt shows: one rate, or by line each rate and component (TAX_ENGINE.md, part 4).
+  function receiptTaxText(s, sep) {
+    if (!s.TaxSummary) return 'Includes tax ' + escapeHtml(s.TaxPercent) + '%: ' + money(s.TaxAmount);
+    return s.TaxSummary.filter(x => x.Tax).map(x => 'Includes ' + escapeHtml(x.TaxCode) + ' ' + escapeHtml(x.Percent) + '%' +
+      (Object.keys(x.Components || {}).length > 1 ? ' (' + Object.keys(x.Components).map(k => escapeHtml(k) + ' ' + money(x.Components[k])).join(', ') + ')' : '') + ': ' + money(x.Tax)).join(sep) || 'No tax';
   }
   // The return receipt: the original invoice, the lines back, the refund.
   function returnReceiptHtml(r, forPrint) {
@@ -549,7 +559,7 @@
       '<table class="w-full mt-2"><thead><tr><th class="py-1 px-2">Item</th><th class="r text-right py-1 px-2">Qty</th><th class="r text-right py-1 px-2">Amount</th></tr></thead><tbody>' +
       (s.Lines || []).map(l => '<tr>' + td(escapeHtml(l.ItemCode + ' ' + l.ItemName)) + td(escapeHtml(l.Quantity), 1) + td(money(l.Amount), 1) + '</tr>').join('') +
       '</tbody></table>' +
-      '<div class="mt-2" style="text-align:right">Returned <b>' + money(s.Total) + '</b><br>Includes tax ' + escapeHtml(s.TaxPercent) + '%: ' + money(s.TaxAmount) + '<br>' +
+      '<div class="mt-2" style="text-align:right">Returned <b>' + money(s.Total) + '</b><br>' + receiptTaxText(s, '<br>') + '<br>' +
       (s.Refunds || []).map(f => (f.FromKind === 'Promotion' ? escapeHtml(f.Name) + ' reversed' : 'Refunded ' + escapeHtml(f.Name) + (f.Name !== f.FromName ? ' (paid by ' + escapeHtml(f.FromName) + ')' : '')) + (f.Reference ? ' (' + escapeHtml(f.Reference) + ')' : '') + ': ' + money(f.Amount)).join('<br>') +
       (Number(s.OnAccountReduced) ? '<br>Taken off the account: ' + money(s.OnAccountReduced) : '') + (Number(s.CreditOnAccount) ? '<br>Credit on account: ' + money(s.CreditOnAccount) : '') + '</div>';
   }
@@ -588,7 +598,7 @@
       (isReturn ? '<div>Of invoice ' + escapeHtml(s.ReturnOfSaleNumber) + '</div>' + (s.Reason ? '<div>Reason: ' + escapeHtml(s.Reason) + '</div>' : '') : '') +
       (!isReturn && r.numberBarcode ? '<div class="rs-number-barcode rs-roll-c" style="width:' + Math.min(48, width) + 'mm;height:12mm;margin:1mm auto">' + r.numberBarcode.replace('<svg ', '<svg width="100%" height="100%" ') + '</div>' : '') +
       (cust.length ? '<div>Customer: ' + cust.map(escapeHtml).join('<br>') + '</div>' : '') + hr + items + hr +
-      row(isReturn ? 'Returned' : 'Total', money(s.Total), 'rs-roll-total') + row('Includes tax ' + escapeHtml(s.TaxPercent) + '%', money(s.TaxAmount)) + pays + foot + '</div>';
+      row(isReturn ? 'Returned' : 'Total', money(s.Total), 'rs-roll-total') + (s.TaxSummary ? s.TaxSummary.filter(x => x.Tax).map(x => row('Includes ' + escapeHtml(x.TaxCode) + ' ' + escapeHtml(x.Percent) + '%', money(x.Tax))).join('') : row('Includes tax ' + escapeHtml(s.TaxPercent) + '%', money(s.TaxAmount))) + pays + foot + '</div>';
   }
   function reverseSale() {
     const s = current && current.sale;

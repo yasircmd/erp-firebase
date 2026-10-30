@@ -34,6 +34,13 @@
 // Setup per company: retailSales/settings/{companyId}; payment methods:
 // retailSales/paymentMethods/{id}.
 const { randomUUID } = require('crypto');
+const salesTax = require('./salesTax');
+const taxConfig = require('./taxConfig');
+const taxEngine = require('./taxEngine');
+// A code's total rate on a date (the counter's live figure; the posting works it out exactly).
+function rateOfCode(config, code, date) {
+  try { return (taxEngine.componentsOf(config, code, date, { placeOfSupply: config.StateCode }) || []).reduce((s, x) => s + x.Percent, 0); } catch (e) { return null; }
+}
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
@@ -97,6 +104,33 @@ function computeTotals(lines, taxPercent) {
     TaxPercent: rate, ListAmount: listAmount, Discount: discount, Total: total, TaxAmount: taxAmount,
     DiscountNet: discountNet, Revenue: round2(total - taxAmount + discountNet)
   };
+}
+
+// Line tax (TAX_ENGINE.md, part 4): a company with a Tax Configuration
+// taxes each line by its item's code, the price including it (Q314); the
+// counter's own state is the place of supply, a registered customer's
+// where it has one (Q318). Returns null without one (the single rate).
+async function lineTax(companyId, date, lines, items, customer, retail) {
+  const config = await taxConfig.configFor(companyId);
+  if (!config) return null;
+  const tl = lines.map(l => {
+    const code = ((items || {})[l.ItemID] || {}).TaxCode || '';
+    if (!code) throw new Error(l.ItemCode + ' has no tax code: give it one in Item Master.');
+    return { Key: 'line#' + l.LineNo, Code: code, Amount: l.Amount, Inclusive: true };
+  });
+  const c = customer || {};
+  const place = retail || !c.TaxState ? (config.StateCode || '') : c.TaxState;
+  const tax = salesTax.computeTax(config, tl, { date, placeOfSupply: place, partyType: retail ? 'Consumer' : (c.TaxRegistrationType || ''), sale: true, regime: config.Regime, rounding: config.Rounding });
+  tax.TaxLines.forEach((t, i) => { t.Label = lines[i].ItemCode; const it = (items || {})[lines[i].ItemID] || {}; if (it.HSNCode) t.HSNCode = it.HSNCode; });
+  return tax;
+}
+// The totals with line tax: the tax of each line taken out of its price,
+// its discount net of its own rate.
+function lineTaxTotals(lines, tax) {
+  const totals = computeTotals(lines, 0);
+  lines.forEach((l, i) => { l.DiscountNet = round2(l.Discount * 100 / (100 + (tax.TaxLines[i].Percent || 0))); });
+  const discountNet = round2(lines.reduce((t, l) => t + l.DiscountNet, 0));
+  return Object.assign(totals, { TaxPercent: 0, TaxAmount: tax.TaxAmount, DiscountNet: discountNet, Revenue: round2(totals.Total - tax.TaxAmount + discountNet) });
 }
 
 // The payments: each method's amount; cash may be over-tendered, the change
@@ -333,13 +367,14 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
   if (!settings) return { settings: null };
   const warehouseId = String(d.warehouseId || '').trim() || settings.WarehouseID;
   const date = String(d.date || '').trim() || new Date().toISOString().substring(0, 10);
+  const config = await taxConfig.configFor(companyId); // line tax (TAX_ENGINE.md, part 4)
   const [methods, customers, items, uoms, ledger, prices, barcodes, canAddCustomer] = await Promise.all([
     methodsOf(companyId), val('customers'), val('items'), val('uoms'), stockStore.allLedger({ WarehouseID: warehouseId }), pricesOn(settings.PriceListID, date), Barcodes.all(),
     moduleHasCapability('CUSTOMERMASTER', 'write', user.profile.role)
   ]);
   const codesOf = Barcodes.byItem(barcodes); // the products' own barcodes (docs/modules/ITEM_BARCODES.md)
   return {
-    settings, warehouseId, date, canAddCustomer,
+    settings, warehouseId, date, canAddCustomer, lineTax: Boolean(config),
     methods: methods.filter(m => m.Status === 'Active'),
     customers: Object.entries(customers || {}).filter(([, c]) => c.Status === 'Active' && c.CompanyID === companyId)
       .map(([id, c]) => counterCustomer(id, c, settings)).sort((a, b) => (b.Retail - a.Retail) || a.CustomerName.localeCompare(b.CustomerName)),
@@ -350,6 +385,7 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
         return {
           ItemID: id, ItemCode: i.ItemCode, ItemName: i.ItemName || '', UOM: u.Code || '', AllowDecimals: !!u.AllowDecimals,
           Price: prices[i.ItemCode] === undefined ? null : prices[i.ItemCode], InStock: Number(l.Quantity) || 0,
+          TaxPercent: config ? rateOfCode(config, i.TaxCode, date) : null, // line tax: its code's rate (TAX_ENGINE.md)
           Barcodes: codesOf[id] || []
         };
       }).sort((a, b) => a.ItemCode.localeCompare(b.ItemCode))
@@ -412,7 +448,8 @@ async function buildSale(user, d) {
     });
   });
   if (!lines.length) throw new Error('Add at least one item.');
-  const totals = computeTotals(lines, settings.TaxPercent);
+  const tax = await lineTax(companyId, date, lines, items, customer, retail);
+  const totals = tax ? lineTaxTotals(lines, tax) : computeTotals(lines, settings.TaxPercent);
 
   const rows = (d.Payments || []).filter(p => Number(p.Amount)).map((p, idx) => {
     const m = methods.find(x => x.MethodID === p.MethodID);
@@ -433,7 +470,7 @@ async function buildSale(user, d) {
 
   const text = k => String(d[k] || '').trim();
   return {
-    settings, customer, customerId, retail, salesType, salesTypeId, revenue, costCenterId, warehouseId, lines, totals, pay, coa,
+    settings, customer, customerId, retail, salesType, salesTypeId, revenue, costCenterId, warehouseId, lines, totals, pay, coa, tax,
     header: {
       TransactionType: TYPE, TransactionDate: date, CompanyID: companyId, DivisionID: '', BranchID: '',
       CostCenterID: costCenterId, ProfitCenterID: '',
@@ -524,7 +561,9 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
       glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: s.totals.DiscountNet, Credit: 0, Description: 'Discount given — ' + label }, dims));
     }
     glLines.push(Object.assign({ AccountCode: s.revenue.AccountCode, Debit: 0, Credit: s.totals.Revenue, Description: label }, dims));
-    if (s.totals.TaxAmount > 0) {
+    if (s.tax) { // each component to its own output account (TAX_ENGINE.md)
+      glLines.push(...salesTax.componentGlLines(s.tax, s.coa, { description: label, costCenterId: s.costCenterId }));
+    } else if (s.totals.TaxAmount > 0) {
       const acc = await companyAccount(companyId, 'OutputTaxAccountID', 'Output Tax Account', s.coa);
       glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: 0, Credit: s.totals.TaxAmount, Description: 'Output tax — ' + label }, dims));
     }
@@ -539,7 +578,7 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
     const now = new Date().toISOString();
     const actor = actorOf(user);
     const saleId = 'RS-' + randomUUID().split('-')[0].toUpperCase();
-    const record = Object.assign({}, s.header, s.totals, {
+    const record = Object.assign({}, s.header, s.totals, s.tax ? { TaxLines: s.tax.TaxLines, TaxSummary: s.tax.TaxSummary, TaxComponents: s.tax.TaxComponents, TaxRegime: s.tax.TaxRegime, PlaceOfSupply: s.tax.PlaceOfSupply } : {}, {
       Lines: s.lines, Payments: s.pay.rows, Paid: s.pay.paid, Change: s.pay.change, OnAccount: s.pay.onAccount,
       CostValue: round2(s.lines.reduce((t, l) => t + l.TotalValue, 0)),
       Status: 'Draft', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
@@ -557,6 +596,7 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
     }, movement.ledgerUpdates, (gl, posted) => ({
       [saleId]: stockStore.applyUpdate(record, Object.assign(postedFields(gl, actor, posted), { Lines: s.lines, CostValue: record.CostValue }))
     }));
+    if (s.tax) await salesTax.recordCodeUse(companyId, s.tax);
     return { success: true, saleId, saleNumber: glResult.jvNumber, total: s.totals.Total, change: s.pay.change, onAccount: s.pay.onAccount };
   });
 });
@@ -742,18 +782,21 @@ const returnsOf = (txs, saleId) => Object.entries(txs || {})
 // What the live returns have taken so far: per sale line (quantity, list,
 // discount), per original payment row (refund), and the totals.
 function returnedSoFar(returns) {
-  const lines = {}, refunds = {};
+  const lines = {}, refunds = {}, components = {}, discountNets = {};
   let tax = 0, discountNet = 0, total = 0, onAccount = 0;
   returns.forEach(r => {
     (r.Lines || []).forEach(l => {
       const x = lines[l.SaleLineNo] || (lines[l.SaleLineNo] = { Quantity: 0, ListAmount: 0, Discount: 0 });
       x.Quantity = round6(x.Quantity + l.Quantity); x.ListAmount = round2(x.ListAmount + l.ListAmount); x.Discount = round2(x.Discount + l.Discount);
+      discountNets[l.SaleLineNo] = round2((discountNets[l.SaleLineNo] || 0) + (l.DiscountNet || 0));
     });
+    // Line tax: what each line's components have given back so far.
+    (r.TaxLines || []).forEach(t => (t.Components || []).forEach(x => { components[t.Key + '|' + x.Component] = round2((components[t.Key + '|' + x.Component] || 0) + x.Amount); }));
     (r.Refunds || []).forEach(f => { refunds[f.FromRow] = round2((refunds[f.FromRow] || 0) + f.Amount); });
     tax = round2(tax + (r.TaxAmount || 0)); discountNet = round2(discountNet + (r.DiscountNet || 0));
     total = round2(total + (r.Total || 0)); onAccount = round2(onAccount + (r.OnAccountReduced || 0));
   });
-  return { lines, refunds, tax, discountNet, total, onAccount };
+  return { lines, refunds, tax, discountNet, total, onAccount, components, discountNets };
 }
 
 // The returned lines' values: what the customer paid for each unit (its
@@ -790,6 +833,7 @@ function computeReturn(sale, prior, wanted, uoms) {
     });
   });
   if (!lines.length) throw new Error('Enter the quantity to return on at least one line.');
+  if (sale.TaxLines) return lineTaxReturn(sale, prior, lines);
   const rate = Number(sale.TaxPercent) || 0;
   const completes = (sale.Lines || []).every(l => {
     const done = (prior.lines[l.LineNo] || {}).Quantity || 0;
@@ -804,6 +848,37 @@ function computeReturn(sale, prior, wanted, uoms) {
   return {
     lines, completes,
     totals: { TaxPercent: rate, ListAmount: listAmount, Discount: discount, Total: total, TaxAmount: taxAmount, DiscountNet: discountNet, Revenue: round2(total - taxAmount + discountNet) }
+  };
+}
+
+// A return of a sale taxed by line: each returned line takes its share of
+// its sale line's tax and discount by quantity; the last of a line takes
+// what is left of them, so the returns add up to the sale to the cent.
+function lineTaxReturn(sale, prior, lines) {
+  const byKey = new Map(sale.TaxLines.map(t => [t.Key, t]));
+  const taxLines = lines.map(l => {
+    const saleLine = sale.Lines.find(x => x.LineNo === l.SaleLineNo);
+    const t = byKey.get('line#' + l.SaleLineNo);
+    const done = prior.lines[l.SaleLineNo] || { Quantity: 0 };
+    const last = Math.abs(saleLine.Quantity - done.Quantity - l.Quantity) < 0.000001;
+    const f = l.Quantity / saleLine.Quantity;
+    const comps = (t.Components || []).map(x => {
+      const taken = prior.components[t.Key + '|' + x.Component] || 0;
+      return { Component: x.Component, Percent: x.Percent, Amount: last ? round2(x.Amount - taken) : round2(x.Amount * f) };
+    });
+    const tax = round2(comps.reduce((a, x) => a + x.Amount, 0));
+    l.DiscountNet = last ? round2((saleLine.DiscountNet || 0) - (prior.discountNets[l.SaleLineNo] || 0)) : round2((saleLine.DiscountNet || 0) * f);
+    return Object.assign({}, t, { Taxable: round2(l.Amount - tax), Tax: tax, Components: comps });
+  });
+  const accounts = id => (sale.TaxComponents || []).find(x => x.Component === id);
+  const share = salesTax.summarize(accounts, taxLines, { placeOfSupply: sale.PlaceOfSupply, regime: sale.TaxRegime });
+  const listAmount = round2(lines.reduce((t, l) => t + l.ListAmount, 0));
+  const discount = round2(lines.reduce((t, l) => t + l.Discount, 0));
+  const total = round2(listAmount - discount);
+  const discountNet = round2(lines.reduce((t, l) => t + l.DiscountNet, 0));
+  return {
+    lines, completes: false, tax: share,
+    totals: { TaxPercent: 0, ListAmount: listAmount, Discount: discount, Total: total, TaxAmount: share.TaxAmount, DiscountNet: discountNet, Revenue: round2(total - share.TaxAmount + discountNet) }
   };
 }
 
@@ -955,7 +1030,9 @@ async function returnGlLines(b) {
     const acc = await companyAccount(sale.CompanyID, 'DiscountGivenAccountID', 'Discount Given Account', coa);
     gl.push(Object.assign({ AccountCode: acc.AccountCode, Debit: 0, Credit: ret.totals.DiscountNet, Description: 'Discount given reversed — ' + label }, dims));
   }
-  if (ret.totals.TaxAmount > 0) {
+  if (ret.tax) { // each component back to the account the sale credited (TAX_ENGINE.md)
+    gl.push(...salesTax.componentGlLines(ret.tax, coa, { reverse: true, label: 'Output tax reversed', description: label, costCenterId: dims.CostCenterID }));
+  } else if (ret.totals.TaxAmount > 0) {
     const acc = await companyAccount(sale.CompanyID, 'OutputTaxAccountID', 'Output Tax Account', coa);
     gl.push(Object.assign({ AccountCode: acc.AccountCode, Debit: ret.totals.TaxAmount, Credit: 0, Description: 'Output tax reversed — ' + label }, dims));
   }
@@ -1013,7 +1090,7 @@ exports.confirmRetailReturn = onCallWithMessages(onCallOptions, async (request) 
       SalesTypeID: sale.SalesTypeID, SalesTypeName: sale.SalesTypeName || '', WarehouseID: sale.WarehouseID,
       Description: description, Reason: b.reason, Reference: sale.TransactionNumber,
       ReturnOfSaleID: b.saleId, ReturnOfSaleNumber: sale.TransactionNumber
-    }, b.ret.totals, {
+    }, b.ret.totals, b.ret.tax ? { TaxLines: b.ret.tax.TaxLines, TaxSummary: b.ret.tax.TaxSummary, TaxComponents: b.ret.tax.TaxComponents, TaxRegime: b.ret.tax.TaxRegime } : {}, {
       Lines: b.ret.lines, Refunds: b.refunds, OnAccountReduced: b.split.reduce, CreditOnAccount: b.split.credit,
       CostValue: round2(b.ret.lines.reduce((t, l) => t + l.TotalValue, 0)),
       Status: 'Draft', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
