@@ -35,6 +35,13 @@
     </div>
     <p class="text-xs text-slate-500">Categories of client corporates. A module that came after the groups (a later module) is off for every client until it is provided to their group here, or ticked for one corporate in its Modules.</p>
     <div id="dv-groups" class="space-y-2 text-sm"></div>
+    <!-- The firm's exchange-rates sheet for every corporate (docs/modules/FX_SHEET.md, Q330) -->
+    <div class="border-t border-slate-700 pt-3 space-y-2">
+      <div class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-coins"></i> Exchange-rates sheet</div>
+      <p class="text-xs text-slate-500">One Google Sheet for every corporate, columns Currency, Base and Rate (e.g. USD, AED, =GOOGLEFINANCE("CURRENCY:USDAED")), one row per pair a client uses. Publish it to the web as CSV and paste its link. Each corporate reads it in Currency Configuration and applies the rates it confirms.</p>
+      <div class="flex flex-wrap gap-2"><input id="dv-fx-url" maxlength="600" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?…output=csv" class="flex-1 min-w-[16rem] bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs">
+        <button id="dv-fx-save" class="dv-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save the link</button></div>
+    </div>
   </div>
 
   <div data-page-pane="support" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
@@ -162,6 +169,8 @@
       el('dv-add').classList.toggle('hidden', !r.canWrite);
       renderList();
       renderGroups();
+      el('dv-fx-url').value = r.fxSheetUrl || '';
+      el('dv-fx-url').disabled = !r.canWrite;
       const again = keep && r.corporates.find(c => c.CorporateID === keep);
       if (again) open(again); else if (current && !current.isNew) { current = null; el('dv-detail').classList.add('hidden'); }
     }, err => { el('dv-list').innerHTML = '<tr><td colspan="7" class="px-3 py-3 text-red-400">' + escapeHtml(err.message || 'Unable to load the corporates.') + '</td></tr>'; });
@@ -492,6 +501,7 @@
     showPage('corporates');
     el('dv-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
     el('dv-save').addEventListener('click', save);
+    el('dv-fx-save').addEventListener('click', () => call('saveDeveloperFxSheet', { url: el('dv-fx-url').value.trim() }).then(() => appAlert('Saved.'), fail('save the sheet\'s link')));
     el('dv-test').addEventListener('click', test);
     el('dv-mod-all').addEventListener('click', () => tickAll(true));
     el('dv-mod-none').addEventListener('click', () => tickAll(false));

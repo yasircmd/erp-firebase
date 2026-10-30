@@ -1,0 +1,29 @@
+# UX round 2, item 35: exchange rates from the firm's Google Sheet (owner,
+# 2026-10-26/30; docs/modules/FX_SHEET.md, Q281, Q329-Q331).
+# The require closure of fxSheet.js (new) and developer.js: 17 functions.
+# moduleRegistry.js and auth.js are unchanged; no new right. Three functions
+# are new (deploy-functions.sh binds their invokers): getSheetRates,
+# applySheetRates, saveDeveloperFxSheet. Run WITH --screens (Currency
+# Configuration's Rates from the sheet, the Developer screen's sheet link),
+# then the "hosting" task (the Help). No rules change: the link is in the
+# firm's Firestore (firmSettings/fxSheet), reached by functions only.
+# After it: in the Developer screen (Groups), save the published CSV link
+# of the firm's sheet (columns Currency, Base, Rate; a row per pair the
+# clients use, e.g. USD | AED | =GOOGLEFINANCE("CURRENCY:USDAED")).
+applySheetRates
+copyDeveloperChartHeaders
+createDeveloperAdmin
+deleteDeveloperNote
+getDeveloperCorporates
+getDeveloperNotes
+getDeveloperTree
+getSheetRates
+purgeDeveloperLeavers
+resetDeveloperTree
+saveDeveloperCorporate
+saveDeveloperFxSheet
+saveDeveloperGroup
+saveDeveloperGroupModules
+saveDeveloperModules
+saveDeveloperNote
+testDeveloperCorporate

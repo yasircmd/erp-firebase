@@ -12,6 +12,12 @@ screen.
 
 ## 30/10/2026
 
+- **Exchange rates from the sheet.** In [Currency
+  Configuration](currencies.html), **Get rates from the sheet** reads the
+  firm's Google Sheet of rates and shows each beside your last one. A move
+  of more than 5% is marked. You tick the rates to use and apply them; none
+  applies on its own.
+
 - **Tax Reports.** The new [Tax Reports](tax-reports.html) screen works
   out a company's tax for a period from its posted documents: the tax
   summary, UAE VAT 201, and India's GSTR-1 (the GST offline tool's sheets)

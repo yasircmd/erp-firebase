@@ -118,8 +118,21 @@ exports.getDeveloperCorporates = onCallWithMessages(onCallOptions, async (reques
     modules: MODULE_REGISTRY.filter(m => !m.homeOnly).map(m => ({ id: m.id, label: m.label, alwaysOn: ALWAYS_ON.includes(m.id), baseline: isBaseline(m.id) })),
     groups: groups.docs.map(g => Object.assign({ GroupID: g.id }, g.data())).sort((a, b) => String(a.Name).localeCompare(String(b.Name))),
     keepAfterLeavingDays: KEEP_AFTER_LEAVING_DAYS,
-    noteTypes: NOTE_TYPES, noteStatuses: NOTE_STATUSES
+    noteTypes: NOTE_TYPES, noteStatuses: NOTE_STATUSES,
+    fxSheetUrl: await require('./fxSheet').sheetUrl()
   };
+});
+
+// The firm's exchange-rates sheet for every corporate (docs/modules/
+// FX_SHEET.md, Q330): its published CSV link, or '' to have none.
+exports.saveDeveloperFxSheet = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await developer(request, 'write');
+  const fx = require('./fxSheet');
+  const url = str((request.data || {}).url, 600);
+  const why = fx.urlProblem(url);
+  if (why) throw new HttpsError('invalid-argument', why);
+  await firm.firestore.doc(fx.SETTINGS_DOC).set({ Url: url, UpdatedAt: new Date().toISOString(), UpdatedBy: nameOf(user) });
+  return { success: true };
 });
 
 // Adds a corporate (isNew) or changes its entry. Its modules, notes and
