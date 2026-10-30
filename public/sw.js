@@ -5,13 +5,17 @@
 //     network first, so a deploy shows at once; the copy kept here when the
 //     network is slow (over 4 s) or gone. Hosting sends them no-cache, so a
 //     network answer is a quick "unchanged" when nothing changed.
+//   - Help waits for the network however slow, its kept copy only when
+//     there is none: an old Help page is wrong, not just old (owner,
+//     2026-10-30: a kept page lacked Back to the ERP).
 //   - Font Awesome and the Firebase SDK (versioned addresses): from here
 //     once fetched.
 //   - Everything else, and every request that isn't a GET (the functions,
 //     sign-in, Firestore): not touched, always the network.
 // Screens are never kept: they come through getModuleFragment, a function
 // call (Q332).
-const CACHE = 'erp-shell-v1';
+// A new name drops what older workers kept (v1 kept Help pages served when slow).
+const CACHE = 'erp-shell-v2';
 const SHELL = ['/', '/ess.html', '/css/erp.css', '/css/ess.css', '/manifest.webmanifest', '/ess.webmanifest',
   '/icons/erp-192.png', '/icons/erp-512.png', '/icons/ess-192.png', '/icons/ess-512.png'];
 const VERSIONED = [/^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\//, /^https:\/\/www\.gstatic\.com\/firebasejs\/\d/];
@@ -30,13 +34,13 @@ self.addEventListener('activate', e => {
 const isShell = url => url.origin === self.location.origin &&
   (url.pathname === '/' || /\.(html|css|webmanifest)$/.test(url.pathname) || url.pathname.startsWith('/help/') || url.pathname.startsWith('/icons/'));
 
-// The network first, the kept copy if it is slow or fails, else the offline page (for a page).
-async function networkFirst(req, page) {
+// The network first, the kept copy if it is slow (unless told to wait) or fails, else the offline page (for a page).
+async function networkFirst(req, page, wait) {
   const cache = await caches.open(CACHE);
   const kept = () => cache.match(req, { ignoreSearch: page }).then(r => r || (page ? new Response(OFFLINE, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }) : Response.error()));
   const net = fetch(req).then(res => { if (res && res.ok && res.type === 'basic') cache.put(req, res.clone()); return res; });
   net.catch(() => {}); // a late failure after the kept copy answered is nobody's error
-  const slow = new Promise(resolve => setTimeout(() => resolve('slow'), 4000));
+  const slow = new Promise(resolve => { if (!wait) setTimeout(() => resolve('slow'), 4000); });
   try {
     const first = await Promise.race([net, slow]);
     return first === 'slow' ? ((await cache.match(req, { ignoreSearch: page })) || net) : first;
@@ -57,6 +61,6 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (req.mode === 'navigate' || isShell(url)) e.respondWith(networkFirst(req, req.mode === 'navigate'));
+  if (req.mode === 'navigate' || isShell(url)) e.respondWith(networkFirst(req, req.mode === 'navigate', url.origin === self.location.origin && url.pathname.startsWith('/help/')));
   else if (VERSIONED.some(re => re.test(req.url))) e.respondWith(keptFirst(req));
 });
