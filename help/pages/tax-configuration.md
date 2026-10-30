@@ -19,9 +19,12 @@ registration type, state or emirate, and tax number in
 [Customer Master](customer-master.html) and [Vendor Master](vendor-master.html).
 
 [Customer Invoices](customer-invoice.html), [Vendor Invoices](vendor-invoice.html)
-and their returns take their tax from here, line by line. Retail Sales and
-the tax reports follow in later releases: until then they work as before,
-with one tax % per document.
+and their returns take their tax from here, line by line, and so do
+[Retail Sales](retail-sales.html) and asset sales in
+[Fixed Asset Retirement](fixed-asset-retirement.html).
+[Sales Orders](sales-order.html), their Proforma Invoices and
+[Purchase Orders](purchase-order.html) show an estimate of the tax. The tax
+reports follow in a later release.
 
 ## Before you start
 

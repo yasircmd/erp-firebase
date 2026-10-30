@@ -25,12 +25,15 @@
 <p><strong>Proforma Invoice</strong> (at the top of a saved order) prints the order for the customer, or saves it as a PDF from the print dialog, for example for an advance payment or a letter of credit. It posts nothing and is not a tax invoice.</p>
 <ul><li>It has its own number, from the <strong>PI</strong> series in <a href="numbering.html">Numbering</a>, for example <em>PI-26-01-000004</em>. The number is given the first time the proforma is printed and kept with the order, so every reprint shows the same one.</li><li>It prints what is saved: save your changes first.</li><li>A draft order (not yet confirmed) prints marked <strong>DRAFT</strong>. A cancelled order has no proforma.</li></ul>
 <p>From a saved document, <strong>Create next</strong> starts the next step and <strong>Linked documents</strong> shows the documents before and after it. See <a href="working-with-screens.html#linked-documents-and-create-next">Working with screens</a>.</p>
+<h2 id="estimated-tax">Estimated tax</h2>
+<p>For a company with a <a href="tax-configuration.html">Tax Configuration</a>, the grid shows below its total the <strong>Estimated tax</strong> and the <strong>Total with tax</strong>: what the invoice will charge, by each item's tax code at its rate on the order date and, under India GST, CGST + SGST or IGST by the customer's state. It is an estimate: nothing is posted, and the invoice works out the tax again when it is made. Each line's components are rounded as the invoice rounds them. With a <a href="price-listing.html">price list</a> whose prices include tax, the tax shown is the part included in the prices, and nothing is added. The <a href="#proforma-invoice">Proforma Invoice</a> prints the same estimate, by tax code, and the total with tax.</p>
+<p>An item without a tax code is named in place of the estimate: give it one in <a href="item-master.html">Item Master</a>.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>A sales order is a commercial document, not a financial journal. The accounting entry is created later when a delivery or invoice is posted.</p>
 <h2 id="rights">Rights</h2>
 <p>Sales staff need access and draft rights; approval rights are used where the company requires higher approval.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If a line is missing, check whether the customer or item was entered correctly.</li><li>If an order cannot be posted, verify the customer status and the item stock status or price basis.</li></ul><p class="crumb">Last reviewed 26/10/2026</p></main>
+<ul><li>If a line is missing, check whether the customer or item was entered correctly.</li><li>If an order cannot be posted, verify the customer status and the item stock status or price basis.</li></ul><p class="crumb">Last reviewed 30/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

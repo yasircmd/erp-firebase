@@ -3,10 +3,10 @@ title: Purchase Order
 area: procurement
 order: 5
 modules: [PURCHASEORDER]
-sources: [functions/src/grn.js]
+sources: [functions/src/grn.js, functions/src/salesTax.js]
 summary: Issue the approved order to the supplier and keep the commitment, delivery and receiving status aligned.
-reviewed: 2026-10-25
-fingerprint: 1c6348b35f14c57f
+reviewed: 2026-10-30
+fingerprint: bc4d61f243016a4a
 ---
 ## What it is for
 
@@ -26,6 +26,18 @@ fingerprint: 1c6348b35f14c57f
 4. Submit it. If configured, it goes for approval before the order is active.
 5. Track the order until receipt or closure.
 
+
+## Estimated tax
+
+For a company with a [Tax Configuration](tax-configuration.html), the
+grid shows below its total the **Estimated tax** and the **Total with tax**:
+what the invoice will charge, by each item's tax code at its rate on the
+order date and, under India GST, CGST + SGST or IGST by the vendor's
+state. It is an estimate: nothing is posted, and the invoice works out the
+tax again when it is made. Each line's components are rounded as the
+invoice rounds them.
+An item without a tax code is named in place of the estimate: give it one
+in [Item Master](item-master.html).
 
 From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
