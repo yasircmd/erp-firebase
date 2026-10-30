@@ -469,6 +469,149 @@
     })();
     // ---------- END APP DIALOGS ----------
   </script>
+  <!-- ---------- PHONE VIEW ----------
+       A phone view (owner, 2026-10-26/30; docs/modules/PHONE_VIEW.md,
+       Q280, Q335-Q337): on a phone, the sign-in, Home and the screens
+       chosen to be looked up and approved there (PHONE_SCREENS) are laid
+       out at the device's width; every other screen stays desktop-width as
+       before, with a notice that can be closed. On Home an approval opens a
+       compact card (summary, lines, history; Approve, Reject with a reason,
+       or the full document) that decides through the module's own decide
+       function. The reports' tables: a fixed first column scrolled
+       sideways (the Trial Balance, aging), or a card per row (Stock
+       Availability, the statements), from the screens' own tables. Nothing
+       changes on a computer. -->
+  <style>
+    html.phone-view body { padding: 0.75rem; align-items: flex-start; }
+    html.phone-view #app-container > div:first-child { flex-wrap: wrap; gap: 0.5rem; }
+    html.phone-view #app-container > div:first-child > div { flex-wrap: wrap; }
+    html.phone-view #app-title { font-size: 1.05rem; }
+    html.phone-view #tree-controls { flex-wrap: wrap; width: 100%; }
+    html.phone-view #tree-controls .relative, html.phone-view #module-search { width: 100%; }
+    html.phone-view #user-info-role { display: none; }
+    html.phone-view #home-tasks-section [id$="-list"] > div { padding-top: 0.85rem; padding-bottom: 0.85rem; }
+    html.phone-view #company-filter-panel, html.phone-view #user-menu-panel {
+      position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; margin: 0; border-radius: 1rem 1rem 0 0; max-height: 70vh; overflow-y: auto; }
+    html.phone-view #user-menu-panel a, html.phone-view #user-menu-panel button { padding-top: 0.8rem; padding-bottom: 0.8rem; font-size: 0.85rem; }
+    /* A report's table, a fixed first column (Q337). */
+    html.phone-view .phone-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+    html.phone-view .phone-scroll table th:first-child, html.phone-view .phone-scroll table td:first-child { position: sticky; left: 0; z-index: 1; background: #0f172a; }
+    html[data-theme="light"].phone-view .phone-scroll table th:first-child, html[data-theme="light"].phone-view .phone-scroll table td:first-child { background: #ffffff; }
+    /* ...or a card per row, each figure under its heading (Q337). */
+    html.phone-view table.phone-cards thead { display: none; }
+    html.phone-view table.phone-cards, html.phone-view table.phone-cards tbody, html.phone-view table.phone-cards tfoot { display: block; width: 100%; }
+    html.phone-view table.phone-cards tr { display: block; margin: 0 0 0.6rem; padding: 0.5rem 0.75rem; border: 1px solid #334155; border-radius: 0.75rem; }
+    html.phone-view table.phone-cards td { display: flex; justify-content: space-between; gap: 1rem; padding: 0.2rem 0; border: 0; text-align: right; }
+    html.phone-view table.phone-cards td::before { content: attr(data-label); color: #94a3b8; text-align: left; font-size: 0.75rem; }
+    html.phone-view table.phone-cards td:first-child { font-weight: 600; }
+    html.phone-view table.phone-cards td[data-label=""]::before { content: none; }
+    #phone-notice { display: none; }
+    html.phone-desktop-screen #phone-notice { display: flex; }
+    #approval-card .ac-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-bottom: 1px solid rgba(51, 65, 85, 0.6); }
+  </style>
+  <script>
+    (function () {
+      // Looked up and approved on a phone (Q280).
+      const PHONE_SCREENS = ['STOCKAVAILABILITY', 'CUSTOMERSOA', 'VENDORSOA', 'CUSTOMERAGING', 'VENDORAGING', 'INVENTORYAGING', 'TRIALBALANCE'];
+      // Figures read across the columns: a fixed first column; else a card per row (Q337).
+      const SCROLL_SCREENS = ['TRIALBALANCE', 'CUSTOMERAGING', 'VENDORAGING', 'INVENTORYAGING'];
+      // The device's own width (the ERP lays a desktop screen out wider than a phone).
+      const isPhone = () => Math.min(window.screen.width || 9999, window.innerWidth || 9999) < 640;
+      let current = null; // null: sign-in or Home
+      function viewport(device) {
+        let m = document.querySelector('meta[name="viewport"]');
+        if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
+        m.content = device ? 'width=device-width, initial-scale=1, viewport-fit=cover' : 'width=1024';
+      }
+      function apply() {
+        const phone = isPhone();
+        const fits = current === null || PHONE_SCREENS.includes(current);
+        viewport(!phone || fits);
+        document.documentElement.classList.toggle('phone-view', phone && fits);
+        let closed = false;
+        try { closed = sessionStorage.getItem('erp-phone-notice') === 'closed'; } catch (e) { /* storage off: shown */ }
+        document.documentElement.classList.toggle('phone-desktop-screen', phone && !fits && !closed);
+      }
+      // A report's tables, once its rows are drawn (and redrawn).
+      function shapeTables(root) {
+        if (!document.documentElement.classList.contains('phone-view') || !PHONE_SCREENS.includes(current)) return;
+        const scroll = SCROLL_SCREENS.includes(current);
+        root.querySelectorAll('table').forEach(t => {
+          if (scroll) {
+            const p = t.parentElement;
+            if (p && !p.classList.contains('phone-scroll')) p.classList.add('phone-scroll');
+            return;
+          }
+          t.classList.add('phone-cards');
+          const heads = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+          t.querySelectorAll('tbody tr, tfoot tr').forEach(tr => {
+            let i = 0;
+            [...tr.children].forEach(td => { const span = Number(td.getAttribute('colspan')) || 1; if (!td.hasAttribute('data-label')) td.setAttribute('data-label', span > 1 ? '' : (heads[i] || '')); i += span; });
+          });
+        });
+      }
+      let observer = null;
+      window.phoneView = {
+        isPhone,
+        home() { current = null; apply(); },
+        screen(moduleId) { current = moduleId; apply(); },
+        loaded(container) {
+          if (observer) { observer.disconnect(); observer = null; }
+          if (!document.documentElement.classList.contains('phone-view')) return;
+          shapeTables(container);
+          observer = new MutationObserver(() => shapeTables(container));
+          observer.observe(container, { childList: true, subtree: true });
+        },
+        closeNotice() {
+          try { sessionStorage.setItem('erp-phone-notice', 'closed'); } catch (e) { /* this page only */ }
+          document.documentElement.classList.remove('phone-desktop-screen');
+        },
+        // Home's approval on a phone: the card, not the full screen (Q336).
+        openApproval(item) {
+          const box = document.getElementById('approval-card');
+          const body = document.getElementById('approval-card-body');
+          body.innerHTML = '<p class="text-slate-400 text-sm py-6 text-center"><i class="fa-solid fa-spinner animate-spin"></i> Loading…</p>';
+          box.classList.remove('hidden');
+          const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' })[c]);
+          const money = n => (n == null ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+          const full = () => { box.classList.add('hidden'); openHomeTaskDocument(item.ModuleID, item.DocumentID); };
+          rpc.withSuccessHandler(s => {
+            const row = (k, v) => (v === '' || v == null ? '' : '<div class="ac-row text-sm"><span class="text-slate-400">' + esc(k) + '</span><span class="text-right">' + esc(v) + '</span></div>');
+            body.innerHTML =
+              '<p class="text-xs text-slate-400 uppercase">' + esc(s.ModuleLabel) + '</p><p class="text-lg font-bold text-slate-100">' + esc(s.DocumentNumber) + '</p>' +
+              row('Date', s.Date) + row('Party', s.Party) + row('Amount', s.Amount == null ? '' : (s.Currency ? s.Currency + ' ' : '') + money(s.Amount)) +
+              row('Submitted by', s.SubmittedBy) + row('Submitted on', String(s.SubmittedAt || '').slice(0, 10)) + row('Status', s.Status) +
+              (s.Description ? '<p class="text-sm text-slate-300 py-2">' + esc(s.Description) + '</p>' : '') +
+              (s.Lines.length ? '<p class="text-xs text-slate-400 uppercase mt-3 mb-1">Lines</p>' + s.Lines.map(l => '<div class="ac-row text-sm"><span class="min-w-0 truncate">' + esc(l.Text) + (l.Quantity == null ? '' : ' <span class="text-slate-500">× ' + esc(l.Quantity) + '</span>') + '</span><span class="font-mono">' + money(l.Amount) + '</span></div>').join('') +
+                (s.MoreLines ? '<p class="text-xs text-slate-500 pt-1">and ' + s.MoreLines + ' more in the full document</p>' : '') : '') +
+              '<p class="text-xs text-slate-400 uppercase mt-3 mb-1">Approvals</p>' + s.Levels.map(l => { const d = s.Decisions.find(x => x.LevelNumber === l.LevelNumber);
+                return '<div class="ac-row text-sm"><span>Level ' + esc(l.LevelNumber) + ': ' + esc(l.Approver) + (l.LevelNumber === s.MyLevel ? ' <span class="text-blue-300">(you)</span>' : '') + '</span><span class="' + (d ? (d.Decision === 'Approved' ? 'text-emerald-400' : 'text-red-400') : 'text-slate-500') + '">' + esc(d ? d.Decision + ' ' + String(d.At).slice(0, 10) : 'waiting') + '</span></div>' + (d && d.Reason ? '<p class="text-xs text-slate-400 pb-1">' + esc(d.Reason) + '</p>' : ''); }).join('') +
+              '<div class="grid grid-cols-2 gap-2 pt-4">' + (s.Decide
+                ? '<button id="ac-approve" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-lg">Approve</button><button id="ac-reject" class="bg-red-600 hover:bg-red-500 text-white font-semibold py-3 rounded-lg">Reject</button>'
+                : '<p class="col-span-2 text-xs text-slate-400">This approval has more to decide than approve or reject: open the full document.</p>') +
+              '<button id="ac-full" class="col-span-2 bg-slate-700 hover:bg-slate-600 text-slate-100 py-3 rounded-lg">Open the full document</button></div>';
+            document.getElementById('ac-full').addEventListener('click', full);
+            if (!s.Decide) return;
+            const decide = async decision => {
+              let reason = '';
+              if (decision === 'Rejected') { reason = await appPrompt('Reject ' + s.DocumentNumber + ': the reason?', ''); if (reason == null) return; if (!reason.trim()) { appAlert('A reason is required to reject.'); return; } }
+              else if (!(await appConfirm('Approve ' + s.DocumentNumber + '?'))) return;
+              const args = s.Decide.positional ? { __positional: [s.DocumentID, s.MyLevel, decision, reason] } : { [s.Decide.id]: s.DocumentID, levelNumber: s.MyLevel, decision, reason };
+              rpc.withSuccessHandler(() => { box.classList.add('hidden'); appAlert(decision === 'Approved' ? 'Approved.' : 'Rejected.'); if (typeof loadHomeTasks === 'function') loadHomeTasks(); })
+                .withFailureHandler(err => appAlert(err.message || 'Unable to record the decision.'))[s.Decide.fn](args);
+            };
+            document.getElementById('ac-approve').addEventListener('click', () => decide('Approved'));
+            document.getElementById('ac-reject').addEventListener('click', () => decide('Rejected'));
+          }).withFailureHandler(err => { body.innerHTML = '<p class="text-red-400 text-sm py-4">' + esc(err.message || 'Unable to load the approval.') + '</p><button id="ac-full" class="w-full bg-slate-700 text-slate-100 py-3 rounded-lg">Open the full document</button>'; document.getElementById('ac-full').addEventListener('click', full); })
+            .getApprovalSummary({ instanceId: item.InstanceID });
+        }
+      };
+      apply();
+      addEventListener('resize', apply);
+      addEventListener('orientationchange', apply);
+    })();
+  </script>
+  <!-- ---------- END PHONE VIEW ---------- -->
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-6">
 
@@ -1572,7 +1715,8 @@
             <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.ModuleLabel)}</span>
           </div>
           <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>`;
-        row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        // On a phone, the approval card (PHONE VIEW, Q336); on a computer, the document's screen.
+        row.addEventListener('click', () => (window.phoneView && phoneView.isPhone() ? phoneView.openApproval(item) : openHomeTaskDocument(item.ModuleID, item.DocumentID)));
         list.appendChild(row);
       });
     }
@@ -3093,6 +3237,7 @@
       // module (owner, 2026-09-29).
       document.getElementById('app-copyright').classList.remove('hidden');
       document.getElementById('help-btn').href = '/help/';
+      if (window.phoneView) phoneView.home(); // PHONE VIEW
       setPageWidth(false);
       applyTreeTitle();
     }
@@ -3123,6 +3268,7 @@
     }
 
     function openModule(moduleId, drillParams, returnChain) {
+      if (window.phoneView) phoneView.screen(moduleId); // PHONE VIEW: this screen at a phone's width, or desktop-width with its notice
       // Fragments run in this same document (not an iframe), so any fragment
       // can call openModule() directly — that's how cross-report drill-down
       // links work (e.g. Trial Balance -> GL Report for one account). The
@@ -3205,6 +3351,7 @@
           // Never the previous screen's entry point, run again on this one.
           window.initModule = undefined;
           injectHtmlWithScripts(container, result.html);
+          if (window.phoneView) phoneView.loaded(container); // PHONE VIEW: a report's tables shaped for a phone
           setPageWidth(Boolean(container.querySelector('[data-wide-screen]')));
           // Each fragment defines window.initModule(token, canWrite) as
           // its single entry point. The "token" concept itself is now
@@ -3224,5 +3371,15 @@
         .getModuleFragment({ moduleId: moduleId });
     }
   </script>
+  <!-- PHONE VIEW: a screen not made for a phone says so (Q335), and Home's approval card (Q336). -->
+  <div id="phone-notice" class="fixed bottom-0 inset-x-0 z-50 items-center justify-between gap-3 bg-amber-500 text-slate-900 text-sm px-4 py-3 no-print">
+    <span>This screen is best on a computer.</span><button onclick="phoneView.closeNotice()" class="font-bold px-2" aria-label="Close">&times;</button>
+  </div>
+  <div id="approval-card" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-end justify-center no-print">
+    <div class="bg-slate-800 border border-slate-700 rounded-t-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-4">
+      <div class="flex justify-end"><button onclick="document.getElementById('approval-card').classList.add('hidden')" class="text-slate-400 hover:text-slate-200 text-xl px-2" aria-label="Close">&times;</button></div>
+      <div id="approval-card-body"></div>
+    </div>
+  </div>
 </body>
 </html>

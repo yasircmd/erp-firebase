@@ -8,6 +8,8 @@ const { getModuleFragment } = require('./src/getModuleFragment');
 const { completeLogin, corporateSignIn, userIdSignIn, restoreSession, getMyTree } = require('./src/session');
 const { getMyFavorites, toggleFavorite, saveMyTheme, getRoleFavorites, saveRoleFavorites } = require('./src/favorites');
 const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmission, getMyDraftsForUser } = require('./src/homeTasks');
+// The approval card on a phone (docs/modules/PHONE_VIEW.md, Q336).
+exports.getApprovalSummary = require('./src/homeTasks').getApprovalSummary;
 const { getActiveCompanies, saveMyCompanies } = require('./src/companies');
 const { issueProformaNumber } = require('./src/proforma');
 const { getItemUserCodes } = require('./src/itemCodes');
