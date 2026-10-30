@@ -1,6 +1,6 @@
 # A phone view (UX round 2, item 33)
 
-Status: **agreed** (2026-10-30), **built** (2026-10-30; As built below). Q280 decided (owner, 2026-10-26): Home
+Status: **agreed** (2026-10-30), **built** (2026-10-30; As built below), **live** 2026-10-30 (PR #187, runs #243-#244). Q280 decided (owner, 2026-10-26): Home
 with its tasks and approvals, and the reports and balances (Stock
 Availability, the statements, aging, the Trial Balance): looked up and
 approved on a phone, not entered. Q335-Q337 decided (owner, 2026-10-30), below.

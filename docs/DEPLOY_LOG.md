@@ -1571,3 +1571,15 @@ from, and how it was verified. The deploy procedure is in the
   (Installing the app, What's new). No function, screens release or rules
   change. From now on a screens release also redeploys Hosting (the
   styles follow the screens).
+- **2026-10-30, UX round 2 item 33, the phone view (`ux2-phone`, PR #187,
+  from `78df46c`):** functions, run
+  [#243](https://github.com/yasircmd/erp-firebase/actions/runs/41100282662)
+  (17:36–17:39 UTC), success: `SUMMARY: functions deployed: 5
+  (closeRejectedSubmission getApprovalSummary getMyDraftsForUser
+  getMyRejectedSubmissions getPendingApprovalsForUser); access granted: 5;
+  screens released: no` (getApprovalSummary created; the active screens
+  release matches screens/). Hosting, run
+  [#244](https://github.com/yasircmd/erp-firebase/actions/runs/41102021761)
+  (17:51–17:57 UTC), success: the shell's phone view and approval card,
+  its styles, the Help (Getting started and Approvals "On a phone",
+  What's new). No rules change. UX round 2 is complete.
