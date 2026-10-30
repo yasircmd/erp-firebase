@@ -119,6 +119,10 @@ follows it. New documents use the line codes (Q317).
 | Q322 | The Indian company is **its own corporate, with INR as its base currency**: its GST figures are in rupees directly. |
 | Q323 | (Part 3, 2026-10-26) Input tax that can't be reclaimed on a GRN (stock) line goes **into the stock's cost**: the item's value in its warehouse rises, and later issues and sales carry it. |
 | Q324 | (Part 3, 2026-10-26) A Vendor Invoice direct line's default tax code comes from **its account** (Chart of Accounts gains an optional default tax code), changeable with Vendor Invoice's new "change tax code" right. |
+| Q325 | (Part 5, 2026-10-30) The reports are a new **Tax Reports** module, its own access right (Admin, Finance Manager and Accountant by default), its own Help page. |
+| Q326 | (Part 5, 2026-10-30) Documents posted before line tax (one tax % per document) are **left out**: the reports start from when line tax went live. The screen says how many such documents fall in the period and their tax, so the filer adds them from the old figures. |
+| Q327 | (Part 5, 2026-10-30) VAT 201: **the figures only**; adjustments are made on the FTA portal. |
+| Q328 | (Part 5, 2026-10-30) GSTR-1: **the offline tool's Excel sheets**; the portal JSON can follow. |
 
 ## The questions as asked
 
@@ -153,7 +157,7 @@ Each part: tests (emulator and UI, negative controls), Help, What's new.
 The ported screens (Customer and Vendor Invoice) change through the legacy
 port's patches and SCREEN_EDITS.
 
-## Part 5: the reports (proposed, 2026-10-30)
+## Part 5: the reports (agreed 2026-10-30, Q325-Q328)
 
 One screen, for one company and a period (any From and To dates, with
 month and quarter shortcuts), built from the **posted documents**, not the
@@ -210,7 +214,7 @@ Reads go by company with an equality query (TRANSACTIONS_FIRESTORE.md), the
 period filtered in memory. Filing stays outside: the figures are prepared
 for the person who files (Section 4).
 
-### Open questions (the owner's)
+### The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|
