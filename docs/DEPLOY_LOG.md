@@ -1491,3 +1491,21 @@ from, and how it was verified. The deploy procedure is in the
   task found nothing to do. Then Hosting, run
   [#230](https://github.com/yasircmd/erp-firebase/actions/runs/40290524966)
   (08:11 UTC), success: items 27 and 30-31's portal and Help.
+- **2026-10-26, UX round 2 item 32, tax parts 1 and 2 (`ux2-tax2`, PRs
+  #179, #180 and #181, from `96eaef0`):** run
+  [#231](https://github.com/yasircmd/erp-firebase/actions/runs/40323288297)
+  (12:32 UTC) failed before deploying anything: the deploy set
+  `ux2-tax2` was not on `main` yet (PR #180 had been merged into its base
+  branch `ux2-wave5`; PR #181 brought it to `main`). Then run
+  [#232](https://github.com/yasircmd/erp-firebase/actions/runs/40323803914)
+  ("functions set, then screens", 12:36–14:50 UTC), success:
+  `SUMMARY: functions deployed: 596 (every function: moduleRegistry has
+  TAXCONFIG and Customer Invoice's taxcode right; three new: getTaxConfig,
+  saveTaxConfig, previewInvoiceTax); access granted: 596; screens released:
+  yes` (release `20261026T145042Z-96eaef0`, 91/91 verified). Then Hosting,
+  run [#233](https://github.com/yasircmd/erp-firebase/actions/runs/40352107058)
+  (15:43–15:44 UTC), success: the Help (Tax Configuration, Customer
+  Invoice's tax by line, What's new). No rules change. Still to do in the
+  app: provide TAXCONFIG to the Indian corporate and set up its Tax
+  Configuration; tick Customer Invoice "taxcode" in Roles & Permissions;
+  give Sales Types and items their tax codes (and HSN / SAC).
