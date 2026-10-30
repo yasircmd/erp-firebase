@@ -1593,3 +1593,9 @@ from, and how it was verified. The deploy procedure is in the
   new. No function or rules change. The owner then saw, in the installed
   app, a first Help page without Back to the ERP: the worker's kept copy,
   served on a slow start; fixed in `ux2-help-cache`.
+- **2026-10-30, the app's worker: Help always current (`ux2-help-cache`,
+  PR #190, from `5c6e2fc`):** Hosting only, run
+  [#246](https://github.com/yasircmd/erp-firebase/actions/runs/41108059142)
+  (18:34–18:35 UTC), success: public/sw.js with cache `erp-shell-v2` (Help
+  waits for the network; v1's kept copies dropped when the new worker
+  takes over), What's new. No function, screens release or rules change.
