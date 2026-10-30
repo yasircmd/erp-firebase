@@ -265,3 +265,25 @@ to the screen's page. Every PR with a visible change adds its entry (CLAUDE.md,
 "Help follows every change"). Started with the UX-testing Tier 1 and Tier 2
 changes.
 
+
+## On a phone, and back to the ERP (owner, 2026-10-30)
+
+The owner, using Help from the installed app (docs/modules/PWA.md): there
+was no way back to the ERP, and after each link a long scroll to the text.
+
+- **Back to the ERP** (header, every page; `BACK_JS` in tools/help/lib.js):
+  closes the tab or window, which the ERP opens with `target="_blank"`
+  (the installed app's own window has no back button), returning to the
+  ERP as it was. When the page can't close itself (Help reached from a
+  search engine, then another page), it opens `/`, the ERP, still signed
+  in.
+- **Content first on a phone** (≤ 760 px): the page's `<main>` before the
+  list of every page (`nav#topics`, headed "All help pages"); **All pages**
+  in the header jumps to it. Before, the list of about 100 pages came
+  first, the text some 3,000 px down. A computer is unchanged (the list
+  beside the page).
+- **Markdown:** a list item's lines are joined before inline formatting,
+  as a paragraph's are, so `**bold**`, `*italic*` and links can run over a
+  line break (15 pages showed stray `**`).
+- ui/help checks both (negative controls: the order removed, the close
+  removed; each caught and restored).

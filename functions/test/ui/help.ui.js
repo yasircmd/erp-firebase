@@ -4,7 +4,8 @@
 // search, "?m=MODULE" opening that screen's page or saying it is not written
 // yet, robots.txt and the sitemap — and the shell's Help button (the real
 // public/index.html with the Firebase SDK stubbed, as home.ui.js): the help
-// home on Home, the open screen's page inside a screen, back to the home.
+// home on Home, the open screen's page inside a screen, back to the home;
+// on a phone the page before the list of pages; back to the ERP.
 //   node functions/test/ui/help.ui.js
 const http = require('http');
 const fs = require('fs');
@@ -188,6 +189,46 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(r.status(), 200);
     assert.deepEqual(p.__errors, []);
     await p.close();
+  });
+
+  await check('a phone: the page first, all the pages after it, "All pages" jumps there; a computer: the list beside the page (owner, 2026-10-30)', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const p = await ctx.newPage();
+    await p.goto(base + '/help/getting-started.html');
+    const box = sel => p.locator(sel).boundingBox();
+    const [main, nav] = [await box('main'), await box('nav')];
+    assert.ok(main.y < 200 && nav.y > main.y + main.height - 1, 'main at ' + main.y + ', the list at ' + nav.y);
+    assert.ok(await p.isVisible('header .jump'));
+    await p.click('header .jump');
+    await p.waitForFunction(() => location.hash === '#topics');
+    assert.ok((await box('nav')).y < 100, 'scrolled to the list');
+    assert.equal(await p.evaluate(() => document.documentElement.scrollWidth), 390, 'nothing wider than the phone');
+    await ctx.close();
+    const d = await newPage();
+    await d.setViewportSize({ width: 1280, height: 900 });
+    await d.goto(base + '/help/getting-started.html');
+    const [dm, dn] = [await d.locator('main').boundingBox(), await d.locator('nav').boundingBox()];
+    assert.ok(dn.x < dm.x && Math.abs(dn.y - dm.y) < 5, 'side by side');
+    assert.ok(await d.isHidden('header .jump') && await d.isHidden('nav .toc'));
+    await d.close();
+  });
+
+  await check('back to the ERP: the tab the ERP opened closes; a page it can\'t close opens the ERP (owner, 2026-10-30)', async () => {
+    const ctx = await browser.newContext();
+    const erp = await ctx.newPage();
+    await erp.setContent('<a id="h" href="' + base + '/help/getting-started.html" target="_blank" rel="noopener">Help</a>');
+    const [help] = await Promise.all([ctx.waitForEvent('page'), erp.click('#h')]);
+    await help.waitForLoadState();
+    await Promise.all([help.waitForEvent('close', { timeout: 5000 }), help.click('#back')]);
+    assert.equal(help.isClosed(), true);
+    // Help reached another way (a search engine), then another page: it can't close itself, so the ERP opens in it.
+    const help2 = await ctx.newPage();
+    await help2.goto(base + '/help/getting-started.html');
+    await help2.click('a[href="approvals.html"]');
+    await help2.waitForURL(/approvals\.html/);
+    await help2.click('#back');
+    await help2.waitForURL(base + '/', { timeout: 5000 });
+    await ctx.close();
   });
 
   await browser.close(); server.close();

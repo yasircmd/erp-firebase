@@ -156,7 +156,8 @@
     // Nothing to tick until the saved team is in: a redraw would lose the ticks.
     const loaded = followUpLoadedFor === currentModuleId;
     document.getElementById('ac-followup-save-btn').disabled = !loaded;
-    if (!loaded) { document.getElementById('ac-followup-users').innerHTML = '<span class="text-xs text-slate-500">Loading...</span>'; return; }
+    // The previous module's days box goes too, until this module's settings arrive.
+    if (!loaded) { document.getElementById('ac-followup-days-wrap').classList.add('hidden'); document.getElementById('ac-followup-users').innerHTML = '<span class="text-xs text-slate-500">Loading...</span>'; return; }
     const team = (followUpTeams.find(t => t.ScopeKey === scopeKey) || {}).UserIDs || [];
     document.getElementById('ac-followup-days-wrap').classList.toggle('hidden', followUpDaysBefore === null);
     if (followUpDaysBefore !== null) document.getElementById('ac-followup-days').value = followUpDaysBefore;

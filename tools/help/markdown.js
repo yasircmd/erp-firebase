@@ -54,18 +54,20 @@ function render(md) {
       const open = (ordered) => (ordered ? '<ol>' : '<ul>'), close = (ordered) => (ordered ? '</ol>' : '</ul>');
       const topOrdered = /\d/.test(listItem(line)[2]);
       html.push(open(topOrdered));
+      // An item's text is gathered whole before it is formatted, so **bold**
+      // can run over a line break, as in a paragraph.
       let nested = null, item = null;
-      const flushItem = () => { if (item !== null) { html.push('<li>' + item + (nested ? nested.join('') + close(nested.ordered) : '') + '</li>'); item = null; nested = null; } };
+      const flushItem = () => { if (item !== null) { html.push('<li>' + inline(item) + (nested ? open(nested.ordered) + nested.items.map(t => '<li>' + inline(t) + '</li>').join('') + close(nested.ordered) : '') + '</li>'); item = null; nested = null; } };
       while (i < lines.length) {
         const l = lines[i], lm = listItem(l);
-        if (lm && !lm[1]) { flushItem(); item = inline(lm[3]); i++; continue; }
+        if (lm && !lm[1]) { flushItem(); item = lm[3]; i++; continue; }
         if (lm && lm[1]) {
-          if (!nested) { nested = [open(/\d/.test(lm[2]))]; nested.ordered = /\d/.test(lm[2]); }
-          nested.push('<li>' + inline(lm[3]) + '</li>'); i++; continue;
+          if (!nested) nested = { ordered: /\d/.test(lm[2]), items: [] };
+          nested.items.push(lm[3]); i++; continue;
         }
         if (l.trim() && /^\s+\S/.test(l) && item !== null) { // continuation of an item
-          if (nested) nested[nested.length - 1] = nested[nested.length - 1].replace(/<\/li>$/, ' ' + inline(l.trim()) + '</li>');
-          else item += ' ' + inline(l.trim());
+          if (nested) nested.items[nested.items.length - 1] += ' ' + l.trim();
+          else item += ' ' + l.trim();
           i++; continue;
         }
         break;
