@@ -99,3 +99,34 @@ test('spread: evenly or by a pattern, always adding up to the amount', () => {
   assert.deepEqual([p[2], p[3], p[11], p[0]], [300, 300, 600, 0]);
   assert.deepEqual(C.spread(120, zero()), Array(12).fill(10), 'an empty pattern: evenly');
 });
+
+test('a forecast starts from the actuals through its month and the budget after; a P&L actual not budgeted joins, the balance sheet doesn\'t', () => {
+  const budget = { YearStart: '2026-01', Lines: [{ AccountID: 'REV', Amounts: Array(12).fill(100) }, { AccountID: 'RENT', CostCenterID: 'CC1', Amounts: Array(12).fill(30) }] };
+  const rows = C.compare(budget, ACC, [je('2026-01-05', [L('REV', 0, 90), L('CASH', 90, 0)]), je('2026-02-05', [L('RENT', 45, 0, 'CC2'), L('CASH', 0, 45)])]);
+  const lines = C.forecastStart(rows, 1); // actuals through February
+  const by = k => lines.find(l => C.keyOf(l) === k);
+  assert.deepEqual(by('REV||').Amounts.slice(0, 3), [90, 0, 100]);
+  assert.deepEqual(by('RENT|CC1|').Amounts.slice(0, 3), [0, 0, 30]);
+  assert.deepEqual(by('RENT|CC2|').Amounts.slice(0, 3), [0, 45, 0], 'not budgeted: its actuals, nothing ahead');
+  assert.equal(lines.some(l => l.AccountID === 'CASH'), false);
+  assert.equal(C.forecastStart(rows, -1).find(l => l.AccountID === 'REV').Amounts[0], 100, 'no actuals yet: all budget');
+});
+
+test('a forecast saved: its actual months as made, whatever is sent; a line with actuals kept; a new line without actuals', () => {
+  const stored = [{ AccountID: 'REV', CostCenterID: '', ProjectID: '', Amounts: [90, 80].concat(Array(10).fill(100)) },
+    { AccountID: 'RENT', CostCenterID: 'CC1', ProjectID: '', Amounts: [0, 0].concat(Array(10).fill(30)) }];
+  const sent = [{ AccountID: 'REV', CostCenterID: '', ProjectID: '', Amounts: [999, 999].concat(Array(10).fill(120)) },
+    { AccountID: 'RENT', CostCenterID: 'CC2', ProjectID: '', Amounts: [5, 5].concat(Array(10).fill(10)) }];
+  const out = C.lockActuals(stored, sent, 1);
+  assert.deepEqual(out[0].Amounts.slice(0, 3), [90, 80, 120]);
+  assert.deepEqual(out[1].Amounts.slice(0, 3), [0, 0, 10]);
+  assert.throws(() => C.lockActuals(stored, [sent[1]], 1), /has actuals to date/);
+  assert.equal(C.lockActuals(stored, sent.slice(0, 1).concat([stored[1]]), 1).length, 2, 'the rent line without actuals may go too: here kept');
+});
+
+test('the forecast beside Budget vs Actual: on its row, or a row of its own; the year\'s forecast summed', () => {
+  const rows = C.compare({ YearStart: '2026-01', Lines: [{ AccountID: 'REV', Amounts: Array(12).fill(100) }] }, ACC, []);
+  C.attachForecast(rows, [{ AccountID: 'REV', Amounts: Array(12).fill(110) }, { AccountID: 'RENT', CostCenterID: 'CC9', Amounts: at(5, 50) }], ACC);
+  const rev = rows.find(r => r.AccountID === 'REV'), rent = rows.find(r => r.AccountID === 'RENT');
+  assert.deepEqual([rev.YearForecast, rent.YearForecast, rent.Budgeted, rent.AccountType], [1320, 50, false, 'Expense']);
+});

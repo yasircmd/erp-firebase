@@ -20,6 +20,16 @@
 //     Total (the year's budgeted costs: the approval amount), Notes,
 //     ApprovalInstanceID, RejectionReason, History, Created/Updated/Submitted/Approved At, By }
 //   Firestore budgetSetup/{CompanyID} { BalanceSheet: 'Movements' | 'Closing', UpdatedAt, UpdatedBy }
+//
+// Forecasts, step B2 (Q341, Q346-Q347): the expected year of a company's
+// P&L, started from the Current budget, the months through ActualsThrough
+// being the actuals (locked), the months ahead estimates. No approval
+// (Q346): a Draft is changed until Finalised, then kept as it is, so the
+// forecasts of a year show how the expectation moved.
+//   Firestore budgetForecasts/{FC-…} { CompanyID, YearStart, YearLabel, Sequence, Number,
+//     BudgetID (the budget it started from), ActualsThrough (yyyy-mm, or '' for none),
+//     Status: 'Draft' | 'Final', Lines [{ AccountID, AccountCode, AccountName, AccountType,
+//     CostCenterID, ProjectID, Amounts[12] }], Notes, History, Created/Updated/Finalised At, By }
 'use strict';
 const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
@@ -43,6 +53,7 @@ const SETUP_DEFAULTS = { BalanceSheet: 'Movements' };
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 120);
 const actorOf = user => user.profile.username || user.uid;
 const budgets = () => firestore.collection('budgets');
+const forecasts = () => firestore.collection('budgetForecasts');
 const setupDoc = companyId => firestore.collection('budgetSetup').doc(companyId);
 
 async function requireCap(user, cap) {
@@ -71,6 +82,19 @@ async function fiscalStartOf(companyId) {
 }
 async function yearsOf(companyId) {
   return (await budgets().where('CompanyID', '==', companyId).get()).docs.map(d => Object.assign({ BudgetID: d.id }, d.data()));
+}
+async function forecastsOf(companyId) {
+  return (await forecasts().where('CompanyID', '==', companyId).get()).docs.map(d => Object.assign({ ForecastID: d.id }, d.data()));
+}
+async function loadForecast(id) {
+  const snap = await forecasts().doc(text(id, 60)).get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Forecast not found.');
+  return Object.assign({ ForecastID: snap.id }, snap.data());
+}
+function forecastTotals(lines) {
+  const year = types => C.round2((lines || []).filter(l => types.includes(l.AccountType)).reduce((s, l) => s + l.Amounts.reduce((a, v) => a + v, 0), 0));
+  const revenue = year(['Revenue']), costs = year(['COGS', 'Expense']);
+  return { Revenue: revenue, Costs: costs, Profit: C.round2(revenue - costs) };
 }
 const historyWith = (b, event, user, note) => (b.History || []).concat([Object.assign({ Event: event, At: new Date().toISOString(), By: actorOf(user) }, note ? { Note: note } : {})]);
 
@@ -130,9 +154,9 @@ exports.getBudgetSetup = onCallWithMessages(onCallOptions, async (request) => {
   const companyId = text(request.data && request.data.companyId, 80);
   if (!companyId) return { rights };
   requireCompany(user, companyId);
-  const [coa, units, setup, fy, list] = await Promise.all([
+  const [coa, units, setup, fy, list, fcs] = await Promise.all([
     rtdb.ref('coa').get().then(s => s.val() || {}), rtdb.ref('orgUnits').get().then(s => s.val() || {}),
-    setupOf(companyId), fiscalStartOf(companyId), yearsOf(companyId)
+    setupOf(companyId), fiscalStartOf(companyId), yearsOf(companyId), forecastsOf(companyId)
   ]);
   const heading = id => (coa[id] ? { ID: id, Code: String(coa[id].AccountCode || ''), Name: coa[id].AccountName || '', Parent: coa[id].ParentAccountID || '' } : null);
   const headings = {};
@@ -146,7 +170,10 @@ exports.getBudgetSetup = onCallWithMessages(onCallOptions, async (request) => {
     rights, setup: { BalanceSheet: setup.BalanceSheet }, fiscalYearStart: fy, accounts, headings,
     costCenters: unitsFor(units, companyId, 'CostCenter'), projects: unitsFor(units, companyId, 'Project'),
     budgets: list.map(b => { const o = Object.assign({}, b); delete o.Lines; delete o.History; o.LineCount = (b.Lines || []).length; return o; })
-      .sort((a, b) => b.YearStart.localeCompare(a.YearStart) || b.Version - a.Version)
+      .sort((a, b) => b.YearStart.localeCompare(a.YearStart) || b.Version - a.Version),
+    // Each forecast with its year's revenue, costs and profit, to see how the expectation moved.
+    forecasts: fcs.map(f => { const o = Object.assign({}, f, forecastTotals(f.Lines)); delete o.Lines; delete o.History; return o; })
+      .sort((a, b) => b.YearStart.localeCompare(a.YearStart) || b.Sequence - a.Sequence)
   };
 });
 
@@ -350,8 +377,119 @@ exports.getBudgetVsActual = onCallWithMessages(onCallOptions, async (request) =>
     CostCenter: name(r.CostCenterID), Project: name(r.ProjectID)
   })).map(r => Object.assign(r, { Favour: C.favour(r.AccountType, r.YtdBudget, r.YtdActual) }))
     .sort((a, b2) => a.AccountCode.localeCompare(b2.AccountCode, undefined, { numeric: true }) || a.CostCenter.localeCompare(b2.CostCenter) || a.Project.localeCompare(b2.Project));
+  // A forecast of the same company and year beside it (step B2).
+  let forecast = null;
+  if (d.forecastId) {
+    const f = await loadForecast(d.forecastId);
+    if (f.CompanyID !== b.CompanyID || f.YearStart !== b.YearStart) throw new HttpsError('invalid-argument', 'That forecast is of another year.');
+    C.attachForecast(rows, f.Lines, accounts);
+    rows.forEach(r => { if (!r.AccountCode) Object.assign(r, C.totals(r, i), { AccountCode: String((coa[r.AccountID] || {}).AccountCode || ''), AccountName: (coa[r.AccountID] || {}).AccountName || '', Parent: (coa[r.AccountID] || {}).ParentAccountID || '', CostCenter: name(r.CostCenterID), Project: name(r.ProjectID), Favour: 0 }); });
+    forecast = { ForecastID: f.ForecastID, Number: f.Number, ActualsThrough: f.ActualsThrough, Status: f.Status };
+  }
   const versions = (await yearsOf(b.CompanyID)).filter(x => x.YearStart === b.YearStart && x.Status === 'Approved')
     .map(x => ({ BudgetID: x.BudgetID, Number: x.Number, Version: x.Version, Current: Boolean(x.Current) })).sort((a, c) => a.Version - c.Version);
   return { budget: { BudgetID: b.BudgetID, Number: b.Number, YearLabel: b.YearLabel, Status: b.Status, BalanceSheetMethod: b.BalanceSheetMethod, CompanyID: b.CompanyID },
-    months, through, rows, versions };
+    months, through, rows, versions, forecast,
+    forecasts: (await forecastsOf(b.CompanyID)).filter(f => f.YearStart === b.YearStart && f.Status === 'Final')
+      .map(f => ({ ForecastID: f.ForecastID, Number: f.Number, Sequence: f.Sequence })).sort((a, c) => c.Sequence - a.Sequence) };
+});
+
+// ---------- Forecasts (step B2) ----------
+
+// A new forecast of a company's year, from its Current budget (Q347): the
+// actuals through actualsThrough (default: the month before this one, in
+// the year), the budget for the months after. Refused while another of the
+// year is a draft.
+exports.createForecast = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'write');
+  const d = request.data || {};
+  const companyId = text(d.companyId, 80);
+  requireCompany(user, companyId);
+  const yearStart = text(d.yearStart, 7);
+  return withGlobalLock(user.uid, async () => {
+    const budget = (await yearsOf(companyId)).find(b => b.YearStart === yearStart && b.Status === 'Approved' && b.Current);
+    if (!budget) throw new HttpsError('failed-precondition', 'A forecast starts from the year\'s approved budget: approve a budget for ' + (yearStart ? C.yearLabel(yearStart) : 'that year') + ' first.');
+    const year = (await forecastsOf(companyId)).filter(f => f.YearStart === yearStart);
+    const draft = year.find(f => f.Status === 'Draft');
+    if (draft) throw new HttpsError('failed-precondition', draft.Number + ' is still a draft: finalise or delete it first.');
+    const months = C.monthsOf(yearStart);
+    const before = C.addMonths(new Date().toISOString().slice(0, 7), -1);
+    const through = d.actualsThrough === '' ? '' : months.includes(d.actualsThrough) ? d.actualsThrough : before < months[0] ? '' : before > months[11] ? months[11] : before;
+    const a = through ? months.indexOf(through) : -1;
+    const [coa, entries] = await Promise.all([rtdb.ref('coa').get().then(s => s.val() || {}),
+      a >= 0 ? postedEntries(companyId, C.lastDay(through), months[0] + '-01') : []]);
+    const accounts = {};
+    Object.keys(coa).forEach(id => { accounts[id] = { AccountType: coa[id].AccountType }; });
+    const plBudget = Object.assign({}, budget, { Lines: (budget.Lines || []).filter(l => C.isPL(l.AccountType)) });
+    const lines = C.forecastStart(C.compare(plBudget, accounts, entries), a).map(l => {
+      const acc = coa[l.AccountID] || {};
+      return Object.assign(l, { AccountCode: String(acc.AccountCode || ''), AccountName: acc.AccountName || '', AccountType: acc.AccountType || '' });
+    });
+    const now = new Date().toISOString();
+    const seq = year.reduce((m, f) => Math.max(m, f.Sequence || 0), 0) + 1;
+    const id = 'FC-' + randomUUID().split('-')[0].toUpperCase();
+    const f = { CompanyID: companyId, YearStart: yearStart, YearLabel: C.yearLabel(yearStart), Sequence: seq,
+      Number: 'Forecast ' + seq + ' ' + C.yearLabel(yearStart) + (through ? ' (actuals to ' + through + ')' : ''),
+      BudgetID: budget.BudgetID, ActualsThrough: through, Status: 'Draft', Lines: lines, Notes: '',
+      CreatedAt: now, CreatedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user),
+      History: [{ Event: 'Created from ' + budget.Number, At: now, By: actorOf(user) }] };
+    await forecasts().doc(id).set(f);
+    return { success: true, forecastId: id, number: f.Number };
+  });
+});
+
+exports.getForecast = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'access');
+  const f = await loadForecast(request.data && request.data.forecastId);
+  requireCompany(user, f.CompanyID);
+  return Object.assign(f, forecastTotals(f.Lines));
+});
+
+// The months ahead as typed; the actual months stay as the forecast was made.
+exports.saveForecastDraft = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'write');
+  const d = request.data || {};
+  return withGlobalLock(user.uid, async () => {
+    const f = await loadForecast(d.forecastId);
+    requireCompany(user, f.CompanyID);
+    if (f.Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only a draft forecast can be changed.');
+    const [coa, units] = await Promise.all([rtdb.ref('coa').get().then(s => s.val() || {}), rtdb.ref('orgUnits').get().then(s => s.val() || {})]);
+    const cleaned = cleanLines(d.lines, coa, units, f.CompanyID);
+    const notPl = cleaned.find(l => !C.isPL(l.AccountType));
+    if (notPl) throw new Error(notPl.AccountCode + ' is not a P&L account: a forecast is of the P&L.');
+    const a = f.ActualsThrough ? C.monthsOf(f.YearStart).indexOf(f.ActualsThrough) : -1;
+    const lines = C.lockActuals(f.Lines, cleaned, a);
+    await forecasts().doc(f.ForecastID).update({ Lines: lines, Notes: text(d.notes, 1000), UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user) });
+    return Object.assign({ success: true, lines: lines.length }, forecastTotals(lines));
+  });
+});
+
+// Final: kept as it is from now on, and shown beside the budget (Q346: no approval).
+exports.finaliseForecast = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'write');
+  return withGlobalLock(user.uid, async () => {
+    const f = await loadForecast(request.data && request.data.forecastId);
+    requireCompany(user, f.CompanyID);
+    if (f.Status !== 'Draft') throw new HttpsError('failed-precondition', 'This forecast is already final.');
+    const now = new Date().toISOString();
+    await forecasts().doc(f.ForecastID).update({ Status: 'Final', FinalisedAt: now, FinalisedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user),
+      History: historyWith(f, 'Finalised', user) });
+    return { success: true };
+  });
+});
+
+exports.deleteForecastDraft = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'write');
+  return withGlobalLock(user.uid, async () => {
+    const f = await loadForecast(request.data && request.data.forecastId);
+    requireCompany(user, f.CompanyID);
+    if (f.Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only a draft forecast can be deleted.');
+    await forecasts().doc(f.ForecastID).delete();
+    return { success: true };
+  });
 });

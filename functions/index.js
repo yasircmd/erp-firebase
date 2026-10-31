@@ -334,8 +334,9 @@ exports.getProjectReport = require('./src/projectReport').getProjectReport; // d
 ['getTaxConfig', 'saveTaxConfig'].forEach(n => { exports[n] = require('./src/taxConfig')[n]; });
 // Tax Reports (docs/modules/TAX_ENGINE.md, part 5).
 exports.getTaxReport = require('./src/taxReports').getTaxReport;
-// Budget and forecast, step B1 (docs/modules/BUDGET.md).
-['getBudgetSetup', 'getBudget', 'saveBudgetSetup', 'createBudget', 'saveBudgetDraft', 'deleteBudgetDraft', 'submitBudget', 'decideBudgetApproval', 'getBudgetSeed', 'getBudgetVsActual']
+// Budget and forecast, steps B1 and B2 (docs/modules/BUDGET.md).
+['getBudgetSetup', 'getBudget', 'saveBudgetSetup', 'createBudget', 'saveBudgetDraft', 'deleteBudgetDraft', 'submitBudget', 'decideBudgetApproval', 'getBudgetSeed', 'getBudgetVsActual',
+  'createForecast', 'getForecast', 'saveForecastDraft', 'finaliseForecast', 'deleteForecastDraft']
   .forEach(name => { exports[name] = require('./src/budget')[name]; });
 ['previewInvoiceTax', 'previewOrderTax'].forEach(n => { exports[n] = require('./src/salesTax')[n]; }); // TAX_ENGINE.md, parts 2 and 4
 ['previewVendorInvoiceTax'].forEach(n => { exports[n] = require('./src/purchaseTax')[n]; }); // part 3
