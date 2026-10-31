@@ -28,7 +28,10 @@ function onCallWithMessages(options, handler) {
     try {
       // A closed month's payroll / depreciation adjustment the user agreed to
       // (docs/modules/PERIOD_CLOSING.md, step 1c): seen by the GL writer.
-      return await require('./periodLock').runWithConsent((request.data || {}).adjustInOpenMonth, () => handler(request));
+      // ...and a budget overrun the user chose to go ahead with (docs/modules/BUDGET.md, step B3).
+      const d = request.data || {};
+      return await require('./periodLock').runWithConsent(d.adjustInOpenMonth,
+        () => require('./budgetCheck').runWithBudgetConsent(d.budgetConsent, () => handler(request)));
     } catch (err) {
       if (err instanceof HttpsError) throw err;
       console.error(err);

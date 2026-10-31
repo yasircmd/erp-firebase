@@ -100,6 +100,13 @@
       <p class="text-sm font-semibold text-slate-200">Budget Setup for this company</p>
       <div><label for="bud-setup-bs" class="block text-xs font-medium text-slate-300 mb-1">Balance-sheet lines are budgeted as</label>
         <select id="bud-setup-bs" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Movements">Monthly movements (the balance: the actual opening plus the movements)</option><option value="Closing">Month-end closing balances</option></select></div>
+      <div><label for="bud-setup-check" class="block text-xs font-medium text-slate-300 mb-1">The spending check on Purchase Orders and Vendor Invoices</label>
+        <select id="bud-setup-check" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Off">Off: Budget vs Actual only</option><option value="Warn">Warn: over budget, the user is told and may go ahead; the approvers see it</option><option value="Block">Block: refused over budget; who may override goes ahead with a reason</option></select></div>
+      <div><label for="bud-setup-period" class="block text-xs font-medium text-slate-300 mb-1">Checked against the budget of</label>
+        <select id="bud-setup-period" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Month">The document's month</option><option value="YTD">The year to date, through its month</option><option value="Year">The whole year</option></select></div>
+      <div><label for="bud-setup-committed" class="block text-xs font-medium text-slate-300 mb-1">Counted as spent</label>
+        <select id="bud-setup-committed" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Actuals">The posted figures only</option><option value="ActualsAndPOs">The posted figures and open Purchase Orders (approved, not yet received)</option></select></div>
+      <p class="text-xs text-slate-400">The check uses the year's Current budget (a year without an approved one isn't checked); an account and cost centre with no budget line counts as a budget of zero. A Purchase Order counts its lines when submitted, a Vendor Invoice its direct lines when posted; requisitions have no prices and aren't checked.</p>
       <p class="text-xs text-slate-400">A budget keeps the method it was made with: a change here applies to the next budget of a year, and a revision follows its Original. The year starts as set in Period Closing → Setup (<span id="bud-setup-fy"></span>).</p>
       <button id="bud-setup-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
     </div>
@@ -156,8 +163,9 @@
       ctx = s;
       $('bud-new').classList.toggle('hidden', !s.rights.canWrite);
       $('bud-setup-save').disabled = !s.rights.canSetup;
-      $('bud-setup-bs').disabled = !s.rights.canSetup;
+      document.querySelectorAll('#bud-setup-view select').forEach(el => { el.disabled = !s.rights.canSetup; });
       $('bud-setup-bs').value = s.setup.BalanceSheet;
+      $('bud-setup-check').value = s.setup.SpendingCheck; $('bud-setup-period').value = s.setup.CheckPeriod; $('bud-setup-committed').value = s.setup.Committed;
       $('bud-setup-fy').textContent = s.fiscalYearStart === 'Apr' ? 'April to March' : 'January to December';
       // This financial year, the next and the one before.
       const m = new Date().toISOString().slice(0, 7), startMonth = s.fiscalYearStart === 'Apr' ? 4 : 1;
@@ -495,8 +503,8 @@
 
   // ---------- Setup ----------
   function saveSetup() {
-    call('saveBudgetSetup', { companyId: $('bud-company').value, BalanceSheet: $('bud-setup-bs').value })
-      .then(() => { appAlert('Saved. The next budget of a year uses it; budgets already made keep their own.'); return loadCompany(); }, err => appAlert(err.message || 'Unable to save the setup.'));
+    call('saveBudgetSetup', { companyId: $('bud-company').value, BalanceSheet: $('bud-setup-bs').value, SpendingCheck: $('bud-setup-check').value, CheckPeriod: $('bud-setup-period').value, Committed: $('bud-setup-committed').value })
+      .then(() => { appAlert('Saved. The spending check applies from now on; a budget already made keeps its own balance-sheet method.'); return loadCompany(); }, err => appAlert(err.message || 'Unable to save the setup.'));
   }
 
   window.initModule = function () {

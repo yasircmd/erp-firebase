@@ -146,7 +146,7 @@ const MODULE_REGISTRY = [
   // Budget and forecast (docs/modules/BUDGET.md; owner, 2026-10-30): access
   // reads budgets and Budget vs Actual, write prepares and submits them,
   // setup changes each company's Budget Setup; approving is the approval levels'.
-  { id: 'BUDGET', label: 'Budget', capabilities: ['access', 'write', 'setup'] },
+  { id: 'BUDGET', label: 'Budget', capabilities: ['access', 'write', 'setup', 'override'] }, // override: go ahead over budget where the spending check blocks (B3)
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
@@ -290,7 +290,7 @@ const DEFAULT_PERMISSIONS = {
   CLEARANCE:          { access: ['ADMIN', 'FINANCE_MGR'], manage: ['ADMIN'], setup: ['ADMIN'] },
   TAXCONFIG:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], setup: ['ADMIN'] },
   TAXREPORTS:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
-  BUDGET:             { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'] },
+  BUDGET:             { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };

@@ -130,3 +130,23 @@ test('the forecast beside Budget vs Actual: on its row, or a row of its own; the
   const rev = rows.find(r => r.AccountID === 'REV'), rent = rows.find(r => r.AccountID === 'RENT');
   assert.deepEqual([rev.YearForecast, rent.YearForecast, rent.Budgeted, rent.AccountType], [1320, 50, false, 'Expense']);
 });
+
+test('the spending check: over the year to date, the month or the year; spent, committed and this document; no line is budget zero; within budget nothing', () => {
+  const budget = { YearStart: '2026-01', Lines: [{ AccountID: 'RENT', CostCenterID: 'CC1', Amounts: Array(12).fill(100) }] };
+  const entries = [je('2026-01-10', [L('RENT', 150, 0, 'CC1'), L('CASH', 0, 150)])];
+  const doc = [{ AccountID: 'RENT', CostCenterID: 'CC1', ProjectID: '', Amount: 30 }];
+  const committed = [{ AccountID: 'RENT', CostCenterID: 'CC1', ProjectID: '', Amount: 40, Month: 1 }];
+  // Year to date through February: budget 200, spent 150, committed 40, this 30: over by 20.
+  const [f] = C.overruns(budget, ACC, entries, doc, committed, 1, 'YTD');
+  assert.deepEqual([f.Budget, f.Spent, f.Committed, f.Document, f.Over, f.Budgeted], [200, 150, 40, 30, 20, true]);
+  assert.equal(C.overruns(budget, ACC, entries, doc, [], 1, 'YTD').length, 0, 'actuals only: 180 of 200');
+  // February alone: budget 100, nothing spent in February, the order 40, this 30: within.
+  assert.equal(C.overruns(budget, ACC, entries, doc, committed, 1, 'Month').length, 0);
+  // The year: budget 1,200.
+  assert.equal(C.overruns(budget, ACC, entries, [{ AccountID: 'RENT', CostCenterID: 'CC1', Amount: 1100 }], committed, 1, 'Year')[0].Over, 90);
+  // No budget line (another cost centre's rent, the company line absent): budget zero (Q349).
+  const [z] = C.overruns(budget, ACC, entries, [{ AccountID: 'RENT', CostCenterID: 'CC2', Amount: 10 }], [], 1, 'YTD');
+  assert.deepEqual([z.Budgeted, z.Budget, z.Over], [false, 0, 10]);
+  // A credit (a revenue account on an invoice's line) is not spending; the balance sheet of a P&L budget isn't checked.
+  assert.equal(C.overruns(budget, ACC, entries, [{ AccountID: 'REV', Amount: 50 }, { AccountID: 'CASH', Amount: 999 }], [], 1, 'YTD').length, 0);
+});

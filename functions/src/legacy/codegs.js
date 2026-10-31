@@ -9,6 +9,7 @@ const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, fire
 const __approvalRegistry = require('../approvalRegistry');
 const __approvals = require('../approvals');
 const __auth = require('../auth');
+const __budgetCheck = require('../budgetCheck');
 const __coaScheme = require('../coaScheme');
 const __coaUsage = require('../coaUsage');
 const __companies = require('../companies');
@@ -52,6 +53,7 @@ const computeStockMovement_ = (idToken, ...a) => __stockMovement.computeStockMov
 const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEntry(...a);
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a);
+const budgetCheckDocument_ = (idToken, ...a) => __budgetCheck.checkDocument(...a);
 const generateItemCode_ = (idToken, ...a) => __numbering.itemCode(...a);
 const generateAccountCode_ = (...a) => __coaScheme.generateCode(...a);
 const isCashOrBankAccount_ = (...a) => __coaScheme.isCashOrBank(...a);
@@ -3624,6 +3626,9 @@ async function postVendorInvoice(idToken, invoiceId) {
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
+    // [NEW DEVELOPMENT budget-check-vi] the budget's spending check (docs/modules/BUDGET.md, step B3).
+    const budgetCheck = await budgetCheckDocument_(idToken, user, 'VENDORINVOICE', existing);
+    await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', { BudgetCheck: budgetCheck || null }, idToken);
 
     const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
@@ -9843,6 +9848,8 @@ async function submitPurchaseOrder(idToken, poId) {
 
     const mergedLines = mergeMatchingPOLines_(existing.Lines);
     const mergedTotal = mergedLines.reduce((sum, l) => sum + l.LineTotal, 0);
+    // [NEW DEVELOPMENT budget-check-po] the budget's spending check (docs/modules/BUDGET.md, step B3).
+    const budgetCheck = await budgetCheckDocument_(idToken, user, 'PURCHASEORDER', Object.assign({}, existing, { POID: poId, Lines: mergedLines }));
 
     const year = (new Date(existing.PODate)).getFullYear() || new Date().getFullYear();
     const poNumber = await generateVoucherNumber_(idToken, 'PO', year, existing.CompanyID);
@@ -9857,7 +9864,8 @@ async function submitPurchaseOrder(idToken, poId) {
 
     const fields = {
       Lines: mergedLines, Total: mergedTotal,
-      PONumber: poNumber, SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+      PONumber: poNumber, SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+      BudgetCheck: budgetCheck || null // [NEW DEVELOPMENT budget-check-po-record]
     };
     if (approval.required) {
       fields.Status = 'PendingApproval';
