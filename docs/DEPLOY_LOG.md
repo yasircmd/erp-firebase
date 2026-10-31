@@ -1599,3 +1599,24 @@ from, and how it was verified. The deploy procedure is in the
   (18:34–18:35 UTC), success: public/sw.js with cache `erp-shell-v2` (Help
   waits for the network; v1's kept copies dropped when the new worker
   takes over), What's new. No function, screens release or rules change.
+- **2026-10-30/31, Budget step B1 (`budget-b1`, PR #192, from `1097021`):**
+  - "database rules", run
+    [#247](https://github.com/yasircmd/erp-firebase/actions/runs/41126051129)
+    (20:48–20:49 UTC), success: `deployed indexes in
+    firestore.indexes.json` (journalEntries by CompanyID and JVDate);
+    rules and indexes deployed to the client corporates 900, C101 and
+    C102.
+  - Every function with `--screens`, run
+    [#248](https://github.com/yasircmd/erp-firebase/actions/runs/41126283526)
+    (20:50–23:04 UTC), success: `SUMMARY: functions deployed: 613 (…
+    createBudget decideBudgetApproval deleteBudgetDraft getBudget
+    getBudgetSeed getBudgetSetup getBudgetVsActual saveBudgetDraft
+    saveBudgetSetup submitBudget …); access granted: 613; screens
+    released: yes`, then Hosting from the release.
+  - "hosting", run
+    [#249](https://github.com/yasircmd/erp-firebase/actions/runs/41171187104)
+    (2026-10-31 05:06 UTC), success.
+  - Still to do in the app: provide Budget to the client corporates in
+    the Developer screen; link a menu node to "Budget" where the tree has
+    none; set "Budget" in Approval Configuration if budgets should be
+    approved.

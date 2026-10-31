@@ -163,6 +163,8 @@ Each step with tests, Help (a new page in Finance), What's new.
 
 ## As built: step B1 (2026-10-30)
 
+Live 2026-10-31 (PR #192; runs #247 rules and the index, #248 every function and the screens, #249 Hosting).
+
 - **Server** (hand-written): `functions/src/budgetCalc.js` (pure: the
   year's months and label, natural signs, which budget line an actual
   line counts against, budget against actual, year to date, favourable,
