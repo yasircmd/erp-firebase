@@ -5,8 +5,8 @@ order: 12
 modules: [DATARESET]
 sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
 summary: Clear test data module by module, or rebuild the stock balances, before going live.
-reviewed: 2026-10-30
-fingerprint: fcc7a0784794cb09
+reviewed: 2026-10-31
+fingerprint: ad1cbb37519b7edd
 ---
 ## What it is for
 
@@ -42,7 +42,8 @@ data.
   Approval Configuration, Tax Configuration, Budget Setup, and the numbering formats and
   settings (with the Rep Cash Clearing account).
 
-**Budgets** (a transaction) are every version of every company's budget;
+**Budgets** (a transaction) are every version of every company's budget,
+and every forecast;
 the chart of accounts and the org units can't be cleared while budgets
 use them.
 
