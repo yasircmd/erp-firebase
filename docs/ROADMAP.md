@@ -1207,7 +1207,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Deployed with `tools/deploy-functions.sh trial-balance-period --screens`.
 - [ ] **Customer credit control** (from Customer SOA decision C1): a
   credit limit on Customer Master and a warning on new Sales Orders for
-  overdue or over-limit customers. Needs its own design doc. Design started 2026-10-31: [CREDIT_CONTROL.md](modules/CREDIT_CONTROL.md) (Q360–Q365 decided 2026-10-31: a limit per customer per company; exposure a per-company setting; overdue and a manual hold checked too; at Sales Order confirm and Customer Invoice post, Off/Warn/Block with an override). Build C1 (limits, holds, settings, report), then C2 (the check).
+  overdue or over-limit customers. Needs its own design doc. Design started 2026-10-31: [CREDIT_CONTROL.md](modules/CREDIT_CONTROL.md) (Q360–Q365 decided 2026-10-31: a limit per customer per company; exposure a per-company setting; overdue and a manual hold checked too; at Sales Order confirm and Customer Invoice post, Off/Warn/Block with an override). **C1 built** 2026-10-31 (limits and holds per customer per company, Credit Control Setup, the exposure report; [As built](modules/CREDIT_CONTROL.md#as-built-step-c1-2026-10-31)); next C2 (the check on Sales Order confirm and Customer Invoice post).
 - [x] **Party Payments UI check timing** (2026-09-26): it now waits for
   elements and options instead of fixed times; 3/3 right after an
   emulator restart (was 0/3).

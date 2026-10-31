@@ -6,7 +6,7 @@ modules: [DATARESET]
 sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
 summary: Clear test data module by module, or rebuild the stock balances, before going live.
 reviewed: 2026-10-31
-fingerprint: ad1cbb37519b7edd
+fingerprint: 8b91a19c9bbbb05d
 ---
 ## What it is for
 
@@ -37,9 +37,9 @@ data.
   barcodes; the chart of accounts; companies; org units; sales types;
   customer classifications; BOMs; vendors; customers; price lists; the
   inventory valuation list; requisition categories; currencies and
-  exchange rates; shareholders; employees.
+  exchange rates; shareholders; employees; credit limits and holds.
 - **Setup:** HR Setup, Payroll Setup (with the employee request types),
-  Approval Configuration, Tax Configuration, Budget Setup, and the numbering formats and
+  Approval Configuration, Tax Configuration, Budget Setup, Credit Control Setup, and the numbering formats and
   settings (with the Rep Cash Clearing account).
 
 **Budgets** (a transaction) are every version of every company's budget,
