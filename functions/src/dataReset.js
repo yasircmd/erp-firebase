@@ -72,9 +72,13 @@ const CATEGORIES = {
     detail: 'Every barcode given to an item; generated barcodes restart.' },
   currencies: { label: 'Currencies & Exchange Rates', group: M, rtdb: ['currencies', 'exchangeRates'], count: ['currencies'], 
     detail: 'The currencies and their exchange rates. The default currency is set again in Currency Configuration.' },
+  creditLimits: { label: 'Credit Limits & Holds', group: M, fs: ['creditLimits'], records: 'creditLimits',
+    detail: 'Each company\'s credit limit and credit hold for each customer, with their history.' },
   shareholders: { label: 'Shareholders', group: M, rtdb: ['companyShareholders'],
     detail: 'Each company\'s shareholders and issued shares.' },
 
+  creditSetup: { label: 'Credit Control Setup', group: S, fs: ['creditSetup'],
+    detail: 'Each company\'s Credit Control Setup; the defaults (check off) apply until it is set again.' },
   budgetSetup: { label: 'Budget Setup', group: S, fs: ['budgetSetup'],
     detail: 'Each company\'s Budget Setup; the defaults apply until it is set again. Budgets already made keep their own method.' },
   taxConfig: { label: 'Tax Configuration', group: S, fs: ['taxConfig', 'taxCodeUse'],

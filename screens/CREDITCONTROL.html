@@ -1,0 +1,175 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Receivable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-hand-holding-dollar text-blue-500"></i> Credit Control</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="cc-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="cc-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div class="flex gap-1 pb-0.5" role="tablist">
+        <button class="cc-tab bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-tab="customers">Customers</button>
+        <button class="cc-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="setup">Setup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Customers: limits, holds, exposure ---------- -->
+  <div id="cc-customers-view" class="space-y-3">
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label for="cc-search" class="block text-xs font-medium text-slate-300 mb-1">Find a customer</label><input id="cc-search" type="search" placeholder="Code or name" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-56"></div>
+      <label class="flex items-center gap-1 text-xs text-slate-300 pb-2"><input id="cc-attention" type="checkbox"> Only those on hold, over their limit or overdue</label>
+      <button id="cc-refresh" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-rotate"></i> Refresh</button>
+      <button id="cc-copy" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy</button>
+    </div>
+    <p id="cc-basis" class="text-xs text-slate-400 max-w-4xl"></p>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm whitespace-nowrap"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Customer</th><th class="py-2 px-3 text-right">Credit limit</th><th class="py-2 px-3 text-right">Receivable</th><th class="py-2 px-3 text-right cc-orders-col">Delivered, not invoiced</th><th class="py-2 px-3 text-right cc-orders-col">Open orders</th>
+        <th class="py-2 px-3 text-right">Exposure</th><th class="py-2 px-3 text-right">Available</th><th class="py-2 px-3 text-right">Overdue</th><th class="py-2 px-3">Standing</th><th class="py-2 px-3"></th></tr></thead>
+        <tbody id="cc-body"></tbody></table>
+    </div>
+    <div id="cc-detail" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
+      <div class="flex items-center justify-between"><p id="cc-detail-title" class="font-semibold text-slate-100"></p><button id="cc-detail-close" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded">Close</button></div>
+      <div id="cc-detail-body" class="grid md:grid-cols-3 gap-4 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- ---------- Setup ---------- -->
+  <div id="cc-setup-view" class="hidden space-y-4 max-w-2xl">
+    <div><label for="cc-setup-check" class="block text-xs font-medium text-slate-300 mb-1">The credit check (on confirming a Sales Order and posting a Customer Invoice)</label>
+      <select id="cc-setup-check" class="cc-setup bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Off">Off: not checked</option><option value="Warn">Warn: the user confirms, the approvers see it</option><option value="Block">Block: refused, unless someone with the override right gives a reason</option></select></div>
+    <div><label for="cc-setup-exposure" class="block text-xs font-medium text-slate-300 mb-1">Counted against the limit</label>
+      <select id="cc-setup-exposure" class="cc-setup bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="ReceivableAndOrders">What it owes, deliveries not yet invoiced and open Sales Orders</option><option value="Receivable">What it owes only</option></select></div>
+    <div><label for="cc-setup-grace" class="block text-xs font-medium text-slate-300 mb-1">Overdue after (days past the due date)</label>
+      <input id="cc-setup-grace" type="number" min="0" max="365" step="1" class="cc-setup w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <p class="text-xs text-slate-400">The check itself comes with the next step: for now the setting is kept, and the Customers tab shows each customer's standing as it would be judged.</p>
+    <button id="cc-setup-save" class="cc-setup bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const plain = n => (n === null || n === undefined ? '' : String(Math.round((Number(n) || 0) * 100) / 100));
+  const STANDING = { Hold: ['On hold', 'bg-red-500/20 text-red-300'], OverLimit: ['Over the limit', 'bg-amber-500/20 text-amber-300'], Overdue: ['Overdue', 'bg-orange-500/20 text-orange-300'] };
+
+  let ctx = null; // getCreditControl for the chosen company
+
+  function tab(name) {
+    document.querySelectorAll('.cc-tab').forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on); b.classList.toggle('bg-slate-700', !on); });
+    $('cc-customers-view').classList.toggle('hidden', name !== 'customers');
+    $('cc-setup-view').classList.toggle('hidden', name !== 'setup');
+  }
+
+  function load() {
+    const companyId = $('cc-company').value;
+    if (!companyId) return Promise.resolve();
+    $('cc-body').innerHTML = '<tr><td colspan="10" class="py-3 px-3 text-slate-400">Loading…</td></tr>';
+    return call('getCreditControl', { companyId }).then(r => { ctx = r; render(); renderSetup(); }, err => {
+      $('cc-body').innerHTML = '<tr><td colspan="10" class="py-3 px-3 text-red-300">' + esc(err.message || 'Unable to load.') + '</td></tr>';
+    });
+  }
+
+  function visible() {
+    const q = $('cc-search').value.trim().toLowerCase(), attention = $('cc-attention').checked;
+    return ctx.rows.filter(r => (!q || (r.Code + ' ' + r.Name).toLowerCase().includes(q)) && (!attention || r.Flags.length));
+  }
+
+  function render() {
+    const s = ctx.setup, orders = s.Exposure !== 'Receivable';
+    document.querySelectorAll('.cc-orders-col').forEach(c => c.classList.toggle('hidden', !orders));
+    $('cc-basis').textContent = 'Amounts in ' + (ctx.base || 'the base currency') + ', as at ' + ctx.today + '. Exposure is what the customer owes (open invoices less credits not applied; cheques in hand count until they clear)' +
+      (orders ? ', plus deliveries not yet invoiced and confirmed Sales Orders not yet delivered, at their prices before tax' : '') +
+      '. Overdue: invoices more than ' + s.GraceDays + ' day' + (s.GraceDays === 1 ? '' : 's') + ' past their due date. A blank limit is no limit; 0 is cash only.';
+    const rows = visible();
+    if (!rows.length) { $('cc-body').innerHTML = '<tr><td colspan="10" class="py-3 px-3 text-slate-400">No customers to show.</td></tr>'; return; }
+    const canWrite = ctx.rights.canWrite, canHold = ctx.rights.canHold;
+    $('cc-body').innerHTML = rows.map(r => {
+      const limit = canWrite
+        ? '<input class="cc-limit w-28 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-right font-mono" inputmode="decimal" value="' + esc(plain(r.Limit)) + '" aria-label="Credit limit of ' + esc(r.Name) + '">'
+        : (r.Limit === null ? '<span class="text-slate-500">none</span>' : fmt(r.Limit));
+      const flags = r.Flags.map(f => '<span class="text-xs px-2 py-0.5 rounded ' + STANDING[f][1] + '">' + STANDING[f][0] + '</span>').join(' ') || '<span class="text-xs text-emerald-400">Good</span>';
+      const hold = canHold ? '<button class="cc-hold text-xs px-2 py-1 rounded ' + (r.Hold ? 'bg-emerald-700 hover:bg-emerald-600' : 'bg-red-800 hover:bg-red-700') + ' text-white">' + (r.Hold ? 'Lift hold' : 'Put on hold') + '</button>' : '';
+      return '<tr class="border-b border-slate-800" data-id="' + esc(r.CustomerID) + '">' +
+        '<td class="py-2 px-3"><button class="cc-open text-left hover:underline">' + esc(r.Code + ' ' + r.Name) + '</button>' + (r.Hold ? '<div class="text-xs text-red-300">' + esc(r.HoldReason) + ' (' + esc(r.HoldBy) + ')</div>' : '') + '</td>' +
+        '<td class="py-2 px-3 text-right font-mono">' + limit + '</td>' +
+        '<td class="py-2 px-3 text-right font-mono">' + fmt(r.Receivable) + (r.ChequesInHand ? '<div class="text-xs text-slate-400" title="Cheques in hand, still in the receivable until they clear">cheques ' + fmt(r.ChequesInHand) + '</div>' : '') + '</td>' +
+        (orders ? '<td class="py-2 px-3 text-right font-mono">' + fmt(r.Deliveries) + '</td><td class="py-2 px-3 text-right font-mono">' + fmt(r.Orders) + '</td>' : '') +
+        '<td class="py-2 px-3 text-right font-mono font-semibold">' + fmt(r.Exposure) + '</td>' +
+        '<td class="py-2 px-3 text-right font-mono ' + (r.Available !== null && r.Available < 0 ? 'text-red-400' : '') + '">' + (r.Available === null ? '' : fmt(r.Available)) + '</td>' +
+        '<td class="py-2 px-3 text-right font-mono">' + (r.Overdue ? fmt(r.Overdue) + '<div class="text-xs text-slate-400">' + r.OverdueDays + ' days</div>' : '') + '</td>' +
+        '<td class="py-2 px-3">' + flags + '</td>' +
+        '<td class="py-2 px-3 text-right space-x-1">' + (canWrite ? '<button class="cc-save-limit text-xs px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white">Save limit</button>' : '') + hold + '</td></tr>';
+    }).join('');
+  }
+
+  function renderSetup() {
+    const s = ctx.setup;
+    $('cc-setup-check').value = s.Check; $('cc-setup-exposure').value = s.Exposure; $('cc-setup-grace').value = s.GraceDays;
+    document.querySelectorAll('.cc-setup').forEach(el => { el.disabled = !ctx.rights.canSetup; });
+    $('cc-setup-save').classList.toggle('hidden', !ctx.rights.canSetup);
+  }
+
+  function detail(id) {
+    const r = ctx.rows.find(x => x.CustomerID === id);
+    if (!r) return;
+    $('cc-detail-title').textContent = r.Code + ' ' + r.Name + (r.Terms ? ' (' + r.Terms + ' days\' terms)' : '');
+    const list = (title, items, cols) => '<div><p class="font-semibold text-slate-300 mb-1">' + title + '</p>' + (items.length
+      ? '<table class="w-full"><tbody>' + items.map(cols).join('') + '</tbody></table>' : '<p class="text-slate-500">None.</p>') + '</div>';
+    $('cc-detail-body').innerHTML =
+      list('Open items (receivable)', r.Docs.Receivable, d => '<tr class="border-b border-slate-800"><td class="py-1 pr-2">' + esc(d.Number || d.Type) + '</td><td class="py-1 pr-2">due ' + esc(d.DueDate) + '</td><td class="py-1 pr-2 ' + (d.Age > ctx.setup.GraceDays && d.Amount > 0 ? 'text-orange-300' : 'text-slate-400') + '">' + (d.Age > 0 && d.Amount > 0 ? d.Age + ' days over' : '') + '</td><td class="py-1 text-right font-mono">' + fmt(d.Amount) + '</td></tr>') +
+      list('Delivered, not yet invoiced', r.Docs.Deliveries, d => '<tr class="border-b border-slate-800"><td class="py-1 pr-2">' + esc(d.Number) + '</td><td class="py-1 pr-2">' + esc(d.Date) + '</td><td class="py-1 text-right font-mono">' + fmt(d.Amount) + '</td></tr>') +
+      list('Open Sales Orders (still to deliver)', r.Docs.Orders, d => '<tr class="border-b border-slate-800"><td class="py-1 pr-2">' + esc(d.Number) + '</td><td class="py-1 pr-2">' + esc(d.Date) + '</td><td class="py-1 text-right font-mono">' + fmt(d.Amount) + '</td></tr>');
+    $('cc-detail').classList.remove('hidden');
+  }
+
+  function saveLimit(tr) {
+    const value = tr.querySelector('.cc-limit').value.replace(/,/g, '').trim();
+    call('saveCreditLimit', { companyId: $('cc-company').value, customerId: tr.dataset.id, limit: value })
+      .then(() => load(), err => appAlert(err.message || 'Unable to save the limit.'));
+  }
+  async function toggleHold(tr) {
+    const r = ctx.rows.find(x => x.CustomerID === tr.dataset.id);
+    const reason = await appPrompt(r.Hold ? 'Lift the hold on ' + r.Name + '? A note, if you wish:' : 'Put ' + r.Name + ' on credit hold. The reason:', '');
+    if (reason === null) return;
+    if (!r.Hold && !reason.trim()) { appAlert('Give the reason for the hold.'); return; }
+    call('setCreditHold', { companyId: $('cc-company').value, customerId: r.CustomerID, hold: !r.Hold, reason })
+      .then(() => load(), err => appAlert(err.message || 'Unable to change the hold.'));
+  }
+  async function copy() {
+    if (!ctx) return;
+    const orders = ctx.setup.Exposure !== 'Receivable';
+    const head = ['Code', 'Customer', 'Credit limit', 'Receivable', 'Cheques in hand'].concat(orders ? ['Delivered, not invoiced', 'Open orders'] : [], ['Exposure', 'Available', 'Overdue', 'Days overdue', 'On hold', 'Standing']);
+    const text = [head.join('\t')].concat(visible().map(r => [r.Code, r.Name, plain(r.Limit), plain(r.Receivable), plain(r.ChequesInHand)]
+      .concat(orders ? [plain(r.Deliveries), plain(r.Orders)] : [], [plain(r.Exposure), plain(r.Available), plain(r.Overdue), r.OverdueDays || '', r.Hold ? r.HoldReason : '', r.Flags.map(f => STANDING[f][0]).join(', ')]).join('\t'))).join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => appAlert('Copied: paste it into Excel.'), async () => (await appPrompt('Copy this text:', text)));
+    else await appPrompt('Copy this text:', text);
+  }
+  function saveSetup() {
+    call('saveCreditSetup', { companyId: $('cc-company').value, Check: $('cc-setup-check').value, Exposure: $('cc-setup-exposure').value, GraceDays: Number($('cc-setup-grace').value) })
+      .then(() => { appAlert('Saved.'); return load(); }, err => appAlert(err.message || 'Unable to save the setup.'));
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-hand-holding-dollar"></i> Credit Control';
+    document.querySelectorAll('.cc-tab').forEach(b => b.addEventListener('click', () => tab(b.dataset.tab)));
+    $('cc-company').addEventListener('change', () => { $('cc-detail').classList.add('hidden'); load(); });
+    $('cc-search').addEventListener('input', () => { if (ctx) render(); });
+    $('cc-attention').addEventListener('change', () => { if (ctx) render(); });
+    $('cc-refresh').addEventListener('click', load);
+    $('cc-copy').addEventListener('click', copy);
+    $('cc-detail-close').addEventListener('click', () => $('cc-detail').classList.add('hidden'));
+    $('cc-setup-save').addEventListener('click', saveSetup);
+    $('cc-body').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+      if (e.target.closest('.cc-open')) detail(tr.dataset.id);
+      else if (e.target.closest('.cc-save-limit')) saveLimit(tr);
+      else if (e.target.closest('.cc-hold')) toggleHold(tr);
+    });
+    $('cc-body').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('cc-limit')) saveLimit(e.target.closest('tr')); });
+    call('getActiveCompanies', {}).then(list => {
+      $('cc-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+    }, () => {}).then(load);
+  };
+})();
+</script>

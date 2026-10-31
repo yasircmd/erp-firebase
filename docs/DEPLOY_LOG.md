@@ -1648,3 +1648,11 @@ from, and how it was verified. The deploy procedure is in the
   run [#255](https://github.com/yasircmd/erp-firebase/actions/runs/41209187468)
   (14:14–14:15 UTC), success. No rules change. With the budget consent in
   its own module, later budget changes deploy only the budget's closure.
+- **2026-10-31, Budget step B5, life-of-project budgets (`budget-b5`, PR #196,
+  from `7d38b18`):** `tools/deploy-sets/budget-b5.txt` (20 functions, new
+  getProjectBudgetReport) with `--screens`, run
+  [#256](https://github.com/yasircmd/erp-firebase/actions/runs/41219913980)
+  (16:29–16:36 UTC), success. "hosting", run
+  [#257](https://github.com/yasircmd/erp-firebase/actions/runs/41223693637)
+  (17:16–17:17 UTC), success. No rules change. Project budgets start off
+  (within each year); each company's choice is in Budget → Setup.

@@ -340,6 +340,8 @@ exports.getTaxReport = require('./src/taxReports').getTaxReport;
   .forEach(name => { exports[name] = require('./src/budget')[name]; });
 exports.getCashForecast = require('./src/cashForecast').getCashForecast; // step B4
 exports.getProjectBudgetReport = require('./src/budget').getProjectBudgetReport; // step B5
+// Customer credit control, step C1 (docs/modules/CREDIT_CONTROL.md).
+['getCreditControl', 'saveCreditLimit', 'setCreditHold', 'saveCreditSetup'].forEach(n => { exports[n] = require('./src/creditControl')[n]; });
 ['previewInvoiceTax', 'previewOrderTax'].forEach(n => { exports[n] = require('./src/salesTax')[n]; }); // TAX_ENGINE.md, parts 2 and 4
 ['previewVendorInvoiceTax'].forEach(n => { exports[n] = require('./src/purchaseTax')[n]; }); // part 3
 // Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).

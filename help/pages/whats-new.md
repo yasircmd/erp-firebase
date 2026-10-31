@@ -12,6 +12,13 @@ screen.
 
 ## 31/10/2026
 
+- **Credit Control.** A new screen, [Credit Control](credit-control.html),
+  gives each customer a credit limit in each company, and a credit hold
+  with its reason. It shows what each customer owes, what it has been
+  delivered but not invoiced and its open orders, against its limit, with
+  what is overdue: those on hold, over their limit or overdue first. The
+  check on Sales Orders and Customer Invoices follows next.
+
 - **Project budgets for a project's whole life.** Where a company chooses
   it in [Budget](budget.html#a-project-s-whole-life) Setup, a project gets
   a budget of its own: one amount per account for its whole life,

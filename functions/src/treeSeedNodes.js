@@ -37,6 +37,8 @@ const TREE_SEED_NODES = [
   { text: 'PDC Issued', depth: 3, moduleId: 'PDCISSUED' },
   { text: 'Accounts Receivable (FI-AR)', depth: 2 },
   { text: 'Customer Master Data & Credit Limits', depth: 3 },
+  // New development (not in Code.gs): docs/modules/CREDIT_CONTROL.md.
+  { text: 'Credit Control', depth: 3, moduleId: 'CREDITCONTROL' },
   // New development (not in Code.gs): docs/modules/SALES_RETURN.md.
   { text: 'Sales Return / Credit Note', depth: 3, moduleId: 'SALESRETURN' },
   // New development (not in Code.gs): docs/modules/CUSTOMER_SOA.md.

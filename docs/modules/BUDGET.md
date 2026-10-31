@@ -452,6 +452,8 @@ Live 2026-10-31 (PR #195; runs #254 every function and the screens, #255 Hosting
 
 ## As built: step B5, life-of-project budgets (2026-10-31)
 
+Live 2026-10-31 (PR #196; runs #256 functions and screens, #257 Hosting).
+
 - **Setting (Q343):** Budget Setup's `ProjectBudgets`: `WithinYear` (to
   start) or `LifeOfProject`. Only with the second can a project budget be
   created.
