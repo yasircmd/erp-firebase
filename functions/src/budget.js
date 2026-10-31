@@ -21,7 +21,14 @@
 //     ApprovalInstanceID, RejectionReason, History, Created/Updated/Submitted/Approved At, By }
 //   Firestore budgetSetup/{CompanyID} { BalanceSheet: 'Movements' | 'Closing', SpendingCheck: 'Off' | 'Warn' | 'Block',
 //     CheckPeriod: 'Month' | 'YTD' | 'Year', Committed: 'Actuals' | 'ActualsAndPOs',
-//     CashForecast: 'OpenItemsAndBudget' | 'OpenItems' | 'Budget' (cashForecast.js, step B4), UpdatedAt, UpdatedBy }
+//     CashForecast: 'OpenItemsAndBudget' | 'OpenItems' | 'Budget' (cashForecast.js, step B4),
+//     ProjectBudgets: 'WithinYear' | 'LifeOfProject' (step B5), UpdatedAt, UpdatedBy }
+//
+// Life-of-project budgets, step B5 (Q343, Q357-Q359), where the company's
+// setting allows them: the same budgets collection, Kind 'Project', with a
+// ProjectID and no year (YearStart ''), each line one amount for the
+// project's whole life (Amounts [total]) per P&L account; approved, revised
+// and Current per project as a year's budget is per year (scopeOf).
 //   (the spending check, step B3, is budgetCheck.js)
 //
 // Forecasts, step B2 (Q341, Q346-Q347): the expected year of a company's
@@ -52,15 +59,16 @@ const LABEL = 'Budget';
 const MAX_LINES = 5000;
 const OPEN = ['Draft', 'Rejected', 'PendingApproval'];
 const EDITABLE = ['Draft', 'Rejected'];
-// Budget Setup's settings and where they start (Q342, Q344, Q345, Q348, Q350).
+// Budget Setup's settings and where they start (Q342, Q343, Q344, Q345, Q348, Q350).
 const SETUP_OPTIONS = {
   BalanceSheet: ['Movements', 'Closing'],
   SpendingCheck: ['Off', 'Warn', 'Block'],
   CheckPeriod: ['Month', 'YTD', 'Year'],
   Committed: ['Actuals', 'ActualsAndPOs'],
-  CashForecast: ['OpenItemsAndBudget', 'OpenItems', 'Budget']
+  CashForecast: ['OpenItemsAndBudget', 'OpenItems', 'Budget'],
+  ProjectBudgets: ['WithinYear', 'LifeOfProject']
 };
-const SETUP_DEFAULTS = { BalanceSheet: 'Movements', SpendingCheck: 'Warn', CheckPeriod: 'YTD', Committed: 'ActualsAndPOs', CashForecast: 'OpenItemsAndBudget' };
+const SETUP_DEFAULTS = { BalanceSheet: 'Movements', SpendingCheck: 'Warn', CheckPeriod: 'YTD', Committed: 'ActualsAndPOs', CashForecast: 'OpenItemsAndBudget', ProjectBudgets: 'WithinYear' };
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 120);
 const actorOf = user => user.profile.username || user.uid;
 const budgets = () => firestore.collection('budgets');
@@ -107,6 +115,8 @@ function forecastTotals(lines) {
   const revenue = year(['Revenue']), costs = year(['COGS', 'Expense']);
   return { Revenue: revenue, Costs: costs, Profit: C.round2(revenue - costs) };
 }
+// What a version belongs to: its year, or its project (step B5).
+const scopeOf = b => (b.Kind === 'Project' ? 'P:' + b.ProjectID : b.YearStart);
 const historyWith = (b, event, user, note) => (b.History || []).concat([Object.assign({ Event: event, At: new Date().toISOString(), By: actorOf(user) }, note ? { Note: note } : {})]);
 
 // The accounts a company can budget: active, postable, its own or shared.
@@ -121,7 +131,7 @@ function unitsFor(units, companyId, type) {
 
 // The lines as saved: known accounts and units of the company, a dimension
 // the account doesn't use refused, each account / cost centre / project once.
-function cleanLines(raw, coa, units, companyId) {
+function cleanLines(raw, coa, units, companyId, project) {
   const list = Array.isArray(raw) ? raw : [];
   if (list.length > MAX_LINES) throw new Error('A budget can have up to ' + MAX_LINES + ' lines.');
   const allowed = new Set(accountsFor(coa, companyId));
@@ -131,13 +141,15 @@ function cleanLines(raw, coa, units, companyId) {
     const at = 'Line ' + (i + 1) + ': ';
     const id = text(l.AccountID, 60), a = coa[id];
     if (!allowed.has(id)) throw new Error(at + 'choose an active, postable account of this company.');
-    const cc = text(l.CostCenterID, 60), pj = text(l.ProjectID, 60);
+    // A project's life budget: per P&L account, one amount, the project's own (Q357).
+    if (project && !C.isPL(a.AccountType)) throw new Error(at + 'a project budget is of revenue and costs: ' + a.AccountCode + ' is not.');
+    const cc = project ? '' : text(l.CostCenterID, 60), pj = project ? project : text(l.ProjectID, 60);
     if (cc && !unitOk(cc, 'CostCenter')) throw new Error(at + 'that cost centre is not one of this company\'s.');
     if (pj && !unitOk(pj, 'Project')) throw new Error(at + 'that project is not one of this company\'s.');
     const rules = rulesOf(a, coa);
     if (cc && rules.CostCenter === 'NotUsed') throw new Error(at + a.AccountCode + ' does not use cost centres.');
     if (pj && rules.Project === 'NotUsed') throw new Error(at + a.AccountCode + ' does not use projects.');
-    const line = { AccountID: id, AccountCode: String(a.AccountCode || ''), AccountName: a.AccountName || '', AccountType: a.AccountType || '', CostCenterID: cc, ProjectID: pj, Amounts: C.amountsOf(l.Amounts) };
+    const line = { AccountID: id, AccountCode: String(a.AccountCode || ''), AccountName: a.AccountName || '', AccountType: a.AccountType || '', CostCenterID: cc, ProjectID: pj, Amounts: C.amountsOf(l.Amounts, project ? 1 : 12) };
     const k = C.keyOf(line);
     if (seen.has(k)) throw new Error(at + a.AccountCode + (cc ? ' / ' + units[cc].Code : '') + (pj ? ' / ' + units[pj].Code : '') + ' is on the budget twice.');
     seen.add(k);
@@ -232,6 +244,8 @@ exports.createBudget = onCallWithMessages(onCallOptions, async (request) => {
   const d = request.data || {};
   const companyId = text(d.companyId, 80);
   requireCompany(user, companyId);
+  // A project's life budget (step B5), where the company's setting allows it.
+  if (d.projectId) return createProjectBudget(user, companyId, text(d.projectId, 60));
   const yearStart = text(d.yearStart, 7);
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(yearStart)) throw new HttpsError('invalid-argument', 'Choose the financial year.');
   const fy = await fiscalStartOf(companyId);
@@ -260,6 +274,29 @@ exports.createBudget = onCallWithMessages(onCallOptions, async (request) => {
   });
 });
 
+async function createProjectBudget(user, companyId, projectId) {
+  if ((await setupOf(companyId)).ProjectBudgets !== 'LifeOfProject') throw new HttpsError('failed-precondition', 'This company budgets projects within each year: set life-of-project budgets in Budget Setup first.');
+  const unit = (await rtdb.ref('orgUnits/' + projectId).get()).val();
+  if (!unit || unit.Type !== 'Project' || (unit.CompanyID && unit.CompanyID !== companyId)) throw new HttpsError('invalid-argument', 'Choose a project of this company.');
+  return withGlobalLock(user.uid, async () => {
+    const mine = (await yearsOf(companyId)).filter(b => b.Kind === 'Project' && b.ProjectID === projectId);
+    const open = mine.find(b => OPEN.includes(b.Status));
+    if (open) throw new HttpsError('failed-precondition', open.Number + ' is still ' + (open.Status === 'PendingApproval' ? 'waiting for approval' : 'being prepared') + ': finish it first.');
+    const current = mine.find(b => b.Status === 'Approved' && b.Current);
+    const version = current ? Math.max(...mine.filter(b => b.Status === 'Approved').map(b => b.Version)) + 1 : 0;
+    const now = new Date().toISOString();
+    const id = 'BUD-' + randomUUID().split('-')[0].toUpperCase();
+    const label = (unit.Code || '') + ' ' + (unit.Name || '');
+    const b = { CompanyID: companyId, Kind: 'Project', ProjectID: projectId, ProjectLabel: label.trim(), YearStart: '', YearLabel: 'Life of project',
+      Version: version, Number: 'Project budget ' + (unit.Code || projectId) + ' ' + C.versionLabel(version), Status: 'Draft', Current: false,
+      BalanceSheetMethod: 'Movements', Lines: current ? current.Lines : [], Total: current ? current.Total : 0, Notes: '',
+      CreatedAt: now, CreatedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user),
+      History: [{ Event: current ? 'Revision started from ' + current.Number : 'Created', At: now, By: actorOf(user) }] };
+    await budgets().doc(id).set(b);
+    return { success: true, budgetId: id, number: b.Number };
+  });
+}
+
 exports.saveBudgetDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'write');
@@ -269,7 +306,7 @@ exports.saveBudgetDraft = onCallWithMessages(onCallOptions, async (request) => {
     requireCompany(user, b.CompanyID);
     if (!EDITABLE.includes(b.Status)) throw new HttpsError('failed-precondition', 'Only a draft or rejected budget can be changed.');
     const [coa, units] = await Promise.all([rtdb.ref('coa').get().then(s => s.val() || {}), rtdb.ref('orgUnits').get().then(s => s.val() || {})]);
-    const lines = cleanLines(d.lines, coa, units, b.CompanyID);
+    const lines = cleanLines(d.lines, coa, units, b.CompanyID, b.Kind === 'Project' ? b.ProjectID : '');
     const now = new Date().toISOString();
     await budgets().doc(b.BudgetID).update({ Lines: lines, Total: C.approvalAmount(lines), Notes: text(d.notes, 1000), UpdatedAt: now, UpdatedBy: actorOf(user) });
     return { success: true, lines: lines.length, total: C.approvalAmount(lines) };
@@ -293,7 +330,7 @@ exports.deleteBudgetDraft = onCallWithMessages(onCallOptions, async (request) =>
 // Approved: this version becomes Current, the one before it stays, approved, for comparison.
 async function commitApproval(user, b, event) {
   const now = new Date().toISOString();
-  const others = (await yearsOf(b.CompanyID)).filter(x => x.YearStart === b.YearStart && x.BudgetID !== b.BudgetID && x.Current);
+  const others = (await yearsOf(b.CompanyID)).filter(x => scopeOf(x) === scopeOf(b) && x.BudgetID !== b.BudgetID && x.Current);
   const batch = firestore.batch();
   others.forEach(x => batch.update(budgets().doc(x.BudgetID), { Current: false, UpdatedAt: now }));
   batch.update(budgets().doc(b.BudgetID), { Status: 'Approved', Current: true, RejectionReason: '', ApprovedAt: now, ApprovedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user),
@@ -376,6 +413,7 @@ exports.getBudgetVsActual = onCallWithMessages(onCallOptions, async (request) =>
   const d = request.data || {};
   const b = await load(d.budgetId);
   requireCompany(user, b.CompanyID);
+  if (b.Kind === 'Project') throw new HttpsError('invalid-argument', 'A project budget is compared in its own report.');
   const months = C.monthsOf(b.YearStart);
   const thisMonth = new Date().toISOString().slice(0, 7);
   const through = months.includes(d.through) ? d.through : thisMonth < months[0] ? months[0] : thisMonth > months[11] ? months[11] : thisMonth;
@@ -508,6 +546,25 @@ exports.deleteForecastDraft = onCallWithMessages(onCallOptions, async (request) 
     await forecasts().doc(f.ForecastID).delete();
     return { success: true };
   });
+});
+
+// A project's life budget against all its actuals to date (step B5, Q357):
+// per account the budget, the actual, what is left and the % used.
+exports.getProjectBudgetReport = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'access');
+  const b = await load(request.data && request.data.budgetId);
+  requireCompany(user, b.CompanyID);
+  if (b.Kind !== 'Project') throw new HttpsError('invalid-argument', 'That is not a project budget.');
+  const today = require('./recurringSchedule').todayIn('Asia/Dubai');
+  const [coa, entries] = await Promise.all([rtdb.ref('coa').get().then(s => s.val() || {}), postedEntries(b.CompanyID, today)]);
+  const accounts = {};
+  Object.keys(coa).forEach(id => { accounts[id] = { AccountType: coa[id].AccountType }; });
+  const rows = C.projectLife(b, accounts, entries).map(r => Object.assign(r, { AccountCode: String((coa[r.AccountID] || {}).AccountCode || ''), AccountName: (coa[r.AccountID] || {}).AccountName || '' }))
+    .sort((x, y) => x.AccountCode.localeCompare(y.AccountCode, undefined, { numeric: true }));
+  const versions = (await yearsOf(b.CompanyID)).filter(x => scopeOf(x) === scopeOf(b) && x.Status === 'Approved')
+    .map(x => ({ BudgetID: x.BudgetID, Number: x.Number, Version: x.Version, Current: Boolean(x.Current) })).sort((x, y) => x.Version - y.Version);
+  return { budget: { BudgetID: b.BudgetID, Number: b.Number, ProjectLabel: b.ProjectLabel, CompanyID: b.CompanyID, ProjectID: b.ProjectID }, asOf: today, rows, versions };
 });
 
 // For the spending check (budgetCheck.js): plain helpers, not callables.

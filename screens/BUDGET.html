@@ -17,6 +17,7 @@
   <div id="bud-list-view" class="space-y-3">
     <div class="flex flex-wrap items-end gap-2">
       <div><label for="bud-new-year" class="block text-xs font-medium text-slate-300 mb-1">Financial year</label><select id="bud-new-year" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div id="bud-new-project-wrap" class="hidden"><label for="bud-new-project" class="block text-xs font-medium text-slate-300 mb-1">Or a project's whole life</label><select id="bud-new-project" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
       <button id="bud-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New budget or revision</button>
     </div>
     <p class="text-xs text-slate-400 max-w-3xl">A budget is a company's financial year: an amount per account per month, a line optionally for a cost centre or project. The first approved budget of a year is its Original; a change later is a Revision, approved again, and becomes the Current one. Every approved version is kept.</p>
@@ -126,6 +127,8 @@
         <select id="bud-setup-committed" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Actuals">The posted figures only</option><option value="ActualsAndPOs">The posted figures and open Purchase Orders (approved, not yet received)</option></select></div>
       <div><label for="bud-setup-cash" class="block text-xs font-medium text-slate-300 mb-1">The cash flow forecast comes from</label>
         <select id="bud-setup-cash" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="OpenItemsAndBudget">Open items for the 13 weeks, then the budget</option><option value="OpenItems">Open items only</option><option value="Budget">The budget only</option></select></div>
+      <div><label for="bud-setup-projects" class="block text-xs font-medium text-slate-300 mb-1">Projects are budgeted</label>
+        <select id="bud-setup-projects" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="WithinYear">Within each year only (a line with the project)</option><option value="LifeOfProject">Also for each project's whole life</option></select></div>
       <p class="text-xs text-slate-400">The check uses the year's Current budget (a year without an approved one isn't checked); an account and cost centre with no budget line counts as a budget of zero. A Purchase Order counts its lines when submitted, a Vendor Invoice its direct lines when posted; requisitions have no prices and aren't checked.</p>
       <p class="text-xs text-slate-400">A budget keeps the method it was made with: a change here applies to the next budget of a year, and a revision follows its Original. The year starts as set in Period Closing → Setup (<span id="bud-setup-fy"></span>).</p>
       <button id="bud-setup-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
@@ -157,6 +160,8 @@
   let pendingOpenId = null;
   // The grid holds a budget, or a forecast (current.ForecastID): its months through `lock` are actuals.
   const isFc = () => Boolean(current && current.ForecastID);
+  // A project's life budget (step B5): one amount per account, for the project's whole life.
+  const isLife = () => Boolean(current && current.Kind === 'Project');
   let lock = -1;
 
   const acc = id => (ctx.accounts.find(a => a.AccountID === id) || {});
@@ -186,7 +191,9 @@
       $('bud-setup-save').disabled = !s.rights.canSetup;
       document.querySelectorAll('#bud-setup-view select').forEach(el => { el.disabled = !s.rights.canSetup; });
       $('bud-setup-bs').value = s.setup.BalanceSheet;
-      $('bud-setup-check').value = s.setup.SpendingCheck; $('bud-setup-period').value = s.setup.CheckPeriod; $('bud-setup-committed').value = s.setup.Committed; $('bud-setup-cash').value = s.setup.CashForecast;
+      $('bud-setup-check').value = s.setup.SpendingCheck; $('bud-setup-period').value = s.setup.CheckPeriod; $('bud-setup-committed').value = s.setup.Committed; $('bud-setup-cash').value = s.setup.CashForecast; $('bud-setup-projects').value = s.setup.ProjectBudgets;
+      $('bud-new-project-wrap').classList.toggle('hidden', s.setup.ProjectBudgets !== 'LifeOfProject');
+      $('bud-new-project').innerHTML = '<option value="">None (the year)</option>' + s.projects.map(u => '<option value="' + esc(u.ID) + '">' + esc(unitText(u)) + '</option>').join('');
       $('bud-setup-fy').textContent = s.fiscalYearStart === 'Apr' ? 'April to March' : 'January to December';
       // This financial year, the next and the one before.
       const m = new Date().toISOString().slice(0, 7), startMonth = s.fiscalYearStart === 'Apr' ? 4 : 1;
@@ -221,7 +228,7 @@
       current = b; lock = -1; lines = (b.Lines || []).map(l => Object.assign({}, l, { Amounts: l.Amounts.slice() })); patterns = null;
       $('bud-list-view').classList.add('hidden'); $('bud-entry-view').classList.remove('hidden');
       $('bud-entry-title').textContent = b.Number;
-      $('bud-entry-sub').textContent = (STATUS[b.Status] || b.Status) + (b.Current ? ' · Current' : '') + ' · balance-sheet lines as ' + (b.BalanceSheetMethod === 'Closing' ? 'month-end closing balances' : 'monthly movements');
+      $('bud-entry-sub').textContent = (STATUS[b.Status] || b.Status) + (b.Current ? ' · Current' : '') + (b.Kind === 'Project' ? ' · project ' + (b.ProjectLabel || b.ProjectID) + ', its whole life' : ' · balance-sheet lines as ' + (b.BalanceSheetMethod === 'Closing' ? 'month-end closing balances' : 'monthly movements'));
       $('bud-rejected').classList.toggle('hidden', b.Status !== 'Rejected');
       $('bud-rejected').textContent = b.Status === 'Rejected' ? 'Rejected: ' + (b.RejectionReason || '') : '';
       $('bud-notes').value = b.Notes || '';
@@ -238,7 +245,10 @@
 
   // What the entry view offers: a budget's tools, or a forecast's.
   function showKind() {
-    document.querySelectorAll('.bud-budget-only').forEach(el => el.classList.toggle('hidden', isFc() || !editable()));
+    document.querySelectorAll('.bud-budget-only').forEach(el => el.classList.toggle('hidden', isFc() || isLife() || !editable()));
+    ['bud-add-cc', 'bud-add-project'].forEach(id => $(id).parentElement.classList.toggle('hidden', isLife()));
+    // A project's life budget is submitted and approved as a year's is.
+    if (isLife()) $('bud-submit').classList.toggle('hidden', !editable());
     $('bud-finalise').classList.toggle('hidden', !(isFc() && editable()));
     if (isFc()) ['bud-approve', 'bud-reject', 'bud-to-report', 'bud-rejected'].forEach(id => $(id).classList.add('hidden'));
   }
@@ -285,9 +295,9 @@
   }
 
   function renderGrid() {
-    const months = monthsOf(current.YearStart), ed = editable();
+    const months = isLife() ? ['Whole life'] : monthsOf(current.YearStart), ed = editable();
     $('bud-grid-head').innerHTML = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2 sticky left-0 bg-slate-900">Account</th><th class="py-2 px-2">Cost centre</th><th class="py-2 px-2">Project</th>' +
-      months.map((m, i) => '<th class="py-2 px-2 text-right' + (i <= lock ? ' bg-slate-800/60' : '') + '">' + esc(m) + (i <= lock ? '<br><span class="normal-case font-normal">actual</span>' : '') + '</th>').join('') + '<th class="py-2 px-2 text-right">Year</th><th></th></tr>';
+      months.map((m, i) => '<th class="py-2 px-2 text-right' + (i <= lock ? ' bg-slate-800/60' : '') + '">' + esc(m) + (i <= lock ? '<br><span class="normal-case font-normal">actual</span>' : '') + '</th>').join('') + (isLife() ? '' : '<th class="py-2 px-2 text-right">Year</th>') + '<th></th></tr>';
     const sorted = lines.map((l, i) => ({ l, i })).sort((a, b) => TYPE_ORDER.indexOf(acc(a.l.AccountID).AccountType) - TYPE_ORDER.indexOf(acc(b.l.AccountID).AccountType)
       || String(acc(a.l.AccountID).AccountCode).localeCompare(String(acc(b.l.AccountID).AccountCode), undefined, { numeric: true }));
     $('bud-grid-body').innerHTML = sorted.length ? sorted.map(({ l, i }) => {
@@ -296,16 +306,16 @@
         '<td class="py-1 px-2 text-xs">' + esc(unitText(unit(ctx.costCenters, l.CostCenterID)) || (l.CostCenterID ? l.CostCenterID : 'The company')) + '</td>' +
         '<td class="py-1 px-2 text-xs">' + esc(unitText(unit(ctx.projects, l.ProjectID)) || l.ProjectID || '') + '</td>' +
         l.Amounts.map((v, m) => '<td class="py-1 px-1 text-right' + (m <= lock ? ' bg-slate-800/60' : '') + '">' + (ed && m > lock ? '<input class="bud-amt w-24 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-right font-mono text-xs" data-m="' + m + '" value="' + esc(v || '') + '" inputmode="decimal">' : '<span class="font-mono">' + fmt(v) + '</span>') + '</td>').join('') +
-        '<td class="py-1 px-1 text-right">' + (ed ? '<input class="bud-year w-28 bg-slate-800 border border-slate-600 rounded py-1 px-1 text-right font-mono text-xs" value="' + esc(total || '') + '" title="A year total: spread over the months">' : '<span class="font-mono">' + fmt(total) + '</span>') + '</td>' +
+        (isLife() ? '' : '<td class="py-1 px-1 text-right">' + (ed ? '<input class="bud-year w-28 bg-slate-800 border border-slate-600 rounded py-1 px-1 text-right font-mono text-xs" value="' + esc(total || '') + '" title="A year total: spread over the months">' : '<span class="font-mono">' + fmt(total) + '</span>') + '</td>') +
         '<td class="py-1 px-2">' + (ed && !l.Amounts.slice(0, lock + 1).some(v => v) ? '<button class="bud-del text-slate-400 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>';
     }).join('') : '<tr><td colspan="17" class="py-4 px-3 text-sm text-slate-400">' + (isFc() ? 'No lines.' : 'No lines yet: add one, fill from last year, or paste from Excel.') + '</td></tr>';
     renderTotals();
   }
   // The P&L at the foot: revenue, costs and the result, month by month.
   function renderTotals() {
-    const sum = types => Array.from({ length: 12 }, (_, m) => r2(lines.filter(l => types.includes(acc(l.AccountID).AccountType)).reduce((s, l) => s + (Number(l.Amounts[m]) || 0), 0)));
+    const sum = types => Array.from({ length: isLife() ? 1 : 12 }, (_, m) => r2(lines.filter(l => types.includes(acc(l.AccountID).AccountType)).reduce((s, l) => s + (Number(l.Amounts[m]) || 0), 0)));
     const rev = sum(['Revenue']), cost = sum(['COGS', 'Expense']), res = rev.map((v, m) => r2(v - cost[m]));
-    const row = (label, a, cls) => '<tr class="' + cls + '"><td class="py-1 px-2 sticky left-0 bg-slate-900 font-semibold" colspan="3">' + label + '</td>' + a.map(v => '<td class="py-1 px-2 text-right font-mono">' + fmt(v) + '</td>').join('') + '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(a.reduce((s, v) => s + v, 0)) + '</td><td></td></tr>';
+    const row = (label, a, cls) => '<tr class="' + cls + '"><td class="py-1 px-2 sticky left-0 bg-slate-900 font-semibold" colspan="3">' + label + '</td>' + a.map(v => '<td class="py-1 px-2 text-right font-mono">' + fmt(v) + '</td>').join('') + (isLife() ? '' : '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(a.reduce((s, v) => s + v, 0)) + '</td>') + '<td></td></tr>';
     $('bud-grid-foot').innerHTML = row('Revenue', rev, 'text-slate-300') + row('Costs (cost of sales and expenses)', cost, 'text-slate-300') + row('Profit', res, 'border-t border-slate-600 text-slate-100');
   }
   function spreadYear(i, annual) {
@@ -339,10 +349,11 @@
   }
 
   function addLine() {
-    const l = { AccountID: $('bud-add-account').value, CostCenterID: $('bud-add-cc').value, ProjectID: $('bud-add-project').value, Amounts: Array(12).fill(0) };
+    const l = isLife() ? { AccountID: $('bud-add-account').value, CostCenterID: '', ProjectID: current.ProjectID, Amounts: [0] }
+      : { AccountID: $('bud-add-account').value, CostCenterID: $('bud-add-cc').value, ProjectID: $('bud-add-project').value, Amounts: Array(12).fill(0) };
     if (!l.AccountID) return;
     const a = acc(l.AccountID);
-    if (isFc() && !PL.includes(a.AccountType)) { appAlert('A forecast is of the P&L: choose a revenue, cost of sales or expense account.'); return; }
+    if ((isFc() || isLife()) && !PL.includes(a.AccountType)) { appAlert((isFc() ? 'A forecast' : 'A project budget') + ' is of the P&L: choose a revenue, cost of sales or expense account.'); return; }
     if (l.CostCenterID && !a.UsesCostCenter) { appAlert(a.AccountCode + ' does not use cost centres.'); return; }
     if (l.ProjectID && !a.UsesProject) { appAlert(a.AccountCode + ' does not use projects.'); return; }
     if (lines.some(x => keyOf(x) === keyOf(l))) { appAlert('That line is already on the budget.'); return; }
@@ -369,6 +380,15 @@
       if (c[2] && c[2].trim() && !pj) { problems.push('Row ' + (n + 1) + ': project "' + c[2].trim() + '" not found.'); return; }
       const nums = c.slice(3).map(v => Number(String(v).replace(/,/g, '').trim() || 0));
       if (nums.some(v => !isFinite(v)) || (nums.length !== 12 && nums.length !== 1)) { problems.push('Row ' + (n + 1) + ': give twelve months or one year total.'); return; }
+      if (isLife()) {
+        // A project's life budget: one amount per account, the project's own.
+        if (!PL.includes(a.AccountType)) { problems.push('Row ' + (n + 1) + ': ' + a.AccountCode + ' is not a P&L account.'); return; }
+        const total = r2(nums.reduce((t, v) => t + v, 0)), lp = { AccountID: a.AccountID, CostCenterID: '', ProjectID: current.ProjectID, Amounts: [total] };
+        const k = lines.findIndex(x => keyOf(x) === keyOf(lp));
+        if (k >= 0) lines[k] = lp; else lines.push(lp);
+        added.push(lp);
+        return;
+      }
       const l = { AccountID: a.AccountID, CostCenterID: cc ? cc.ID : '', ProjectID: pj ? pj.ID : '', Amounts: nums.length === 12 ? nums.map(r2) : Array(12).fill(0) };
       if (isFc() && !PL.includes(a.AccountType)) { problems.push('Row ' + (n + 1) + ': ' + a.AccountCode + ' is not a P&L account.'); return; }
       const i = lines.findIndex(x => keyOf(x) === keyOf(l));
@@ -407,6 +427,13 @@
     call('deleteBudgetDraft', { budgetId: current.BudgetID }).then(() => { current = null; return loadCompany().then(() => tab('list')); }, err => appAlert(err.message || 'Unable to delete the budget.'));
   }
   async function newBudget() {
+    const project = $('bud-new-project').value;
+    if (project) {
+      const label = $('bud-new-project').selectedOptions[0].textContent;
+      if (!(await appConfirm('Start a budget for the whole life of project ' + label + '? If one is already approved, this starts a revision of it.'))) return;
+      call('createBudget', { companyId: $('bud-company').value, projectId: project }).then(r => loadCompany().then(() => openBudget(r.budgetId)), err => appAlert(err.message || 'Unable to start the budget.'));
+      return;
+    }
     const year = $('bud-new-year').value;
     if (!(await appConfirm('Start a budget for ' + yearLabel(year) + '? If one is already approved, this starts a revision of it.'))) return;
     call('createBudget', { companyId: $('bud-company').value, yearStart: year }).then(r => loadCompany().then(() => openBudget(r.budgetId)), err => appAlert(err.message || 'Unable to start the budget.'));
@@ -424,7 +451,8 @@
   }
   function fillThrough() {
     const b = (ctx.budgets || []).find(x => x.BudgetID === $('bud-rep-budget').value);
-    if (!b) { $('bud-rep-through').innerHTML = ''; return; }
+    ['bud-rep-through', 'bud-rep-forecast', 'bud-rep-level'].forEach(id => $(id).parentElement.classList.toggle('hidden', Boolean(b && b.Kind === 'Project')));
+    if (!b || b.Kind === 'Project') { $('bud-rep-through').innerHTML = ''; $('bud-rep-forecast').innerHTML = ''; return; }
     const months = monthsOf(b.YearStart), now = new Date().toISOString().slice(0, 7);
     $('bud-rep-through').innerHTML = months.map(m => '<option value="' + m + '">' + esc(m) + '</option>').join('');
     $('bud-rep-through').value = now < months[0] ? months[0] : now > months[11] ? months[11] : now;
@@ -437,6 +465,11 @@
     const budgetId = $('bud-rep-budget').value;
     if (!budgetId) { appAlert('Approve a budget first.'); return; }
     $('bud-rep-out').innerHTML = '<p class="p-4 text-xs text-slate-500">Working it out…</p>';
+    const chosen = (ctx.budgets || []).find(x => x.BudgetID === budgetId);
+    if (chosen && chosen.Kind === 'Project') {
+      call('getProjectBudgetReport', { budgetId }).then(r => { report = null; renderLife(r); }, err => { $('bud-rep-out').innerHTML = ''; appAlert(err.message || 'Unable to run the report.'); });
+      return;
+    }
     call('getBudgetVsActual', { budgetId, through: $('bud-rep-through').value, forecastId: $('bud-rep-forecast').value }).then(r => { report = r; renderReport(); },
       err => { $('bud-rep-out').innerHTML = ''; appAlert(err.message || 'Unable to run the report.'); });
   }
@@ -504,6 +537,21 @@
       '<table class="w-full text-left text-sm whitespace-nowrap"><thead>' + head + '</thead><tbody>' + (html || '<tr><td class="p-4 text-slate-400">Nothing budgeted or posted in this year.</td></tr>') + '</tbody></table>';
     $('bud-rep-copy').classList.remove('hidden');
   }
+  // A project's life budget against all its actuals to date (step B5).
+  function renderLife(r) {
+    const row = x => { const fav = favour(x.AccountType, x.Budget, x.Actual);
+      return '<tr class="border-b border-slate-800"><td class="py-1 px-2">' + esc(x.AccountCode + ' ' + x.AccountName) + (x.Budgeted ? '' : ' <span class="text-xs text-amber-300">not budgeted</span>') + '</td>' +
+        '<td class="py-1 px-2 text-right font-mono">' + fmt(x.Budget) + '</td><td class="py-1 px-2 text-right font-mono">' + fmt(x.Actual) + '</td>' +
+        '<td class="py-1 px-2 text-right font-mono ' + (fav > 0 ? 'text-emerald-400' : fav < 0 ? 'text-red-400' : '') + '">' + fmt(x.Left) + '</td><td class="py-1 px-2 text-right text-xs">' + (x.Used == null ? '' : esc(x.Used + '%')) + '</td></tr>'; };
+    const total = types => r.rows.filter(x => types.includes(x.AccountType)).reduce((t, x) => ({ Budget: r2(t.Budget + x.Budget), Actual: r2(t.Actual + x.Actual) }), { Budget: 0, Actual: 0 });
+    const rev = total(['Revenue']), cost = total(['COGS', 'Expense']);
+    const sumRow = (label, b, a) => '<tr class="font-semibold text-slate-200 border-t border-slate-600"><td class="py-1 px-2">' + label + '</td><td class="py-1 px-2 text-right font-mono">' + fmt(b) + '</td><td class="py-1 px-2 text-right font-mono">' + fmt(a) + '</td><td class="py-1 px-2 text-right font-mono">' + fmt(r2(b - a)) + '</td><td></td></tr>';
+    $('bud-rep-out').innerHTML = '<div class="px-3 pt-3 text-sm text-slate-300">' + esc(r.budget.Number) + ' · ' + esc(r.budget.ProjectLabel || '') + ' · actuals to ' + esc(r.asOf) + '</div>' +
+      '<table class="w-full text-left text-sm whitespace-nowrap"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2">Account</th><th class="py-2 px-2 text-right">Life budget</th><th class="py-2 px-2 text-right">Actual to date</th><th class="py-2 px-2 text-right">Left</th><th class="py-2 px-2 text-right">Used</th></tr></thead><tbody>' +
+      r.rows.map(row).join('') + sumRow('Revenue', rev.Budget, rev.Actual) + sumRow('Costs', cost.Budget, cost.Actual) + sumRow('Margin', r2(rev.Budget - cost.Budget), r2(rev.Actual - cost.Actual)) + '</tbody></table>';
+    $('bud-rep-copy').classList.add('hidden');
+  }
+
   // The GL lines behind an actual: one account (the first of a heading's), its cost centre and project, the month or the year to date.
   function drill(i, period) {
     const g = reportRows[i], r = g.rows[0];
@@ -572,7 +620,7 @@
 
   // ---------- Setup ----------
   function saveSetup() {
-    call('saveBudgetSetup', { companyId: $('bud-company').value, BalanceSheet: $('bud-setup-bs').value, SpendingCheck: $('bud-setup-check').value, CheckPeriod: $('bud-setup-period').value, Committed: $('bud-setup-committed').value, CashForecast: $('bud-setup-cash').value })
+    call('saveBudgetSetup', { companyId: $('bud-company').value, BalanceSheet: $('bud-setup-bs').value, SpendingCheck: $('bud-setup-check').value, CheckPeriod: $('bud-setup-period').value, Committed: $('bud-setup-committed').value, CashForecast: $('bud-setup-cash').value, ProjectBudgets: $('bud-setup-projects').value })
       .then(() => { appAlert('Saved. The spending check applies from now on; a budget already made keeps its own balance-sheet method.'); return loadCompany(); }, err => appAlert(err.message || 'Unable to save the setup.'));
   }
 

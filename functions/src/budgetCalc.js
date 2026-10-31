@@ -30,9 +30,11 @@ const keyOf = l => [l.AccountID, l.CostCenterID || '', l.ProjectID || ''].join('
 const versionLabel = v => (v ? 'Revision ' + v : 'Original');
 
 // A budget line's twelve amounts, rounded; anything else refused.
-function amountsOf(raw) {
+// n: 12 (a year's months), or 1 (a project's life, step B5).
+function amountsOf(raw, n) {
+  const want = n || 12;
   const a = Array.isArray(raw) ? raw : [];
-  if (a.length !== 12) throw new Error('Each budget line needs twelve monthly amounts.');
+  if (a.length !== want) throw new Error(want === 12 ? 'Each budget line needs twelve monthly amounts.' : 'Each line of a project budget needs one amount.');
   return a.map(v => {
     if (v === '' || v == null) return 0;
     const n = Number(v);
@@ -371,4 +373,48 @@ function cashForecast(buckets, items, budgetFlows, mode, opening, today) {
   return { rows: list, net, closing, overdue, detail };
 }
 
-module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread, forecastStart, lockActuals, attachForecast, overruns, addDays, cashBuckets, netPartyItems, budgetCash, cashForecast };
+// ---------- Life-of-project budgets (step B5; Q343, Q357, Q359) ----------
+// A project's life budget against all its actuals to date: per P&L account,
+// in natural signs, every posted line carrying the project (the years
+// before, the year-end close left out); an account with actuals and no
+// budget line comes as not budgeted. Each row: Budget, Actual, Left, Used (%).
+function projectLife(budget, accounts, entries) {
+  const rows = new Map();
+  const typeOf = id => (accounts[id] || {}).AccountType || '';
+  const row = (id, budgeted) => {
+    if (!rows.has(id)) rows.set(id, { AccountID: id, AccountType: typeOf(id), Budgeted: budgeted, Budget: 0, Actual: 0 });
+    return rows.get(id);
+  };
+  (budget.Lines || []).forEach(l => { row(l.AccountID, true).Budget = round2((l.Amounts || [0])[0]); });
+  (entries || []).forEach(e => {
+    if (e.VoucherType === 'YearEndClose') return;
+    (e.Lines || []).forEach(l => {
+      if (l.ProjectID !== budget.ProjectID || !isPL(typeOf(l.AccountID))) return;
+      const r = row(l.AccountID, false);
+      r.Actual = round2(r.Actual + natural(r.AccountType, l.Debit, l.Credit));
+    });
+  });
+  return [...rows.values()].map(r => Object.assign(r, { Left: round2(r.Budget - r.Actual), Used: r.Budget ? Math.round(r.Actual / r.Budget * 1000) / 10 : null,
+    Favour: favour(r.AccountType, r.Budget, r.Actual) }));
+}
+
+// A document's lines against a project's life budget (Q359): per P&L
+// account, the life budget against all the project's actuals to date and
+// this document; no line, budget zero (Q349). Only lines of that project.
+function projectOverruns(budget, accounts, entries, document) {
+  const life = new Map(projectLife(budget, accounts, entries).map(r => [r.AccountID, r]));
+  const out = new Map();
+  (document || []).forEach(l => {
+    const type = (accounts[l.AccountID] || {}).AccountType || '';
+    if (l.ProjectID !== budget.ProjectID || !isPL(type)) return;
+    if (!out.has(l.AccountID)) {
+      const r = life.get(l.AccountID);
+      out.set(l.AccountID, { Key: 'life|' + l.AccountID, Life: true, AccountID: l.AccountID, CostCenterID: '', ProjectID: budget.ProjectID, AccountType: type,
+        Budgeted: Boolean(r && r.Budgeted), Budget: r ? r.Budget : 0, Spent: r ? r.Actual : 0, Committed: 0, Document: 0 });
+    }
+    out.get(l.AccountID).Document = round2(out.get(l.AccountID).Document + natural(type, l.Amount, 0));
+  });
+  return [...out.values()].map(f => Object.assign(f, { Over: round2(f.Spent + f.Document - f.Budget) })).filter(f => f.Document > 0 && f.Over > 0.005);
+}
+
+module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread, forecastStart, lockActuals, attachForecast, overruns, addDays, cashBuckets, netPartyItems, budgetCash, cashForecast, projectLife, projectOverruns };

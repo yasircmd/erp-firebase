@@ -1,0 +1,28 @@
+# Budget and forecast, step B5: life-of-project budgets (owner, 2026-10-31;
+# docs/modules/BUDGET.md, Q343, Q357-Q359).
+# The budget's own functions, and the Purchase Order submit and Vendor
+# Invoice post (the spending check). One function is new (deploy-functions.sh
+# binds its invoker): getProjectBudgetReport. Run WITH --screens (the Budget
+# screen), then the "hosting" task (the Help). No rules or index change.
+# After it: to keep project budgets, set Budget → Setup → Projects are
+# budgeted to "also for each project's whole life".
+createBudget
+createForecast
+decideBudgetApproval
+deleteBudgetDraft
+deleteForecastDraft
+finaliseForecast
+getBudget
+getBudgetSeed
+getBudgetSetup
+getBudgetVsActual
+getCashForecast
+getForecast
+getProjectBudgetReport
+postVendorInvoice
+reviseAndResubmitPurchaseOrder
+saveBudgetDraft
+saveBudgetSetup
+saveForecastDraft
+submitBudget
+submitPurchaseOrder

@@ -1,5 +1,5 @@
 ---
-fingerprint: 0f2687e4efc69229
+fingerprint: c491df08d7c8ba09
 reviewed: 2026-10-31
 title: Budget
 area: finance
@@ -72,6 +72,26 @@ a **Revision** starts from the Current budget. Once approved, it becomes
 the **Current** one; the Original and earlier revisions stay, approved,
 to compare with. Only one version of a year can be in preparation or
 waiting for approval at a time.
+
+## A project's whole life
+
+Where **Setup** says projects are budgeted **for their whole life** too, a
+project can have a budget of its own, besides its lines in each year's
+budget:
+
+1. In **Budgets**, choose the project under **Or a project's whole life**
+   and select **New budget or revision**.
+2. Add the revenue, cost of sales and expense accounts, each with **one
+   amount** for the project's whole life (no months, no cost centres).
+3. **Submit**: it is approved, and revised later, as a year's budget is.
+
+In **Budget vs Actual**, choose the project budget and select **Run**:
+each account's life budget, its actual to date (every posted line of the
+project, whatever the year), what is **left** and the **%** used, with
+revenue, costs and the margin.
+
+> Example: project *P1 Tower* has a life budget of 1,000 for Rent; 400
+> posted so far leaves 600 (40% used).
 
 ## Forecasts
 
@@ -165,6 +185,8 @@ with no budget line counts as a budget of zero), over the period set in
 
 - **Spent** is the posted figures, and, if the company counts them, open
   Purchase Orders (approved, the quantity not yet received).
+- Where projects have whole-life budgets, a Vendor Invoice of a project is
+  also checked against what is **left** of its project's budget.
 - A Purchase Order counts its lines at the vendor's prices; a Vendor
   Invoice only its direct lines (goods received were counted at the
   goods receipt). Requisitions have no prices and aren't checked.
@@ -193,6 +215,8 @@ What happens over budget depends on the company's setting:
   and open Purchase Orders (to start).
 - **The cash flow forecast comes from**: open items for the 13 weeks then
   the budget (to start), open items only, or the budget only.
+- **Projects are budgeted**: within each year only (a year's line with the
+  project, to start), or also for each project's whole life.
 
 And how balance-sheet lines are budgeted:
 

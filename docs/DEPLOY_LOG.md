@@ -1640,3 +1640,11 @@ from, and how it was verified. The deploy procedure is in the
   (10:38–10:39 UTC), success. No rules change. The check starts at Warn
   wherever a company has an approved budget for the year; each company's
   choice is in Budget → Setup.
+- **2026-10-31, Budget step B4, the cash flow forecast (`budget-b4`, PR #195,
+  from `15f86c3`):** every function with `--screens`, run
+  [#254](https://github.com/yasircmd/erp-firebase/actions/runs/41198516309)
+  (11:50–14:02 UTC), success: `SUMMARY: functions deployed: 619 (…
+  getCashForecast …); access granted: 619; screens released: yes`. "hosting",
+  run [#255](https://github.com/yasircmd/erp-firebase/actions/runs/41209187468)
+  (14:14–14:15 UTC), success. No rules change. With the budget consent in
+  its own module, later budget changes deploy only the budget's closure.

@@ -19,17 +19,20 @@ const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300) + ' @ ' + String(e.stack).split('\n').find(l => /budget.ui/.test(l))]); }); }
 const ok = r => { if (r.success === false) throw new Error(r.error); return r; };
 const post = (date, lines) => firestore.collection('journalEntries').add({ CompanyID: 'C1', JVDate: date, Status: 'Posted', VoucherType: 'JV', JVNumber: 'JV-' + date,
-  Lines: lines.map(([AccountID, Debit, Credit, CostCenterID]) => ({ AccountID, Debit, Credit, CostCenterID: CostCenterID || '' })) });
+  Lines: lines.map(([AccountID, Debit, Credit, CostCenterID, ProjectID]) => ({ AccountID, Debit, Credit, CostCenterID: CostCenterID || '', ProjectID: ProjectID || '' })) });
 const YEAR = new Date().toISOString().slice(0, 4);
 
 async function seed() {
   const f = baseFixture();
   f.coa['A-RENT'] = { AccountCode: '6100', AccountName: 'Rent', AccountType: 'Expense', Status: 'Active', IsPostable: true };
   f.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Office', Status: 'Active', CompanyID: 'C1' };
+  f.orgUnits.P1 = { Type: 'Project', Code: 'P1', Name: 'Tower', CompanyID: 'C1', Status: 'Active' };
   f.requisitionCategories = { RC1: { Name: 'Premises', Type: 'DirectExpense', GLAccountID: 'A-RENT', Status: 'Active', CompanyID: 'C1' } };
   await reset(f);
   await post(YEAR + '-01-10', [['A-BANK', 5000, 0], ['A-REV', 0, 5000]]);
   await post(YEAR + '-01-20', [['A-RENT', 900, 0, 'CC1'], ['A-RENT', 70, 0, 'CC2'], ['A-BANK', 0, 970]]);
+  // A project's cost (against payables: the bank's figures stay as the cash forecast expects).
+  await post(YEAR + '-02-05', [['A-RENT', 400, 0, 'CC1', 'P1'], ['A-AP', 0, 400]]);
   const inTwoDays = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
   await firestore.collection('pdcCheques').add({ CompanyID: 'C1', Status: 'Pending', Direction: 'Issued', ChequeDate: inTwoDays, Amount: 250, TransactionNumber: 'PDCI-7' });
 }
@@ -193,6 +196,36 @@ async function seed() {
     assert.match(await p.innerText('#bud-cash-detail-body'), /Cheques issued PDCI-7[\s\S]*250\.00/);
     assert.deepEqual(p.__errors, []);
     await p.close();
+  });
+
+  await check('a project\'s life budget: made on the screen (one amount per account), approved, its report against the project\'s actuals (B5)', async () => {
+    ok(await call('u-admin', 'saveBudgetSetup', { companyId: 'C1', ProjectBudgets: 'LifeOfProject' }));
+    const p = await open('u-admin');
+    await p.waitForSelector('#bud-new-project-wrap:not(.hidden)', T);
+    await p.selectOption('#bud-new-project', 'P1');
+    await p.click('#bud-new');
+    await p.waitForFunction(() => document.getElementById('bud-entry-title').textContent === 'Project budget P1 Original', null, T);
+    assert.ok(await p.isHidden('#bud-add-cc') && await p.isHidden('#bud-seed'), 'no cost centre, no last year\'s fill');
+    await p.selectOption('#bud-add-account', 'A-RENT');
+    await p.click('#bud-add');
+    assert.equal(await p.locator('#bud-grid-body .bud-amt').count(), 1, 'one amount: the whole life');
+    await p.fill('#bud-grid-body .bud-amt', '1000');
+    await p.press('#bud-grid-body .bud-amt', 'Tab');
+    await p.click('#bud-submit');
+    await p.waitForFunction(() => /Waiting for approval|Current/.test(document.getElementById('bud-entry-sub').textContent), null, T);
+    const b = (await call('u-admin', 'getBudgetSetup', { companyId: 'C1' })).budgets.find(x => x.Kind === 'Project');
+    if (b.Status === 'PendingApproval') ok(await call('u-approver', 'decideBudgetApproval', { budgetId: b.BudgetID, levelNumber: 1, decision: 'Approved', reason: '' }));
+    await p.close();
+    const v = await open('u-viewer');
+    await v.click('.bud-tab[data-tab="report"]');
+    await v.waitForFunction(id => [...document.querySelectorAll('#bud-rep-budget option')].some(o => o.value === id), b.BudgetID, T);
+    await v.selectOption('#bud-rep-budget', b.BudgetID);
+    assert.ok(await v.isHidden('#bud-rep-through'), 'no months for a life');
+    await v.click('#bud-rep-run');
+    await v.waitForSelector('#bud-rep-out table', T);
+    assert.match((await v.innerText('#bud-rep-out')).replace(/\s+/g, ' '), /6100 Rent 1,000\.00 400\.00 600\.00 40%/);
+    assert.deepEqual(v.__errors, []);
+    await v.close();
   });
 
   await check('Budget Setup: saved by who may set up, read-only to a Viewer', async () => {
