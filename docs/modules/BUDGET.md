@@ -88,6 +88,10 @@ control".
 | Q345 | **A per-company setting:** the cash flow forecast from open items and the budget, open items only, or the budget only. |
 | Q346 | **Forecasts need no approval** (owner, 2026-10-31): a dated estimate saved by someone with the write right; finalised, it is kept as it is. |
 | Q347 | **A forecast's months ahead start from the Current budget** (owner, 2026-10-31); each line can be changed by hand. |
+| Q348 | **What counts as spent, a per-company setting** (owner, 2026-10-31): the posted actuals only; the actuals and open Purchase Orders (approved, not yet invoiced: committed); or those and approved requisitions not yet ordered. Starts at actuals and open POs. |
+| Q349 | **An account (and cost centre) with no budget line is checked as budget zero** (owner, 2026-10-31): unbudgeted spending is flagged like an overrun. |
+| Q350 | **The period checked, a per-company setting** (owner, 2026-10-31): the month, the year to date or the whole year. Starts at the year to date. |
+| Q351 | **No approved budget for the year: no check** (owner, 2026-10-31). |
 
 **Budget Setup** (per company, in the Budget module, a setup right): the
 four settings above, each starting at the recommended option:
