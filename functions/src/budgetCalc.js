@@ -188,4 +188,53 @@ function spread(annual, pattern) {
   return out;
 }
 
-module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread };
+// ---------- Forecasts (step B2; Q341, Q346-Q347) ----------
+// A forecast is the expected year: the actual months through `a` (a month
+// index, -1 for none), then the months ahead, started from the budget
+// (Q347) and changed by hand. The P&L only.
+
+// A new forecast's lines, from compare()'s rows: each P&L line of the
+// budget, and each P&L actual not budgeted, with its actuals through a and
+// its budget after.
+function forecastStart(rows, a) {
+  return rows.filter(r => isPL(r.AccountType))
+    .map(r => ({ budgeted: r.Budgeted, line: { AccountID: r.AccountID, CostCenterID: r.CostCenterID || '', ProjectID: r.ProjectID || '',
+      Amounts: Array.from({ length: 12 }, (_, i) => round2(i <= a ? r.Actual[i] : r.Budget[i])) } }))
+    .filter(x => x.budgeted || x.line.Amounts.some(v => v))
+    .map(x => x.line);
+}
+
+// The lines as saved: the actual months are the forecast's own (as made),
+// whatever is sent; a line with actuals can't be dropped (its months ahead
+// can be set to 0); a new line has no actuals.
+function lockActuals(stored, incoming, a) {
+  const was = new Map((stored || []).map(l => [keyOf(l), l]));
+  const out = (incoming || []).map(l => {
+    const old = was.get(keyOf(l));
+    return Object.assign({}, l, { Amounts: l.Amounts.map((v, i) => (i <= a ? (old ? old.Amounts[i] : 0) : v)) });
+  });
+  const kept = new Set(out.map(keyOf));
+  const lost = (stored || []).find(l => !kept.has(keyOf(l)) && l.Amounts.slice(0, a + 1).some(v => v));
+  if (lost) throw new Error((lost.AccountCode || lost.AccountID) + ' has actuals to date: set its months ahead to 0 instead of removing it.');
+  return out;
+}
+
+// The forecast beside Budget vs Actual's rows: each row's Forecast[12] and
+// YearForecast; a forecast line no row has comes as a row of its own.
+function attachForecast(rows, lines, accounts) {
+  const byKey = new Map(rows.map(r => [keyOf(r), r]));
+  (lines || []).forEach(l => {
+    let r = byKey.get(keyOf(l));
+    if (!r) {
+      const type = (accounts[l.AccountID] || {}).AccountType || '';
+      r = { AccountID: l.AccountID, CostCenterID: l.CostCenterID || '', ProjectID: l.ProjectID || '', AccountType: type, Budgeted: false,
+        Budget: Array(12).fill(0), Actual: Array(12).fill(0), Opening: 0, Measure: 'flow' };
+      rows.push(r); byKey.set(keyOf(l), r);
+    }
+    r.Forecast = l.Amounts.map(round2);
+  });
+  rows.forEach(r => { r.YearForecast = r.Forecast ? round2(r.Forecast.reduce((s, v) => s + v, 0)) : null; });
+  return rows;
+}
+
+module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread, forecastStart, lockActuals, attachForecast };

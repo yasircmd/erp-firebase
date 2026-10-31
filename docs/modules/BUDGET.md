@@ -86,6 +86,8 @@ control".
 | Q343 | **A per-company setting:** project budgets within each year only, or also a life-of-project budget. |
 | Q344 | **A per-company setting:** balance-sheet lines entered as monthly movements, or as month-end closing balances. |
 | Q345 | **A per-company setting:** the cash flow forecast from open items and the budget, open items only, or the budget only. |
+| Q346 | **Forecasts need no approval** (owner, 2026-10-31): a dated estimate saved by someone with the write right; finalised, it is kept as it is. |
+| Q347 | **A forecast's months ahead start from the Current budget** (owner, 2026-10-31); each line can be changed by hand. |
 
 **Budget Setup** (per company, in the Budget module, a setup right): the
 four settings above, each starting at the recommended option:
@@ -162,6 +164,8 @@ Each step with tests, Help (a new page in Finance), What's new.
 | Q345 | **The cash flow forecast's sources** (asked after Q341 (c)) | (a) open items + the budget; (b) open items only; (c) the budget only | **(a)**: open items for the near term, the budget beyond them. |
 
 ## As built: step B1 (2026-10-30)
+
+Live 2026-10-31 (PR #192; runs #247 rules and the index, #248 every function and the screens, #249 Hosting).
 
 - **Server** (hand-written): `functions/src/budgetCalc.js` (pure: the
   year's months and label, natural signs, which budget line an actual
@@ -246,3 +250,53 @@ Each step with tests, Help (a new page in Finance), What's new.
 - **Deploy:** "database rules" first (the index), then
   `tools/deploy-sets/budget-b1.txt` (every function, `--screens`), then
   "hosting".
+
+## As built: step B2, forecasts (2026-10-31)
+
+- **Data:** Firestore `budgetForecasts/{FC-…}`. Fields: CompanyID,
+  YearStart, YearLabel, Sequence (1, 2, … per year), Number ("Forecast 2
+  FY 2026 (actuals to 2026-07)"), BudgetID (the Current budget it started
+  from), ActualsThrough (yyyy-mm, or '' for none), Status (Draft or
+  Final), Lines (the P&L only, as a budget's), Notes and History.
+- **Making one:** `createForecast` needs the year's Current approved
+  budget. Its lines are `budgetCalc.forecastStart` over compare()'s P&L
+  rows:
+  - every budget line, and every P&L actual that isn't budgeted;
+  - the actuals through ActualsThrough, then the budget (Q347).
+  
+  ActualsThrough defaults to the month before this one, kept within the
+  year. Only one draft per year at a time.
+- **Changing one:**
+  - `saveForecastDraft` checks the lines as a budget's are, and P&L
+    accounts only.
+  - `budgetCalc.lockActuals` keeps the actual months exactly as the
+    forecast was made, whatever is sent; a line with actuals can't be
+    removed, only its months ahead set to 0.
+  - `finaliseForecast` makes it Final and kept; no approval (Q346).
+  - `deleteForecastDraft` deletes a draft.
+- **The report:** `getBudgetVsActual` with `forecastId` (one of the same
+  company and year). `budgetCalc.attachForecast` gives each row its
+  Forecast[12] and YearForecast; a forecast line no row has comes as a
+  row of its own. The report lists the year's final forecasts.
+- **Screen:**
+  - **Forecasts tab:** the list, with each forecast's year revenue, costs
+    and profit, to show how the expectation moved; New forecast with the
+    year and "Actuals to".
+  - **The budget's grid:** the actual months are shaded and read-only; a
+    Year total spreads what remains over the months ahead; Save draft,
+    Finalise, Delete. Last year's seed, the spread pattern and Submit are
+    the budget's only.
+  - **Budget vs Actual:** a Forecast choice (the latest final suggested),
+    with Year forecast and Forecast less budget columns (coloured as the
+    variance), in the totals, the profit and Copy.
+- **Data Reset:** the Budgets category clears forecasts too.
+- **Tests:**
+  - unit/budget, +3 (12 in all);
+  - emulator/budget, +1 (3): refusals, the actuals locked, finalised,
+    sequence, the report column;
+  - ui/budget, +1 (5).
+  - Negative controls, each caught and restored:
+    - the actuals not locked on save;
+    - the actual months typed on the screen.
+- **Deploy:** `tools/deploy-sets/budget-b2.txt` (19 functions,
+  `--screens`), then "hosting". No rules change.

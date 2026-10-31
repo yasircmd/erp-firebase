@@ -4,7 +4,8 @@
 // approval set, approved; Budget vs Actual (the year to date against the
 // posted entries, better or worse coloured, a line not budgeted, an actual
 // opening the GL Report); a revision waiting on its approver, opened as
-// Home opens it and approved there; Budget Setup; a Viewer reads only.
+// Home opens it and approved there; a forecast with its actuals locked,
+// finalised and shown beside the budget; Budget Setup; a Viewer reads only.
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/budget.ui.js
 const http = require('http');
@@ -121,6 +122,36 @@ async function seed() {
     const list = (await p.innerText('#bud-list-body')).replace(/\s+/g, ' ');
     assert.match(list, /Revision 1 Approved Current/);
     assert.match(list, /Original Approved \d/, 'the Original kept, not Current');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('a forecast: actuals to January locked, a year total spread over the months ahead, finalised; its year beside the budget', async () => {
+    const p = await open('u-admin');
+    await p.click('.bud-tab[data-tab="forecasts"]');
+    await p.selectOption('#bud-fc-year', YEAR + '-01');
+    await p.selectOption('#bud-fc-through', YEAR + '-01');
+    await p.click('#bud-fc-new');
+    await p.waitForFunction(t => document.getElementById('bud-entry-title').textContent === t, 'Forecast 1 FY ' + YEAR + ' (actuals to Jan-' + YEAR + ')', T);
+    const sales = '#bud-grid-body tr:has-text("4000 Sales")';
+    assert.equal(await p.locator(sales + ' .bud-amt').count(), 11, 'January is the actual, not typed');
+    assert.match(await p.locator(sales + ' td').nth(3).innerText(), /5,000\.00/);
+    assert.ok(await p.isHidden('#bud-seed') && await p.isHidden('#bud-submit') && await p.isVisible('#bud-finalise'));
+    await p.fill(sales + ' .bud-year', '16000');
+    await p.press(sales + ' .bud-year', 'Tab');
+    await p.waitForFunction(() => document.querySelector('#bud-grid-body .bud-amt') && document.querySelector('#bud-grid-body tr .bud-amt[data-m="1"]').value === '1000');
+    await p.click('#bud-finalise');
+    await p.waitForFunction(() => /^Final/.test(document.getElementById('bud-entry-sub').textContent), null, T);
+    assert.ok(await p.isHidden('#bud-save'), 'final: kept as it is');
+    await p.click('#bud-back');
+    assert.match((await p.innerText('#bud-fc-body')).replace(/\s+/g, ' '), /Forecast 1 FY \d{4} .*Final 16,000\.00/);
+    await p.click('.bud-tab[data-tab="report"]');
+    await p.waitForFunction(() => document.querySelectorAll('#bud-rep-forecast option').length === 2, null, T);
+    await p.selectOption('#bud-rep-through', YEAR + '-01');
+    await p.click('#bud-rep-run');
+    await p.waitForSelector('#bud-rep-out table', T);
+    const row = (await p.locator('#bud-rep-out tr', { hasText: '4000 Sales' }).first().locator('td').allInnerTexts()).map(x => x.trim());
+    assert.deepEqual(row.slice(-3), ['12,000.00', '16,000.00', '4,000.00'], 'year budget, year forecast, forecast less budget');
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

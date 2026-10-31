@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-30
+reviewed: 2026-10-31
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,14 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 31/10/2026
+
+- **Forecasts.** In [Budget](budget.html#forecasts), a forecast is the year
+  you now expect for the P&L: the actuals so far, then your estimate of
+  the months ahead, starting from the Current budget. Finalise one each
+  month or quarter to see how the expectation moves; **Budget vs Actual**
+  shows the year forecast beside the budget. Forecasts need no approval.
 
 ## 30/10/2026
 

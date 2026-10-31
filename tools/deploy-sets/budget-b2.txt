@@ -1,0 +1,29 @@
+# Budget and forecast, step B2: the rolling P&L forecast (owner, 2026-10-31;
+# docs/modules/BUDGET.md, Q341, Q346-Q347).
+# The require closure of budget.js and budgetCalc.js, and of dataReset.js
+# (the Budgets category clears forecasts too): 19 functions.
+# moduleRegistry.js and auth.js are unchanged; no new right. Five functions
+# are new (deploy-functions.sh binds their invokers): createForecast,
+# getForecast, saveForecastDraft, finaliseForecast, deleteForecastDraft.
+# Run WITH --screens (the Budget screen's Forecasts tab), then the "hosting"
+# task (the Help). No rules change: forecasts are read by company only (a
+# single-field query); Budget vs Actual's index came with B1.
+createBudget
+createForecast
+decideBudgetApproval
+deleteBudgetDraft
+deleteForecastDraft
+finaliseForecast
+getBudget
+getBudgetSeed
+getBudgetSetup
+getBudgetVsActual
+getForecast
+saveBudgetDraft
+saveBudgetSetup
+saveForecastDraft
+submitBudget
+clearDataCategories
+clearSelectedRecords
+getCategoryRecords
+getDataResetCounts

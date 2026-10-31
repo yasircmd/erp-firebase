@@ -102,3 +102,43 @@ test('a rejected budget goes back to be changed; a draft deleted', async () => {
   assert.equal((await call('u-admin', 'deleteBudgetDraft', { budgetId: o.budgetId })).success, true);
   assert.match(await err(call('u-admin', 'getBudget', { budgetId: o.budgetId })), /not found/);
 });
+
+test('forecasts: from the Current budget, actuals locked, finalised and kept, beside the budget in the report', async () => {
+  const f = baseFixture();
+  f.coa['A-RENT'] = { AccountCode: '6100', AccountName: 'Rent', AccountType: 'Expense', Status: 'Active', IsPostable: true };
+  await reset(f);
+  await post('2026-01-10', [['A-BANK', 900, 0], ['A-REV', 0, 900]]);
+  await post('2026-02-10', [['A-BANK', 1200, 0], ['A-REV', 0, 1200]]);
+  await post('2026-02-15', [['A-RENT', 300, 0, 'CC1'], ['A-BANK', 0, 300]]);
+  assert.match(await err(call('u-admin', 'createForecast', { companyId: 'C1', yearStart: '2026-01' })), /approve a budget for FY 2026 first/);
+  const o = await call('u-admin', 'createBudget', { companyId: 'C1', yearStart: '2026-01' });
+  await call('u-admin', 'saveBudgetDraft', { budgetId: o.budgetId, lines: [{ AccountID: 'A-REV', Amounts: Array(12).fill(1000) }, { AccountID: 'A-RENT', CostCenterID: 'CC1', Amounts: Array(12).fill(250) }] });
+  assert.equal((await call('u-admin', 'submitBudget', { budgetId: o.budgetId })).status, 'Approved');
+  assert.match(await err(call('u-viewer', 'createForecast', { companyId: 'C1', yearStart: '2026-01' })), /permission to prepare/);
+
+  const c = await call('u-admin', 'createForecast', { companyId: 'C1', yearStart: '2026-01', actualsThrough: '2026-02' });
+  assert.equal(c.number, 'Forecast 1 FY 2026 (actuals to 2026-02)');
+  const fc = await call('u-admin', 'getForecast', { forecastId: c.forecastId });
+  const rev = fc.Lines.find(l => l.AccountID === 'A-REV');
+  assert.deepEqual([rev.Amounts[0], rev.Amounts[1], rev.Amounts[2], fc.Revenue, fc.Status], [900, 1200, 1000, 12100, 'Draft']);
+  assert.match(await err(call('u-admin', 'createForecast', { companyId: 'C1', yearStart: '2026-01' })), /still a draft/);
+  // Revenue ahead lowered; January sent as 5 stays the actual 900; a balance-sheet line refused.
+  const lines = fc.Lines.map(l => (l.AccountID === 'A-REV' ? Object.assign({}, l, { Amounts: [5, 5].concat(Array(10).fill(800)) }) : l));
+  assert.match(await err(call('u-admin', 'saveForecastDraft', { forecastId: c.forecastId, lines: lines.concat([{ AccountID: 'A-CASH', Amounts: months() }]) })), /not a P&L account/);
+  const saved = await call('u-admin', 'saveForecastDraft', { forecastId: c.forecastId, lines });
+  assert.deepEqual([saved.Revenue, saved.Costs, saved.Profit], [10100, 2800, 7300]);
+  assert.equal((await call('u-admin', 'getForecast', { forecastId: c.forecastId })).Lines.find(l => l.AccountID === 'A-REV').Amounts[0], 900);
+  await call('u-admin', 'finaliseForecast', { forecastId: c.forecastId });
+  assert.match(await err(call('u-admin', 'saveForecastDraft', { forecastId: c.forecastId, lines })), /Only a draft/);
+  assert.match(await err(call('u-admin', 'deleteForecastDraft', { forecastId: c.forecastId })), /Only a draft/);
+
+  // The next one; both listed with their year's profit.
+  const c2 = await call('u-admin', 'createForecast', { companyId: 'C1', yearStart: '2026-01', actualsThrough: '2026-01' });
+  assert.equal(c2.number, 'Forecast 2 FY 2026 (actuals to 2026-01)');
+  const s = await call('u-admin', 'getBudgetSetup', { companyId: 'C1' });
+  assert.deepEqual(s.forecasts.map(x => [x.Sequence, x.Status, x.Profit]), [[2, 'Draft', 9150], [1, 'Final', 7300]]);
+
+  const va = await call('u-viewer', 'getBudgetVsActual', { budgetId: o.budgetId, through: '2026-02', forecastId: c.forecastId });
+  assert.deepEqual([va.forecast.Number, va.forecasts.map(x => x.Sequence)], ['Forecast 1 FY 2026 (actuals to 2026-02)', [1]], 'only the final ones offered');
+  assert.deepEqual(va.rows.filter(r => r.AccountID === 'A-REV').map(r => [r.YearBudget, r.YearForecast]), [[12000, 10100]]);
+});

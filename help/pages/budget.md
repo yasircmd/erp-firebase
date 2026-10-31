@@ -1,6 +1,6 @@
 ---
-fingerprint: 2f4b94674a6757ed
-reviewed: 2026-10-30
+fingerprint: fccf30e55f644a74
+reviewed: 2026-10-31
 title: Budget
 area: finance
 order: 17
@@ -16,8 +16,8 @@ wish, how balance-sheet accounts should move (a loan repaid, assets
 bought). **Budget vs Actual** then compares the plan with what was
 posted.
 
-The screen has three tabs: **Budgets**, **Budget vs Actual** and
-**Setup**. Choose the company at the top.
+The screen has four tabs: **Budgets**, **Forecasts**, **Budget vs
+Actual** and **Setup**. Choose the company at the top.
 
 ## Amounts and signs
 
@@ -73,10 +73,36 @@ the **Current** one; the Original and earlier revisions stay, approved,
 to compare with. Only one version of a year can be in preparation or
 waiting for approval at a time.
 
+## Forecasts
+
+A forecast is the year you now expect for the P&L: the actual figures
+for the months so far, then your estimate of the months ahead. Forecasts
+need no approval.
+
+1. In **Forecasts**, choose the **Financial year** and the month the
+   **Actuals to** run to (the month before this one is suggested), then
+   select **New forecast**. The year needs an approved budget: the
+   months ahead start from its Current version.
+2. The forecast opens on the same grid as a budget. The actual months
+   are shaded and can't be changed. Change the months ahead, or type a
+   total in the **Year** column: what remains after the actuals is
+   spread over the months ahead.
+3. **Save draft** as you go, and **Finalise** when it is done. A final
+   forecast is kept as it is.
+
+Make a new forecast each month or quarter: the list shows each one's
+revenue, costs and profit for the year, so you can see how the
+expectation moved. Only one draft forecast of a year at a time.
+
+> Example: with actuals to March, Sales of 1,000 a month so far and a
+> year total of 15,000 typed, the nine months ahead get 1,333.33 each
+> (the last month takes the rounding).
+
 ## Budget vs Actual
 
 Choose an approved **Budget** (the Current one first), the month the
-**Year to date** runs **through**, and how to **Show** it: each budget
+**Year to date** runs **through**, a final **Forecast** to show beside it
+(the latest is suggested; **None** for none), and how to **Show** it: each budget
 line, by account, by group or by class (the headings of the Chart of
 Accounts). Select **Run**.
 
@@ -86,6 +112,7 @@ Accounts). Select **Run**.
 | YTD budget, YTD actual | From the year's first month to the chosen month. |
 | YTD variance, % | Actual less budget, and as a % of the budget. Green is better than budget (more revenue, less cost), red worse. |
 | Year budget | The whole year. |
+| Year forecast, Forecast less budget | With a forecast chosen: the year it expects, and how far that is from the budget (green better, red worse). |
 
 - Lines are grouped as revenue, cost of sales and expenses, with their
   totals and the **Profit**, then the balance sheet.
