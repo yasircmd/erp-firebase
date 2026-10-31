@@ -338,6 +338,7 @@ exports.getTaxReport = require('./src/taxReports').getTaxReport;
 ['getBudgetSetup', 'getBudget', 'saveBudgetSetup', 'createBudget', 'saveBudgetDraft', 'deleteBudgetDraft', 'submitBudget', 'decideBudgetApproval', 'getBudgetSeed', 'getBudgetVsActual',
   'createForecast', 'getForecast', 'saveForecastDraft', 'finaliseForecast', 'deleteForecastDraft']
   .forEach(name => { exports[name] = require('./src/budget')[name]; });
+exports.getCashForecast = require('./src/cashForecast').getCashForecast; // step B4
 ['previewInvoiceTax', 'previewOrderTax'].forEach(n => { exports[n] = require('./src/salesTax')[n]; }); // TAX_ENGINE.md, parts 2 and 4
 ['previewVendorInvoiceTax'].forEach(n => { exports[n] = require('./src/purchaseTax')[n]; }); // part 3
 // Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).
