@@ -386,6 +386,8 @@ Live 2026-10-31 (PR #194; runs #252 every function and the screens, #253 Hosting
 
 ## As built: step B4, the cash flow forecast (2026-10-31)
 
+Live 2026-10-31 (PR #195; runs #254 every function and the screens, #255 Hosting).
+
 - **Server:** `functions/src/cashForecast.js` (`getCashForecast`, the
   Budget module's access right) with the pure parts in `budgetCalc`:
   `cashBuckets`, `netPartyItems`, `budgetCash` and `cashForecast`.
