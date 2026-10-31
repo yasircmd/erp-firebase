@@ -5,6 +5,7 @@
       <div><label for="bud-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="bud-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
       <div class="flex gap-1 pb-0.5" role="tablist">
         <button class="bud-tab bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-tab="list">Budgets</button>
+        <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="forecasts">Forecasts</button>
         <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="report">Budget vs Actual</button>
         <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="setup">Setup</button>
       </div>
@@ -24,14 +25,29 @@
     </div>
   </div>
 
-  <!-- ---------- Budgets: one budget ---------- -->
+  <!-- ---------- Forecasts: the list ---------- -->
+  <div id="bud-fc-view" class="hidden space-y-3">
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="bud-fc-year" class="block text-xs font-medium text-slate-300 mb-1">Financial year</label><select id="bud-fc-year" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="bud-fc-through" class="block text-xs font-medium text-slate-300 mb-1">Actuals to</label><select id="bud-fc-through" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <button id="bud-fc-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New forecast</button>
+    </div>
+    <p class="text-xs text-slate-400 max-w-3xl">A forecast is the expected year of the P&L: the actual figures for the months to the chosen month, then your estimate of the months ahead, starting from the Current budget. Change the months ahead, then Finalise it: a final forecast is kept as it is, so the forecasts of a year show how the expectation moved. Forecasts need no approval.</p>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Forecast</th><th class="py-2 px-3">Status</th><th class="py-2 px-3 text-right">Revenue</th><th class="py-2 px-3 text-right">Costs</th><th class="py-2 px-3 text-right">Profit</th><th class="py-2 px-3">Updated</th></tr></thead>
+        <tbody id="bud-fc-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ---------- Budgets: one budget (or one forecast) ---------- -->
   <div id="bud-entry-view" class="hidden space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div><p id="bud-entry-title" class="text-lg font-bold text-slate-100"></p><p id="bud-entry-sub" class="text-xs text-slate-400"></p></div>
       <div class="flex flex-wrap gap-2">
         <button id="bud-back" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <button id="bud-save" class="bud-edit bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
-        <button id="bud-submit" class="bud-edit bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+        <button id="bud-finalise" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-lock"></i> Finalise</button>
+        <button id="bud-submit" class="bud-edit bud-budget-only bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-paper-plane"></i> Submit</button>
         <button id="bud-delete" class="bud-edit bg-red-700 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-trash"></i> Delete</button>
         <button id="bud-approve" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-check"></i> Approve</button>
         <button id="bud-reject" class="hidden bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-xmark"></i> Reject</button>
@@ -44,13 +60,13 @@
       <div><label for="bud-add-cc" class="block text-xs font-medium text-slate-300 mb-1">Cost centre</label><select id="bud-add-cc" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
       <div><label for="bud-add-project" class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="bud-add-project" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
       <button id="bud-add" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add line</button>
-      <span class="w-px self-stretch bg-slate-700 mx-1"></span>
+      <span class="bud-budget-only contents"><span class="w-px self-stretch bg-slate-700 mx-1"></span>
       <div><label for="bud-seed-source" class="block text-xs font-medium text-slate-300 mb-1">Start from</label><select id="bud-seed-source" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="actual">Last year's actuals</option><option value="budget">Last year's budget</option></select></div>
       <div><label for="bud-seed-pct" class="block text-xs font-medium text-slate-300 mb-1">Change %</label><input id="bud-seed-pct" type="number" step="0.1" value="0" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></div>
       <label class="flex items-center gap-1 text-xs text-slate-300 pb-2"><input id="bud-seed-dim" type="checkbox" checked> By cost centre and project</label>
-      <button id="bud-seed" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-wand-magic-sparkles"></i> Fill</button>
+      <button id="bud-seed" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-wand-magic-sparkles"></i> Fill</button></span>
       <button id="bud-paste" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
-      <label class="flex items-center gap-1 text-xs text-slate-300 pb-2" title="A year total typed in the Year column is spread over the months like last year's actuals; otherwise evenly."><input id="bud-spread-like" type="checkbox"> Spread a year total like last year</label>
+      <label class="bud-budget-only flex items-center gap-1 text-xs text-slate-300 pb-2" title="A year total typed in the Year column is spread over the months like last year's actuals; otherwise evenly."><input id="bud-spread-like" type="checkbox"> Spread a year total like last year</label>
     </div>
     <div id="bud-paste-box" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-3 space-y-2">
       <label for="bud-paste-text" class="block text-xs text-slate-300">Paste rows from Excel: the account code, the cost centre code (or blank), the project code (or blank), then the twelve months, or one year total (spread over the months). A line already on the budget is replaced.</label>
@@ -69,6 +85,7 @@
     <div class="flex flex-wrap items-end gap-2">
       <div><label for="bud-rep-budget" class="block text-xs font-medium text-slate-300 mb-1">Budget</label><select id="bud-rep-budget" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
       <div><label for="bud-rep-through" class="block text-xs font-medium text-slate-300 mb-1">Year to date through</label><select id="bud-rep-through" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="bud-rep-forecast" class="block text-xs font-medium text-slate-300 mb-1">Forecast</label><select id="bud-rep-forecast" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
       <div><label for="bud-rep-level" class="block text-xs font-medium text-slate-300 mb-1">Show</label><select id="bud-rep-level" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="line">Each budget line</option><option value="account">By account</option><option value="1">By group</option><option value="0">By class</option></select></div>
       <button id="bud-rep-run" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-play"></i> Run</button>
       <button id="bud-rep-copy" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy</button>
@@ -111,16 +128,20 @@
   let patterns = null;    // last year's months per line key (Spread like last year)
   let report = null, reportRows = [];
   let pendingOpenId = null;
+  // The grid holds a budget, or a forecast (current.ForecastID): its months through `lock` are actuals.
+  const isFc = () => Boolean(current && current.ForecastID);
+  let lock = -1;
 
   const acc = id => (ctx.accounts.find(a => a.AccountID === id) || {});
   const unit = (list, id) => (list.find(u => u.ID === id) || null);
   const unitText = u => (u ? u.Code + ' ' + u.Name : '');
   const keyOf = l => [l.AccountID, l.CostCenterID || '', l.ProjectID || ''].join('|');
-  const editable = () => current && ['Draft', 'Rejected'].includes(current.Status) && ctx.rights.canWrite;
+  const editable = () => current && (isFc() ? current.Status === 'Draft' : ['Draft', 'Rejected'].includes(current.Status)) && ctx.rights.canWrite;
 
   function tab(name) {
     document.querySelectorAll('.bud-tab').forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on); b.classList.toggle('bg-slate-700', !on); });
     $('bud-list-view').classList.toggle('hidden', name !== 'list');
+    $('bud-fc-view').classList.toggle('hidden', name !== 'forecasts');
     $('bud-entry-view').classList.add('hidden');
     $('bud-report-view').classList.toggle('hidden', name !== 'report');
     $('bud-setup-view').classList.toggle('hidden', name !== 'setup');
@@ -144,10 +165,13 @@
       const years = [y + 1, y, y - 1].map(n => n + '-' + String(startMonth).padStart(2, '0'));
       $('bud-new-year').innerHTML = years.map(v => '<option value="' + v + '">' + esc(yearLabel(v)) + '</option>').join('');
       $('bud-new-year').value = years[1];
+      $('bud-fc-year').innerHTML = $('bud-new-year').innerHTML; $('bud-fc-year').value = years[1];
+      fillFcThrough();
+      $('bud-fc-new').classList.toggle('hidden', !s.rights.canWrite);
       $('bud-add-account').innerHTML = s.accounts.map(a => '<option value="' + esc(a.AccountID) + '">' + esc(a.AccountCode + ' ' + a.AccountName) + ' (' + esc(TYPE_LABEL[a.AccountType] || a.AccountType) + ')</option>').join('');
       $('bud-add-cc').innerHTML = '<option value="">The company</option>' + s.costCenters.map(u => '<option value="' + esc(u.ID) + '">' + esc(unitText(u)) + '</option>').join('');
       $('bud-add-project').innerHTML = '<option value="">None</option>' + s.projects.map(u => '<option value="' + esc(u.ID) + '">' + esc(unitText(u)) + '</option>').join('');
-      renderList();
+      renderList(); renderForecasts();
       if (pendingOpenId) { const id = pendingOpenId; pendingOpenId = null; openBudget(id); }
     }, err => appAlert(err.message || 'Unable to load the company\'s budgets.'));
   }
@@ -165,7 +189,7 @@
   // ---------- One budget ----------
   function openBudget(id) {
     return call('getBudget', { budgetId: id }).then(b => {
-      current = b; lines = (b.Lines || []).map(l => Object.assign({}, l, { Amounts: l.Amounts.slice() })); patterns = null;
+      current = b; lock = -1; lines = (b.Lines || []).map(l => Object.assign({}, l, { Amounts: l.Amounts.slice() })); patterns = null;
       $('bud-list-view').classList.add('hidden'); $('bud-entry-view').classList.remove('hidden');
       $('bud-entry-title').textContent = b.Number;
       $('bud-entry-sub').textContent = (STATUS[b.Status] || b.Status) + (b.Current ? ' · Current' : '') + ' · balance-sheet lines as ' + (b.BalanceSheetMethod === 'Closing' ? 'month-end closing balances' : 'monthly movements');
@@ -177,15 +201,64 @@
       document.querySelectorAll('.bud-edit').forEach(el => el.classList.toggle('hidden', !editable()));
       $('bud-to-report').classList.toggle('hidden', b.Status !== 'Approved');
       ['bud-approve', 'bud-reject'].forEach(id => $(id).classList.toggle('hidden', !b.MyLevel));
+      showKind();
       $('bud-history').innerHTML = (b.History || []).map(h => '<li>' + esc(String(h.At).slice(0, 10)) + ' · ' + esc(h.Event) + ' · ' + esc(h.By) + (h.Note ? ': ' + esc(h.Note) : '') + '</li>').join('');
       renderGrid();
     }, err => appAlert(err.message || 'Unable to open the budget.'));
   }
 
+  // What the entry view offers: a budget's tools, or a forecast's.
+  function showKind() {
+    document.querySelectorAll('.bud-budget-only').forEach(el => el.classList.toggle('hidden', isFc() || !editable()));
+    $('bud-finalise').classList.toggle('hidden', !(isFc() && editable()));
+    if (isFc()) ['bud-approve', 'bud-reject', 'bud-to-report', 'bud-rejected'].forEach(id => $(id).classList.add('hidden'));
+  }
+  function openForecast(id) {
+    return call('getForecast', { forecastId: id }).then(f => {
+      current = f; lines = (f.Lines || []).map(l => Object.assign({}, l, { Amounts: l.Amounts.slice() })); patterns = null;
+      lock = f.ActualsThrough ? monthsOf(f.YearStart).indexOf(f.ActualsThrough) : -1;
+      ['bud-list-view', 'bud-fc-view'].forEach(v => $(v).classList.add('hidden')); $('bud-entry-view').classList.remove('hidden');
+      $('bud-entry-title').textContent = f.Number;
+      $('bud-entry-sub').textContent = (f.Status === 'Final' ? 'Final' : 'Draft') + ' · the P&L · ' + (f.ActualsThrough ? 'actuals to ' + f.ActualsThrough + ' (shaded), estimates after' : 'all estimates');
+      $('bud-notes').value = f.Notes || ''; $('bud-notes').disabled = !editable();
+      $('bud-paste-box').classList.add('hidden');
+      document.querySelectorAll('.bud-edit').forEach(el => el.classList.toggle('hidden', !editable()));
+      showKind();
+      $('bud-history').innerHTML = (f.History || []).map(h => '<li>' + esc(String(h.At).slice(0, 10)) + ' · ' + esc(h.Event) + ' · ' + esc(h.By) + (h.Note ? ': ' + esc(h.Note) : '') + '</li>').join('');
+      renderGrid();
+    }, err => appAlert(err.message || 'Unable to open the forecast.'));
+  }
+  function renderForecasts() {
+    const rows = ctx.forecasts || [];
+    $('bud-fc-body').innerHTML = rows.length ? rows.map(f => '<tr class="bud-fc-row border-b border-slate-800 cursor-pointer hover:bg-slate-800/60" data-id="' + esc(f.ForecastID) + '">' +
+      '<td class="py-2 px-3 font-medium">' + esc(f.Number) + '</td><td class="py-2 px-3">' + esc(f.Status === 'Final' ? 'Final' : 'Draft') + '</td>' +
+      ['Revenue', 'Costs', 'Profit'].map(k => '<td class="py-2 px-3 text-right font-mono">' + fmt(f[k]) + '</td>').join('') +
+      '<td class="py-2 px-3 text-xs text-slate-400">' + esc(String(f.UpdatedAt || '').slice(0, 10)) + ' ' + esc(f.UpdatedBy || '') + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="py-4 px-3 text-sm text-slate-400">No forecasts yet: approve the year\'s budget, then make one.</td></tr>';
+  }
+  // The months a new forecast's actuals may run to; by default the month before this one.
+  function fillFcThrough() {
+    const year = $('bud-fc-year').value; if (!year) return;
+    const months = monthsOf(year), before = addMonths(new Date().toISOString().slice(0, 7), -1);
+    $('bud-fc-through').innerHTML = '<option value="">None (all estimates)</option>' + months.map(m => '<option value="' + m + '">' + esc(m) + '</option>').join('');
+    $('bud-fc-through').value = before < months[0] ? '' : before > months[11] ? months[11] : before;
+  }
+  async function newForecast() {
+    const year = $('bud-fc-year').value;
+    if (!(await appConfirm('Make a forecast for ' + yearLabel(year) + ' from its Current budget?'))) return;
+    call('createForecast', { companyId: $('bud-company').value, yearStart: year, actualsThrough: $('bud-fc-through').value })
+      .then(r => loadCompany().then(() => openForecast(r.forecastId)), err => appAlert(err.message || 'Unable to make the forecast.'));
+  }
+  async function finalise() {
+    if (!(await appConfirm('Finalise ' + current.Number + '? It is then kept as it is.'))) return;
+    save().then(() => call('finaliseForecast', { forecastId: current.ForecastID })).then(() => { appAlert('Finalised.'); return loadCompany().then(() => openForecast(current.ForecastID)); },
+      err => appAlert(err.message || 'Unable to finalise the forecast.'));
+  }
+
   function renderGrid() {
     const months = monthsOf(current.YearStart), ed = editable();
     $('bud-grid-head').innerHTML = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2 sticky left-0 bg-slate-900">Account</th><th class="py-2 px-2">Cost centre</th><th class="py-2 px-2">Project</th>' +
-      months.map(m => '<th class="py-2 px-2 text-right">' + esc(m) + '</th>').join('') + '<th class="py-2 px-2 text-right">Year</th><th></th></tr>';
+      months.map((m, i) => '<th class="py-2 px-2 text-right' + (i <= lock ? ' bg-slate-800/60' : '') + '">' + esc(m) + (i <= lock ? '<br><span class="normal-case font-normal">actual</span>' : '') + '</th>').join('') + '<th class="py-2 px-2 text-right">Year</th><th></th></tr>';
     const sorted = lines.map((l, i) => ({ l, i })).sort((a, b) => TYPE_ORDER.indexOf(acc(a.l.AccountID).AccountType) - TYPE_ORDER.indexOf(acc(b.l.AccountID).AccountType)
       || String(acc(a.l.AccountID).AccountCode).localeCompare(String(acc(b.l.AccountID).AccountCode), undefined, { numeric: true }));
     $('bud-grid-body').innerHTML = sorted.length ? sorted.map(({ l, i }) => {
@@ -193,10 +266,10 @@
       return '<tr class="border-b border-slate-800" data-i="' + i + '"><td class="py-1 px-2 sticky left-0 bg-slate-900">' + esc((a.AccountCode || l.AccountCode) + ' ' + (a.AccountName || l.AccountName)) + '</td>' +
         '<td class="py-1 px-2 text-xs">' + esc(unitText(unit(ctx.costCenters, l.CostCenterID)) || (l.CostCenterID ? l.CostCenterID : 'The company')) + '</td>' +
         '<td class="py-1 px-2 text-xs">' + esc(unitText(unit(ctx.projects, l.ProjectID)) || l.ProjectID || '') + '</td>' +
-        l.Amounts.map((v, m) => '<td class="py-1 px-1 text-right">' + (ed ? '<input class="bud-amt w-24 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-right font-mono text-xs" data-m="' + m + '" value="' + esc(v || '') + '" inputmode="decimal">' : '<span class="font-mono">' + fmt(v) + '</span>') + '</td>').join('') +
+        l.Amounts.map((v, m) => '<td class="py-1 px-1 text-right' + (m <= lock ? ' bg-slate-800/60' : '') + '">' + (ed && m > lock ? '<input class="bud-amt w-24 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-right font-mono text-xs" data-m="' + m + '" value="' + esc(v || '') + '" inputmode="decimal">' : '<span class="font-mono">' + fmt(v) + '</span>') + '</td>').join('') +
         '<td class="py-1 px-1 text-right">' + (ed ? '<input class="bud-year w-28 bg-slate-800 border border-slate-600 rounded py-1 px-1 text-right font-mono text-xs" value="' + esc(total || '') + '" title="A year total: spread over the months">' : '<span class="font-mono">' + fmt(total) + '</span>') + '</td>' +
-        '<td class="py-1 px-2">' + (ed ? '<button class="bud-del text-slate-400 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>';
-    }).join('') : '<tr><td colspan="17" class="py-4 px-3 text-sm text-slate-400">No lines yet: add one, fill from last year, or paste from Excel.</td></tr>';
+        '<td class="py-1 px-2">' + (ed && !l.Amounts.slice(0, lock + 1).some(v => v) ? '<button class="bud-del text-slate-400 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="17" class="py-4 px-3 text-sm text-slate-400">' + (isFc() ? 'No lines.' : 'No lines yet: add one, fill from last year, or paste from Excel.') + '</td></tr>';
     renderTotals();
   }
   // The P&L at the foot: revenue, costs and the result, month by month.
@@ -207,6 +280,15 @@
     $('bud-grid-foot').innerHTML = row('Revenue', rev, 'text-slate-300') + row('Costs (cost of sales and expenses)', cost, 'text-slate-300') + row('Profit', res, 'border-t border-slate-600 text-slate-100');
   }
   function spreadYear(i, annual) {
+    if (lock >= 0) {
+      // A forecast: the year less its actuals, over the months ahead.
+      const done = r2(lines[i].Amounts.slice(0, lock + 1).reduce((s, v) => s + v, 0)), ahead = 11 - lock;
+      if (!ahead) return;
+      const each = r2((annual - done) / ahead);
+      lines[i].Amounts = lines[i].Amounts.map((v, m) => (m <= lock ? v : each));
+      lines[i].Amounts[11] = r2(annual - lines[i].Amounts.slice(0, 11).reduce((s, v) => s + v, 0));
+      return;
+    }
     const pattern = $('bud-spread-like').checked && patterns ? (patterns[keyOf(lines[i])] || patterns[lines[i].AccountID + '||']) : null;
     const base = pattern && pattern.reduce((s, v) => s + Math.abs(v), 0) ? pattern.map(Math.abs) : Array(12).fill(1);
     const sum = base.reduce((s, v) => s + v, 0);
@@ -231,6 +313,7 @@
     const l = { AccountID: $('bud-add-account').value, CostCenterID: $('bud-add-cc').value, ProjectID: $('bud-add-project').value, Amounts: Array(12).fill(0) };
     if (!l.AccountID) return;
     const a = acc(l.AccountID);
+    if (isFc() && !PL.includes(a.AccountType)) { appAlert('A forecast is of the P&L: choose a revenue, cost of sales or expense account.'); return; }
     if (l.CostCenterID && !a.UsesCostCenter) { appAlert(a.AccountCode + ' does not use cost centres.'); return; }
     if (l.ProjectID && !a.UsesProject) { appAlert(a.AccountCode + ' does not use projects.'); return; }
     if (lines.some(x => keyOf(x) === keyOf(l))) { appAlert('That line is already on the budget.'); return; }
@@ -258,7 +341,10 @@
       const nums = c.slice(3).map(v => Number(String(v).replace(/,/g, '').trim() || 0));
       if (nums.some(v => !isFinite(v)) || (nums.length !== 12 && nums.length !== 1)) { problems.push('Row ' + (n + 1) + ': give twelve months or one year total.'); return; }
       const l = { AccountID: a.AccountID, CostCenterID: cc ? cc.ID : '', ProjectID: pj ? pj.ID : '', Amounts: nums.length === 12 ? nums.map(r2) : Array(12).fill(0) };
+      if (isFc() && !PL.includes(a.AccountType)) { problems.push('Row ' + (n + 1) + ': ' + a.AccountCode + ' is not a P&L account.'); return; }
       const i = lines.findIndex(x => keyOf(x) === keyOf(l));
+      // A forecast's actual months stay as they are.
+      if (lock >= 0) l.Amounts = l.Amounts.map((v, m) => (m <= lock ? (i >= 0 ? lines[i].Amounts[m] : 0) : v));
       if (i >= 0) lines[i] = l; else lines.push(l);
       if (nums.length === 1) spreadYear(i >= 0 ? i : lines.length - 1, nums[0]);
       added.push(l);
@@ -268,6 +354,7 @@
     appAlert(added.length + ' line' + (added.length === 1 ? '' : 's') + ' pasted.' + (problems.length ? ' Not pasted:\n' + problems.slice(0, 15).join('\n') : ''));
   }
   function save() {
+    if (isFc()) return call('saveForecastDraft', { forecastId: current.ForecastID, lines: lines.map(l => ({ AccountID: l.AccountID, CostCenterID: l.CostCenterID || '', ProjectID: l.ProjectID || '', Amounts: l.Amounts })), notes: $('bud-notes').value });
     return call('saveBudgetDraft', { budgetId: current.BudgetID, lines: lines.map(l => ({ AccountID: l.AccountID, CostCenterID: l.CostCenterID || '', ProjectID: l.ProjectID || '', Amounts: l.Amounts })), notes: $('bud-notes').value });
   }
   async function submit() {
@@ -287,6 +374,7 @@
   }
   async function remove() {
     if (!(await appConfirm('Delete ' + current.Number + '?'))) return;
+    if (isFc()) { call('deleteForecastDraft', { forecastId: current.ForecastID }).then(() => { current = null; lock = -1; return loadCompany().then(() => tab('forecasts')); }, err => appAlert(err.message || 'Unable to delete the forecast.')); return; }
     call('deleteBudgetDraft', { budgetId: current.BudgetID }).then(() => { current = null; return loadCompany().then(() => tab('list')); }, err => appAlert(err.message || 'Unable to delete the budget.'));
   }
   async function newBudget() {
@@ -311,12 +399,16 @@
     const months = monthsOf(b.YearStart), now = new Date().toISOString().slice(0, 7);
     $('bud-rep-through').innerHTML = months.map(m => '<option value="' + m + '">' + esc(m) + '</option>').join('');
     $('bud-rep-through').value = now < months[0] ? months[0] : now > months[11] ? months[11] : now;
+    // The year's final forecasts, the latest first.
+    const fcs = (ctx.forecasts || []).filter(f => f.YearStart === b.YearStart && f.Status === 'Final');
+    $('bud-rep-forecast').innerHTML = '<option value="">None</option>' + fcs.map(f => '<option value="' + esc(f.ForecastID) + '">' + esc(f.Number) + '</option>').join('');
+    $('bud-rep-forecast').value = fcs.length ? fcs[0].ForecastID : '';
   }
   function runReport() {
     const budgetId = $('bud-rep-budget').value;
     if (!budgetId) { appAlert('Approve a budget first.'); return; }
     $('bud-rep-out').innerHTML = '<p class="p-4 text-xs text-slate-500">Working it out…</p>';
-    call('getBudgetVsActual', { budgetId, through: $('bud-rep-through').value }).then(r => { report = r; renderReport(); },
+    call('getBudgetVsActual', { budgetId, through: $('bud-rep-through').value, forecastId: $('bud-rep-forecast').value }).then(r => { report = r; renderReport(); },
       err => { $('bud-rep-out').innerHTML = ''; appAlert(err.message || 'Unable to run the report.'); });
   }
   // Each row's ancestor at a heading level (0 class, 1 group), from the chart's headings.
@@ -328,6 +420,7 @@
   const favour = (type, budget, actual) => { const d = r2(actual - budget); if (!d || !PL.includes(type)) return 0; return (type === 'Revenue' ? d > 0 : d < 0) ? 1 : -1; };
   function renderReport() {
     const level = $('bud-rep-level').value;
+    const fc = Boolean(report.forecast);
     const groups = new Map();
     report.rows.forEach(r => {
       let k, label, cc = '', pj = '';
@@ -335,22 +428,26 @@
       else if (level === 'account') { k = r.AccountID; label = r.AccountCode + ' ' + r.AccountName; }
       else { const h = headingAt(r.Parent, Number(level)); k = h ? h.ID : r.AccountID; label = h ? h.Code + ' ' + h.Name : r.AccountCode + ' ' + r.AccountName; }
       k = r.AccountType + '|' + k;
-      if (!groups.has(k)) groups.set(k, { label, cc, pj, type: r.AccountType, measure: r.Measure, budgeted: false, notBudgeted: false, rows: [], MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0, code: r.AccountCode });
+      if (!groups.has(k)) groups.set(k, { label, cc, pj, type: r.AccountType, measure: r.Measure, budgeted: false, notBudgeted: false, rows: [], MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0, YearForecast: 0, code: r.AccountCode });
       const g = groups.get(k);
       ['MonthBudget', 'MonthActual', 'YtdBudget', 'YtdActual', 'YearBudget'].forEach(f => { g[f] = r2(g[f] + r[f]); });
+      g.YearForecast = r2(g.YearForecast + (r.YearForecast || 0));
       g.rows.push(r); g.budgeted = g.budgeted || r.Budgeted; g.notBudgeted = g.notBudgeted || !r.Budgeted;
     });
     reportRows = [...groups.values()].sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type) || String(a.label).localeCompare(String(b.label), undefined, { numeric: true }));
     const head = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2 sticky left-0 bg-slate-900">' + (level === 'line' || level === 'account' ? 'Account' : 'Heading') + '</th>' +
       (level === 'line' ? '<th class="py-2 px-2">Cost centre</th><th class="py-2 px-2">Project</th>' : '') +
-      '<th class="py-2 px-2 text-right">Month budget</th><th class="py-2 px-2 text-right">Month actual</th><th class="py-2 px-2 text-right">YTD budget</th><th class="py-2 px-2 text-right">YTD actual</th><th class="py-2 px-2 text-right">YTD variance</th><th class="py-2 px-2 text-right">%</th><th class="py-2 px-2 text-right">Year budget</th></tr>';
-    const cols = level === 'line' ? 10 : 8;
-    let html = '', profit = { MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0 };
+      '<th class="py-2 px-2 text-right">Month budget</th><th class="py-2 px-2 text-right">Month actual</th><th class="py-2 px-2 text-right">YTD budget</th><th class="py-2 px-2 text-right">YTD actual</th><th class="py-2 px-2 text-right">YTD variance</th><th class="py-2 px-2 text-right">%</th><th class="py-2 px-2 text-right">Year budget</th>' + (fc ? '<th class="py-2 px-2 text-right">Year forecast</th><th class="py-2 px-2 text-right">Forecast less budget</th>' : '') + '</tr>';
+    const cols = (level === 'line' ? 10 : 8) + (fc ? 2 : 0);
+    let html = '', profit = { MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0, YearForecast: 0 };
+    // The forecast's two cells: the year expected, and how far from the budget (coloured as the variance).
+    const fcCells = (type, budget, forecast, bold) => (fc ? '<td class="py-1 px-2 text-right font-mono' + bold + '">' + fmt(forecast) + '</td><td class="py-1 px-2 text-right font-mono' + bold + ' ' +
+      (favour(type, budget, forecast) > 0 ? 'text-emerald-400' : favour(type, budget, forecast) < 0 ? 'text-red-400' : '') + '">' + fmt(r2(forecast - budget)) + '</td>' : '');
     TYPE_ORDER.forEach(type => {
       const list = reportRows.map((g, i) => ({ g, i })).filter(x => x.g.type === type);
       if (!list.length) return;
       html += '<tr class="bg-slate-800/60"><td colspan="' + cols + '" class="py-1 px-2 text-xs font-semibold uppercase text-slate-300">' + esc(TYPE_LABEL[type]) + (!PL.includes(type) && report.budget.BalanceSheetMethod === 'Closing' ? ' (balances at the month\'s end)' : !PL.includes(type) ? ' (movements)' : '') + '</td></tr>';
-      const sub = { MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0 };
+      const sub = { MonthBudget: 0, MonthActual: 0, YtdBudget: 0, YtdActual: 0, YearBudget: 0, YearForecast: 0 };
       list.forEach(({ g, i }) => {
         Object.keys(sub).forEach(f => { sub[f] = r2(sub[f] + g[f]); });
         const v = r2(g.YtdActual - g.YtdBudget), fav = favour(type, g.YtdBudget, g.YtdActual);
@@ -360,21 +457,21 @@
           '<td class="py-1 px-2 text-right font-mono">' + fmt(g.MonthBudget) + '</td><td class="py-1 px-2 text-right font-mono"><button class="bud-drill hover:underline" data-g="' + i + '" data-p="month">' + fmt(g.MonthActual) + '</button></td>' +
           '<td class="py-1 px-2 text-right font-mono">' + fmt(g.YtdBudget) + '</td><td class="py-1 px-2 text-right font-mono"><button class="bud-drill hover:underline" data-g="' + i + '" data-p="ytd">' + fmt(g.YtdActual) + '</button></td>' +
           '<td class="py-1 px-2 text-right font-mono ' + (fav > 0 ? 'text-emerald-400' : fav < 0 ? 'text-red-400' : '') + '">' + fmt(v) + '</td><td class="py-1 px-2 text-right text-xs ' + (fav > 0 ? 'text-emerald-400' : fav < 0 ? 'text-red-400' : 'text-slate-400') + '">' + esc(pct) + '</td>' +
-          '<td class="py-1 px-2 text-right font-mono">' + fmt(g.YearBudget) + '</td></tr>';
+          '<td class="py-1 px-2 text-right font-mono">' + fmt(g.YearBudget) + '</td>' + fcCells(type, g.YearBudget, g.YearForecast, '') + '</tr>';
       });
       const span = level === 'line' ? 3 : 1;
       html += '<tr class="border-b border-slate-700 text-slate-200"><td colspan="' + span + '" class="py-1 px-2 sticky left-0 bg-slate-900 font-semibold">Total ' + esc(TYPE_LABEL[type].toLowerCase()) + '</td>' +
         ['MonthBudget', 'MonthActual', 'YtdBudget', 'YtdActual'].map(f => '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(sub[f]) + '</td>').join('') +
-        '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(r2(sub.YtdActual - sub.YtdBudget)) + '</td><td></td><td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(sub.YearBudget) + '</td></tr>';
+        '<td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(r2(sub.YtdActual - sub.YtdBudget)) + '</td><td></td><td class="py-1 px-2 text-right font-mono font-semibold">' + fmt(sub.YearBudget) + '</td>' + fcCells(type, sub.YearBudget, sub.YearForecast, ' font-semibold') + '</tr>';
       if (PL.includes(type)) Object.keys(profit).forEach(f => { profit[f] = r2(profit[f] + (type === 'Revenue' ? sub[f] : -sub[f])); });
       if (type === 'Expense' || (type === 'COGS' && !reportRows.some(g => g.type === 'Expense')) || (type === 'Revenue' && !reportRows.some(g => g.type === 'COGS' || g.type === 'Expense'))) {
         const v = r2(profit.YtdActual - profit.YtdBudget);
         html += '<tr class="border-y-2 border-slate-500 text-slate-100"><td colspan="' + span + '" class="py-2 px-2 sticky left-0 bg-slate-900 font-bold">Profit</td>' +
           ['MonthBudget', 'MonthActual', 'YtdBudget', 'YtdActual'].map(f => '<td class="py-2 px-2 text-right font-mono font-bold">' + fmt(profit[f]) + '</td>').join('') +
-          '<td class="py-2 px-2 text-right font-mono font-bold ' + (v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : '') + '">' + fmt(v) + '</td><td></td><td class="py-2 px-2 text-right font-mono font-bold">' + fmt(profit.YearBudget) + '</td></tr>';
+          '<td class="py-2 px-2 text-right font-mono font-bold ' + (v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : '') + '">' + fmt(v) + '</td><td></td><td class="py-2 px-2 text-right font-mono font-bold">' + fmt(profit.YearBudget) + '</td>' + fcCells('Revenue', profit.YearBudget, profit.YearForecast, ' font-bold') + '</tr>';
       }
     });
-    $('bud-rep-out').innerHTML = '<div class="px-3 pt-3 text-sm text-slate-300">' + esc(report.budget.Number) + ' · through ' + esc(report.through) + '</div>' +
+    $('bud-rep-out').innerHTML = '<div class="px-3 pt-3 text-sm text-slate-300">' + esc(report.budget.Number) + ' · through ' + esc(report.through) + (fc ? ' · ' + esc(report.forecast.Number) : '') + '</div>' +
       '<table class="w-full text-left text-sm whitespace-nowrap"><thead>' + head + '</thead><tbody>' + (html || '<tr><td class="p-4 text-slate-400">Nothing budgeted or posted in this year.</td></tr>') + '</tbody></table>';
     $('bud-rep-copy').classList.remove('hidden');
   }
@@ -388,9 +485,10 @@
   }
   async function copyReport() {
     const line = $('bud-rep-level').value === 'line';
-    const head = ['Type', 'Account'].concat(line ? ['Cost centre', 'Project'] : []).concat(['Month budget', 'Month actual', 'YTD budget', 'YTD actual', 'YTD variance', 'Year budget']);
+    const fc = Boolean(report.forecast);
+    const head = ['Type', 'Account'].concat(line ? ['Cost centre', 'Project'] : []).concat(['Month budget', 'Month actual', 'YTD budget', 'YTD actual', 'YTD variance', 'Year budget']).concat(fc ? ['Year forecast', 'Forecast less budget'] : []);
     const text = [head.join('\t')].concat(reportRows.map(g => [TYPE_LABEL[g.type], g.label].concat(line ? [g.cc, g.pj] : [])
-      .concat([g.MonthBudget, g.MonthActual, g.YtdBudget, g.YtdActual, r2(g.YtdActual - g.YtdBudget), g.YearBudget].map(plain)).join('\t'))).join('\n');
+      .concat([g.MonthBudget, g.MonthActual, g.YtdBudget, g.YtdActual, r2(g.YtdActual - g.YtdBudget), g.YearBudget].concat(fc ? [g.YearForecast, r2(g.YearForecast - g.YearBudget)] : []).map(plain)).join('\t'))).join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => appAlert('Copied: paste it into Excel.'), async () => (await appPrompt('Copy this text:', text)));
     else await appPrompt('Copy this text:', text);
   }
@@ -407,14 +505,18 @@
     $('bud-company').addEventListener('change', () => { tab('list'); loadCompany(); });
     $('bud-new').addEventListener('click', newBudget);
     $('bud-list-body').addEventListener('click', e => { const r = e.target.closest('.bud-row'); if (r) openBudget(r.dataset.id); });
-    $('bud-back').addEventListener('click', () => { current = null; tab('list'); });
+    $('bud-back').addEventListener('click', () => { const fcBack = isFc(); current = null; lock = -1; tab(fcBack ? 'forecasts' : 'list'); });
+    $('bud-fc-new').addEventListener('click', newForecast);
+    $('bud-fc-year').addEventListener('change', fillFcThrough);
+    $('bud-fc-body').addEventListener('click', e => { const r = e.target.closest('.bud-fc-row'); if (r) openForecast(r.dataset.id); });
+    $('bud-finalise').addEventListener('click', finalise);
     $('bud-add').addEventListener('click', addLine);
     $('bud-seed').addEventListener('click', seed);
     $('bud-paste').addEventListener('click', () => { $('bud-paste-box').classList.remove('hidden'); $('bud-paste-text').focus(); });
     $('bud-paste-add').addEventListener('click', paste);
     $('bud-paste-cancel').addEventListener('click', () => { $('bud-paste-text').value = ''; $('bud-paste-box').classList.add('hidden'); });
     $('bud-spread-like').addEventListener('change', () => { if ($('bud-spread-like').checked) loadPatterns(); });
-    $('bud-save').addEventListener('click', () => save().then(r => { appAlert('Saved: ' + r.lines + ' lines.'); return loadCompany().then(() => openBudget(current.BudgetID)); }, err => appAlert(err.message || 'Unable to save the budget.')));
+    $('bud-save').addEventListener('click', () => save().then(r => { appAlert('Saved: ' + r.lines + ' lines.'); return loadCompany().then(() => (isFc() ? openForecast(current.ForecastID) : openBudget(current.BudgetID))); }, err => appAlert(err.message || 'Unable to save.')));
     $('bud-submit').addEventListener('click', submit);
     $('bud-delete').addEventListener('click', remove);
     $('bud-approve').addEventListener('click', () => decide('Approved'));
