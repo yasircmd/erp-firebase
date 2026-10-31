@@ -97,6 +97,9 @@ control".
 | Q354 | **An open invoice is expected on its due date** (owner, 2026-10-31): the invoice date plus the party's payment terms. |
 | Q355 | **Open items, then the budget** (owner, 2026-10-31): with "open items + budget", the 13 weeks from open items, the months after from the budget. |
 | Q356 | **Payroll: the last posted run's net pay, repeated** (owner, 2026-10-31) at each month's end.
+| Q357 | **A project's life budget is by account, for its whole life** (owner, 2026-10-31): one amount per P&L account, no months, no cost centres; compared with all the project's actuals to date. |
+| Q358 | **Approved and revised as a year's budget** (owner, 2026-10-31): the Budget approval levels, an Original and Revisions, one in preparation at a time. |
+| Q359 | **Checked by the spending check, as the company's setting** (owner, 2026-10-31): a document line carrying the project is also checked against what is left of its life budget, with the same Off / Warn / Block. |
 
 **Budget Setup** (per company, in the Budget module, a setup right): the
 four settings above, each starting at the recommended option:
@@ -446,3 +449,42 @@ Live 2026-10-31 (PR #195; runs #254 every function and the screens, #255 Hosting
     - the balance row showing the net.
 - **Deploy:** `tools/deploy-sets/budget-b4.txt` (every function, once,
   for callable.js; `--screens`), then "hosting".
+
+## As built: step B5, life-of-project budgets (2026-10-31)
+
+- **Setting (Q343):** Budget Setup's `ProjectBudgets`: `WithinYear` (to
+  start) or `LifeOfProject`. Only with the second can a project budget be
+  created.
+- **Data:** a `budgets` document with `Kind: 'Project'`, `ProjectID`,
+  `ProjectLabel`, `YearStart: ''`; each line's `Amounts` is one amount
+  (the whole life), its `ProjectID` the project's, no cost centre.
+  Numbered "Project budget <code> Original" / "Revision n"; a scope is
+  `'P:' + ProjectID`, so Original, revisions, Current and one-in-progress
+  work as a year's do (Q358).
+- **Server (`budget.js`):** `createBudget` with `projectId` (an Active
+  org unit of Type Project; a revision starts from the Current one);
+  `saveBudgetDraft` takes P&L accounts only, one amount each;
+  `getBudgetVsActual` refuses a project budget; `getProjectBudgetReport`
+  (access right) gives per account the budget, the actual to date (every
+  posted line carrying the project), what is left and the % used, with
+  revenue, costs and the margin. Pure parts: `budgetCalc.projectLife`,
+  `projectOverruns`.
+- **The spending check (Q359):** `budgetCheck.checkDocument` also checks
+  each project a document's lines carry against its Current approved life
+  budget (all actuals to the document's date); the message names it "for
+  the life of project …", and the record keeps `ProjectBudgets`. A PO
+  carries no project on its lines, so in practice it is a Vendor
+  Invoice's direct lines that are checked.
+- **Screen:** Budgets has "Or a project's whole life" (shown with the
+  setting); the grid for a project has one "Whole life" column and no
+  cost-centre or project selects; Budget vs Actual lists project budgets
+  and shows their report; Setup has the setting.
+- **Tests:** unit/budget +1 (18): the life rows and overruns;
+  emulator/projectBudget (1): refused without the setting, P&L only, one
+  amount, approved, the report, an invoice warned against the life
+  budget, a revision; ui/budget +1 (8). Negative controls, each caught
+  and restored: the life actuals counting other projects' lines (unit); the check ignoring
+  the life budget (emulator).
+- **Deploy:** `tools/deploy-sets/budget-b5.txt` (the budget's functions
+  and the PO / invoice submit and post, 20; `--screens`), then "hosting".
+  No rules or index change.

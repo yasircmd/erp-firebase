@@ -12,6 +12,13 @@ screen.
 
 ## 31/10/2026
 
+- **Project budgets for a project's whole life.** Where a company chooses
+  it in [Budget](budget.html#a-project-s-whole-life) Setup, a project gets
+  a budget of its own: one amount per account for its whole life,
+  approved and revised like a year's. Its report shows each account's
+  actual to date, what is left and the % used, and a Vendor Invoice of
+  the project is checked against what is left.
+
 - **Cash forecast.** In [Budget](budget.html#cash-forecast), the company's
   cash from today: the bank and cash now, then 13 weeks and the months to
   the year's end. From open invoices on their due dates, post-dated
