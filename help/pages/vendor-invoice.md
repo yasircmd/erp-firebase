@@ -5,8 +5,8 @@ order: 7
 modules: [VENDORINVOICE]
 sources: [functions/src/grn.js, functions/src/partyLedger.js, functions/src/purchaseTax.js]
 summary: Match the supplier bill to the received GRNs and post the payable amount to the company books.
-reviewed: 2026-10-30
-fingerprint: a0c100447c21ce24
+reviewed: 2026-10-31
+fingerprint: bdd7d37da61d8fa4
 ---
 ## What it is for
 
@@ -90,6 +90,15 @@ line the invoice posts carries it, for the
 
 
 From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+
+## The budget
+
+Where the company has a budget for the year and its spending check on, an
+invoice's direct lines are checked against it when posted (lines from
+goods receipts were counted at the receipt). Over budget, you're told by
+how much and can go ahead with a warning, or, with a block, only someone
+who may override the budget can, with a reason. See
+[Budget](budget.html#the-spending-check).
 
 ## What happens in the books
 

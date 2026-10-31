@@ -1,5 +1,5 @@
 ---
-fingerprint: fccf30e55f644a74
+fingerprint: 9123ee10afa18eb9
 reviewed: 2026-10-31
 title: Budget
 area: finance
@@ -121,9 +121,44 @@ Accounts). Select **Run**.
   [General Ledger report](general-ledger.html).
 - **Copy** copies the table for Excel.
 
+## The spending check
+
+When a **Purchase Order** is submitted, or a **Vendor Invoice** with
+direct lines is posted, each line is checked against the year's Current
+budget: the budget line it counts against (an account and cost centre
+with no budget line counts as a budget of zero), over the period set in
+**Setup**, against what is already spent.
+
+- **Spent** is the posted figures, and, if the company counts them, open
+  Purchase Orders (approved, the quantity not yet received).
+- A Purchase Order counts its lines at the vendor's prices; a Vendor
+  Invoice only its direct lines (goods received were counted at the
+  goods receipt). Requisitions have no prices and aren't checked.
+- A year without an approved budget isn't checked.
+
+What happens over budget depends on the company's setting:
+
+| Setting | Over budget |
+|---|---|
+| Off | Nothing; Budget vs Actual still shows it. |
+| Warn | The message says by how much, line by line. **OK** goes ahead; the overrun is kept on the document, and its approvers see it (on the document and on the phone's approval card). |
+| Block | Refused. Someone with Budget's *override* right may go ahead, giving a reason, which is kept with the document. |
+
+> Example: Rent for cost centre *CC1* has 1,000 a month. In March, with
+> 2,700 spent and 200 on open orders, a Purchase Order of 300 is 200 over
+> the year to date (3,000).
+
 ## Setup
 
-**Setup** says, for the company, how balance-sheet lines are budgeted:
+**Setup** says, for the company, how the spending check works:
+
+- **The spending check**: Off, Warn or Block (Warn to start).
+- **Checked against the budget of**: the document's month, the year to
+  date through its month (to start), or the whole year.
+- **Counted as spent**: the posted figures only, or the posted figures
+  and open Purchase Orders (to start).
+
+And how balance-sheet lines are budgeted:
 
 - **Monthly movements**: the change each month. The budgeted balance is
   the actual balance when the year began plus the movements, so the plan
@@ -138,4 +173,5 @@ budget of a year, and a revision follows its Original.
 
 In Roles & Permissions, **Budget**: *access* reads budgets and Budget vs
 Actual; *write* prepares, submits and deletes drafts; *setup* changes
-Setup. Approving follows the approval levels.
+Setup; *override* goes ahead over budget where the spending check
+blocks. Approving follows the approval levels.

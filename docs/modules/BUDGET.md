@@ -92,6 +92,7 @@ control".
 | Q349 | **An account (and cost centre) with no budget line is checked as budget zero** (owner, 2026-10-31): unbudgeted spending is flagged like an overrun. |
 | Q350 | **The period checked, a per-company setting** (owner, 2026-10-31): the month, the year to date or the whole year. Starts at the year to date. |
 | Q351 | **No approved budget for the year: no check** (owner, 2026-10-31). |
+| Q352 | **Requisitions are not checked** (owner, 2026-10-31): they have no prices; the check runs on Purchase Orders and Vendor Invoices' direct lines, and Q348's setting offers actuals only, or actuals and open POs. |
 
 **Budget Setup** (per company, in the Budget module, a setup right): the
 four settings above, each starting at the recommended option:
@@ -306,3 +307,73 @@ Live 2026-10-31 (PR #193; runs #250 the functions and the screens, #251 Hosting)
     - the actual months typed on the screen.
 - **Deploy:** `tools/deploy-sets/budget-b2.txt` (19 functions,
   `--screens`), then "hosting". No rules change.
+
+## As built: step B3, the spending check (2026-10-31)
+
+- **Where it runs:**
+  - `submitPurchaseOrder`, after its lines are merged and before its
+    number is taken (patches `budget-check-po` and
+    `budget-check-po-record`);
+  - `postVendorInvoice`, before approval or posting (patch
+    `budget-check-vi`).
+  
+  Both call `budgetCheckDocument_`, MAPPED to `budgetCheck.checkDocument`.
+  Requisitions are not checked (Q352).
+- **What is counted (`budgetCheck.js`):**
+  - **A PO's lines:** a category line to the category's GL account, an
+    item line to the item's inventory account. The PO's cost centre is
+    used (PO lines have none), with no project. Amounts are in the base
+    currency at the rate on the PO's date; with no base currency set, as
+    they are.
+  - **A Vendor Invoice's direct lines:** by account code, with the line's
+    cost centre or the header's, the header's project, and its exchange
+    rate. Its GRN part was counted at the GRN.
+  - **Open POs (Committed = ActualsAndPOs):** approved, dated in the
+    year; each line's quantity not yet received.
+- **The comparison:** `budgetCalc.overruns` lines each up against the
+  Current budget:
+  - each line counts against its budget line (lineFor); no line means a
+    budget of zero (Q349);
+  - the window is the month, the year to date, or the year (Q350);
+  - Budget is set against Spent (actuals), plus Committed, plus this
+    document;
+  - P&L accounts are always checked; balance-sheet accounts only where
+    the budget has balance-sheet lines as movements;
+  - only debits (spending) count.
+  
+  No approved budget for the year means no check (Q351).
+- **Over budget:**
+  - **Warn:** refused with the marker "Over budget (warning)" until the
+    request carries `budgetConsent: { go: true }`.
+  - **Block:** "Over budget (blocked; you may override with a reason)"
+    for a user with Budget's new `override` right (Admin and Finance
+    Manager to start), who goes ahead with `{ go, reason }`; for anyone
+    else, "Over budget (blocked)".
+  - The consent rides with the request (callable.js →
+    `runWithBudgetConsent`), as the period lock's does.
+  - The record (Mode, Period, the budget, Findings, Text, By, At, and
+    Accepted or Overridden with its Reason) is kept on the document as
+    `BudgetCheck`. Nothing is taken before the check (a PO gets its
+    number after).
+- **Screens:**
+  - **PURCHASEORDER and VENDORINVOICE** (hand screens): `budgetGoAhead`
+    asks "OK to go ahead" (warn) or for a reason (block), then resends;
+    an "Over budget" banner shows on the document.
+  - **The approval card** (`approvalCard.summarize` `Budget`) shows it.
+  - **Budget → Setup:** the spending check, the period, and what counts
+    as spent.
+- **Not checked:** a PO revised after approval
+  (`reviseAndResubmitPurchaseOrder`), Inventory Purchase Requisitions,
+  and requisitions in general (Q352).
+- **Tests:**
+  - unit/budget, +1 (13): the periods, committed, budget zero, credits,
+    the balance sheet;
+  - emulator/budgetCheck (1): no budget; warn and go ahead with no PO
+    number taken; block, no reason, override with a reason; without the
+    right; actuals only; an invoice's direct line; off;
+  - ui/budget, +1 (6): the PO screen's warning answered.
+  - Negative controls, each caught and restored:
+    - open POs never committed;
+    - the screen not recognising the warning.
+- **Deploy:** `tools/deploy-sets/budget-b3.txt` (every function,
+  `--screens`), then "hosting".

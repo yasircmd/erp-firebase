@@ -4,7 +4,7 @@ area: start
 order: 3
 summary: How documents are submitted, approved, rejected and delegated.
 sources: [functions/src/approvals.js, functions/src/homeTasks.js]
-reviewed: 2026-10-30
+reviewed: 2026-10-31
 fingerprint: d09a7f519395f916
 ---
 ## When a document needs approval
@@ -33,7 +33,8 @@ in that team's Home tasks under **Ready for You to Act On**.
 On a phone, selecting a pending approval opens an **approval card**
 instead of the full screen: the document's number, date, party and
 amount, its lines in short, who submitted it, and each level's decision so
-far. **Approve** and **Reject** (with a reason) there do exactly what they
+far, and any overrun of the budget the submitter went ahead with
+([Budget](budget.html#the-spending-check)). **Approve** and **Reject** (with a reason) there do exactly what they
 do on the document's screen, with the same rights and levels. **Open the
 full document** shows everything else, such as attachments. A few kinds of
 approval (a Job Order line, a reimbursement claim, an absence) need more

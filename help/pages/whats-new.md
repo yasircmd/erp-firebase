@@ -12,6 +12,14 @@ screen.
 
 ## 31/10/2026
 
+- **The budget's spending check.** A [Purchase Order](purchase-order.html)
+  on submit, and a [Vendor Invoice](vendor-invoice.html)'s direct lines on
+  post, are checked against the year's budget. Each company chooses, in
+  [Budget](budget.html#the-spending-check) Setup: off, a warning (you may
+  go ahead; the approvers see it) or a block (only someone who may
+  override the budget goes ahead, with a reason); the period; and whether
+  open orders count as spent.
+
 - **Forecasts.** In [Budget](budget.html#forecasts), a forecast is the year
   you now expect for the P&L: the actuals so far, then your estimate of
   the months ahead, starting from the Current budget. Finalise one each

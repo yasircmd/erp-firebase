@@ -5,8 +5,8 @@ order: 5
 modules: [PURCHASEORDER]
 sources: [functions/src/grn.js, functions/src/salesTax.js]
 summary: Issue the approved order to the supplier and keep the commitment, delivery and receiving status aligned.
-reviewed: 2026-10-30
-fingerprint: 924c13cf167b138d
+reviewed: 2026-10-31
+fingerprint: ee369648ea00fb29
 ---
 ## What it is for
 
@@ -40,6 +40,15 @@ An item without a tax code is named in place of the estimate: give it one
 in [Item Master](item-master.html).
 
 From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+
+## The budget
+
+Where the company has a budget for the year and its spending check on, a
+Purchase Order is checked against it when submitted. Over budget, you're
+told by how much: with a warning, select **OK** to go ahead (the
+approvers see the overrun on the order); with a block, only someone who
+may override the budget can go ahead, with a reason. See
+[Budget](budget.html#the-spending-check).
 
 ## What happens in the books
 
