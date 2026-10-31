@@ -13,7 +13,7 @@ const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
-const { app, call, reset, baseFixture, firestore, rtdb } = require('../emulator/_helpers');
+const { app, call, reset, baseFixture, firestore, rtdb, val } = require('../emulator/_helpers');
 
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300) + ' @ ' + String(e.stack).split('\n').find(l => /budget.ui/.test(l))]); }); }
@@ -26,6 +26,7 @@ async function seed() {
   const f = baseFixture();
   f.coa['A-RENT'] = { AccountCode: '6100', AccountName: 'Rent', AccountType: 'Expense', Status: 'Active', IsPostable: true };
   f.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Office', Status: 'Active', CompanyID: 'C1' };
+  f.requisitionCategories = { RC1: { Name: 'Premises', Type: 'DirectExpense', GLAccountID: 'A-RENT', Status: 'Active', CompanyID: 'C1' } };
   await reset(f);
   await post(YEAR + '-01-10', [['A-BANK', 5000, 0], ['A-REV', 0, 5000]]);
   await post(YEAR + '-01-20', [['A-RENT', 900, 0, 'CC1'], ['A-RENT', 70, 0, 'CC2'], ['A-BANK', 0, 970]]);
@@ -152,6 +153,24 @@ async function seed() {
     await p.waitForSelector('#bud-rep-out table', T);
     const row = (await p.locator('#bud-rep-out tr', { hasText: '4000 Sales' }).first().locator('td').allInnerTexts()).map(x => x.trim());
     assert.deepEqual(row.slice(-3), ['12,000.00', '16,000.00', '4,000.00'], 'year budget, year forecast, forecast less budget');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('the spending check on a Purchase Order: over budget, the warning answered, submitted; the overrun kept on it (B3)', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const d = ok(await call('u-admin', 'saveDraftPurchaseOrder', { poData: { PODate: today, CompanyID: 'C1', CostCenterID: 'CC1', VendorID: 'V1',
+      Lines: [{ CategoryID: 'RC1', Description: 'Extra space', Quantity: 1, UOM: 'month', UnitPrice: 50000 }] } }));
+    const p = await open('u-admin');
+    await p.evaluate(id => openModule('PURCHASEORDER', { OpenEntryId: id }), d.poId);
+    await p.waitForSelector('#po-submit-btn:not(.hidden)', T);
+    await p.click('#po-submit-btn');
+    for (let i = 0; i < 100 && !p.__dialogs.some(m => /Over budget/.test(m)); i++) await p.waitForTimeout(100);
+    assert.match(p.__dialogs.find(m => /Over budget/.test(m)) || p.__dialogs.join(' | '), /^Over budget \(warning\) .*6100 Rent \/ CC1: budget .*this document 50,000\.00, over by .*Continue anyway\?/);
+    let po = null;
+    for (let i = 0; i < 100; i++) { po = await val('purchaseOrders/' + d.poId); if (po.Status !== 'Draft') break; await p.waitForTimeout(100); }
+    assert.equal(po.Status, 'Approved', 'submitted once the warning was answered');
+    assert.deepEqual([po.BudgetCheck.Mode, po.BudgetCheck.Accepted, po.BudgetCheck.Findings[0].AccountCode], ['Warn', true, '6100']);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
