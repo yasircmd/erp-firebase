@@ -93,6 +93,10 @@ control".
 | Q350 | **The period checked, a per-company setting** (owner, 2026-10-31): the month, the year to date or the whole year. Starts at the year to date. |
 | Q351 | **No approved budget for the year: no check** (owner, 2026-10-31). |
 | Q352 | **Requisitions are not checked** (owner, 2026-10-31): they have no prices; the check runs on Purchase Orders and Vendor Invoices' direct lines, and Q348's setting offers actuals only, or actuals and open POs. |
+| Q353 | **Overdue invoices, separate and not counted** (owner, 2026-10-31): shown as their own lines (receivables and payables), not in any week. |
+| Q354 | **An open invoice is expected on its due date** (owner, 2026-10-31): the invoice date plus the party's payment terms. |
+| Q355 | **Open items, then the budget** (owner, 2026-10-31): with "open items + budget", the 13 weeks from open items, the months after from the budget. |
+| Q356 | **Payroll: the last posted run's net pay, repeated** (owner, 2026-10-31) at each month's end.
 
 **Budget Setup** (per company, in the Budget module, a setup right): the
 four settings above, each starting at the recommended option:
