@@ -276,4 +276,99 @@ function overruns(budget, accounts, entries, document, committed, month, period)
     .filter(f => f.Document > 0 && f.Over > 0.005);
 }
 
-module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread, forecastStart, lockActuals, attachForecast, overruns };
+// ---------- The cash flow forecast (step B4; Q341, Q345, Q353-Q356) ----------
+const addDays = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const dayCount = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000) + 1;
+
+// The forecast's periods: 13 weeks from today, then the months (the first
+// perhaps part of one) to the financial year's end.
+function cashBuckets(today, yearEnd) {
+  const out = [];
+  for (let w = 0; w < 13; w++) out.push({ Kind: 'week', Label: 'Week ' + (w + 1), From: addDays(today, 7 * w), To: addDays(today, 7 * w + 6) });
+  let from = addDays(out[12].To, 1);
+  while (from <= yearEnd) {
+    const end = lastDay(from.slice(0, 7)), to = end < yearEnd ? end : yearEnd;
+    out.push({ Kind: 'month', Label: from.slice(0, 7), From: from, To: to });
+    from = addDays(to, 1);
+  }
+  return out;
+}
+
+// A party's open items as cash expected, each on its due date (Q354):
+// what it owes, less its credits not applied and its cheques already
+// pending (they are counted on their own dates), taken from the oldest due.
+function netPartyItems(items, pendingCheques) {
+  const owed = (items || []).filter(i => i.BaseOutstanding > 0).map(i => Object.assign({}, i)).sort((a, b) => String(a.DueDate).localeCompare(String(b.DueDate)));
+  let less = round2((items || []).filter(i => i.BaseOutstanding < 0).reduce((s, i) => s - i.BaseOutstanding, 0) + (Number(pendingCheques) || 0));
+  for (const i of owed) {
+    const take = Math.min(less, i.BaseOutstanding);
+    i.BaseOutstanding = round2(i.BaseOutstanding - take);
+    less = round2(less - take);
+  }
+  return owed.filter(i => i.BaseOutstanding > 0.005);
+}
+
+// The budget's cash per period: revenue in, costs out; balance-sheet
+// movements (a budget of movements): an asset growing is cash out, a
+// liability or equity growing cash in; the cash and bank accounts
+// themselves left out. A month's amount is shared by its days in each period.
+function budgetCash(budget, accounts, buckets, isCash) {
+  const months = monthsOf(budget.YearStart);
+  const ins = buckets.map(() => 0), outs = buckets.map(() => 0);
+  (budget.Lines || []).forEach(l => {
+    const type = (accounts[l.AccountID] || {}).AccountType || '';
+    if (!type || isCash(l.AccountID) || (!isPL(type) && budget.BalanceSheetMethod === 'Closing')) return;
+    const into = ['Revenue', 'Liability', 'Equity'].includes(type) ? 1 : -1;
+    months.forEach((m, mi) => {
+      const amount = into * (Number(l.Amounts[mi]) || 0);
+      if (!amount) return;
+      const mFrom = m + '-01', mTo = lastDay(m), days = dayCount(mFrom, mTo);
+      buckets.forEach((b, bi) => {
+        const from = b.From > mFrom ? b.From : mFrom, to = b.To < mTo ? b.To : mTo;
+        if (from > to) return;
+        const share = amount * dayCount(from, to) / days;
+        if (share > 0) ins[bi] += share; else outs[bi] -= share;
+      });
+    });
+  });
+  return { In: ins.map(round2), Out: outs.map(round2) };
+}
+
+// The forecast: items ({ Row, Direction 'in'|'out', Date, Amount, Number,
+// Party }) in their periods by the company's mode (Q345, Q355):
+//   OpenItems           every period from open items;
+//   OpenItemsAndBudget  the weeks from open items, the months from the budget;
+//   Budget              every period from the budget.
+// Items dated before today are overdue: apart, not counted (Q353).
+function cashForecast(buckets, items, budgetFlows, mode, opening, today) {
+  const rows = new Map(), detail = [], overdue = { In: 0, Out: 0, Items: [] };
+  const row = (label, dir) => { const k = dir + '|' + label; if (!rows.has(k)) rows.set(k, { Label: label, Direction: dir, Amounts: buckets.map(() => 0) }); return rows.get(k); };
+  const useItems = i => mode !== 'Budget' && (mode === 'OpenItems' || buckets[i].Kind === 'week');
+  (items || []).forEach(it => {
+    if (!(it.Amount > 0)) return;
+    if (it.Date < today) {
+      overdue[it.Direction === 'in' ? 'In' : 'Out'] = round2(overdue[it.Direction === 'in' ? 'In' : 'Out'] + it.Amount);
+      overdue.Items.push(it);
+      return;
+    }
+    const b = buckets.findIndex(x => it.Date >= x.From && it.Date <= x.To);
+    if (b < 0 || !useItems(b)) return;
+    const r = row(it.Row, it.Direction);
+    r.Amounts[b] = round2(r.Amounts[b] + it.Amount);
+    detail.push(Object.assign({ Bucket: b }, it));
+  });
+  if (budgetFlows && mode !== 'OpenItems') {
+    const ri = row('Budget: receipts', 'in'), ro = row('Budget: payments', 'out');
+    buckets.forEach((b, i) => {
+      if (mode === 'OpenItemsAndBudget' && b.Kind === 'week') return;
+      ri.Amounts[i] = budgetFlows.In[i]; ro.Amounts[i] = budgetFlows.Out[i];
+    });
+  }
+  const list = [...rows.values()].filter(r => r.Amounts.some(v => v));
+  const net = buckets.map((_, i) => round2(list.reduce((s, r) => s + (r.Direction === 'in' ? 1 : -1) * r.Amounts[i], 0)));
+  let bal = round2(opening);
+  const closing = net.map(v => (bal = round2(bal + v)));
+  return { rows: list, net, closing, overdue, detail };
+}
+
+module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread, forecastStart, lockActuals, attachForecast, overruns, addDays, cashBuckets, netPartyItems, budgetCash, cashForecast };

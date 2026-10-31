@@ -1630,3 +1630,13 @@ from, and how it was verified. The deploy procedure is in the
   granted: 19; screens released: yes`. "hosting", run
   [#251](https://github.com/yasircmd/erp-firebase/actions/runs/41177617065)
   (06:41 UTC), success. No rules change.
+- **2026-10-31, Budget step B3, the spending check (`budget-b3`, PR #194,
+  from `6950414`):** every function with `--screens`, run
+  [#252](https://github.com/yasircmd/erp-firebase/actions/runs/41184600584)
+  (08:26–10:34 UTC), success: `SUMMARY: functions deployed: 618 (…
+  submitPurchaseOrder … postVendorInvoice …); access granted: 618; screens
+  released: yes`. "hosting", run
+  [#253](https://github.com/yasircmd/erp-firebase/actions/runs/41193591532)
+  (10:38–10:39 UTC), success. No rules change. The check starts at Warn
+  wherever a company has an approved budget for the year; each company's
+  choice is in Budget → Setup.

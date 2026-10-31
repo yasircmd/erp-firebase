@@ -12,6 +12,12 @@ screen.
 
 ## 31/10/2026
 
+- **Cash forecast.** In [Budget](budget.html#cash-forecast), the company's
+  cash from today: the bank and cash now, then 13 weeks and the months to
+  the year's end. From open invoices on their due dates, post-dated
+  cheques, open orders, payroll and recurring entries, from the budget,
+  or both (Setup). Overdue invoices are shown apart, not counted.
+
 - **The budget's spending check.** A [Purchase Order](purchase-order.html)
   on submit, and a [Vendor Invoice](vendor-invoice.html)'s direct lines on
   post, are checked against the year's budget. Each company chooses, in

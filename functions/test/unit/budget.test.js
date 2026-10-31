@@ -150,3 +150,41 @@ test('the spending check: over the year to date, the month or the year; spent, c
   // A credit (a revenue account on an invoice's line) is not spending; the balance sheet of a P&L budget isn't checked.
   assert.equal(C.overruns(budget, ACC, entries, [{ AccountID: 'REV', Amount: 50 }, { AccountID: 'CASH', Amount: 999 }], [], 1, 'YTD').length, 0);
 });
+
+test('the cash forecast\'s periods: 13 weeks from today, then the months (the first in part) to the year\'s end', () => {
+  const b = C.cashBuckets('2026-10-31', '2026-12-31');
+  assert.deepEqual([b[0].From, b[0].To, b[12].To, b.length], ['2026-10-31', '2026-11-06', '2027-01-29', 13], 'the year ends inside the weeks: no months');
+  const c = C.cashBuckets('2026-01-01', '2026-12-31');
+  assert.deepEqual(c.slice(13, 15).map(x => [x.Label, x.From, x.To]), [['2026-04', '2026-04-02', '2026-04-30'], ['2026-05', '2026-05-01', '2026-05-31']]);
+  assert.equal(c[c.length - 1].To, '2026-12-31');
+});
+
+test('a party\'s invoices as cash due: less its credits not applied and its pending cheques, from the oldest due', () => {
+  const items = [{ DueDate: '2026-11-20', BaseOutstanding: 300 }, { DueDate: '2026-11-05', BaseOutstanding: 200 }, { DueDate: '2026-10-01', BaseOutstanding: -50 }];
+  assert.deepEqual(C.netPartyItems(items, 180).map(i => [i.DueDate, i.BaseOutstanding]), [['2026-11-20', 270]], '230 taken: 200 from the oldest, 30 from the next');
+});
+
+test('the budget as cash: revenue in, costs out, an asset bought out, a loan drawn in, cash itself left out; a month shared by days', () => {
+  const ACC2 = Object.assign({ FA: { AccountType: 'Asset' } }, ACC);
+  const budget = { YearStart: '2026-01', BalanceSheetMethod: 'Movements', Lines: [
+    { AccountID: 'REV', Amounts: at(3, 3000) }, { AccountID: 'RENT', Amounts: at(3, 900) }, { AccountID: 'FA', Amounts: at(3, 600) },
+    { AccountID: 'LOAN', Amounts: at(3, 300) }, { AccountID: 'CASH', Amounts: at(3, 99999) }] };
+  const buckets = [{ Kind: 'week', From: '2026-04-01', To: '2026-04-10' }, { Kind: 'month', From: '2026-04-11', To: '2026-04-30' }];
+  const f = C.budgetCash(budget, ACC2, buckets, id => id === 'CASH');
+  assert.deepEqual([f.In[0], f.Out[0], f.In[1], f.Out[1]], [1100, 500, 2200, 1000], 'April: in 3,300 and out 1,500, 10 and 20 of its 30 days');
+  assert.deepEqual(C.budgetCash(Object.assign({}, budget, { BalanceSheetMethod: 'Closing' }), ACC2, buckets, () => false).Out[1], 600, 'closing balances: the balance sheet left out');
+});
+
+test('the forecast: open items in the weeks, the budget in the months (Q355); overdue apart, not counted (Q353); the balance carried', () => {
+  const buckets = [{ Kind: 'week', From: '2026-11-01', To: '2026-11-07' }, { Kind: 'month', From: '2026-11-08', To: '2026-11-30' }];
+  const items = [{ Row: 'Customers', Direction: 'in', Date: '2026-11-03', Amount: 500 }, { Row: 'Vendors', Direction: 'out', Date: '2026-10-20', Amount: 80 },
+    { Row: 'Payroll', Direction: 'out', Date: '2026-11-30', Amount: 400 }];
+  const flows = { In: [70, 1000], Out: [30, 600] };
+  const both = C.cashForecast(buckets, items, flows, 'OpenItemsAndBudget', 1000, '2026-11-01');
+  const amt = (f, label) => (f.rows.find(r => r.Label === label) || { Amounts: [0, 0] }).Amounts;
+  assert.deepEqual([amt(both, 'Customers'), amt(both, 'Payroll'), amt(both, 'Budget: receipts'), amt(both, 'Budget: payments')], [[500, 0], [0, 0], [0, 1000], [0, 600]]);
+  assert.deepEqual([both.overdue.Out, both.net, both.closing], [80, [500, 400], [1500, 1900]]);
+  const open = C.cashForecast(buckets, items, flows, 'OpenItems', 1000, '2026-11-01');
+  assert.deepEqual([amt(open, 'Payroll'), open.rows.some(r => /^Budget/.test(r.Label)), open.closing], [[0, 400], false, [1500, 1100]]);
+  assert.deepEqual(C.cashForecast(buckets, items, flows, 'Budget', 0, '2026-11-01').net, [40, 400], 'the budget only');
+});

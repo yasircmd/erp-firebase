@@ -30,6 +30,8 @@ async function seed() {
   await reset(f);
   await post(YEAR + '-01-10', [['A-BANK', 5000, 0], ['A-REV', 0, 5000]]);
   await post(YEAR + '-01-20', [['A-RENT', 900, 0, 'CC1'], ['A-RENT', 70, 0, 'CC2'], ['A-BANK', 0, 970]]);
+  const inTwoDays = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+  await firestore.collection('pdcCheques').add({ CompanyID: 'C1', Status: 'Pending', Direction: 'Issued', ChequeDate: inTwoDays, Amount: 250, TransactionNumber: 'PDCI-7' });
 }
 
 (async () => {
@@ -171,6 +173,24 @@ async function seed() {
     for (let i = 0; i < 100; i++) { po = await val('purchaseOrders/' + d.poId); if (po.Status !== 'Draft') break; await p.waitForTimeout(100); }
     assert.equal(po.Status, 'Approved', 'submitted once the warning was answered');
     assert.deepEqual([po.BudgetCheck.Mode, po.BudgetCheck.Accepted, po.BudgetCheck.Findings[0].AccountCode], ['Warn', true, '6100']);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('the cash forecast: the bank today, a cheque issued in week 1 and what makes it; the balance carried (B4)', async () => {
+    const p = await open('u-viewer');
+    await p.click('.bud-tab[data-tab="cash"]');
+    await p.click('#bud-cash-run');
+    await p.waitForSelector('#bud-cash-out table', T);
+    const text = (await p.innerText('#bud-cash-out')).replace(/\s+/g, ' ');
+    assert.match(text, /Cash and bank today: 4,030\.00/i);
+    assert.match(text, /Cheques issued 250\.00/);
+    // The 50,000 PO of the check before is open (approved, nothing received), due today on its terms.
+    assert.match(text, /Open Purchase Orders 50,000\.00/);
+    assert.match(text, /Balance at the end -46,220\.00/, 'after week 1: 4,030 less the cheque and the order');
+    await p.click('#bud-cash-out .bud-cash-cell');
+    await p.waitForSelector('#bud-cash-detail:not(.hidden)', T);
+    assert.match(await p.innerText('#bud-cash-detail-body'), /Cheques issued PDCI-7[\s\S]*250\.00/);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

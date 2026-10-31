@@ -31,7 +31,7 @@ function onCallWithMessages(options, handler) {
       // ...and a budget overrun the user chose to go ahead with (docs/modules/BUDGET.md, step B3).
       const d = request.data || {};
       return await require('./periodLock').runWithConsent(d.adjustInOpenMonth,
-        () => require('./budgetCheck').runWithBudgetConsent(d.budgetConsent, () => handler(request)));
+        () => require('./budgetConsent').runWithBudgetConsent(d.budgetConsent, () => handler(request)));
     } catch (err) {
       if (err instanceof HttpsError) throw err;
       console.error(err);

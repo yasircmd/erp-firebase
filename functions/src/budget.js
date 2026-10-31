@@ -20,7 +20,8 @@
 //     Total (the year's budgeted costs: the approval amount), Notes,
 //     ApprovalInstanceID, RejectionReason, History, Created/Updated/Submitted/Approved At, By }
 //   Firestore budgetSetup/{CompanyID} { BalanceSheet: 'Movements' | 'Closing', SpendingCheck: 'Off' | 'Warn' | 'Block',
-//     CheckPeriod: 'Month' | 'YTD' | 'Year', Committed: 'Actuals' | 'ActualsAndPOs', UpdatedAt, UpdatedBy }
+//     CheckPeriod: 'Month' | 'YTD' | 'Year', Committed: 'Actuals' | 'ActualsAndPOs',
+//     CashForecast: 'OpenItemsAndBudget' | 'OpenItems' | 'Budget' (cashForecast.js, step B4), UpdatedAt, UpdatedBy }
 //   (the spending check, step B3, is budgetCheck.js)
 //
 // Forecasts, step B2 (Q341, Q346-Q347): the expected year of a company's
@@ -51,14 +52,15 @@ const LABEL = 'Budget';
 const MAX_LINES = 5000;
 const OPEN = ['Draft', 'Rejected', 'PendingApproval'];
 const EDITABLE = ['Draft', 'Rejected'];
-// Budget Setup's settings and where they start (Q342, Q344, Q348, Q350).
+// Budget Setup's settings and where they start (Q342, Q344, Q345, Q348, Q350).
 const SETUP_OPTIONS = {
   BalanceSheet: ['Movements', 'Closing'],
   SpendingCheck: ['Off', 'Warn', 'Block'],
   CheckPeriod: ['Month', 'YTD', 'Year'],
-  Committed: ['Actuals', 'ActualsAndPOs']
+  Committed: ['Actuals', 'ActualsAndPOs'],
+  CashForecast: ['OpenItemsAndBudget', 'OpenItems', 'Budget']
 };
-const SETUP_DEFAULTS = { BalanceSheet: 'Movements', SpendingCheck: 'Warn', CheckPeriod: 'YTD', Committed: 'ActualsAndPOs' };
+const SETUP_DEFAULTS = { BalanceSheet: 'Movements', SpendingCheck: 'Warn', CheckPeriod: 'YTD', Committed: 'ActualsAndPOs', CashForecast: 'OpenItemsAndBudget' };
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 120);
 const actorOf = user => user.profile.username || user.uid;
 const budgets = () => firestore.collection('budgets');

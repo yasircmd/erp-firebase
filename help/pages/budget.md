@@ -1,5 +1,5 @@
 ---
-fingerprint: 9123ee10afa18eb9
+fingerprint: 0f2687e4efc69229
 reviewed: 2026-10-31
 title: Budget
 area: finance
@@ -16,8 +16,8 @@ wish, how balance-sheet accounts should move (a loan repaid, assets
 bought). **Budget vs Actual** then compares the plan with what was
 posted.
 
-The screen has four tabs: **Budgets**, **Forecasts**, **Budget vs
-Actual** and **Setup**. Choose the company at the top.
+The screen has five tabs: **Budgets**, **Forecasts**, **Budget vs
+Actual**, **Cash forecast** and **Setup**. Choose the company at the top.
 
 ## Amounts and signs
 
@@ -121,6 +121,40 @@ Accounts). Select **Run**.
   [General Ledger report](general-ledger.html).
 - **Copy** copies the table for Excel.
 
+## Cash forecast
+
+The company's cash from today: its cash and bank balances now, then the
+next 13 weeks and each month to the financial year's end, with the money
+in, the money out and the balance at the end of each. Select **Run**.
+
+What fills it, as **Setup** says:
+
+- **Open items for the 13 weeks, then the budget** (to start);
+- **Open items only**;
+- **The budget only**.
+
+| Open items | When they count |
+|---|---|
+| Customers' and vendors' open invoices | On their due date (the invoice date plus the party's payment terms), less credits not applied and cheques already in hand. |
+| Post-dated cheques received or issued | On the cheque date. |
+| Open Purchase Orders (approved, not yet received) | On the vendor's payment terms from the order's date. |
+| Payroll | The last posted payroll's net pay, at each month's end. |
+| Recurring entries with fixed amounts | Their cash and bank lines, on each date due. |
+
+The budget counts as cash in the month it is budgeted: revenue in, costs
+out; with balance-sheet lines as movements, an asset bought is cash out
+and a loan drawn cash in. A month's amount is shared by its days between
+the periods.
+
+- Invoices already **overdue** are shown above the table and **not
+  counted** in any week: select a total to see them.
+- Select an amount to see the documents behind it.
+- **Copy** copies the forecast for Excel.
+
+> Example: with 4,000 in the bank, a vendor's bill of 1,000 due in five
+> weeks and payroll of 2,500 at the month's end, the balance falls to
+> 1,500 at the month's end and to 500 in week 5.
+
 ## The spending check
 
 When a **Purchase Order** is submitted, or a **Vendor Invoice** with
@@ -157,6 +191,8 @@ What happens over budget depends on the company's setting:
   date through its month (to start), or the whole year.
 - **Counted as spent**: the posted figures only, or the posted figures
   and open Purchase Orders (to start).
+- **The cash flow forecast comes from**: open items for the 13 weeks then
+  the budget (to start), open items only, or the budget only.
 
 And how balance-sheet lines are budgeted:
 

@@ -20,7 +20,6 @@
 // The screens look for the markers below (keep in step with them). The
 // consent rides with the request, as the period lock's does (callable.js).
 'use strict';
-const { AsyncLocalStorage } = require('async_hooks');
 const { rtdb } = require('./firebaseAdmin');
 const { moduleHasCapability } = require('./auth');
 const { purchaseOrders } = require('./purchaseStore');
@@ -31,9 +30,7 @@ const WARN = 'Over budget (warning)';
 const BLOCK_OVERRIDE = 'Over budget (blocked; you may override with a reason)';
 const BLOCK = 'Over budget (blocked)';
 
-const store = new AsyncLocalStorage();
-const runWithBudgetConsent = (c, fn) => store.run({ go: Boolean(c && c.go === true), reason: String((c && c.reason) || '').trim().slice(0, 300) }, fn);
-const consent = () => store.getStore() || { go: false, reason: '' };
+const { runWithBudgetConsent, consent } = require('./budgetConsent');
 const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // The base currency's code and a document currency's rate to it on a date.
