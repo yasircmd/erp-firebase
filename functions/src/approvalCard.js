@@ -99,7 +99,9 @@ function summarize(inst, doc, names) {
     // In the document's own currency (Currency below); the approval's own amount when the document has none.
     Amount: num(first(d, AMOUNT_FIELDS)) !== null ? num(first(d, AMOUNT_FIELDS)) : num(inst.Amount),
     // A PO keeps its currency as Currency.
-    Currency: d.CurrencyCode || d.Currency || '', Status: d.Status || '', Lines: lines, MoreLines: Math.max(0, lineCount - lines.length)
+    Currency: d.CurrencyCode || d.Currency || '', Status: d.Status || '', Lines: lines, MoreLines: Math.max(0, lineCount - lines.length),
+    // Over budget, gone ahead with (docs/modules/BUDGET.md, step B3): for the approver to see.
+    Budget: d.BudgetCheck ? { Text: String(d.BudgetCheck.Text || '').slice(0, 1500), By: d.BudgetCheck.By || '', Overridden: Boolean(d.BudgetCheck.Overridden), Reason: d.BudgetCheck.Reason || '' } : null
   };
 }
 

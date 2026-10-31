@@ -168,6 +168,10 @@
     <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
     <p id="po-rejection-reason" class="text-sm text-slate-200"></p>
   </div>
+  <div id="po-budget-banner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-amber-300 uppercase">Over budget</p>
+    <p id="po-budget-text" class="text-sm text-slate-200"></p>
+  </div>
 
   <div id="po-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
     <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
@@ -754,17 +758,40 @@
     rpc
       .withSuccessHandler(saveResult => {
         if (!saveResult.success) { btn.disabled = false; btn.innerHTML = original; error.textContent = saveResult.error || 'Unable to save before submitting.'; error.classList.remove('hidden'); return; }
-        rpc
-          .withSuccessHandler(submitResult => {
+        const send = consent => rpc
+          .withSuccessHandler(async submitResult => {
+            if (submitResult.success) { btn.disabled = false; btn.innerHTML = original; isDirty = false; showListView(); return; }
+            const go = await budgetGoAhead(submitResult.error);
+            if (go) { send(go); return; }
             btn.disabled = false; btn.innerHTML = original;
-            if (submitResult.success) { isDirty = false; showListView(); }
-            else { error.textContent = submitResult.error || 'Unable to submit.'; error.classList.remove('hidden'); }
+            if (go === undefined) { error.textContent = submitResult.error || 'Unable to submit.'; error.classList.remove('hidden'); }
           })
           .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to submit.'; error.classList.remove('hidden'); })
-          .submitPurchaseOrder({ poId: saveResult.poId });
+          .submitPurchaseOrder(Object.assign({ poId: saveResult.poId }, consent ? { budgetConsent: consent } : {}));
+        send(null);
       })
       .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to save before submitting.'; error.classList.remove('hidden'); })
       .saveDraftPurchaseOrder({ poData: collectPOPayload() });
+  }
+
+  // The budget's spending check (docs/modules/BUDGET.md, step B3): over budget, the user may go
+  // ahead (a warning), or override a block with a reason when they have the right; the call is
+  // then made again with that consent. undefined: not a budget refusal.
+  async function budgetGoAhead(message) {
+    const m = String(message || '');
+    if (m.indexOf('Over budget (warning)') === 0) return (await appConfirm(m)) ? { go: true } : null;
+    if (m.indexOf('Over budget (blocked; you may override with a reason)') === 0) {
+      const reason = await appPrompt(m + ' To go ahead anyway, give the reason:', '');
+      if (reason == null) return null;
+      if (!reason.trim()) { appAlert('A reason is required to go ahead over budget.'); return null; }
+      return { go: true, reason: reason.trim() };
+    }
+    return undefined;
+  }
+  function showBudgetBanner(prefix, doc) {
+    const b = doc && doc.BudgetCheck;
+    document.getElementById(prefix + '-budget-banner').classList.toggle('hidden', !b);
+    if (b) document.getElementById(prefix + '-budget-text').textContent = b.Text + (b.Overridden ? ' — gone ahead by ' + b.By + ': ' + b.Reason : ' — ' + b.By + ' went ahead.');
   }
 
   async function deleteDraft() {
@@ -898,6 +925,7 @@
 
     document.getElementById('po-rejection-banner').classList.toggle('hidden', currentPO.Status !== 'Rejected');
     if (currentPO.Status === 'Rejected') document.getElementById('po-rejection-reason').textContent = currentPO.RejectionReason || '(no reason given)';
+    showBudgetBanner('po', currentPO);
 
     renderDetailLines(false);
     updatePrintHeader();

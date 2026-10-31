@@ -19,7 +19,9 @@
 //     Lines [{ AccountID, AccountCode, AccountName, AccountType, CostCenterID, ProjectID, Amounts[12] }],
 //     Total (the year's budgeted costs: the approval amount), Notes,
 //     ApprovalInstanceID, RejectionReason, History, Created/Updated/Submitted/Approved At, By }
-//   Firestore budgetSetup/{CompanyID} { BalanceSheet: 'Movements' | 'Closing', UpdatedAt, UpdatedBy }
+//   Firestore budgetSetup/{CompanyID} { BalanceSheet: 'Movements' | 'Closing', SpendingCheck: 'Off' | 'Warn' | 'Block',
+//     CheckPeriod: 'Month' | 'YTD' | 'Year', Committed: 'Actuals' | 'ActualsAndPOs', UpdatedAt, UpdatedBy }
+//   (the spending check, step B3, is budgetCheck.js)
 //
 // Forecasts, step B2 (Q341, Q346-Q347): the expected year of a company's
 // P&L, started from the Current budget, the months through ActualsThrough
@@ -49,7 +51,14 @@ const LABEL = 'Budget';
 const MAX_LINES = 5000;
 const OPEN = ['Draft', 'Rejected', 'PendingApproval'];
 const EDITABLE = ['Draft', 'Rejected'];
-const SETUP_DEFAULTS = { BalanceSheet: 'Movements' };
+// Budget Setup's settings and where they start (Q342, Q344, Q348, Q350).
+const SETUP_OPTIONS = {
+  BalanceSheet: ['Movements', 'Closing'],
+  SpendingCheck: ['Off', 'Warn', 'Block'],
+  CheckPeriod: ['Month', 'YTD', 'Year'],
+  Committed: ['Actuals', 'ActualsAndPOs']
+};
+const SETUP_DEFAULTS = { BalanceSheet: 'Movements', SpendingCheck: 'Warn', CheckPeriod: 'YTD', Committed: 'ActualsAndPOs' };
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 120);
 const actorOf = user => user.profile.username || user.uid;
 const budgets = () => firestore.collection('budgets');
@@ -167,7 +176,7 @@ exports.getBudgetSetup = onCallWithMessages(onCallOptions, async (request) => {
       UsesCostCenter: rules.CostCenter !== 'NotUsed', UsesProject: rules.Project !== 'NotUsed' };
   }).sort((a, b) => a.AccountCode.localeCompare(b.AccountCode, undefined, { numeric: true }));
   return {
-    rights, setup: { BalanceSheet: setup.BalanceSheet }, fiscalYearStart: fy, accounts, headings,
+    rights, setup: Object.fromEntries(Object.keys(SETUP_OPTIONS).map(k => [k, setup[k]])), fiscalYearStart: fy, accounts, headings,
     costCenters: unitsFor(units, companyId, 'CostCenter'), projects: unitsFor(units, companyId, 'Project'),
     budgets: list.map(b => { const o = Object.assign({}, b); delete o.Lines; delete o.History; o.LineCount = (b.Lines || []).length; return o; })
       .sort((a, b) => b.YearStart.localeCompare(a.YearStart) || b.Version - a.Version),
@@ -198,10 +207,15 @@ exports.saveBudgetSetup = onCallWithMessages(onCallOptions, async (request) => {
   const d = request.data || {};
   const companyId = text(d.companyId, 80);
   requireCompany(user, companyId);
-  const bs = d.BalanceSheet === 'Closing' ? 'Closing' : d.BalanceSheet === 'Movements' ? 'Movements' : null;
-  if (!bs) throw new HttpsError('invalid-argument', 'Choose how balance-sheet lines are budgeted.');
-  // A budget keeps the method it was made with: a change applies to the next one.
-  await setupDoc(companyId).set({ BalanceSheet: bs, UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user) }, { merge: true });
+  const fields = {};
+  for (const [k, options] of Object.entries(SETUP_OPTIONS)) {
+    if (d[k] === undefined) continue;
+    if (!options.includes(d[k])) throw new HttpsError('invalid-argument', 'Budget Setup: ' + k + ' must be one of ' + options.join(', ') + '.');
+    fields[k] = d[k];
+  }
+  if (!Object.keys(fields).length) throw new HttpsError('invalid-argument', 'Nothing to save.');
+  // A budget keeps the balance-sheet method it was made with: a change applies to the next one.
+  await setupDoc(companyId).set(Object.assign(fields, { UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user) }), { merge: true });
   return { success: true };
 });
 
@@ -493,3 +507,6 @@ exports.deleteForecastDraft = onCallWithMessages(onCallOptions, async (request) 
     return { success: true };
   });
 });
+
+// For the spending check (budgetCheck.js): plain helpers, not callables.
+Object.assign(exports, { setupOf, fiscalStartOf, budgetsOf: yearsOf, postedEntries });

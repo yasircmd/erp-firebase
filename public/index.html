@@ -582,6 +582,7 @@
               row('Date', s.Date) + row('Party', s.Party) + row('Amount', s.Amount == null ? '' : (s.Currency ? s.Currency + ' ' : '') + money(s.Amount)) +
               row('Submitted by', s.SubmittedBy) + row('Submitted on', String(s.SubmittedAt || '').slice(0, 10)) + row('Status', s.Status) +
               (s.Description ? '<p class="text-sm text-slate-300 py-2">' + esc(s.Description) + '</p>' : '') +
+              (s.Budget ? '<div class="my-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-xs text-amber-200"><b>Over budget.</b> ' + esc(s.Budget.Text) + (s.Budget.Overridden ? ' Gone ahead by ' + esc(s.Budget.By) + ': ' + esc(s.Budget.Reason) : '') + '</div>' : '') +
               (s.Lines.length ? '<p class="text-xs text-slate-400 uppercase mt-3 mb-1">Lines</p>' + s.Lines.map(l => '<div class="ac-row text-sm"><span class="min-w-0 truncate">' + esc(l.Text) + (l.Quantity == null ? '' : ' <span class="text-slate-500">× ' + esc(l.Quantity) + '</span>') + '</span><span class="font-mono">' + money(l.Amount) + '</span></div>').join('') +
                 (s.MoreLines ? '<p class="text-xs text-slate-500 pt-1">and ' + s.MoreLines + ' more in the full document</p>' : '') : '') +
               '<p class="text-xs text-slate-400 uppercase mt-3 mb-1">Approvals</p>' + s.Levels.map(l => { const d = s.Decisions.find(x => x.LevelNumber === l.LevelNumber);

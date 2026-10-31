@@ -237,4 +237,43 @@ function attachForecast(rows, lines, accounts) {
   return rows;
 }
 
-module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread, forecastStart, lockActuals, attachForecast };
+// ---------- The spending check (step B3; Q342, Q348-Q351) ----------
+// A document's spending against the Current budget: per budget line it
+// counts against (lineFor; no line, budget zero, Q349), over the period
+// (Q350: the document's month, the year to date through it, or the year),
+// the budget against what is spent (the actuals), committed (open
+// Purchase Orders, when the company counts them, Q348) and this document.
+// Amounts as debits; the natural sign is applied here. The balance sheet is
+// checked only by a budget with balance-sheet lines as movements.
+//   document / committed: [{ AccountID, CostCenterID, ProjectID, Amount, Month (committed: 0-11) }]
+// Returns the lines over: [{ Key, AccountID, CostCenterID, ProjectID, Budgeted, Budget, Spent, Committed, Document, Over }].
+function overruns(budget, accounts, entries, document, committed, month, period) {
+  const from = period === 'Month' ? month : 0, to = period === 'Year' ? 11 : month;
+  const sum = a => round2(a.slice(from, to + 1).reduce((s, v) => s + v, 0));
+  const typeOf = id => (accounts[id] || {}).AccountType || '';
+  const index = new Set((budget.Lines || []).map(keyOf));
+  const bsChecked = budget.BalanceSheetMethod !== 'Closing' && (budget.Lines || []).some(l => !isPL(typeOf(l.AccountID)));
+  const checked = type => isPL(type) || (type && bsChecked);
+  const keyFor = l => lineFor(index, l.AccountID, l.CostCenterID, l.ProjectID) || keyOf(l);
+  const rows = new Map(compare(budget, accounts, entries).map(r => [keyOf(r), r]));
+  const out = new Map();
+  (document || []).forEach(l => {
+    const type = typeOf(l.AccountID);
+    if (!checked(type)) return;
+    const k = keyFor(l);
+    if (!out.has(k)) {
+      const r = rows.get(k), [AccountID, CostCenterID, ProjectID] = k.split('|');
+      out.set(k, { Key: k, AccountID, CostCenterID, ProjectID, AccountType: type, Budgeted: index.has(k),
+        Budget: r && index.has(k) ? sum(r.Budget) : 0, Spent: r ? sum(r.Actual) : 0, Committed: 0, Document: 0 });
+    }
+    out.get(k).Document = round2(out.get(k).Document + natural(type, l.Amount, 0));
+  });
+  (committed || []).forEach(c => {
+    const f = out.get(keyFor(c));
+    if (f && c.Month >= from && c.Month <= to) f.Committed = round2(f.Committed + natural(f.AccountType, c.Amount, 0));
+  });
+  return [...out.values()].map(f => Object.assign(f, { Over: round2(f.Spent + f.Committed + f.Document - f.Budget) }))
+    .filter(f => f.Document > 0 && f.Over > 0.005);
+}
+
+module.exports = { round2, isPL, signOf, natural, addMonths, monthsOf, yearLabel, lastDay, keyOf, versionLabel, amountsOf, approvalAmount, lineFor, compare, totals, favour, seedFromActuals, seedFromBudget, spread, forecastStart, lockActuals, attachForecast, overruns };

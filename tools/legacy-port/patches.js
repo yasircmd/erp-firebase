@@ -3555,5 +3555,45 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     find: `      DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]`,
     replace: `      DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]
       TaxCode: !isPostable ? '' : accountData.TaxCode === undefined ? (current.TaxCode || '') : __taxEngine.itemTaxFields({ TaxCode: accountData.TaxCode }).TaxCode, // [NEW DEVELOPMENT vendor-line-tax]`
+  },
+  {
+    id: 'budget-check-po',
+    why: "NEW DEVELOPMENT (owner, 2026-10-31; docs/modules/BUDGET.md, step B3, Q342, Q348-Q352): a Purchase Order is checked against the company's Current budget on submit (budgetCheck.js), before its number is taken; over budget it is refused until the user continues (warn) or overrides with the right and a reason (block), and the overrun is kept on the PO for the approvers.",
+    find: `    const mergedTotal = mergedLines.reduce((sum, l) => sum + l.LineTotal, 0);
+
+    const year = (new Date(existing.PODate)).getFullYear() || new Date().getFullYear();`,
+    replace: `    const mergedTotal = mergedLines.reduce((sum, l) => sum + l.LineTotal, 0);
+    // [NEW DEVELOPMENT budget-check-po] the budget's spending check (docs/modules/BUDGET.md, step B3).
+    const budgetCheck = budgetCheckDocument_(idToken, user, 'PURCHASEORDER', Object.assign({}, existing, { POID: poId, Lines: mergedLines }));
+
+    const year = (new Date(existing.PODate)).getFullYear() || new Date().getFullYear();`
+  },
+  {
+    id: 'budget-check-po-record',
+    why: "NEW DEVELOPMENT (docs/modules/BUDGET.md, step B3): the overrun the user went ahead with is kept on the PO (BudgetCheck), for its approvers.",
+    find: `      PONumber: poNumber, SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    };`,
+    replace: `      PONumber: poNumber, SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+      BudgetCheck: budgetCheck || null // [NEW DEVELOPMENT budget-check-po-record]
+    };`
+  },
+  {
+    id: 'budget-check-vi',
+    why: "NEW DEVELOPMENT (owner, 2026-10-31; docs/modules/BUDGET.md, step B3, Q352): a Vendor Invoice's direct lines are checked against the company's Current budget on post (its GRN part is already in the actuals); the overrun the user went ahead with is kept on the invoice, for its approvers.",
+    find: `    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be posted.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {`,
+    replace: `    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be posted.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    // [NEW DEVELOPMENT budget-check-vi] the budget's spending check (docs/modules/BUDGET.md, step B3).
+    const budgetCheck = budgetCheckDocument_(idToken, user, 'VENDORINVOICE', existing);
+    firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', { BudgetCheck: budgetCheck || null }, idToken);
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {`
   }
 ];
