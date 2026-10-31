@@ -89,6 +89,7 @@ test('every file that posts stock movements goes through a checked place', () =>
     'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock',
     'followUps.js': 'queries posted Delivery Notes for the home page', 'agingReports.js': 'queries posted stock for the aging report',
     'stockReports.js': 'queries posted stock for the reports',
+    'creditControl.js': 'queries posted Delivery Notes not yet invoiced for the credit report',
     'productionPosting.js': 'counts posted Production entries; its writes join the caller\'s postStock batch'
   };
   const unchecked = posting.filter(f => !/(writeStockGlEntry|buildStockGlEntry|assignStockVoucherNumbering|postStock)\(/.test(read(f)) && !READ_ONLY[f]);
