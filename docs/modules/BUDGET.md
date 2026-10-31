@@ -383,3 +383,64 @@ Live 2026-10-31 (PR #194; runs #252 every function and the screens, #253 Hosting
     - the screen not recognising the warning.
 - **Deploy:** `tools/deploy-sets/budget-b3.txt` (every function,
   `--screens`), then "hosting".
+
+## As built: step B4, the cash flow forecast (2026-10-31)
+
+- **Server:** `functions/src/cashForecast.js` (`getCashForecast`, the
+  Budget module's access right) with the pure parts in `budgetCalc`:
+  `cashBuckets`, `netPartyItems`, `budgetCash` and `cashForecast`.
+- **The periods:** as at today (Asia/Dubai), 13 weeks from today, then the
+  months (the first perhaps part of one) to the financial year's end
+  (Period Closing's year start).
+- **The opening:** the balance of the accounts marked Cash or Bank (COA
+  CashBank), from the company's posted entries to today.
+- **Open items (Q354, Q356):**
+  - **Customers' and vendors' open invoices**, from the aging's
+    partyAging (each item's due date and base outstanding). Each party's
+    credits not applied, and its pending cheques, are taken off its
+    oldest invoices.
+  - **Pending PDCs**, on their cheque dates.
+  - **Approved POs:** the value not yet received (at the rate today), due
+    on the vendor's payment terms from the later of the PO date and today.
+  - **Payroll:** the last posted run's net pay at each month's end.
+  - **Active recurring journals with fixed amounts:** their cash and bank
+    lines on each date due. Spread and period templates are left out,
+    since their runs vary.
+- **The budget as cash:** the Current budget's lines.
+  - Revenue, liabilities and equity count as cash in; costs and assets
+    as cash out.
+  - The cash and bank accounts themselves are left out, and so are
+    balance-sheet lines budgeted as closing balances.
+  - A month's amount is shared by its days between the periods.
+- **Modes (Budget Setup's CashForecast; Q345, Q355):**
+  - OpenItemsAndBudget (to start): open items in the weeks, the budget in
+    the months;
+  - OpenItems: open items in every period;
+  - Budget: the budget in every period.
+  
+  With no approved budget where one is used, the screen says so
+  (`needsBudget`).
+- **Overdue (Q353):** items dated before today are shown apart (receivable
+  and payable, with their documents) and not counted.
+- **Screen:** a **Cash forecast** tab.
+  - It shows the cash and bank today, money in and out by row with
+    totals, the net, and the balance at each period's end (negative in
+    red), with the overdue totals above.
+  - An amount opens its documents. Copy copies for Excel.
+  - Setup gains the forecast's source.
+- **Also:** the budget consent moved to `budgetConsent.js` (nothing
+  required), so callable.js no longer depends on the budget's code. Later
+  budget changes reach only the budget's functions, the PO and invoice
+  submit, and Data Reset.
+- **Tests:**
+  - unit/budget, +4 (17): the periods, netting, the budget as cash, the
+    modes and overdue;
+  - emulator/cashForecast (1): the bank today, a bill on its due date, an
+    overdue one apart, a cheque, payroll at month ends, open items then
+    the budget, a missing budget said;
+  - ui/budget, +1 (7).
+  - Negative controls, each caught and restored:
+    - cheques left out;
+    - the balance row showing the net.
+- **Deploy:** `tools/deploy-sets/budget-b4.txt` (every function, once,
+  for callable.js; `--screens`), then "hosting".

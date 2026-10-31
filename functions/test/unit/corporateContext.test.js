@@ -59,7 +59,7 @@ test('no module keeps data between requests, except these', () => {
     'getModuleFragment.js': ['cachedRelease', 'cache'], // the screens release: code, the firm's
     'numbering.js': ['KINDS'], // the document kinds, static
     'periodLock.js': ['consentStore', 'ADJUSTABLE_TYPES'], // per request; static
-    'budgetCheck.js': ['store'], // per request (the budget consent, docs/modules/BUDGET.md B3)
+    'budgetConsent.js': ['store'], // per request (the budget consent, docs/modules/BUDGET.md B3)
     'developer.js': ['HOME_ONLY'], // static: the registry's Corporate-100-only modules
     'legacy/runtime.js': ['als'] // per request
   };
