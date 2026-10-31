@@ -7,6 +7,7 @@
         <button class="bud-tab bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-tab="list">Budgets</button>
         <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="forecasts">Forecasts</button>
         <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="report">Budget vs Actual</button>
+        <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="cash">Cash forecast</button>
         <button class="bud-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="setup">Setup</button>
       </div>
     </div>
@@ -94,6 +95,23 @@
     <div id="bud-rep-out" class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto"></div>
   </div>
 
+  <!-- ---------- Cash forecast ---------- -->
+  <div id="bud-cash-view" class="hidden space-y-3">
+    <div class="flex flex-wrap items-end gap-2">
+      <button id="bud-cash-run" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-play"></i> Run</button>
+      <button id="bud-cash-copy" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy</button>
+      <p id="bud-cash-sub" class="text-xs text-slate-400"></p>
+    </div>
+    <p class="text-xs text-slate-400 max-w-3xl">The company's cash from today: its cash and bank balances now, then 13 weeks and the months to the year's end. From open items (customers' and vendors' invoices on their due dates, post-dated cheques on their dates, open Purchase Orders on their terms, payroll as the last run at each month's end, recurring entries), from the budget, or both, as Setup says. Invoices already overdue are shown apart and not counted. Click an amount to see what makes it.</p>
+    <div id="bud-cash-need" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs px-4 py-3 rounded-xl">There is no approved budget for this year: the budget's part of the forecast is empty. Approve a budget, or set the forecast to open items only in Setup.</div>
+    <div id="bud-cash-overdue" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-3 text-sm"></div>
+    <div id="bud-cash-out" class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto"></div>
+    <div id="bud-cash-detail" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between"><p id="bud-cash-detail-title" class="text-sm font-semibold text-slate-200"></p><button id="bud-cash-detail-close" class="text-xs text-slate-400 hover:text-slate-200">Close</button></div>
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-2">Date</th><th class="py-1 pr-2">Document</th><th class="py-1 pr-2">Party</th><th class="py-1 text-right">Amount</th></tr></thead><tbody id="bud-cash-detail-body"></tbody></table>
+    </div>
+  </div>
+
   <!-- ---------- Setup ---------- -->
   <div id="bud-setup-view" class="hidden space-y-3 max-w-2xl">
     <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
@@ -106,6 +124,8 @@
         <select id="bud-setup-period" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Month">The document's month</option><option value="YTD">The year to date, through its month</option><option value="Year">The whole year</option></select></div>
       <div><label for="bud-setup-committed" class="block text-xs font-medium text-slate-300 mb-1">Counted as spent</label>
         <select id="bud-setup-committed" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Actuals">The posted figures only</option><option value="ActualsAndPOs">The posted figures and open Purchase Orders (approved, not yet received)</option></select></div>
+      <div><label for="bud-setup-cash" class="block text-xs font-medium text-slate-300 mb-1">The cash flow forecast comes from</label>
+        <select id="bud-setup-cash" class="bud-setup-field bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="OpenItemsAndBudget">Open items for the 13 weeks, then the budget</option><option value="OpenItems">Open items only</option><option value="Budget">The budget only</option></select></div>
       <p class="text-xs text-slate-400">The check uses the year's Current budget (a year without an approved one isn't checked); an account and cost centre with no budget line counts as a budget of zero. A Purchase Order counts its lines when submitted, a Vendor Invoice its direct lines when posted; requisitions have no prices and aren't checked.</p>
       <p class="text-xs text-slate-400">A budget keeps the method it was made with: a change here applies to the next budget of a year, and a revision follows its Original. The year starts as set in Period Closing → Setup (<span id="bud-setup-fy"></span>).</p>
       <button id="bud-setup-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
@@ -152,6 +172,7 @@
     $('bud-entry-view').classList.add('hidden');
     $('bud-report-view').classList.toggle('hidden', name !== 'report');
     $('bud-setup-view').classList.toggle('hidden', name !== 'setup');
+    $('bud-cash-view').classList.toggle('hidden', name !== 'cash');
     if (name === 'report') fillReportChoices();
   }
 
@@ -165,7 +186,7 @@
       $('bud-setup-save').disabled = !s.rights.canSetup;
       document.querySelectorAll('#bud-setup-view select').forEach(el => { el.disabled = !s.rights.canSetup; });
       $('bud-setup-bs').value = s.setup.BalanceSheet;
-      $('bud-setup-check').value = s.setup.SpendingCheck; $('bud-setup-period').value = s.setup.CheckPeriod; $('bud-setup-committed').value = s.setup.Committed;
+      $('bud-setup-check').value = s.setup.SpendingCheck; $('bud-setup-period').value = s.setup.CheckPeriod; $('bud-setup-committed').value = s.setup.Committed; $('bud-setup-cash').value = s.setup.CashForecast;
       $('bud-setup-fy').textContent = s.fiscalYearStart === 'Apr' ? 'April to March' : 'January to December';
       // This financial year, the next and the one before.
       const m = new Date().toISOString().slice(0, 7), startMonth = s.fiscalYearStart === 'Apr' ? 4 : 1;
@@ -501,9 +522,57 @@
     else await appPrompt('Copy this text:', text);
   }
 
+  // ---------- Cash forecast ----------
+  let cash = null;
+  const MODES = { OpenItemsAndBudget: 'open items for the 13 weeks, then the budget', OpenItems: 'open items only', Budget: 'the budget only' };
+  function runCash() {
+    $('bud-cash-out').innerHTML = '<p class="p-4 text-xs text-slate-500">Working it out…</p>'; $('bud-cash-detail').classList.add('hidden');
+    call('getCashForecast', { companyId: $('bud-company').value }).then(r => { cash = r; renderCash(); },
+      err => { $('bud-cash-out').innerHTML = ''; appAlert(err.message || 'Unable to forecast the cash.'); });
+  }
+  function renderCash() {
+    const r = cash, n = r.buckets.length;
+    $('bud-cash-sub').textContent = 'As at ' + r.today + ' · ' + r.yearLabel + ' · from ' + MODES[r.mode] + (r.budget ? ' (' + r.budget + ')' : '');
+    $('bud-cash-need').classList.toggle('hidden', !r.needsBudget);
+    const od = r.overdue;
+    $('bud-cash-overdue').classList.toggle('hidden', !(od.In || od.Out));
+    $('bud-cash-overdue').innerHTML = '<span class="font-semibold text-slate-200">Overdue, not counted:</span> receivable <button class="bud-cash-od font-mono hover:underline" data-dir="in">' + fmt(od.In) + '</button>, payable <button class="bud-cash-od font-mono hover:underline" data-dir="out">' + fmt(od.Out) + '</button>';
+    const head = '<tr class="text-xs text-slate-400 border-b border-slate-700"><th class="py-2 px-2 sticky left-0 bg-slate-900"></th>' +
+      r.buckets.map(b => '<th class="py-2 px-2 text-right">' + esc(b.Label) + '<br><span class="font-normal">' + esc(b.From) + '</span></th>').join('') + '<th class="py-2 px-2 text-right">Total</th></tr>';
+    const line = (label, amounts, cls, ri) => '<tr class="border-b border-slate-800 ' + (cls || '') + '"><td class="py-1 px-2 sticky left-0 bg-slate-900">' + esc(label) + '</td>' +
+      amounts.map((v, i) => '<td class="py-1 px-2 text-right font-mono">' + (ri != null && v ? '<button class="bud-cash-cell hover:underline" data-r="' + ri + '" data-b="' + i + '">' + fmt(v) + '</button>' : fmt(v)) + '</td>').join('') +
+      '<td class="py-1 px-2 text-right font-mono">' + (cls && /balance/.test(cls) ? '' : fmt(amounts.reduce((s, v) => s + v, 0))) + '</td></tr>';
+    const sum = dir => Array.from({ length: n }, (_, i) => r2(r.rows.filter(x => x.Direction === dir).reduce((s, x) => s + x.Amounts[i], 0)));
+    let html = '<tr class="bg-slate-800/60"><td colspan="' + (n + 2) + '" class="py-1 px-2 text-xs font-semibold uppercase text-slate-300">Cash and bank today: <span class="font-mono">' + fmt(r.opening) + '</span></td></tr>';
+    [['in', 'Money in'], ['out', 'Money out']].forEach(([dir, title]) => {
+      html += '<tr class="bg-slate-800/40"><td colspan="' + (n + 2) + '" class="py-1 px-2 text-xs font-semibold uppercase text-slate-400">' + title + '</td></tr>';
+      r.rows.forEach((x, ri) => { if (x.Direction === dir) html += line(x.Label, x.Amounts, '', ri); });
+      html += line('Total ' + title.toLowerCase(), sum(dir), 'font-semibold text-slate-200');
+    });
+    html += line('Net', r.net, 'font-semibold border-t-2 border-slate-500');
+    html += '<tr class="font-bold text-slate-100"><td class="py-2 px-2 sticky left-0 bg-slate-900">Balance at the end</td>' + r.closing.map(v => '<td class="py-2 px-2 text-right font-mono ' + (v < 0 ? 'text-red-400' : '') + '">' + fmt(v) + '</td>').join('') + '<td></td></tr>';
+    $('bud-cash-out').innerHTML = '<table class="w-full text-left text-sm whitespace-nowrap"><thead>' + head + '</thead><tbody>' + html + '</tbody></table>';
+    $('bud-cash-copy').classList.remove('hidden');
+  }
+  function cashDetail(title, list) {
+    $('bud-cash-detail-title').textContent = title;
+    $('bud-cash-detail-body').innerHTML = list.length ? list.map(d => '<tr class="border-b border-slate-800"><td class="py-1 pr-2">' + esc(d.Date) + '</td><td class="py-1 pr-2">' + esc(d.Row + (d.Number ? ' ' + d.Number : '')) + '</td><td class="py-1 pr-2">' + esc(d.Party || '') + '</td><td class="py-1 text-right font-mono">' + fmt(d.Amount) + '</td></tr>').join('')
+      : '<tr><td colspan="4" class="py-2 text-xs text-slate-400">From the budget: its months shared by days.</td></tr>';
+    $('bud-cash-detail').classList.remove('hidden');
+  }
+  async function copyCash() {
+    const r = cash;
+    const lines = [['', ...r.buckets.map(b => b.Label + ' ' + b.From)].join('\t'), ['Cash and bank today', plain(r.opening)].join('\t')]
+      .concat(r.rows.map(x => [(x.Direction === 'in' ? 'In: ' : 'Out: ') + x.Label, ...x.Amounts.map(plain)].join('\t')))
+      .concat([['Net', ...r.net.map(plain)].join('\t'), ['Balance at the end', ...r.closing.map(plain)].join('\t')]);
+    const text = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => appAlert('Copied: paste it into Excel.'), async () => (await appPrompt('Copy this text:', text)));
+    else await appPrompt('Copy this text:', text);
+  }
+
   // ---------- Setup ----------
   function saveSetup() {
-    call('saveBudgetSetup', { companyId: $('bud-company').value, BalanceSheet: $('bud-setup-bs').value, SpendingCheck: $('bud-setup-check').value, CheckPeriod: $('bud-setup-period').value, Committed: $('bud-setup-committed').value })
+    call('saveBudgetSetup', { companyId: $('bud-company').value, BalanceSheet: $('bud-setup-bs').value, SpendingCheck: $('bud-setup-check').value, CheckPeriod: $('bud-setup-period').value, Committed: $('bud-setup-committed').value, CashForecast: $('bud-setup-cash').value })
       .then(() => { appAlert('Saved. The spending check applies from now on; a budget already made keeps its own balance-sheet method.'); return loadCompany(); }, err => appAlert(err.message || 'Unable to save the setup.'));
   }
 
@@ -543,6 +612,18 @@
     $('bud-rep-copy').addEventListener('click', copyReport);
     $('bud-rep-out').addEventListener('click', e => { const b = e.target.closest('.bud-drill'); if (b) drill(Number(b.dataset.g), b.dataset.p); });
     $('bud-setup-save').addEventListener('click', saveSetup);
+    $('bud-cash-run').addEventListener('click', runCash);
+    $('bud-cash-copy').addEventListener('click', copyCash);
+    $('bud-cash-detail-close').addEventListener('click', () => $('bud-cash-detail').classList.add('hidden'));
+    $('bud-cash-out').addEventListener('click', e => {
+      const c = e.target.closest('.bud-cash-cell'); if (!c) return;
+      const row = cash.rows[Number(c.dataset.r)], b = Number(c.dataset.b);
+      cashDetail(row.Label + ', ' + cash.buckets[b].Label, cash.detail.filter(d => d.Bucket === b && d.Row === row.Label && d.Direction === row.Direction));
+    });
+    $('bud-cash-overdue').addEventListener('click', e => {
+      const c = e.target.closest('.bud-cash-od'); if (!c) return;
+      cashDetail('Overdue ' + (c.dataset.dir === 'in' ? 'receivable' : 'payable'), cash.overdue.Items.filter(d => d.Direction === c.dataset.dir));
+    });
     // Opened from Home (an approval), the budget opens itself.
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
