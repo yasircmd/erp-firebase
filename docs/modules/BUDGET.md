@@ -310,6 +310,8 @@ Live 2026-10-31 (PR #193; runs #250 the functions and the screens, #251 Hosting)
 
 ## As built: step B3, the spending check (2026-10-31)
 
+Live 2026-10-31 (PR #194; runs #252 every function and the screens, #253 Hosting).
+
 - **Where it runs:**
   - `submitPurchaseOrder`, after its lines are merged and before its
     number is taken (patches `budget-check-po` and
