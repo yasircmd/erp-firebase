@@ -1,5 +1,5 @@
 ---
-fingerprint: 21b186acb5f54c2d
+fingerprint: 768556862aaf9398
 reviewed: 2026-10-31
 title: Credit Control
 area: sales
