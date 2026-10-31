@@ -4,7 +4,7 @@ Requested 2026-10-30 (owner), after the Budget module: "Prepare a Budget
 and forecast module first then customer credit control". It picks up the
 roadmap's open item from Customer SOA decision C1: a credit limit per
 customer and a check on new sales for customers who are over their limit
-or overdue. **Status: design, waiting for the owner's decisions.**
+or overdue. **Status: design agreed 2026-10-31 (Q360–Q365); C1 being built.**
 
 ## What already exists (from the code)
 
@@ -35,6 +35,17 @@ or overdue. **Status: design, waiting for the owner's decisions.**
   request, an override right with a reason, and a record on the document
   that its approvers see. The ported functions call it through
   tools/legacy-port/patches.js.
+
+## Decisions
+
+| # | Decision |
+|---|---|
+| Q360 | **A limit per customer in each company** (owner, 2026-10-31), in that company's base currency. Blank: no limit; 0: cash only. |
+| Q361 | **Exposure, a per-company setting** (owner, 2026-10-31): the receivable only (open invoices less unapplied credits), or the receivable plus deliveries not yet invoiced and confirmed Sales Orders not yet delivered. Starts at the second. Cheques in hand count either way. |
+| Q362 | **Overdue is checked** (owner, 2026-10-31): an invoice overdue by more than the company's grace days (0: any). |
+| Q363 | **Checked at confirming a Sales Order and posting a Customer Invoice** (owner, 2026-10-31), including direct invoices; not at the Delivery Note. |
+| Q364 | **A manual credit hold** per customer and company (owner, 2026-10-31), with a reason; it refuses credit sales whatever the setting. |
+| Q365 | **Off / Warn / Block, a per-company setting** (owner, 2026-10-31), with an override right and a reason, as the budget check. |
 
 ## The proposal
 
