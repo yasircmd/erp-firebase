@@ -188,3 +188,20 @@ test('the forecast: open items in the weeks, the budget in the months (Q355); ov
   assert.deepEqual([amt(open, 'Payroll'), open.rows.some(r => /^Budget/.test(r.Label)), open.closing], [[0, 400], false, [1500, 1100]]);
   assert.deepEqual(C.cashForecast(buckets, items, flows, 'Budget', 0, '2026-11-01').net, [40, 400], 'the budget only');
 });
+
+test('a project\'s life budget: all its actuals to date, any year, its own lines only; left and % used; not budgeted shown; a document over it', () => {
+  const life = { Kind: 'Project', ProjectID: 'P1', Lines: [{ AccountID: 'REV', Amounts: [10000] }, { AccountID: 'RENT', Amounts: [4000] }] };
+  const entries = [
+    je('2024-06-01', [L('RENT', 1500, 0, '', 'P1'), L('CASH', 0, 1500)]),
+    je('2026-02-01', [L('RENT', 2000, 0, '', 'P1'), L('RENT', 999, 0, '', 'P2'), L('REV', 0, 3000, '', 'P1'), L('CASH', 500, 0, '', 'P1')]),
+    je('2026-12-31', [L('REV', 3000, 0, '', 'P1'), L('RE', 0, 3000)], 'YearEndClose')];
+  const rows = C.projectLife(life, ACC, entries);
+  const by = id => rows.find(r => r.AccountID === id);
+  assert.deepEqual([by('RENT').Actual, by('RENT').Left, by('RENT').Used, by('RENT').Favour], [3500, 500, 87.5, 1]);
+  assert.deepEqual([by('REV').Actual, by('REV').Used], [3000, 30], 'the year-end close left out');
+  assert.equal(rows.some(r => r.AccountID === 'CASH'), false, 'the P&L only');
+  const [f] = C.projectOverruns(life, ACC, entries, [{ AccountID: 'RENT', ProjectID: 'P1', Amount: 800 }, { AccountID: 'RENT', ProjectID: 'P2', Amount: 99999 }]);
+  assert.deepEqual([f.Life, f.Budget, f.Spent, f.Document, f.Over], [true, 4000, 3500, 800, 300]);
+  assert.deepEqual(C.amountsOf([12.345], 1), [12.35]);
+  assert.throws(() => C.amountsOf([1, 2], 1), /one amount/);
+});
