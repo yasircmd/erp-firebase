@@ -1620,3 +1620,13 @@ from, and how it was verified. The deploy procedure is in the
     the Developer screen; link a menu node to "Budget" where the tree has
     none; set "Budget" in Approval Configuration if budgets should be
     approved.
+- **2026-10-31, Budget step B2, forecasts (`budget-b2`, PR #193, from
+  `a69392a`):** set `budget-b2` with `--screens`, run
+  [#250](https://github.com/yasircmd/erp-firebase/actions/runs/41176346610)
+  (06:22–06:28 UTC), success: `SUMMARY: functions deployed: 19
+  (createBudget createForecast … getForecast saveForecastDraft
+  finaliseForecast deleteForecastDraft … clearDataCategories
+  clearSelectedRecords getCategoryRecords getDataResetCounts); access
+  granted: 19; screens released: yes`. "hosting", run
+  [#251](https://github.com/yasircmd/erp-firebase/actions/runs/41177617065)
+  (06:41 UTC), success. No rules change.

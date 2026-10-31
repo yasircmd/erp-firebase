@@ -253,6 +253,8 @@ Live 2026-10-31 (PR #192; runs #247 rules and the index, #248 every function and
 
 ## As built: step B2, forecasts (2026-10-31)
 
+Live 2026-10-31 (PR #193; runs #250 the functions and the screens, #251 Hosting).
+
 - **Data:** Firestore `budgetForecasts/{FC-…}`. Fields: CompanyID,
   YearStart, YearLabel, Sequence (1, 2, … per year), Number ("Forecast 2
   FY 2026 (actuals to 2026-07)"), BudgetID (the Current budget it started
