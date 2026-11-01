@@ -3596,4 +3596,44 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 
     const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {`
   }
+  ,
+  // ---- NEW DEVELOPMENT: the credit check (docs/modules/CREDIT_CONTROL.md, step C2) ----
+  {
+    id: 'credit-check-so',
+    why: "NEW DEVELOPMENT (owner, 2026-10-31; docs/modules/CREDIT_CONTROL.md, step C2, Q362-Q365): confirming a Sales Order checks the customer's credit (creditCheck.js) before its number is taken or stock reserved: on hold it is refused; over the limit or overdue, as the company's setting says (warn: the user continues; block: overridden with the right and a reason), kept on the order.",
+    find: `    if (!existing.Lines || !existing.Lines.length) throw new Error('Add at least one line before confirming.');
+`,
+    replace: `    if (!existing.Lines || !existing.Lines.length) throw new Error('Add at least one line before confirming.');
+    // [NEW DEVELOPMENT credit-check-so] the credit check (docs/modules/CREDIT_CONTROL.md, step C2).
+    const creditCheck = creditCheckDocument_(idToken, user, 'SALESORDER', existing);
+`
+  },
+  {
+    id: 'credit-check-so-record',
+    why: "NEW DEVELOPMENT (docs/modules/CREDIT_CONTROL.md, step C2): what the user went ahead with is kept on the Sales Order (CreditCheck).",
+    find: `      SONumber: soNumber, Status: finalStatus, ConfirmedAt: now, ConfirmedBy: actor,
+`,
+    replace: `      SONumber: soNumber, Status: finalStatus, ConfirmedAt: now, ConfirmedBy: actor,
+      CreditCheck: creditCheck || null, // [NEW DEVELOPMENT credit-check-so-record]
+`
+  },
+  {
+    id: 'credit-check-ci',
+    why: "NEW DEVELOPMENT (owner, 2026-10-31; docs/modules/CREDIT_CONTROL.md, step C2, Q363): posting a Customer Invoice (a direct one, or from orders or deliveries) checks the customer's credit; what the user went ahead with is kept on the invoice, for its approvers.",
+    find: `    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be posted.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {`,
+    replace: `    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be posted.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    // [NEW DEVELOPMENT credit-check-ci] the credit check (docs/modules/CREDIT_CONTROL.md, step C2).
+    const creditCheck = creditCheckDocument_(idToken, user, 'CUSTOMERINVOICE', existing);
+    firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { CreditCheck: creditCheck || null }, idToken);
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {`
+  }
 ];

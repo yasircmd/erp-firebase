@@ -1,0 +1,162 @@
+# Customer credit control, step C2: the credit check (owner, 2026-10-31;
+# docs/modules/CREDIT_CONTROL.md, Q362-Q365) on confirming a Sales Order and
+# posting a Customer Invoice; the approval card's note; the reps' portal's
+# credit left.
+# The require closure of creditCheck.js, creditCalc.js, approvalCard.js and
+# salesRep.js (salesRep is required by the journal, PDC, retail and other
+# modules, hence their functions), and the two patched legacy functions
+# (confirmSalesOrder, postCustomerInvoice). No new functions, no
+# moduleRegistry change (the override right came with C1). Run WITH
+# --screens (Sales Order, Customer Invoice, Credit Control), then the
+# "hosting" task (the approval card in index.html, the reps' portal in
+# ess.html, the Help). No rules or index change.
+# After it: nothing changes until a company sets its check to Warn or Block
+# in Credit Control → Setup, except that a customer on credit hold is now
+# refused on confirming an order or posting an invoice.
+activateRecurringJournal
+bouncePdc
+cancelPdc
+cancelRepReceipt
+checkMasterImport
+checkOpeningBalances
+clearPdcs
+closeFinancialYear
+closePeriod
+closeRejectedSubmission
+confirmRetailReturn
+confirmRetailSale
+confirmSalesOrder
+createBudget
+createForecast
+createRetailCustomer
+decideBudgetApproval
+decideCustomerInvoiceReversalApproval
+decideFaPostingApproval
+decideJournalEntryApproval
+decidePdcApproval
+decidePurchaseReturnApproval
+decideRecurringJournalApproval
+decideSalesReturnApproval
+decideVendorInvoiceReversalApproval
+deleteBudgetDraft
+deleteFaPostingDraft
+deleteForecastDraft
+deleteJournalDraft
+deletePdcDraft
+deletePurchaseReturnDraft
+deleteRecurringJournalDraft
+deleteSalesReturnDraft
+endRecurringJournal
+essPortal
+finaliseForecast
+findOpeningBatch
+findRetailSaleForReturn
+generateItemBarcodes
+getApprovalSummary
+getBarcodeIndex
+getBarcodeSettings
+getBatchExpiryReport
+getBudget
+getBudgetSeed
+getBudgetSetup
+getBudgetVsActual
+getCashForecast
+getCbtEntries
+getCreditControl
+getCustomerInvoiceEntries
+getDocumentLinks
+getFaClearingItems
+getFaPostings
+getFaRetirementSetup
+getFinancialYearStart
+getForecast
+getInventoryAging
+getItemBarcodes
+getJournalEntries
+getLabelSheet
+getMasterImportRecords
+getMasterImportSpecs
+getMyDraftsForUser
+getMyRejectedSubmissions
+getOpeningBalanceSetup
+getPartyAccounts
+getPartyAging
+getPartyOpenItems
+getPartyStatement
+getPdcEntries
+getPdcOpenItems
+getPdcSetup
+getPdcsDueForUser
+getPendingApprovalsForUser
+getPeriodClosing
+getPeriodClosingChecklist
+getProjectBudgetReport
+getPurchaseReturnEntries
+getRecurringJournal
+getRecurringJournalSetup
+getRecurringJournals
+getRecurringJournalsDueForUser
+getReorderReport
+getRepReceipts
+getRetailCounter
+getRetailSale
+getRetailSales
+getRetailSalesSetup
+getReturnableCustomerInvoices
+getReturnableVendorInvoices
+getSalesReps
+getSalesReturnEntries
+getVendorInvoiceEntries
+manageEssAccounts
+pauseRecurringJournal
+postCustomerInvoice
+postFaPosting
+postJournalEntry
+postOpeningBalances
+postPdc
+postPurchaseReturn
+postRecurringJournalRuns
+postSalesReturn
+previewFaRetirement
+previewRecurringJournal
+receivePdcsFromRep
+rematchJournalEntry
+reopenFinancialYear
+reopenPeriod
+repostRecurringJournalRun
+requestReverseCustomerInvoice
+requestReverseVendorInvoice
+reverseFaPosting
+reverseJournalEntry
+reverseOpeningBalanceBatch
+reversePurchaseReturn
+reverseRecurringJournalRun
+reverseRetailReturn
+reverseRetailSale
+reverseSalesReturn
+runMasterImport
+saveBarcodeSettings
+saveBudgetDraft
+saveBudgetSetup
+saveCbtDraft
+saveCreditLimit
+saveCreditSetup
+saveFaPostingDraft
+saveForecastDraft
+saveItemBarcodes
+saveJournalDraft
+saveOpeningBalanceSettings
+savePdcDraft
+savePeriodClosingSettings
+savePurchaseReturnDraft
+saveRecurringJournalDraft
+saveRetailPaymentMethod
+saveRetailSalesSettings
+saveSalesRep
+saveSalesRepSettings
+saveSalesReturnDraft
+setCreditHold
+skipRecurringJournalRun
+submitBudget
+tickPeriodClosingStep
+undoPdcClearing

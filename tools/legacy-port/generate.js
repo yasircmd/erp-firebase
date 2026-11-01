@@ -79,6 +79,8 @@ const MAPPED = {
   generateVoucherNumber_: ['numbering', 'voucherNumber', 'dropCtx'],
   // new development: docs/modules/BUDGET.md, step B3 (the spending check)
   budgetCheckDocument_: ['budgetCheck', 'checkDocument', 'dropCtx'],
+  // new development: docs/modules/CREDIT_CONTROL.md, step C2 (the credit check)
+  creditCheckDocument_: ['creditCheck', 'checkDocument', 'dropCtx'],
   generateItemCode_: ['numbering', 'itemCode', 'dropCtx'],
   generateAccountCode_: ['coaScheme', 'generateCode', 'pure'], // docs/modules/COA_NUMBERING.md
   isCashOrBankAccount_: ['coaScheme', 'isCashOrBank', 'pure'], // by the Cash / Bank mark, not the code
@@ -170,6 +172,7 @@ const SHARED_PATHS = {
   lineClubbing: '../lineClubbing',
   numbering: '../numbering',
   budgetCheck: '../budgetCheck',
+  creditCheck: '../creditCheck',
   periodLock: '../periodLock',
   customerPhone: '../customerPhone', // used by name (__customerPhone.) in patches
   invoiceStock: '../invoiceStock',

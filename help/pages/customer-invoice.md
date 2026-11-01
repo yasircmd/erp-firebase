@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-10-30
-fingerprint: 3e15c24bad69aa01
+reviewed: 2026-11-01
+fingerprint: 382345938741ac33
 ---
 ## What it is for
 
@@ -48,6 +48,14 @@ refused and nothing changes. **Print delivery slip** prints the items and
 quantities, without prices, for the driver or the store. Reversing the
 invoice also reverses its Delivery Note, so the stock comes back. A return is
 made in Sales Return, as for any delivered invoice.
+
+## The credit check
+
+Where the company checks credit ([Credit Control](credit-control.html#the-credit-check)),
+**Post** checks the customer first, as confirming a Sales Order does. An
+invoice adds its total, less what its deliveries and order lines already
+counted. What the user went ahead with is shown at the invoice's top and
+on its approvers' card.
 
 ## Tax by line
 

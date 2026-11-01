@@ -27,3 +27,11 @@ test('exposure as the company counts it; overdue past the grace days; the limit,
   const rows = K.sortRows([{ Name: 'A', Exposure: 9, Flags: [] }, { Name: 'B', Exposure: 1, Flags: ['Overdue'] }, { Name: 'C', Exposure: 1, Flags: ['OverLimit'] }, { Name: 'D', Exposure: 0, Flags: ['Hold'] }]);
   assert.deepEqual(rows.map(r => r.Name), ['D', 'C', 'B', 'A']);
 });
+
+test('what an invoice adds: its total; less its deliveries and order lines where those are already counted (C2)', () => {
+  const inv = { Total: 1050, SourceDeliveryNotes: [{ Amount: 400 }], ItemLines: [{ Amount: 300, SourceSOID: 'SO1' }, { Amount: 100, SourceSOID: '' }], DirectLines: [{ Amount: 200 }] };
+  assert.equal(K.invoiceAddition(inv, 'Receivable'), 1050);
+  assert.equal(K.invoiceAddition(inv, 'ReceivableAndOrders'), 350, 'the tax, the typed item line and the direct line');
+  assert.equal(K.invoiceAddition(Object.assign({}, inv, { TotalBase: 2100 }), 'ReceivableAndOrders'), 700, 'at the invoice\'s own rate');
+  assert.equal(K.invoiceAddition({ Total: 100, SourceDeliveryNotes: [{ Amount: 150 }] }, 'ReceivableAndOrders'), 0, 'never below nothing');
+});

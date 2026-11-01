@@ -80,6 +80,10 @@
     <p id="cinv-rejection-reason" class="text-sm text-slate-200"></p>
     <p class="text-xs text-slate-500">This invoice is fully editable below — make your changes and Post again.</p>
   </div>
+  <div id="cinv-credit-banner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-amber-300 uppercase">Over credit</p>
+    <p id="cinv-credit-text" class="text-sm text-slate-200"></p>
+  </div>
 
   <div id="cinv-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
     <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
@@ -1078,18 +1082,41 @@
           if (!currentInvoice) currentInvoice = { CustomerInvoiceID: saveResult.invoiceId, Status: 'Draft' };
           else currentInvoice.CustomerInvoiceID = saveResult.invoiceId;
 
-          rpc
-            .withSuccessHandler(postResult => {
+          const send = consent => rpc
+            .withSuccessHandler(async postResult => {
+              if (postResult.success) { btn.disabled = false; btn.innerHTML = original; isDirty = false; showListView(); return; }
+              const go = await creditGoAhead(postResult.error);
+              if (go) { send(go); return; }
               btn.disabled = false; btn.innerHTML = original;
-              if (postResult.success) { isDirty = false; showListView(); }
-              else { error.textContent = postResult.error || 'Unable to post.'; error.classList.remove('hidden'); }
+              if (go === undefined) { error.textContent = postResult.error || 'Unable to post.'; error.classList.remove('hidden'); }
             })
             .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to post.'; error.classList.remove('hidden'); })
-            .postCustomerInvoice({ invoiceId: saveResult.invoiceId });
+            .postCustomerInvoice(Object.assign({ invoiceId: saveResult.invoiceId }, consent ? { budgetConsent: consent } : {}));
+          send(null);
         })
         .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to save before posting.'; error.classList.remove('hidden'); })
         .saveCustomerInvoiceDraft({ invoiceData: collectHeader() });
     });
+  }
+
+  // The credit check (docs/modules/CREDIT_CONTROL.md, step C2): over the customer's credit, the user
+  // may go ahead (a warning), or override a block with a reason when they have the right; the call is
+  // then made again with that consent (sent as budgetConsent, the request's consent). undefined: not a credit refusal.
+  async function creditGoAhead(message) {
+    const m = String(message || '');
+    if (m.indexOf('Over credit (warning)') === 0) return (await appConfirm(m)) ? { go: true } : null;
+    if (m.indexOf('Over credit (blocked; you may override with a reason)') === 0) {
+      const reason = await appPrompt(m + ' To go ahead anyway, give the reason:', '');
+      if (reason == null) return null;
+      if (!reason.trim()) { appAlert('A reason is required to go ahead over the credit limit.'); return null; }
+      return { go: true, reason: reason.trim() };
+    }
+    return undefined;
+  }
+  function showCreditBanner(prefix, doc) {
+    const c = doc && doc.CreditCheck;
+    document.getElementById(prefix + '-credit-banner').classList.toggle('hidden', !c);
+    if (c) document.getElementById(prefix + '-credit-text').textContent = c.Text + (c.Overridden ? ' — gone ahead by ' + c.By + ': ' + c.Reason : ' — ' + c.By + ' went ahead.');
   }
 
   function deleteDraft() {
@@ -1266,6 +1293,7 @@
     }
 
     document.getElementById('cinv-rejection-banner').classList.toggle('hidden', !currentInvoice || currentInvoice.Status !== 'Rejected');
+    showCreditBanner('cinv', currentInvoice);
     if (currentInvoice && currentInvoice.Status === 'Rejected') {
       document.getElementById('cinv-rejection-reason').textContent = currentInvoice.RejectionReason || '(no reason given)';
     }

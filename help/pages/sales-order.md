@@ -5,8 +5,8 @@ order: 4
 modules: [SALESORDER]
 sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-10-30
-fingerprint: f7d4e498ea515ee1
+reviewed: 2026-11-01
+fingerprint: 32ec4855e4ee68e1
 ---
 ## What it is for
 
@@ -34,6 +34,14 @@ warehouse that isn't found, a quantity that isn't a number above zero or a price
 nothing is pasted and the message names the rows to fix.
 4. Save or submit for approval if the company requires it.
 5. Use the order to create the delivery note or invoice when the goods are ready.
+
+## The credit check
+
+Where the company checks credit ([Credit Control](credit-control.html#the-credit-check)),
+**Confirm** checks the customer first. On credit hold, the order is
+refused. Over its limit or overdue, you see why: with a warning, **OK**
+goes ahead (kept on the order and shown at its top); where it blocks,
+someone with the right to override may go ahead with a reason.
 
 ## Proforma Invoice
 

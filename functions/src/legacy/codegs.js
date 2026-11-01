@@ -13,6 +13,7 @@ const __budgetCheck = require('../budgetCheck');
 const __coaScheme = require('../coaScheme');
 const __coaUsage = require('../coaUsage');
 const __companies = require('../companies');
+const __creditCheck = require('../creditCheck');
 const __customerPhone = require('../customerPhone');
 const __dataReset = require('../dataReset');
 const __dimensionRules = require('../dimensionRules');
@@ -54,6 +55,7 @@ const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEn
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a);
 const budgetCheckDocument_ = (idToken, ...a) => __budgetCheck.checkDocument(...a);
+const creditCheckDocument_ = (idToken, ...a) => __creditCheck.checkDocument(...a);
 const generateItemCode_ = (idToken, ...a) => __numbering.itemCode(...a);
 const generateAccountCode_ = (...a) => __coaScheme.generateCode(...a);
 const isCashOrBankAccount_ = (...a) => __coaScheme.isCashOrBank(...a);
@@ -4347,6 +4349,9 @@ async function postCustomerInvoice(idToken, invoiceId) {
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
+    // [NEW DEVELOPMENT credit-check-ci] the credit check (docs/modules/CREDIT_CONTROL.md, step C2).
+    const creditCheck = await creditCheckDocument_(idToken, user, 'CUSTOMERINVOICE', existing);
+    await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { CreditCheck: creditCheck || null }, idToken);
 
     const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
@@ -8542,6 +8547,8 @@ async function confirmSalesOrder(idToken, soId) {
     if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
     if (existing.Status !== 'Draft') throw new Error('Only a Draft Sales Order can be confirmed.');
     if (!existing.Lines || !existing.Lines.length) throw new Error('Add at least one line before confirming.');
+    // [NEW DEVELOPMENT credit-check-so] the credit check (docs/modules/CREDIT_CONTROL.md, step C2).
+    const creditCheck = await creditCheckDocument_(idToken, user, 'SALESORDER', existing);
 
     const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
     const itemByCode = {};
@@ -8570,6 +8577,7 @@ async function confirmSalesOrder(idToken, soId) {
     const finalStatus = anyShortfall ? 'Partially Reserved' : 'Reserved';
     await firebaseDbRequest_('salesOrders/' + soId, 'patch', {
       SONumber: soNumber, Status: finalStatus, ConfirmedAt: now, ConfirmedBy: actor,
+      CreditCheck: creditCheck || null, // [NEW DEVELOPMENT credit-check-so-record]
       UpdatedAt: now, UpdatedBy: actor
     }, idToken);
     return { success: true, soNumber: soNumber, status: finalStatus };

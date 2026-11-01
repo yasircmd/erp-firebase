@@ -219,6 +219,9 @@ async function salesHome(me) {
   const customers = await myCustomers(me, rep);
   const aging = customers.length ? await require('./agingReports').partyAging('Customer', me.emp.CompanyID, today(), 'due', customers.map(c => c.CustomerID)) : { Rows: [] };
   const byId = new Map((aging.Rows || []).map(r => [r.PartyID, r]));
+  // Each one's credit (docs/modules/CREDIT_CONTROL.md, step C2): what is left of its limit, or its hold.
+  const credit = customers.length ? await require('./creditControl').standings(me.emp.CompanyID, customers.map(c => c.CustomerID)) : { rows: [], base: '' };
+  const creditOf = new Map(credit.rows.map(r => [r.CustomerID, r]));
   const drafts = await myDrafts(me);
   const party = (await repParties([me.emp.EmployeeID]))[me.emp.EmployeeID];
   return {
@@ -226,7 +229,9 @@ async function salesHome(me) {
     customers: customers.map(c => {
       const r = byId.get(c.CustomerID) || { Net: 0, Buckets: {} };
       const overdue = round2(Object.keys(r.Buckets || {}).filter(k => k !== 'notDue').reduce((s, k) => s + (Number(r.Buckets[k]) || 0), 0));
-      return { CustomerID: c.CustomerID, Code: c.CustomerCode || '', Name: c.CustomerName || '', Phone: c.Phone || '', Balance: round2(r.Net), Overdue: overdue, Currency: r.Currency || '' };
+      const k = creditOf.get(c.CustomerID) || {};
+      return { CustomerID: c.CustomerID, Code: c.CustomerCode || '', Name: c.CustomerName || '', Phone: c.Phone || '', Balance: round2(r.Net), Overdue: overdue, Currency: r.Currency || '',
+        CreditLeft: k.Available === undefined ? null : k.Available, CreditHold: Boolean(k.Hold), CreditBase: credit.base || '' };
     }).sort((a, b) => a.Name.localeCompare(b.Name)),
     activity: drafts
   };

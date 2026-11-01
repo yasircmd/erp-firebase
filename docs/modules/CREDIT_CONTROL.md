@@ -4,7 +4,7 @@ Requested 2026-10-30 (owner), after the Budget module: "Prepare a Budget
 and forecast module first then customer credit control". It picks up the
 roadmap's open item from Customer SOA decision C1: a credit limit per
 customer and a check on new sales for customers who are over their limit
-or overdue. **Status: design agreed 2026-10-31 (Q360–Q365); C1 built 2026-10-31; C2 (the check) next.**
+or overdue. **Status: design agreed 2026-10-31 (Q360–Q365); C1 built 2026-10-31, live 2026-11-01; C2 (the check) built 2026-11-01.**
 
 ## What already exists (from the code)
 
@@ -163,3 +163,63 @@ Live 2026-11-01 (PR #197; runs #259 every function and the screens, #260 Hosting
     - the grace days ignored (emulator).
 - **Deploy:** `tools/deploy-sets/credit-c1.txt` with `--screens`, then
   "hosting". It covers every function, because of moduleRegistry.
+
+## As built: step C2, the credit check (2026-11-01)
+
+- **Where it runs (Q363).** The check lives in `functions/src/creditCheck.js`
+  (`checkDocument`). The ported functions call it through
+  `tools/legacy-port/patches.js`, mapped as `creditCheckDocument_`:
+  - `credit-check-so` and `credit-check-so-record`: in
+    `confirmSalesOrder`, before the order takes its number or reserves
+    stock. What the user went ahead with is kept on the order as
+    `CreditCheck`.
+  - `credit-check-ci`: in `postCustomerInvoice`, before the approval
+    starts. `CreditCheck` is kept on the invoice.
+  - The rule covers direct invoices and invoices from orders or
+    deliveries alike.
+- **The rules, in order:**
+  1. **A credit hold (Q364)** refuses the sale whatever the setting, even
+     Off, and no consent overrides it. This is a literal reading of
+     "whatever the setting": the way past a hold is to lift it.
+  2. **Off:** no further check.
+  3. **What the document adds:**
+     - a Sales Order: its whole value at its prices, converted to base;
+     - a Customer Invoice: its base total. Where deliveries and orders
+       are counted, the deliveries and order item lines it invoices are
+       taken off, since they are already in the exposure
+       (`creditCalc.invoiceAddition`). This never goes below 0.
+  4. **Over the limit** (exposure plus the addition) or **overdue past
+     the grace days**: with Warn, refused with the marker
+     `Over credit (warning)` until the user continues; with Block, refused
+     with `Over credit (blocked; you may override with a reason)` for a
+     user with the *override* right (who goes ahead with a reason), and
+     with `Over credit (blocked)` for anyone else. The hold's marker is
+     `On credit hold`.
+- **The consent** is the request's `budgetConsent` `{ go, reason }`.
+  callable.js already carries it for every callable, so there was no
+  change to callable.js, and so no deploy of every function. It is one
+  consent store for the request's checks: a sales document is never
+  budget-checked.
+- **Screens:**
+  - **Sales Order and Customer Invoice (hand screens):** `creditGoAhead`
+    shows the warning in-app (appConfirm), or for a block asks for the
+    reason (appPrompt), and sends the request again with the consent. An
+    "Over credit" banner on the document shows what went ahead.
+  - **Credit Control Setup:** its note now explains the check.
+- **The approver's card:** `approvalCard.summarize` returns `Credit`, and
+  index.html shows it like the budget's note.
+- **The reps' portal:** each customer shows its credit left, or "on credit
+  hold" (`salesRep` salesHome, using `creditControl.standings`; ess.html).
+- **Tests:**
+  - unit/creditControl +1 (3): what an invoice adds;
+  - unit/approvalCard +1: the credit note on the card;
+  - emulator/creditCheck (1): off, warn and continue (kept), block with
+    and without a reason, overdue past the grace days, a hold refusing
+    whatever the setting;
+  - ui/creditControl +1 (4): a Sales Order confirmed on its screen with
+    the warning answered, then its banner.
+  - Negative controls, each caught and restored:
+    - the hold skipped when the check is Off (emulator);
+    - an invoice's deliveries counted twice (unit).
+- **Deploy:** `tools/deploy-sets/credit-c2.txt` with `--screens`, then
+  "hosting".
