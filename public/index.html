@@ -3337,15 +3337,21 @@
       applyTreeTitle();
     }
 
-    // A screen with wide tables (Employees, Sales Order) marks itself
-    // data-wide-screen and gets the screen's width, up to 1792px, instead of
-    // the usual 1152px column (owner, 2026-10-24). Home and every other
-    // screen keep the column.
+    // Every module screen gets a wider page than Home's 1152px column, up to
+    // 1600px, with a margin kept at each side (owner, 2026-11-01: as Employees
+    // and Sales Order had since 2026-10-24, up to 1792px, but with more margin
+    // left). Home keeps its column. (data-wide-screen, which marked those two,
+    // is no longer needed: every screen is wide.)
+    const MODULE_MAX_WIDTH = '100rem', MODULE_SIDE_MARGIN = '1rem';
     function setPageWidth(wide) {
       const app = document.getElementById('app-container');
       app.classList.toggle('max-w-6xl', !wide);
-      app.classList.toggle('max-w-[112rem]', wide);
+      app.style.maxWidth = wide ? MODULE_MAX_WIDTH : '';
+      // The body's own padding plus this, on a computer; a phone keeps its own edge.
+      const side = wide && window.innerWidth >= 1024 ? MODULE_SIDE_MARGIN : '';
+      app.style.paddingLeft = app.style.paddingRight = side;
     }
+    window.addEventListener('resize', () => { const app = document.getElementById('app-container'); if (app && app.style.maxWidth) setPageWidth(true); });
 
     // ---------- GENERIC MODULE LOADER ----------
     // innerHTML does not execute embedded <script> tags, so injected fragment
@@ -3447,7 +3453,7 @@
           window.initModule = undefined;
           injectHtmlWithScripts(container, result.html);
           if (window.phoneView) phoneView.loaded(container); // PHONE VIEW: a report's tables shaped for a phone
-          setPageWidth(Boolean(container.querySelector('[data-wide-screen]')));
+          setPageWidth(true); // every module screen (owner, 2026-11-01)
           // Each fragment defines window.initModule(token, canWrite) as
           // its single entry point. The "token" concept itself is now
           // obsolete for any PORTED module (callable functions verify

@@ -5,8 +5,14 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
 reviewed: 2026-11-01
-fingerprint: b8dcbb95edd919d7
+fingerprint: 3ab3bbd192726d8d
 ---
+## The page
+
+Each screen opens wide, using more of a large monitor (up to 1600 pixels),
+with a margin kept at each side; Home stays a narrower column. On a phone,
+the [phone view](getting-started.html#on-a-phone) applies.
+
 ## Company first
 
 The ERP holds several companies. Most screens start with a **Company**

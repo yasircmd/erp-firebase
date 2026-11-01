@@ -1675,3 +1675,8 @@ from, and how it was verified. The deploy procedure is in the
   [#262](https://github.com/yasircmd/erp-firebase/actions/runs/41283486638)
   (07:07–07:08 UTC), success. No rules change. The check stays Off until a
   company sets Warn or Block; a customer on credit hold is refused from now.
+- **2026-11-01, Customers and vendors typed in (`party-search`, PR #200, from
+  `6ceed69`):** "hosting", run
+  [#263](https://github.com/yasircmd/erp-firebase/actions/runs/41298902349)
+  (10:45–10:46 UTC), success. The shell's picker only (index.html) and the
+  Help; no functions, screens or rules.
