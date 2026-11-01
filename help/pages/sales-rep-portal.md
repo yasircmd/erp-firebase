@@ -1,6 +1,6 @@
 ---
-fingerprint: 564550f74330e29d
-reviewed: 2026-10-30
+fingerprint: a6c82fca1b1c9816
+reviewed: 2026-11-01
 title: Sales reps in the Employee Portal
 area: sales
 order: 20
@@ -10,7 +10,7 @@ summary: Sales reps see their customers, send orders, collect cash and cheques w
 ## What it is for
 
 A sales rep uses the **Employee Portal** on their phone. Its **Sales** tab
-shows the rep's customers with each one's balance and overdue amount, and
+shows the rep's customers with each one's balance, overdue amount and credit left (or that it is on credit hold, from [Credit Control](credit-control.html)), and
 lets the rep send an **order** and **collect** a payment. An order is a
 draft the office confirms. A collection is **final at once**: the customer
 gets its receipt straight away, and the rep holds the cash or the cheque

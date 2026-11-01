@@ -49,3 +49,9 @@ test('a document in short: date, party, lines (journal debit less credit), more 
   const g = C.summarize({}, { TransactionDate: '2026-10-07', VendorID: 'V1', Lines: [{ ItemCode: 'RM-001', Quantity: 3, TotalValue: 60 }], Total: 60, CurrencyCode: 'USD' }, { V1: 'Example Supplies' });
   assert.deepEqual([g.Party, g.Amount, g.Currency, g.Lines[0]], ['Example Supplies', 60, 'USD', { Text: 'RM-001', Quantity: 3, Amount: 60 }]);
 });
+
+test('a credit overrun gone ahead with shows on the card (CREDIT_CONTROL.md, step C2)', () => {
+  const s = C.summarize({}, { InvoiceDate: '2026-11-01', Total: 300, CreditCheck: { Text: 'C001 Example Retail: over by 400.00', By: 'admin', Overridden: true, Reason: 'Paid today' } }, {});
+  assert.deepEqual(s.Credit, { Text: 'C001 Example Retail: over by 400.00', By: 'admin', Overridden: true, Reason: 'Paid today' });
+  assert.equal(C.summarize({}, { Total: 1 }, {}).Credit, null);
+});

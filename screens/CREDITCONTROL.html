@@ -39,7 +39,7 @@
       <select id="cc-setup-exposure" class="cc-setup bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="ReceivableAndOrders">What it owes, deliveries not yet invoiced and open Sales Orders</option><option value="Receivable">What it owes only</option></select></div>
     <div><label for="cc-setup-grace" class="block text-xs font-medium text-slate-300 mb-1">Overdue after (days past the due date)</label>
       <input id="cc-setup-grace" type="number" min="0" max="365" step="1" class="cc-setup w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <p class="text-xs text-slate-400">The check itself comes with the next step: for now the setting is kept, and the Customers tab shows each customer's standing as it would be judged.</p>
+    <p class="text-xs text-slate-400">Over the limit means the exposure plus the order or invoice is more than the limit. A customer on credit hold is refused whatever the setting, until the hold is lifted.</p>
     <button id="cc-setup-save" class="cc-setup bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
   </div>
 </div>

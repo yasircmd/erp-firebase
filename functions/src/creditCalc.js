@@ -59,10 +59,23 @@ function standing(row, extra) {
   return { Flags: flags, After: after, Over: row.Limit === null || row.Limit === undefined ? 0 : round2(Math.max(0, after - row.Limit)) };
 }
 
+// What a Customer Invoice adds to the exposure, in base (step C2): its total,
+// less, where deliveries and orders are counted, the deliveries and order
+// lines it invoices (already in the exposure, before tax).
+function invoiceAddition(doc, mode) {
+  const total = Number(doc.Total) || 0;
+  const base = doc.TotalBase != null ? Number(doc.TotalBase) || 0 : total;
+  if (mode === 'Receivable') return round2(base);
+  const rate = total ? base / total : 1;
+  const counted = (doc.SourceDeliveryNotes || []).reduce((s, d) => s + (Number(d.Amount) || 0), 0) +
+    (doc.ItemLines || []).filter(l => l.SourceSOID).reduce((s, l) => s + (Number(l.Amount) || 0), 0);
+  return round2(Math.max(0, base - counted * rate));
+}
+
 // The report's order: on hold, then over the limit, then overdue, then the most exposed.
 function sortRows(rows) {
   const rank = r => (r.Flags.includes('Hold') ? 0 : r.Flags.includes('OverLimit') ? 1 : r.Flags.includes('Overdue') ? 2 : 3);
   return rows.sort((a, b) => rank(a) - rank(b) || b.Exposure - a.Exposure || String(a.Name).localeCompare(String(b.Name)));
 }
 
-module.exports = { round2, openOrderValue, deliveryValue, uninvoiced, overdueOf, exposureOf, limitOf, standing, sortRows };
+module.exports = { round2, openOrderValue, deliveryValue, uninvoiced, overdueOf, exposureOf, limitOf, standing, invoiceAddition, sortRows };

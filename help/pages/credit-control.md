@@ -1,6 +1,6 @@
 ---
-fingerprint: 768556862aaf9398
-reviewed: 2026-10-31
+fingerprint: 4f1624aa4a20ee1a
+reviewed: 2026-11-01
 title: Credit Control
 area: sales
 order: 9
@@ -69,18 +69,38 @@ takes it off, with a note if you wish. A hold applies whatever the limit.
 
 ## Setup
 
-- **The credit check**: Off (to start), Warn or Block. The check on
-  confirming a Sales Order and posting a Customer Invoice comes in the
-  next step; until then the setting is kept and the list shows each
-  customer's standing.
+- **The credit check**: Off (to start), Warn or Block (see below).
 - **Counted against the limit**: what the customer owes, deliveries not
   yet invoiced and open Sales Orders (to start); or what it owes only.
 - **Overdue after**: the days past the due date before an invoice counts
   as overdue (0: any day late).
 
+## The credit check
+
+When a **Sales Order** is confirmed, or a **Customer Invoice** is posted
+(a direct one, or one from orders or deliveries), the customer is
+checked:
+
+- **On credit hold**: refused, whatever the setting. Lift the hold here
+  to sell to it on credit.
+- **Over the limit**: its exposure plus what the document adds is more
+  than its limit. An order adds its whole value; an invoice its total,
+  less the deliveries and order lines it invoices when those are already
+  counted.
+- **Overdue**: an invoice more than the grace days past its due date.
+
+| Setting | Over the limit or overdue |
+|---|---|
+| Off | Nothing; this list still shows it. |
+| Warn | The message says why. **OK** goes ahead; it is kept on the document, and an invoice's approvers see it (on the invoice and on the phone's approval card). |
+| Block | Refused. Someone with Credit Control's *override* right may go ahead, giving a reason, which is kept with the document. |
+
+> Example: *Example Retail LLC* has a limit of 1,200 and an exposure of
+> 1,100. A Sales Order of 200 is 100 over: with **Warn**, the user sees
+> it and may go ahead.
+
 ## Rights
 
 In Roles & Permissions, **Credit Control**: *access* reads the list;
 *write* sets limits; *hold* puts on and lifts holds; *setup* changes
-Setup; *override* goes ahead where the credit check blocks (with the
-check, next).
+Setup; *override* goes ahead where the credit check blocks.

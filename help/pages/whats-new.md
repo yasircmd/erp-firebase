@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-31
+reviewed: 2026-11-01
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,15 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 01/11/2026
+
+- **The credit check.** Confirming a Sales Order and posting a Customer
+  Invoice now check the customer, where the company switches it on in
+  [Credit Control](credit-control.html#the-credit-check) Setup: on credit
+  hold, refused; over its limit or overdue, a warning or a block with an
+  override, as the company chooses. The sales reps' portal shows each
+  customer's credit left.
 
 ## 31/10/2026
 

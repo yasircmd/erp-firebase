@@ -101,7 +101,9 @@ function summarize(inst, doc, names) {
     // A PO keeps its currency as Currency.
     Currency: d.CurrencyCode || d.Currency || '', Status: d.Status || '', Lines: lines, MoreLines: Math.max(0, lineCount - lines.length),
     // Over budget, gone ahead with (docs/modules/BUDGET.md, step B3): for the approver to see.
-    Budget: d.BudgetCheck ? { Text: String(d.BudgetCheck.Text || '').slice(0, 1500), By: d.BudgetCheck.By || '', Overridden: Boolean(d.BudgetCheck.Overridden), Reason: d.BudgetCheck.Reason || '' } : null
+    Budget: d.BudgetCheck ? { Text: String(d.BudgetCheck.Text || '').slice(0, 1500), By: d.BudgetCheck.By || '', Overridden: Boolean(d.BudgetCheck.Overridden), Reason: d.BudgetCheck.Reason || '' } : null,
+    // Over credit, gone ahead with (docs/modules/CREDIT_CONTROL.md, step C2): the same, for a Customer Invoice.
+    Credit: d.CreditCheck ? { Text: String(d.CreditCheck.Text || '').slice(0, 1500), By: d.CreditCheck.By || '', Overridden: Boolean(d.CreditCheck.Overridden), Reason: d.CreditCheck.Reason || '' } : null
   };
 }
 

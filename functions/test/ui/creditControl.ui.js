@@ -22,13 +22,17 @@ const daysAgo = n => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.
 async function seed() {
   const f = baseFixture();
   f.customers = {
-    CU1: { CustomerCode: 'C001', CustomerName: 'Alpha Traders', Status: 'Active', CompanyID: 'C1', TradeReceivablesAccountID: 'A-AR', PaymentTermsDays: 0 },
+    CU1: { CustomerCode: 'C001', CustomerName: 'Alpha Traders', Status: 'Active', CompanyID: 'C1', Classification: 'Retail', TradeReceivablesAccountID: 'A-AR', PaymentTermsDays: 0 },
     CU2: { CustomerCode: 'C002', CustomerName: 'Beta Stores', Status: 'Active', CompanyID: 'C1', TradeReceivablesAccountID: 'A-AR' }
   };
-  f.salesOrders = { SO1: { CompanyID: 'C1', CustomerID: 'CU1', Status: 'Reserved', SONumber: 'SO-1', SODate: daysAgo(5), CurrencyID: '',
+  f.priceLists = { PL1: { Name: 'Retail', CompanyID: 'C1', Status: 'Active', CustomerClassificationMapping: 'Retail', CurrencyID: '' } };
+  f.priceListLines = { PL1L: { PriceListID: 'PL1', ItemCode: 'RM-001', UnitPrice: 100, EffectiveFrom: '2026-01-01', Status: 'Active' } };
+  f.stock = { ledger: { I1: { WH1: { Quantity: 50, AvgCost: 40, TotalValue: 2000 } } } };
+  f.salesOrders = { SO9: { CompanyID: 'C1', CustomerID: 'CU1', Status: 'Draft', SONumber: '', SODate: today, CostCenterID: 'CC1', CreatedAt: today + 'T08:00:00Z',
+    Lines: [{ LineID: 'L1', ItemCode: 'RM-001', WarehouseID: 'WH1', OrderedQuantity: 3, UnitPrice: 100, LineTotal: 300 }] }, SO1: { CompanyID: 'C1', CustomerID: 'CU1', Status: 'Reserved', SONumber: 'SO-1', SODate: daysAgo(5), CurrencyID: '',
     Lines: [{ LineID: 'L1', ItemCode: 'RM-001', WarehouseID: 'WH1', OrderedQuantity: 10, DeliveredQuantity: 4, UnitPrice: 50 }] } };
-  f.stock = { transactions: { DN1: { TransactionType: 'DeliveryNote', Status: 'Posted', CompanyID: 'C1', CustomerID: 'CU1', TransactionNumber: 'DN-1', TransactionDate: daysAgo(3),
-    Lines: [{ ItemCode: 'RM-001', Quantity: 4, UnitPrice: 50, SourceSOID: 'SO1', SourceSOLineID: 'L1' }] } } };
+  f.stock.transactions = { DN1: { TransactionType: 'DeliveryNote', Status: 'Posted', CompanyID: 'C1', CustomerID: 'CU1', TransactionNumber: 'DN-1', TransactionDate: daysAgo(3),
+    Lines: [{ ItemCode: 'RM-001', Quantity: 4, UnitPrice: 50, SourceSOID: 'SO1', SourceSOLineID: 'L1' }] } };
   await reset(f);
   // Alpha owes 1,000 since 40 days ago (a refund paid to it, not yet settled).
   const s = ok(await call('u-admin', 'saveCbtDraft', { cbtData: { VoucherType: 'Bank Payment', SelectedAccountCode: '1100', JVDate: daysAgo(40), Description: 'Refund', CompanyID: 'C1', CostCenterID: 'CC1',
@@ -115,6 +119,35 @@ async function seed() {
     assert.equal(await v.locator('#cc-setup-save').isHidden(), true);
     assert.deepEqual(v.__errors, []);
     await v.close();
+  });
+
+  await check('the check on a Sales Order: confirmed on its screen with the warning answered; kept, and shown on the order (C2)', async () => {
+    ok(await call('u-admin', 'saveCreditSetup', { companyId: 'C1', Check: 'Warn' })); // limit 1,200; exposure 1,000 (receivable only)
+    const p = await context.newPage();
+    p.__errors = []; p.__dialogs = [];
+    p.on('pageerror', e => p.__errors.push(e.message));
+    await onAppDialog(p, d => { p.__dialogs.push(d.message()); d.accept(); });
+    await p.goto('http://127.0.0.1:8196/?module=SALESORDER&uid=u-admin');
+    await p.waitForFunction(() => window.__moduleReady === true, null, T);
+    await p.waitForSelector('#so-table-body tr', T);
+    await p.waitForTimeout(800);
+    await p.click('#so-table-body tr:has-text("Draft")');
+    await p.waitForSelector('#so-entry-view:not(.hidden)');
+    assert.equal(await p.isVisible('#so-credit-banner'), false);
+    await p.click('#so-confirm-btn');
+    const { val } = require('../emulator/_helpers');
+    for (let i = 0; i < 100 && (await val('salesOrders/SO9')).Status === 'Draft'; i++) await p.waitForTimeout(200);
+    assert.match(p.__dialogs.join(' | '), /Over credit \(warning\) C001 Alpha Traders: credit limit 1,200\.00, exposure 1,000\.00, this document 300\.00, over by 100\.00/);
+    const so = await val('salesOrders/SO9');
+    assert.notEqual(so.Status, 'Draft');
+    assert.equal(so.CreditCheck.Accepted, true);
+    await p.waitForSelector('#so-table-body tr', T);
+    await p.waitForTimeout(800);
+    await p.click('#so-table-body tr:has-text("' + so.SONumber + '")');
+    await p.waitForSelector('#so-credit-banner:not(.hidden)', T);
+    assert.match(await p.textContent('#so-credit-text'), /over by 100\.00 — admin went ahead\./);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
   });
 
   await browser.close(); server.close(); await app.delete();
