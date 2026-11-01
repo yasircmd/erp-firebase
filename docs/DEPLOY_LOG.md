@@ -1667,3 +1667,11 @@ from, and how it was verified. The deploy procedure is in the
   [#260](https://github.com/yasircmd/erp-firebase/actions/runs/41267355722)
   (11-01 02:59–03:00 UTC), success. No rules change. The check starts Off;
   each company sets its limits and choice in Credit Control.
+- **2026-11-01, Credit control step C2, the credit check (`credit-c2`, PR #198,
+  from `c7cd902`):** `tools/deploy-sets/credit-c2.txt` (147 functions) with
+  `--screens`, run
+  [#261](https://github.com/yasircmd/erp-firebase/actions/runs/41281189415)
+  (06:31–07:06 UTC), success. "hosting", run
+  [#262](https://github.com/yasircmd/erp-firebase/actions/runs/41283486638)
+  (07:07–07:08 UTC), success. No rules change. The check stays Off until a
+  company sets Warn or Block; a customer on credit hold is refused from now.

@@ -4,7 +4,7 @@ Requested 2026-10-30 (owner), after the Budget module: "Prepare a Budget
 and forecast module first then customer credit control". It picks up the
 roadmap's open item from Customer SOA decision C1: a credit limit per
 customer and a check on new sales for customers who are over their limit
-or overdue. **Status: design agreed 2026-10-31 (Q360–Q365); C1 built 2026-10-31, live 2026-11-01; C2 (the check) built 2026-11-01.**
+or overdue. **Status: design agreed 2026-10-31 (Q360–Q365); C1 built 2026-10-31, live 2026-11-01; C2 (the check) built and live 2026-11-01. Done.**
 
 ## What already exists (from the code)
 
@@ -165,6 +165,8 @@ Live 2026-11-01 (PR #197; runs #259 every function and the screens, #260 Hosting
   "hosting". It covers every function, because of moduleRegistry.
 
 ## As built: step C2, the credit check (2026-11-01)
+
+Live 2026-11-01 (PR #198; runs #261 functions and screens, #262 Hosting).
 
 - **Where it runs (Q363).** The check lives in `functions/src/creditCheck.js`
   (`checkDocument`). The ported functions call it through
