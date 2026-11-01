@@ -43,6 +43,8 @@ const CATEGORIES = {
     detail: 'The receipts the sales reps gave customers from the Employee Portal (their GL entries and cheques are the GL and PDCs\' own). Each rep\'s receipt numbers restart.' },
   employeeRequests: { label: 'Employee Requests', group: T, fs: ['employeeRequests'], records: 'employeeRequests',
     detail: 'Payroll queries, expense claims and loan requests from the Employee Portal, with their messages.' },
+  bankRecs: { label: 'Bank Reconciliations', group: T, fs: ['bankRecs'], records: 'bankRecs',
+    detail: 'Every bank reconciliation: each account\'s months, their statements pasted, matches and ticks. The GL entries themselves are not touched.' },
   budgets: { label: 'Budgets', group: T, fs: ['budgets', 'budgetForecasts'], records: 'budgets',
     detail: 'Every budget, each version of each company\'s year: drafts, revisions and approved ones (their approval records are Approval Records\'), and every forecast.' },
   supportingDocuments: { label: 'Supporting Documents', group: T, fs: ['attachments', 'attachmentLog', 'attachmentFolders'], count: ['attachments'],  files: true,
