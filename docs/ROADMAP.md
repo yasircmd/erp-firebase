@@ -637,9 +637,12 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (fix removed) was caught.
   - **To go live:** Deploy → "functions set", set
     `bom-current-parent-name` (getBoms only; no screens).
+- [x] **Home by its name** (owner, 2026-11-01): Home's title "ERP Module Hierarchy Tree" is now
+  **Home** (with the company's name), and a screen's "Back to Hierarchy" is **← Home**. Shell
+  (public/index.html) and the Help; Hosting only.
 - [x] **Wider page on every module screen** (owner, 2026-11-01): up to 1600px with a margin at each
   side (Employees and Sales Order had 1792px); Home keeps 1152px. Shell only (`setPageWidth`,
-  public/index.html); [UX_ROUND2.md](modules/UX_ROUND2.md) item 6. Hosting only.
+  public/index.html); [UX_ROUND2.md](modules/UX_ROUND2.md) item 6. Live 2026-11-01 (PR #201, run #264).
 - [x] **Customers and vendors typed in on every screen** (owner, 2026-11-01): a type-in box like the
   account boxes in place of each party drop-down, whatever its length, by code and name
   ([SEARCH_PICKER.md](modules/SEARCH_PICKER.md#parties-typed-in-owner-2026-11-01)); live 2026-11-01 (PR #200, run #263, Hosting).
