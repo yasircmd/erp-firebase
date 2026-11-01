@@ -131,3 +131,55 @@ recent picks first (kept in the browser).
   - Phone: full screen.
   - Negative control: with matching only from the start, all 4 failed.
     It was then restored.
+
+## Parties typed in (owner, 2026-11-01)
+
+The owner asked that customers and vendors be searchable in every module,
+"same like how Ledgers works". Before this, a party drop-down opened the
+picker only with 12 or more entries, and only after a click or F4. Below 12
+it was the browser's own list. Decisions (2026-11-01): a **type-in box**
+like the account boxes, on every screen whatever the list's length,
+searching **code and name** (not mobile or TRN).
+
+- **Which drop-downs:** a `<select>` whose id names a customer, vendor or
+  party, and doesn't name a type, class, category, status, mode, kind,
+  currency, group or basis (`cd-form-party-type` stays a drop-down). Also
+  a line's party drop-down with no id (class `…party-select`, on JV and
+  CBT), or anything with `data-party-picker`. `data-no-picker` opts out.
+- **How it is built:** in the shell's SEARCH PICKER block, so no screen
+  changed.
+  - A text box (`erp-party-box`, id `<select id>-box`) goes in the
+    drop-down's place, with the drop-down's utility (look) classes only.
+    The screen's own classes stay on the drop-down alone, so its lookups
+    (`.cbt-party-select`, `.rj-line` …) find it alone.
+  - The drop-down stays in the page as the record: 1px, transparent, no
+    pointer events, out of the tab order. Its value, options and change
+    event are the screen's, so `selectOption` in tests still works.
+  - The box shows the drop-down's choice. It follows any change: the
+    screen setting `value` or `selectedIndex`, options re-rendered, the
+    change event, and disabled or class changes.
+- **Behaviour:**
+  - Focusing the box selects its text, so typing replaces it.
+  - A click shows the whole list, recent first.
+  - Typing narrows the list by code and name (the same ranking as
+    accounts).
+  - ↑/↓ move through the matches; Enter takes the highlighted row, or
+    the first match.
+  - Esc, or leaving without choosing, puts the choice back.
+  - On a phone the picker is full screen, as before.
+  - A filter's "All …" option is offered too.
+- **Tests:** `searchPicker.ui.js` (4): the invoice's customer typed in.
+  - Any part of the name; the choice shown; Enter takes the first match;
+    Esc restores the choice.
+  - A value set by the screen shows in the box; recent picks first.
+  - A short list is boxed too; a non-party drop-down is left alone.
+  - The phone check now taps the box.
+- **Whole UI regression:** every suite passes, with suites that need
+  their emulator suite first run after it. Two failures belong to main,
+  not this change:
+  - payrollPost has one check failing on main too.
+  - itemBarcodes fails on main too when run after invoiceState without a
+    reset.
+- **Negative controls**, each caught and restored:
+  - the box's matching returning nothing (2 checks failed);
+  - the drop-down left visible (1 failed).

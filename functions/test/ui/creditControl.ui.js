@@ -141,8 +141,7 @@ async function seed() {
     const so = await val('salesOrders/SO9');
     assert.notEqual(so.Status, 'Draft');
     assert.equal(so.CreditCheck.Accepted, true);
-    await p.waitForSelector('#so-table-body tr', T);
-    await p.waitForTimeout(800);
+    await p.waitForSelector('#so-table-body tr:has-text("' + so.SONumber + '")', T); // the list refreshed with its number
     await p.click('#so-table-body tr:has-text("' + so.SONumber + '")');
     await p.waitForSelector('#so-credit-banner:not(.hidden)', T);
     assert.match(await p.textContent('#so-credit-text'), /over by 100\.00 — admin went ahead\./);

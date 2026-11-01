@@ -95,31 +95,46 @@ const NAMES = ['Alpha Foods', 'Beta Trading', 'Gamma Builders', 'Delta Marine', 
     await jv.context().close();
   });
 
-  await check('a long drop-down (the invoice\'s customer): its own search box, any part of the name; recent picks first next time', async () => {
+  await check('a customer is typed in, as an account is: any part of the name; the choice shown; recent first; a short list too (owner, 2026-11-01)', async () => {
     const p = await open('CUSTOMERINVOICE');
     await p.click('#cinv-new-btn');
     await p.selectOption('#cinv-form-company', 'C1');
     await p.waitForFunction(() => document.getElementById('cinv-form-customer').options.length >= 15, null, T);
-    await p.click('#cinv-form-customer');
-    await p.waitForSelector('#erp-picker:not(.hidden) .erp-picker-search', T);
-    assert.equal(await p.evaluate(() => document.activeElement.className), 'erp-picker-search');
+    // The drop-down is out of sight; a box stands in its place.
+    assert.equal(await p.isVisible('#cinv-form-customer-box'), true);
+    assert.equal(await p.$eval('#cinv-form-customer', el => getComputedStyle(el).opacity), '0');
+    await p.click('#cinv-form-customer-box');
     await p.keyboard.type('trad');
+    await p.waitForSelector('#erp-picker:not(.hidden)', T);
+    assert.equal(await p.evaluate(() => document.activeElement.id), 'cinv-form-customer-box', 'the typing stays in the box');
     assert.deepEqual((await rows(p)).map(t => t.replace(/^C\d+\s*[—-]?\s*/, '')), ['Beta Trading', 'Omicron Trading Post']);
     await p.click('#erp-picker .erp-picker-row >> nth=1');
     assert.equal(await p.inputValue('#cinv-form-customer'), 'CU14');
+    assert.match(await p.inputValue('#cinv-form-customer-box'), /Omicron Trading Post/);
     assert.equal(await shown(p), false);
-    // Typing a letter on the focused drop-down opens it too.
-    await p.focus('#cinv-form-customer');
-    await p.keyboard.press('k');
-    await p.waitForSelector('#erp-picker:not(.hidden)', T);
-    assert.equal(await p.inputValue('#erp-picker .erp-picker-search'), 'k');
+    // Enter takes the first match; Esc leaves the choice as it was.
+    await p.fill('#cinv-form-customer-box', '');
+    await p.keyboard.type('beta');
+    await p.keyboard.press('Enter');
+    assert.equal(await p.inputValue('#cinv-form-customer'), 'CU1');
+    await p.keyboard.type('zz');
     await p.keyboard.press('Escape');
-    await p.click('#cinv-form-customer');
+    assert.match(await p.inputValue('#cinv-form-customer-box'), /Beta Trading/);
+    // A value the screen sets shows in the box.
+    await p.selectOption('#cinv-form-customer', 'CU14');
+    assert.match(await p.inputValue('#cinv-form-customer-box'), /Omicron Trading Post/);
+    // Recent first.
+    await p.click('#cinv-form-customer-box');
     await p.waitForSelector('#erp-picker:not(.hidden) .erp-picker-group', T);
     assert.equal(await p.textContent('#erp-picker .erp-picker-group'), 'Recent');
-    assert.match((await rows(p))[0], /Omicron Trading Post/);
     await p.keyboard.press('Escape');
-    // A short drop-down stays the browser's own.
+    // A short list is typed in too.
+    await p.evaluate(() => { const s = document.getElementById('cinv-form-customer'); Array.from(s.options).slice(4).forEach(o => o.remove()); });
+    await p.fill('#cinv-form-customer-box', '');
+    await p.keyboard.type('a');
+    await p.waitForSelector('#erp-picker:not(.hidden) .erp-picker-row', T);
+    // Another short drop-down (not a party) stays the browser's own.
+    await p.keyboard.press('Escape');
     await p.click('#cinv-form-company');
     assert.equal(await shown(p), false);
     assert.deepEqual(p.__errors, []);
@@ -131,7 +146,7 @@ const NAMES = ['Alpha Foods', 'Beta Trading', 'Gamma Builders', 'Delta Marine', 
     await p.click('#cinv-new-btn');
     await p.selectOption('#cinv-form-company', 'C1');
     await p.waitForFunction(() => document.getElementById('cinv-form-customer').options.length >= 15, null, T);
-    await p.tap('#cinv-form-customer');
+    await p.tap('#cinv-form-customer-box');
     await p.waitForSelector('#erp-picker.erp-picker-full:not(.hidden)', T);
     const box = await p.$eval('#erp-picker', el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; });
     const vw = await p.evaluate(() => [window.innerWidth, window.innerHeight]);

@@ -12,6 +12,11 @@ screen.
 
 ## 01/11/2026
 
+- **Customers and vendors typed in.** On every screen, a customer or
+  vendor is now chosen as an account is: type part of its code or name in
+  the box and pick from the matches, however short the list
+  ([Working with screens](working-with-screens.html#finding-an-account-item-customer-or-vendor)).
+
 - **The credit check.** Confirming a Sales Order and posting a Customer
   Invoice now check the customer, where the company switches it on in
   [Credit Control](credit-control.html#the-credit-check) Setup: on credit
