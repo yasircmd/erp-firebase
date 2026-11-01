@@ -142,7 +142,7 @@ test('Approval Configuration "Reimbursement": no manager, straight to the approv
   const tasks = await call('u-approver', 'getPendingApprovalsForUser', {});
   assert.deepEqual(tasks.filter(x => x.DocumentID === c.requestId).map(x => [x.ModuleID, x.ModuleLabel, x.Amount]), [['EMPREQUESTS', 'Reimbursement claim (the amount is the claim total)', 600]]);
   const g = await er('u-approver', 'get', { id: c.requestId });
-  assert.deepEqual([g.request.Total, g.request.Approval.MyLevels, g.request.Flags], [600, [1], ['Travel: over the monthly limit (500.00) by 100.00 for ' + monthText(T.slice(0, 7)) + '.']]);
+  assert.deepEqual([g.request.Total, g.request.Approval.MyLevels, g.request.Flags], [600, [1], ['Travel: over the monthly limit (500.00) by 100.00 for ' + monthText(ago(2).slice(0, 7)) + '.']]);
   await assert.rejects(er('u-admin', 'decideClaim', { id: c.requestId, levelNumber: 1, decision: 'Approved' }), /not the assigned approver/);
   await assert.rejects(er('u-approver', 'decideClaim', { id: c.requestId, levelNumber: 1, decision: 'Approved', adjust: [{ index: 1, amount: 50 }] }), /Say why bill 2 is approved in part/);
   await assert.rejects(er('u-approver', 'decideClaim', { id: c.requestId, levelNumber: 1, decision: 'Approved', adjust: [{ index: 1, amount: 200, note: 'x' }] }), /0 to the amount claimed \(150\.00\)/);

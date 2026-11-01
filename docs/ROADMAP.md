@@ -637,6 +637,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (fix removed) was caught.
   - **To go live:** Deploy → "functions set", set
     `bom-current-parent-name` (getBoms only; no screens).
+- [x] **Date-dependent tests fixed** (owner, 2026-11-01): three emulator
+  tests failed only on some days, all in the tests, not the code:
+  hrLeaveClose "the cut-off day" (on a month's last day the refusal
+  rightly says "up to the month's end"), recurringJournal "spread by
+  service period" (on a month's last day that month's run is due too),
+  essClaims "over the monthly limit" (the limit is by the bills' month,
+  two days back, not today's). Checked with the clock shifted to 31 Oct,
+  1 Nov, 15 Nov, 31 Dec, 1 Jan and 28 Feb: the old tests fail on those
+  dates and the fixed ones pass on all of them.
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
@@ -1205,9 +1214,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   emulator tests in trialBalance suite, `functions/test/ui/trialBalance.ui.js`
   (5 checks), negative controls on the opening cutoff and the compact CSS.
   Deployed with `tools/deploy-functions.sh trial-balance-period --screens`.
-- [ ] **Customer credit control** (from Customer SOA decision C1): a
+- [x] **Customer credit control** (from Customer SOA decision C1): a
   credit limit on Customer Master and a warning on new Sales Orders for
-  overdue or over-limit customers. Needs its own design doc. Design started 2026-10-31: [CREDIT_CONTROL.md](modules/CREDIT_CONTROL.md) (Q360–Q365 decided 2026-10-31: a limit per customer per company; exposure a per-company setting; overdue and a manual hold checked too; at Sales Order confirm and Customer Invoice post, Off/Warn/Block with an override). **C1 built** 2026-10-31 (limits and holds per customer per company, Credit Control Setup, the exposure report; [As built](modules/CREDIT_CONTROL.md#as-built-step-c1-2026-10-31)); live 2026-11-01 (PR #197, runs #259-#260); **C2 built** 2026-11-01 (the credit check on Sales Order confirm and Customer Invoice post; a hold refuses whatever the setting; the approver's card; the reps' credit left; [As built](modules/CREDIT_CONTROL.md#as-built-step-c2-the-credit-check-2026-11-01)). Credit control done once C2 is live.
+  overdue or over-limit customers. Needs its own design doc. Design started 2026-10-31: [CREDIT_CONTROL.md](modules/CREDIT_CONTROL.md) (Q360–Q365 decided 2026-10-31: a limit per customer per company; exposure a per-company setting; overdue and a manual hold checked too; at Sales Order confirm and Customer Invoice post, Off/Warn/Block with an override). **C1 built** 2026-10-31 (limits and holds per customer per company, Credit Control Setup, the exposure report; [As built](modules/CREDIT_CONTROL.md#as-built-step-c1-2026-10-31)); live 2026-11-01 (PR #197, runs #259-#260); **C2 built** 2026-11-01 (the credit check on Sales Order confirm and Customer Invoice post; a hold refuses whatever the setting; the approver's card; the reps' credit left; [As built](modules/CREDIT_CONTROL.md#as-built-step-c2-the-credit-check-2026-11-01)). live 2026-11-01 (PR #198, runs #261-#262). **Customer credit control done.**
 - [x] **Party Payments UI check timing** (2026-09-26): it now waits for
   elements and options instead of fixed times; 3/3 right after an
   emulator restart (was 0/3).

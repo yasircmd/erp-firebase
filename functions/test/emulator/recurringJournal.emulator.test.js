@@ -316,12 +316,14 @@ test('spread by service period: partial first month by days, 13 month ends, exac
   assert.equal(Math.round(d.Plan.reduce((s, r) => s + r.Amount, 0) * 100) / 100, 12000);
   const planned = d.Plan.map(r => r.Amount);
 
-  // Two month ends are past: posted with the planned amounts; the rest don't move.
-  assert.equal(ok(await postDue([id])).posted, 2);
+  // Two month ends are past (three on a month's last day: this month's is due today): posted with the
+  // planned amounts; the rest don't move.
+  const due = TODAY === monthEnd(0) ? 3 : 2;
+  assert.equal(ok(await postDue([id])).posted, due);
   d = await detail(id);
   assert.deepEqual(d.Plan.map(r => r.Amount), planned);
-  assert.deepEqual(d.Plan.slice(0, 3).map(r => r.Status), ['Posted', 'Posted', 'Scheduled']);
-  assert.equal(await balance('A-RENT'), Math.round((planned[0] + planned[1]) * 100) / 100);
+  assert.deepEqual(d.Plan.slice(0, 4).map(r => r.Status), ['Posted', 'Posted', 'Posted', 'Scheduled'].map((x, i) => (i < due ? 'Posted' : 'Scheduled')));
+  assert.equal(await balance('A-RENT'), Math.round(planned.slice(0, due).reduce((a, b) => a + b, 0) * 100) / 100);
 
   // Validation: the period is required and ordered.
   assert.match(await err(save(rent({ AmountMode: 'Period', Schedule: { ServiceFrom: from } }))), /end date is required/);
