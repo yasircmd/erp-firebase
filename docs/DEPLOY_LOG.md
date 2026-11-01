@@ -1688,3 +1688,9 @@ from, and how it was verified. The deploy procedure is in the
   "hosting", run
   [#265](https://github.com/yasircmd/erp-firebase/actions/runs/41306175066)
   (12:22–12:23 UTC), success. The shell only (index.html) and the Help.
+- **2026-11-01, Reconciliations step R1, bank reconciliation (`reconciliation`,
+  PR #203, from `49536ce`):** every function (`bankrec-r1`) with `--screens`,
+  run [#266](https://github.com/yasircmd/erp-firebase/actions/runs/41314717436)
+  (14:08–16:22 UTC), success. "hosting", run
+  [#267](https://github.com/yasircmd/erp-firebase/actions/runs/41326775394)
+  (16:31–16:32 UTC), success. No rules change.

@@ -16,10 +16,15 @@
       <div><p id="br-title" class="text-lg font-bold text-slate-100"></p><p id="br-sub" class="text-xs text-slate-400"></p></div>
       <div class="flex flex-wrap gap-2">
         <button id="br-copy" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy</button>
+        <button id="br-submit" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+        <button id="br-approve" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-check"></i> Approve</button>
+        <button id="br-reject" class="hidden bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-xmark"></i> Reject</button>
+        <button id="br-reopen" class="hidden bg-amber-600 hover:bg-amber-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-lock-open"></i> Reopen</button>
         <button id="br-delete" class="br-edit bg-red-700 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-trash"></i> Delete draft</button>
       </div>
     </div>
 
+    <div id="br-banner" class="hidden rounded-xl px-4 py-2 text-sm"></div>
     <div class="grid lg:grid-cols-3 gap-4">
       <!-- The statement -->
       <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
@@ -83,7 +88,7 @@
   let setup = null, cur = null;        // getBankRecSetup; getBankRec
   let selGl = new Set(), selSt = new Set();
   const key = () => ({ companyId: $('br-company').value, accountId: $('br-account').value, month: $('br-month').value });
-  const canEdit = () => setup && setup.rights.canPrepare && cur && (cur.rec.Status === 'New' || cur.rec.Status === 'Draft');
+  const canEdit = () => setup && setup.rights.canPrepare && cur && ['New', 'Draft', 'Rejected'].includes(cur.rec.Status);
 
   function loadSetup() {
     return call('getBankRecSetup', { companyId: $('br-company').value }).then(r => {
@@ -119,7 +124,17 @@
     $('br-st-close').value = plain(r.rec.StatementClosing);
     $('br-prev').textContent = r.previousClosing !== null && r.previousClosing !== undefined ? 'Last reconciled month\'s statement closing: ' + fmt(r.previousClosing) + '.' : '';
     document.querySelectorAll('.br-edit').forEach(el => el.classList.toggle('hidden', !canEdit()));
-    $('br-delete').classList.toggle('hidden', !canEdit() || r.rec.Status !== 'Draft');
+    $('br-delete').classList.toggle('hidden', !canEdit() || !['Draft', 'Rejected'].includes(r.rec.Status));
+    const st = r.rec.Status, rights = r.rights || setup.rights;
+    $('br-submit').classList.toggle('hidden', !rights.canPrepare || !['Draft', 'Rejected'].includes(st));
+    $('br-approve').classList.toggle('hidden', !(st === 'PendingApproval' && r.rec.MyLevel));
+    $('br-reject').classList.toggle('hidden', !(st === 'PendingApproval' && r.rec.MyLevel));
+    $('br-reopen').classList.toggle('hidden', !(st === 'Approved' && rights.canReopen));
+    const banner = st === 'Approved' ? ['Reconciled and locked' + (r.rec.ApprovedBy ? ', approved by ' + r.rec.ApprovedBy : '') + '.', 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200']
+      : st === 'PendingApproval' ? ['Waiting for approval.', 'bg-blue-500/10 border border-blue-500/30 text-blue-200']
+        : st === 'Rejected' ? ['Rejected: ' + (r.rec.RejectionReason || '(no reason given)') + '. Change it and submit again.', 'bg-red-500/10 border border-red-500/30 text-red-200'] : null;
+    $('br-banner').classList.toggle('hidden', !banner);
+    if (banner) { $('br-banner').textContent = banner[0]; $('br-banner').className = 'rounded-xl px-4 py-2 text-sm ' + banner[1]; }
     renderReport(); renderLines();
   }
   function renderReport() {
@@ -155,7 +170,8 @@
     $('br-st').innerHTML = st.map(s => '<tr class="border-b border-slate-800" data-s="' + esc(s.LineID) + '"><td class="py-1 px-2">' + (edit && !stMatchOf.has(s.LineID) ? '<input type="checkbox" class="br-sel-st"' + (selSt.has(s.LineID) ? ' checked' : '') + '>' : '') + '</td>' +
       '<td class="py-1 px-2">' + esc(s.Date) + '</td><td class="py-1 px-2 max-w-[16rem] truncate" title="' + esc(s.Description) + '">' + esc(s.Description) + '</td><td class="py-1 px-2">' + esc(s.Reference) + '</td>' +
       '<td class="py-1 px-2 text-right font-mono">' + (s.Debit ? fmt(s.Debit) : '') + '</td><td class="py-1 px-2 text-right font-mono">' + (s.Credit ? fmt(s.Credit) : '') + '</td>' +
-      '<td class="py-1 px-2">' + (stMatchOf.has(s.LineID) ? '<button class="br-unmatch text-xs text-emerald-300 hover:underline" data-m="' + stMatchOf.get(s.LineID) + '">Match ' + stMatchOf.get(s.LineID) + ' ✕</button>' : sugS.has(s.LineID) ? '<span class="text-xs text-blue-300">suggested</span>' : '') + '</td></tr>').join('') ||
+      '<td class="py-1 px-2">' + (stMatchOf.has(s.LineID) ? '<button class="br-unmatch text-xs text-emerald-300 hover:underline" data-m="' + stMatchOf.get(s.LineID) + '">Match ' + stMatchOf.get(s.LineID) + ' ✕</button>'
+        : sugS.has(s.LineID) ? '<span class="text-xs text-blue-300">suggested</span>' : edit && !cur.account.Currency ? '<button class="br-post text-xs text-amber-300 hover:underline" title="Post a Cash &amp; Bank entry for it (bank charges, interest …)">Post entry</button>' : '') + '</td></tr>').join('') ||
       '<tr><td colspan="7" class="py-3 px-3 text-slate-400">' + ((cur.rec.StatementLines || []).length ? 'Every line is matched.' : 'No statement pasted: tick the ERP\'s lines the bank shows as cleared.') + '</td></tr>';
     selection();
   }
@@ -173,6 +189,32 @@
     if (!selGl.size) { appAlert('Select the ERP\'s lines the bank shows as cleared.'); return; }
     if (selSt.size) { appAlert('Marking cleared is for the ERP\'s lines only: to pair them with statement lines, use Match.'); return; }
     save({ ticked: (cur.rec.Ticked || []).concat([...selGl]) });
+  }
+  async function postEntry(lineId) {
+    const s = (cur.rec.StatementLines || []).find(x => x.LineID === lineId);
+    const what = s.Debit ? 'a Bank Payment of ' + fmt(s.Debit) : 'a Bank Receipt of ' + fmt(s.Credit);
+    const ans = await appPrompt('Post ' + what + ' dated ' + s.Date + ' for "' + s.Description + '". The account code it goes to (for example Bank Charges), and a cost centre code after a space if it needs one:', '');
+    if (ans === null || !ans.trim()) return;
+    const [accountCode, costCenterCode] = ans.trim().split(/\s+/);
+    call('postBankRecEntry', Object.assign(key(), { lineId, accountCode, costCenterCode: costCenterCode || '' })).then(r => {
+      if (r.matched) { selGl = new Set(); selSt = new Set(); show(Object.assign(r, { rights: cur.rights })); appAlert('Posted ' + r.jvNumber + ' and matched.'); }
+      else { appAlert('Entry ' + (r.jvNumber || '') + ' is ' + (r.status === 'PendingApproval' ? 'waiting for approval' : r.status) + ': match it once it is posted.'); open(); }
+    }, err => appAlert(err.message || 'Unable to post the entry.'));
+  }
+  async function submit() {
+    if (!(await appConfirm('Submit ' + cur.month + ' for approval? Once approved it is locked.'))) return;
+    call('submitBankRec', key()).then(r => { appAlert(r.status === 'Approved' ? 'Approved and locked (no approval is set).' : 'Submitted for approval.'); open(); }, err => appAlert(err.message || 'Unable to submit.'));
+  }
+  async function decide(decision) {
+    let reason = '';
+    if (decision === 'Rejected') { reason = await appPrompt('The reason for rejecting it:', ''); if (reason === null) return; }
+    call('decideBankRecApproval', { recId: cur.rec.RecID, levelNumber: cur.rec.MyLevel, decision, reason }).then(() => open(), err => appAlert(err.message || 'Unable to record the decision.'));
+  }
+  async function reopen() {
+    const reason = await appPrompt('Reopen ' + cur.month + '? The reason (kept in its history):', '');
+    if (reason === null) return;
+    if (!reason.trim()) { appAlert('Give the reason for reopening.'); return; }
+    call('reopenBankRec', Object.assign(key(), { reason })).then(() => open(), err => appAlert(err.message || 'Unable to reopen.'));
   }
   async function copy() {
     if (!cur) return;
@@ -213,9 +255,25 @@
     };
     $('br-gl').addEventListener('click', unmatch);
     $('br-st').addEventListener('click', unmatch);
+    $('br-st').addEventListener('click', e => { const b = e.target.closest('.br-post'); if (b && canEdit()) postEntry(b.closest('tr').dataset.s); });
+    $('br-submit').addEventListener('click', submit);
+    $('br-approve').addEventListener('click', () => decide('Approved'));
+    $('br-reject').addEventListener('click', () => decide('Rejected'));
+    $('br-reopen').addEventListener('click', reopen);
+    // Opened from Home (an approval): its company, account and month.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    const openId = pending && pending.OpenEntryId ? String(pending.OpenEntryId).split('__') : null;
     call('getActiveCompanies', {}).then(list => {
       $('br-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
-    }, () => {}).then(loadSetup);
+    }, () => {}).then(() => {
+      if (openId && openId.length === 3) $('br-company').value = openId[0];
+      return loadSetup();
+    }).then(() => {
+      if (!openId || openId.length !== 3) return;
+      $('br-account').value = openId[1]; $('br-month').value = openId[2];
+      return open();
+    });
   };
 })();
 </script>

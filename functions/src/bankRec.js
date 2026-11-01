@@ -15,8 +15,11 @@
 //     Matches [{ MatchID, GL [lineKey], ST [LineID] }], Ticked [lineKey],
 //     Status 'Draft', History, Created/Updated At, By }
 //   A GL line's key is its journal entry's id and line index ('id:3').
-// Submitting, approving and locking, and posting an entry for a statement
-// line, are step R2.
+// Step R2 (Q369-Q370, Q374): a Cash & Bank entry posted for a statement line
+// with nothing in the GL, then matched to it; submitted (the difference
+// nothing) and approved through Approval Configuration ('BANKREC'), then
+// locked (Status 'Approved'); reopened with a reason, the latest locked
+// month only; months submitted in order; Period Closing's check (checkMonth).
 'use strict';
 const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
@@ -25,6 +28,8 @@ const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const K = require('./bankRecCalc');
+const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
+const { withGlobalLock } = require('./lock');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'BANKREC';
@@ -34,11 +39,12 @@ const actorOf = user => user.profile.username || user.uid;
 const recs = () => firestore.collection('bankRecs');
 const recId = (companyId, accountId, month) => companyId + '__' + accountId + '__' + month;
 const isMonth = m => /^\d{4}-(0[1-9]|1[0-2])$/.test(m);
+const EDITABLE = ['New', 'Draft', 'Rejected'];
 const lastDay = m => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10);
 
 async function requireCap(user, cap) {
   if (await moduleHasCapability(MODULE_ID, cap, user.profile.role)) return;
-  throw new HttpsError('permission-denied', cap === 'access' ? 'You do not have access to Bank Reconciliation.' : 'You do not have permission to prepare bank reconciliations.');
+  throw new HttpsError('permission-denied', cap === 'access' ? 'You do not have access to Bank Reconciliation.' : cap === 'reopen' ? 'You do not have permission to reopen a bank reconciliation.' : 'You do not have permission to prepare bank reconciliations.');
 }
 function requireCompany(user, companyId) {
   if (!companyId) throw new HttpsError('invalid-argument', 'Choose a company.');
@@ -119,7 +125,7 @@ async function load(user, companyId, accountId, month) {
 exports.getBankRecSetup = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'access');
-  const rights = { canPrepare: await moduleHasCapability(MODULE_ID, 'prepare', user.profile.role) };
+  const rights = { canPrepare: await moduleHasCapability(MODULE_ID, 'prepare', user.profile.role), canReopen: await moduleHasCapability(MODULE_ID, 'reopen', user.profile.role) };
   const companyId = text(request.data && request.data.companyId, 80);
   if (!companyId) return { rights };
   requireCompany(user, companyId);
@@ -136,7 +142,13 @@ exports.getBankRec = onCallWithMessages(onCallOptions, async (request) => {
   const companyId = text(d.companyId, 80), accountId = text(d.accountId, 80), month = text(d.month, 7);
   requireCompany(user, companyId);
   if (!isMonth(month)) throw new HttpsError('invalid-argument', 'Choose a month.');
-  return load(user, companyId, accountId, month);
+  const out = await load(user, companyId, accountId, month);
+  // Waiting for approval: the level this user may decide, if any.
+  if (out.rec.Status === 'PendingApproval' && out.rec.ApprovalInstanceID) {
+    const inst = await require('./approvalStore').approvalInstances.get(out.rec.ApprovalInstanceID);
+    out.rec.MyLevel = inst && inst.Status === 'Pending' ? require('./approvalCard').myLevel(inst, user.uid) : null;
+  }
+  return Object.assign(out, { rights: { canPrepare: await moduleHasCapability(MODULE_ID, 'prepare', user.profile.role), canReopen: await moduleHasCapability(MODULE_ID, 'reopen', user.profile.role) } });
 });
 
 // Saves the month's work: the statement (lines replaced, or rows pasted
@@ -150,7 +162,7 @@ exports.saveBankRec = onCallWithMessages(onCallOptions, async (request) => {
   requireCompany(user, companyId);
   if (!isMonth(month)) throw new HttpsError('invalid-argument', 'Choose a month.');
   const cur = await load(user, companyId, accountId, month);
-  if (cur.rec.Status !== 'New' && cur.rec.Status !== 'Draft') throw new HttpsError('failed-precondition', 'This reconciliation is ' + cur.rec.Status + ': it can no longer be changed.');
+  if (!EDITABLE.includes(cur.rec.Status)) throw new HttpsError('failed-precondition', cur.rec.Status === 'Approved' ? 'This month is reconciled and locked: reopen it to change it.' : 'This reconciliation is waiting for approval: it can no longer be changed.');
   const amountOrNull = (v, label) => {
     if (v === undefined) return undefined;
     if (v === null || String(v).trim() === '') return null;
@@ -198,7 +210,8 @@ exports.saveBankRec = onCallWithMessages(onCallOptions, async (request) => {
   const now = new Date().toISOString(), by = actorOf(user);
   const ref = recs().doc(cur.rec.RecID);
   const doc = {
-    CompanyID: companyId, AccountID: accountId, Month: month, Currency: cur.account.Currency, Status: 'Draft',
+    CompanyID: companyId, AccountID: accountId, Month: month, Currency: cur.account.Currency, Status: cur.rec.Status === 'Rejected' ? 'Rejected' : 'Draft',
+    RejectionReason: cur.rec.RejectionReason || '',
     StatementOpening: opening === undefined ? cur.rec.StatementOpening : opening, StatementClosing: closing === undefined ? cur.rec.StatementClosing : closing,
     StatementLines: stLines, Matches: clean, Ticked: [...new Set(ticked)],
     History: (cur.rec.History || []).concat([{ At: now, By: by, What: cur.rec.Status === 'New' ? 'Started' : 'Saved' }]).slice(-200),
@@ -219,7 +232,155 @@ exports.deleteBankRecDraft = onCallWithMessages(onCallOptions, async (request) =
   const ref = recs().doc(recId(companyId, accountId, month));
   const snap = await ref.get();
   if (!snap.exists) throw new HttpsError('not-found', 'No reconciliation for that month.');
-  if (snap.data().Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only a draft can be deleted.');
+  if (!['Draft', 'Rejected'].includes(snap.data().Status)) throw new HttpsError('failed-precondition', 'Only a draft or a rejected reconciliation can be deleted.');
   await ref.delete();
   return { success: true };
 });
+
+// ---------- Step R2 ----------
+
+const keyOf = d => ({ companyId: text(d.companyId, 80), accountId: text(d.accountId, 80), month: text(d.month, 7) });
+const historyWith = (rec, what, user, note) => (rec.History || []).concat([{ At: new Date().toISOString(), By: actorOf(user), What: what, Note: note || '' }]).slice(-200);
+
+// A statement line with nothing in the GL (Q369): a Bank Payment (a
+// withdrawal) or Bank Receipt (a deposit) posted for it through Cash & Bank
+// (its rights, numbering, approval and period lock), then matched to it.
+// A foreign-currency account's entry is made in Cash & Bank itself.
+exports.postBankRecEntry = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'prepare');
+  const d = request.data || {};
+  const { companyId, accountId, month } = keyOf(d);
+  requireCompany(user, companyId);
+  const cur = await load(user, companyId, accountId, month);
+  if (!EDITABLE.includes(cur.rec.Status) || cur.rec.Status === 'New') throw new HttpsError('failed-precondition', cur.rec.Status === 'New' ? 'Paste the statement first.' : 'This reconciliation can no longer be changed.');
+  if (cur.account.Currency) throw new HttpsError('failed-precondition', 'This account is in ' + cur.account.Currency + ': post the entry in Cash & Bank (with its rate), then match it here.');
+  const line = (cur.rec.StatementLines || []).find(s => s.LineID === text(d.lineId, 60));
+  if (!line) throw new HttpsError('invalid-argument', 'That statement line is not on this statement.');
+  if (!cur.unmatchedStatement.includes(line.LineID)) throw new HttpsError('failed-precondition', 'That statement line is matched already.');
+  const accountCode = text(d.accountCode, 40);
+  if (!accountCode) throw new HttpsError('invalid-argument', 'Choose the account (for example Bank Charges).');
+  const out = line.Debit > 0;
+  // A cost centre by its id, or by its code as typed.
+  let costCenterId = text(d.costCenterId, 80);
+  if (!costCenterId && d.costCenterCode) {
+    const units = (await rtdb.ref('orgUnits').get()).val() || {};
+    costCenterId = Object.keys(units).find(id => units[id].Type === 'CostCenter' && String(units[id].Code) === text(d.costCenterCode, 40) && (!units[id].CompanyID || units[id].CompanyID === companyId)) || '';
+    if (!costCenterId) throw new HttpsError('invalid-argument', 'No cost centre ' + text(d.costCenterCode, 40) + ' in this company.');
+  }
+  const result = await require('./journal').saveAndPostCbt(request, {
+    VoucherType: out ? 'Bank Payment' : 'Bank Receipt', SelectedAccountCode: cur.account.AccountCode, JVDate: line.Date, CompanyID: companyId,
+    Description: text(d.description, 300) || line.Description || 'Per the bank statement', Reference: line.Reference || '',
+    CostCenterID: costCenterId, OppositeLines: [{ AccountCode: accountCode, Amount: out ? line.Debit : line.Credit, Description: text(d.description, 300) || line.Description || '', CostCenterID: costCenterId }]
+  });
+  if (!result || result.success === false) throw new HttpsError('failed-precondition', (result && result.error) || 'Unable to post the entry.');
+  if (result.status !== 'Posted') return { success: true, status: result.status, jvNumber: result.jvNumber || '', matched: false };
+  // Matched to the statement line: the new entry's bank line.
+  const entry = (await firestore.collection('journalEntries').doc(result.jvId).get()).data() || {};
+  const idx = (entry.Lines || []).findIndex(l => l.AccountID === accountId);
+  const ref = recs().doc(cur.rec.RecID);
+  await firestore.runTransaction(async tx => {
+    const r = (await tx.get(ref)).data();
+    tx.update(ref, { Matches: (r.Matches || []).concat([{ MatchID: randomUUID().slice(0, 12), GL: [result.jvId + ':' + idx], ST: [line.LineID] }]),
+      History: historyWith(r, 'Entry ' + (entry.JVNumber || '') + ' posted for a statement line', user), UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user) });
+  });
+  return Object.assign(await load(user, companyId, accountId, month), { success: true, status: 'Posted', jvNumber: entry.JVNumber || '', matched: true });
+});
+
+// The month is approved and locked (or Approved at once with no approval set).
+async function commitApproval(user, rec, what) {
+  const now = new Date().toISOString();
+  await recs().doc(rec.RecID).update({ Status: 'Approved', ApprovedAt: now, ApprovedBy: actorOf(user), RejectionReason: '', UpdatedAt: now, UpdatedBy: actorOf(user),
+    History: historyWith(rec, what, user) });
+}
+
+// Submitted (Q370): reconciled (the statement's closing balance typed, the
+// difference nothing) and the account's earlier reconciled month approved.
+exports.submitBankRec = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'prepare');
+  const { companyId, accountId, month } = keyOf(request.data || {});
+  requireCompany(user, companyId);
+  return withGlobalLock(user.uid, async () => {
+    const cur = await load(user, companyId, accountId, month);
+    if (!['Draft', 'Rejected'].includes(cur.rec.Status)) throw new HttpsError('failed-precondition', 'Only a draft or rejected reconciliation can be submitted.');
+    if (cur.report.StatementClosing === null) throw new HttpsError('failed-precondition', 'Type the statement\'s closing balance first.');
+    if (cur.report.Difference !== 0) throw new HttpsError('failed-precondition', 'The difference is ' + cur.report.Difference.toFixed(2) + ': it must be nothing to submit.');
+    const earlier = (await recsOf(companyId, accountId)).filter(r => r.Month < month).sort((a, b) => b.Month.localeCompare(a.Month))[0];
+    if (earlier && earlier.Status !== 'Approved') throw new HttpsError('failed-precondition', earlier.Month + ' is not approved yet: the months are reconciled in order.');
+    const a = cur.account;
+    const scopeKey = await resolveApprovalScopeKeyForDocument(MODULE_ID, { CompanyID: companyId });
+    const approval = await beginApprovalInstance(MODULE_ID, cur.rec.RecID, a.AccountCode + ' ' + month, scopeKey, Math.abs(cur.report.StatementClosing), user.uid);
+    const now = new Date().toISOString();
+    const rec = Object.assign({}, cur.rec);
+    if (approval.required) {
+      await recs().doc(rec.RecID).update({ Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId, RejectionReason: '', SubmittedAt: now, SubmittedBy: actorOf(user),
+        UpdatedAt: now, UpdatedBy: actorOf(user), History: historyWith(rec, 'Submitted for approval', user) });
+      return { success: true, status: 'PendingApproval' };
+    }
+    await commitApproval(user, rec, 'Approved (no approval required)');
+    return { success: true, status: 'Approved' };
+  });
+});
+
+// The approver's decision (Approval Configuration's levels; Home tasks and the phone card).
+exports.decideBankRecApproval = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'access');
+  const d = request.data || {};
+  const snap = await recs().doc(text(d.recId, 200)).get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Bank reconciliation not found.');
+  const rec = Object.assign({ RecID: snap.id }, snap.data());
+  requireCompany(user, rec.CompanyID);
+  return withGlobalLock(user.uid, async () => {
+    if (rec.Status !== 'PendingApproval' || !rec.ApprovalInstanceID) throw new HttpsError('failed-precondition', 'This reconciliation is not waiting for approval.');
+    const result = await recordApprovalDecision(user, rec.ApprovalInstanceID, d.levelNumber, d.decision, d.reason);
+    if (result.status === 'Approved') await commitApproval(user, rec, 'Approved');
+    if (result.status === 'Rejected') {
+      const reason = text(d.reason, 500);
+      await recs().doc(rec.RecID).update({ Status: 'Rejected', RejectionReason: reason, UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user), History: historyWith(rec, 'Rejected', user, reason) });
+    }
+    return { success: true, status: result.status, selfApproved: result.selfApproved };
+  });
+});
+
+// Reopened with a reason (Q370): the latest locked month of the account
+// only, so a later month never rests on a changed one. Back to Draft.
+exports.reopenBankRec = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'reopen');
+  const d = request.data || {};
+  const { companyId, accountId, month } = keyOf(d);
+  requireCompany(user, companyId);
+  const reason = text(d.reason, 500);
+  if (!reason) throw new HttpsError('invalid-argument', 'Give the reason for reopening.');
+  return withGlobalLock(user.uid, async () => {
+    const all = await recsOf(companyId, accountId);
+    const rec = all.find(r => r.Month === month);
+    if (!rec || rec.Status !== 'Approved') throw new HttpsError('failed-precondition', 'Only an approved (locked) month can be reopened.');
+    const later = all.find(r => r.Month > month && ['Approved', 'PendingApproval'].includes(r.Status));
+    if (later) throw new HttpsError('failed-precondition', later.Month + ' is ' + (later.Status === 'Approved' ? 'locked' : 'waiting for approval') + ': reopen the latest month first.');
+    await recs().doc(rec.RecID).update({ Status: 'Draft', ApprovalInstanceID: '', ReopenedAt: new Date().toISOString(), ReopenedBy: actorOf(user),
+      UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user), History: historyWith(rec, 'Reopened', user, reason) });
+    return { success: true, status: 'Draft' };
+  });
+});
+
+// For Period Closing (Q374): the company's bank accounts with posted lines to
+// the month's end whose reconciliation for the month is not approved.
+async function checkMonth(companyId, month) {
+  const end = lastDay(month);
+  const coa = (await rtdb.ref('coa').get()).val() || {};
+  const banks = bankAccounts(coa, companyId);
+  if (!banks.length) return [];
+  const ids = new Set(banks.map(b => b.AccountID)), used = new Set();
+  (await firestore.collection('journalEntries').where('CompanyID', '==', companyId).where('JVDate', '<=', end).get()).docs.forEach(doc => {
+    const e = doc.data();
+    if (e.Status === 'Posted') (e.Lines || []).forEach(l => { if (ids.has(l.AccountID)) used.add(l.AccountID); });
+  });
+  const byId = {};
+  (await recsOf(companyId)).filter(r => r.Month === month).forEach(r => { byId[r.AccountID] = r; });
+  return banks.filter(b => used.has(b.AccountID) && !(byId[b.AccountID] && byId[b.AccountID].Status === 'Approved'))
+    .map(b => ({ AccountID: b.AccountID, Name: b.AccountCode + ' ' + b.AccountName, Status: byId[b.AccountID] ? byId[b.AccountID].Status : 'Not started' }));
+}
+exports.checkMonth = checkMonth;

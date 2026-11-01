@@ -113,6 +113,8 @@ Each step has tests, a Help page in Finance and a What's new entry.
 
 ## As built: step R1, bank reconciliation (2026-11-01)
 
+Live 2026-11-01 (PR #203; runs #266 every function and the screens, #267 Hosting).
+
 - **Module:** `BANKREC`, Bank Reconciliation. It sits in the tree under
   Bank & Cash Ledger, and in Help under Finance. Its rights:
   - *access*;
@@ -169,3 +171,59 @@ Each step has tests, a Help page in Finance and a What's new entry.
     - an earlier month's cleared lines shown again (emulator).
 - **Deploy:** `tools/deploy-sets/bankrec-r1.txt`, every function
   (moduleRegistry), with `--screens`, then "hosting".
+
+## As built: step R2, bank reconciliation finished (2026-11-01)
+
+- **An entry for a statement line (Q369): `postBankRecEntry`.**
+  - It makes a Bank Payment (for a withdrawal) or a Bank Receipt (for a
+    deposit), dated as the line, for the account typed, with an optional
+    cost centre given by its code.
+  - It goes through Cash & Bank's own save and post (`journal.js`
+    `saveAndPostCbt`, run in the caller's request), so Cash & Bank's
+    rights, rules (a required cost centre, for example), numbering,
+    approval and period lock all apply.
+  - Once posted, its bank line is matched to the statement line. If it is
+    waiting for approval, it is matched once posted.
+  - A foreign-currency account's entry is made in Cash & Bank itself,
+    with its rate.
+- **Submit, approve, lock (Q370): `submitBankRec`, `decideBankRecApproval`.**
+  - Submitting needs the statement's closing balance and a difference of
+    nothing, and the account's previous reconciled month approved, so the
+    months go in order.
+  - It is approved through Approval Configuration, as "Bank
+    Reconciliation" (the amount is the statement's closing balance). With
+    no levels set, it is approved at once.
+  - Statuses: Draft, PendingApproval, Approved (locked) and Rejected. A
+    Rejected month can be changed and submitted again.
+  - Home tasks and the phone card decide it (approvalRegistry and
+    approvalCard). The screen opens a month from a task by its id
+    (`company__account__month`).
+- **Reopen: `reopenBankRec`** (the *reopen* right, with a reason). Only
+  the latest locked month of an account can be reopened: one with a later
+  month approved or waiting is refused. The month goes back to Draft, and
+  its history keeps the reason.
+- **Period Closing (Q374):** a new checklist item, "Bank reconciliations
+  not approved for the month" (Warn to start, like the others).
+  - It covers each of the company's bank accounts with posted entries to
+    the month's end whose month isn't approved.
+  - Each finding opens Bank Reconciliation, with "Not started" or the
+    month's status.
+  - Done by `bankRec.checkMonth`, called from `periodClosing.runChecklist`.
+- **The screen:**
+  - Submit, Approve, Reject and Reopen;
+  - a banner (locked, waiting, or rejected with its reason);
+  - Post entry on an unmatched statement line;
+  - opening a month from Home.
+- **Tests:**
+  - emulator/bankRec +1 (2): the entry posted and matched, refusals,
+    months in order, approval, the lock, reopening only the latest with a
+    reason, and the Period Closing finding before and after;
+  - emulator/periodClosing: its checks list now includes `bankRec`;
+  - ui/bankRec +1 (3): submit and lock, an entry from a statement line
+    (the expense's required cost centre given), submit, reopen.
+  - Negative controls, each caught and restored:
+    - submitting with a difference;
+    - reopening an earlier month under a locked later one.
+- **Deploy:** `tools/deploy-sets/bankrec-r2.txt` (287 functions: the
+  require closure, the shared approval registry included), with
+  `--screens`, then "hosting".

@@ -12,6 +12,12 @@ screen.
 
 ## 01/11/2026
 
+- **Bank Reconciliation: post, approve and lock.** A bank charge or
+  interest on the statement is posted from its line and matched at once;
+  a reconciled month is submitted, approved and locked, and reopened with
+  a reason. Period Closing now checks that each bank account's month is
+  approved ([Bank Reconciliation](bank-reconciliation.html#locking-and-reopening)).
+
 - **Bank Reconciliation.** A new screen,
   [Bank Reconciliation](bank-reconciliation.html), matches a bank
   account's entries with the bank's statement for a month. Paste the

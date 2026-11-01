@@ -39,6 +39,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'FAAUC', Label: 'Capital Work in Progress' },
   { ModuleID: 'RECURRINGJV', Label: 'Recurring Journal Entries' },
   { ModuleID: 'BUDGET', Label: 'Budget (the amount is the year\'s budgeted costs)' },
+  { ModuleID: 'BANKREC', Label: 'Bank Reconciliation (the amount is the statement\'s closing balance)' },
   { ModuleID: 'EMPCHANGE', Label: 'Employee Change (promotion, increment, transfer)' },
   { ModuleID: 'LEAVE', Label: 'Leave (the amount is the days)' },
   { ModuleID: 'LEAVE_ABSENCE', Label: 'Absence, unauthorised (the amount is the days)' },
@@ -74,6 +75,7 @@ const APPROVAL_MODULE_STORAGE_ = {
   FAAUC: { type: 'firestore', collection: 'faPostings' },
   RECURRINGJV: { type: 'rtdb', path: 'recurringJournals' },
   BUDGET: { type: 'firestore', collection: 'budgets' },
+  BANKREC: { type: 'firestore', collection: 'bankRecs' }, // docs/modules/RECONCILIATION.md, step R2
   CUSTOMERINVOICE: { type: 'rtdb', path: 'customerInvoices' },
   PURCHASEREQUISITION: { type: 'rtdb', path: 'purchaseRequisitions' },
   INVENTORYPURCHASEREQUISITION: { type: 'rtdb', path: 'inventoryPurchaseRequisitions' },

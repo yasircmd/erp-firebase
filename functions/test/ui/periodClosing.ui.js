@@ -66,11 +66,12 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
 
   await check('the checklist lists a draft with a link to its module; closing asks first, then the earlier months close too', async () => {
     await p.click('#pc-grid tr[data-month="2026-03"] .pc-checklist');
-    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 11);
+    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 12);
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="drafts"]', 'data-result'), 'Warning');
     assert.match(await p.textContent('#pc-check-items .pc-item[data-key="drafts"]'), /Bank Payment[\s\S]*(2026-03-05|05\/03\/2026)[\s\S]*Draft/);
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="drafts"] .pc-open', 'data-module'), 'CBT');
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="trialBalance"]', 'data-result'), 'OK');
+    assert.ok(await p.$('#pc-check-items .pc-item[data-key="bankRec"]'), 'the bank reconciliation check is listed (RECONCILIATION.md Q374)');
     assert.match(await p.textContent('#pc-check-range'), /first close/);
     assert.equal(await p.isDisabled('#pc-close'), false);
     p.__cancelNext = true; // Cancel: nothing closes
@@ -102,7 +103,7 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     await settled(p); // the reload after saving, too
     await p.click('.pc-tab[data-tab="months"]');
     await p.click('#pc-grid tr[data-month="2026-04"] .pc-checklist');
-    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 11);
+    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 12);
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="drafts"]', 'data-result'), 'Blocks');
     assert.match(await p.textContent('#pc-check-range'), /1 blocking/);
     assert.equal(await p.isDisabled('#pc-close'), true);
@@ -146,7 +147,7 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     assert.equal(await p.inputValue('.pc-step-text[data-i="0"]'), 'Bank reconciliation done');
     await p.click('.pc-tab[data-tab="months"]');
     await p.click('#pc-grid tr[data-month="2026-02"] .pc-checklist');
-    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 13);
+    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 14);
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="zero:A-FRT"]', 'data-result'), 'OK');
     const step = '#pc-check-items .pc-item[data-key^="step:"]';
     assert.equal(await p.getAttribute(step, 'data-result'), 'Blocks');
@@ -168,7 +169,7 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     assert.equal(await v.$$eval('#pc-grid .pc-reopen', b => b.length), 0);
     assert.equal((await v.textContent('#pc-grid tr[data-month="2026-02"] .pc-checklist')).trim(), 'Checklist');
     await v.click('#pc-grid tr[data-month="2026-02"] .pc-checklist');
-    await until(v, () => document.querySelectorAll('#pc-check-items .pc-item').length === 13);
+    await until(v, () => document.querySelectorAll('#pc-check-items .pc-item').length === 14);
     assert.equal(await v.isHidden('#pc-close'), true);
     assert.equal(await v.isDisabled('#pc-check-items .pc-tick'), true, 'a Viewer cannot tick a step');
     await v.click('.pc-tab[data-tab="setup"]');
