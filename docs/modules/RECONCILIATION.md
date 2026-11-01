@@ -113,6 +113,8 @@ Each step has tests, a Help page in Finance and a What's new entry.
 
 ## As built: step R1, bank reconciliation (2026-11-01)
 
+Live 2026-11-01 (PR #203; runs #266 every function and the screens, #267 Hosting).
+
 - **Module:** `BANKREC`, Bank Reconciliation. It sits in the tree under
   Bank & Cash Ledger, and in Help under Finance. Its rights:
   - *access*;
