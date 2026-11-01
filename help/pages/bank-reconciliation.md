@@ -1,5 +1,5 @@
 ---
-fingerprint: d6945fee26e1a81c
+fingerprint: a3edaf1a378883d9
 reviewed: 2026-11-01
 title: Bank Reconciliation
 area: finance
@@ -36,7 +36,17 @@ listed, and once they are accounted for the difference must be nothing.
    without any bank line.
 6. Without a pasted statement, tick the ERP's lines the bank shows and
    select **Mark the GL lines selected cleared**.
-7. Watch the **Reconciliation** panel until the **Difference** is 0.00.
+7. A statement line with nothing in the ERP (bank charges, interest, a
+   direct debit): select **Post entry** beside it and type the account it
+   goes to (and a cost centre code after a space if the account needs
+   one). A Bank Payment or Bank Receipt is posted for it, dated as the
+   statement line, as Cash & Bank would post it (with its rights, numbering
+   and approval), and is matched at once. If the entry needs approval
+   first, match it once it is posted.
+8. Watch the **Reconciliation** panel until the **Difference** is 0.00.
+9. **Submit**. It goes to the approvers set in Approval Configuration
+   for **Bank Reconciliation** (with none set, it is approved at once).
+   Once approved, the month is **locked**.
 
 To undo a match or a cleared mark, select it (**Match 2 ✕**, **Cleared
 ✕**). **Only what is not yet cleared** hides what is done.
@@ -59,6 +69,17 @@ To undo a match or a cleared mark, select it (**Match 2 ✕**, **Cleared
 
 **Copy** copies the report and what is not yet cleared for Excel.
 
+## Locking and reopening
+
+- A month can be submitted only when its difference is nothing and the
+  account's previous month is approved: the months go in order.
+- A locked month can't be changed. Someone with the *reopen* right can
+  **Reopen** it, giving a reason (kept in its history). Only the latest
+  locked month of an account can be reopened.
+- A rejected month shows the reason; change it and submit again.
+- **Period Closing** checks that each bank account with entries has its
+  month approved ([Period Closing](period-closing.html)).
+
 ## From month to month
 
 A line cleared in a month doesn't appear again in later months. What is
@@ -69,4 +90,6 @@ foreign currency is reconciled in its own currency.
 
 In Roles & Permissions, **Bank Reconciliation**: *access* reads; *prepare*
 types the balances, pastes the statement, matches and marks lines
-cleared, and deletes a draft; *reopen* is for reopening a locked month.
+cleared, posts an entry for a statement line (which also needs Cash &
+Bank's rights), submits and deletes a draft; *reopen* reopens a locked
+month. Approving follows the approval levels.

@@ -34,6 +34,7 @@ const DECIDE = {
   FAAUC: { fn: 'decideFaPostingApproval', id: 'postingId' },
   RECURRINGJV: { fn: 'decideRecurringJournalApproval', id: 'templateId' },
   BUDGET: { fn: 'decideBudgetApproval', id: 'budgetId' },
+  BANKREC: { fn: 'decideBankRecApproval', id: 'recId' }, // RECONCILIATION.md, step R2
   EMPCHANGE: { fn: 'decideEmployeeChangeApproval', id: 'changeId' },
   LEAVE: { fn: 'decideLeaveApproval', id: 'leaveId' },
   PAYROLL: { fn: 'decidePayrollApproval', id: 'runId' },

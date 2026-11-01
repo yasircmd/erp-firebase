@@ -11,7 +11,7 @@ const { app, rtdb, firestore, call, reset, baseFixture, put } = require('./_help
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r.success, true, r.error); return r; };
 const err = async p => (await p.catch(e => e)).message;
-const CHECK_KEYS = ['drafts', 'approvals', 'recurring', 'depreciation', 'payroll', 'pdc', 'deliveries', 'receivables', 'payables', 'stock', 'trialBalance'];
+const CHECK_KEYS = ['drafts', 'approvals', 'recurring', 'depreciation', 'payroll', 'pdc', 'deliveries', 'receivables', 'payables', 'stock', 'trialBalance', 'bankRec'];
 const allModes = mode => Object.fromEntries(CHECK_KEYS.map(k => [k, mode]));
 
 function fixture() {
@@ -113,7 +113,8 @@ test('the checklist finds each kind of problem, in the period being closed', asy
   assert.match(item(c, 'payables').Findings[0].Text, /Aging 0\.00, GL 50\.00, difference -50\.00/);
   assert.match(item(c, 'stock').Findings[0].Text, /Stock 100\.00, GL 0\.00, difference 100\.00/);
   assert.deepEqual(item(c, 'trialBalance').Findings.map(f => f.Number), ['JV-2026-04-20']);
-  assert.ok(c.Items.every(i => i.Result === (i.Key === 'receivables' ? 'OK' : 'Warning')), JSON.stringify(c.Items.map(i => [i.Key, i.Result])));
+  // No bank account moved here: its reconciliation check is OK (RECONCILIATION.md Q374; tested in bankRec's suite).
+  assert.ok(c.Items.every(i => i.Result === (['receivables', 'bankRec'].includes(i.Key) ? 'OK' : 'Warning')), JSON.stringify(c.Items.map(i => [i.Key, i.Result])));
   assert.deepEqual([c.Blocking, c.Warnings], [0, 10]);
 
   // Each one fixed (or the month before them): clean.

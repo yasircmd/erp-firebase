@@ -35,9 +35,9 @@ const post = async (date, lines, extra) => (await firestore.collection('journalE
   const T = { timeout: 30000 };
   async function open(uid) {
     const page = await context.newPage();
-    page.__errors = []; page.__dialogs = [];
+    page.__errors = []; page.__dialogs = []; page.__answers = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(d.type() === 'prompt' ? page.__answers.shift() : undefined); });
     await page.goto('http://127.0.0.1:8197/?module=BANKREC&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, T);
     await page.waitForFunction(() => document.querySelectorAll('#br-account option[value="A-BANK"]').length === 1, null, T);
@@ -104,6 +104,43 @@ const post = async (date, lines, extra) => (await firestore.collection('journalE
     const p = await open('u-viewer');
     await p.waitForFunction(() => /Difference\s+0\.00/.test(document.getElementById('br-report').innerText), null, T);
     assert.equal(await p.locator('.br-sel-gl, .br-sel-st, #br-match:visible, #br-save-bal:visible, #br-delete:visible').count(), 0);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('R2: October submitted and locked; November: the cheque presented, a bank charge posted from its line and matched; submitted; reopened with a reason', async () => {
+    const p = await open('u-admin');
+    p.__answers = ['6100 CC1', 'Statement corrected']; // the expense needs a cost centre (its own rule)
+    await p.click('#br-submit');
+    await p.waitForSelector('#br-banner:not(.hidden)', T);
+    assert.match(await p.textContent('#br-banner'), /Reconciled and locked/);
+    assert.equal(await p.isVisible('#br-match'), false, 'locked: nothing to change');
+    // November.
+    await p.fill('#br-month', '2026-11');
+    await p.click('#br-open');
+    await p.waitForFunction(() => /2026-11|Nov-2026/.test(document.getElementById('br-title').textContent), null, T);
+    await p.fill('#br-st-close', '2035');
+    await p.click('#br-save-bal');
+    await busy(p);
+    await p.click('#br-paste-wrap summary');
+    await p.fill('#br-paste', '03/11/2026\tCHQ\t\t700\t\n05/11/2026\tBank charges\t\t15\t');
+    await p.click('#br-paste-add');
+    await p.waitForFunction(() => document.querySelectorAll('#br-st tr[data-s]').length === 2, null, T);
+    await p.click('#br-accept');
+    await p.waitForFunction(() => document.querySelectorAll('#br-st tr[data-s]').length === 1, null, T);
+    await p.click('#br-st .br-post');
+    for (let i = 0; i < 160 && !p.__dialogs.some(m => /^Posted|Unable|Cannot|permission|No cost|not found|Entry /i.test(m)); i++) await p.waitForTimeout(250);
+    if (!p.__dialogs.some(m => /and matched/.test(m))) throw new Error('dialogs: ' + p.__dialogs.slice(-1).join(' | '));
+    await p.waitForFunction(() => document.querySelectorAll('#br-st tr[data-s]').length === 0, null, T);
+    assert.ok(p.__dialogs.some(m => /^Posted BP-|^Posted .* and matched\.$/.test(m)), p.__dialogs.join(' | '));
+    await p.waitForFunction(() => /Difference\s+0\.00/.test(document.getElementById('br-report').innerText), null, T);
+    await p.click('#br-submit');
+    await p.waitForFunction(() => /Reconciled and locked/.test((document.getElementById('br-banner') || {}).textContent || ''), null, T);
+    // Reopened: back to a draft, the reason kept.
+    await p.click('#br-reopen');
+    await p.waitForFunction(() => !document.getElementById('br-submit').classList.contains('hidden'), null, T);
+    const nov = (await firestore.collection('bankRecs').doc('C1__A-BANK__2026-11').get()).data();
+    assert.deepEqual([nov.Status, nov.History[nov.History.length - 1].Note], ['Draft', 'Statement corrected']);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

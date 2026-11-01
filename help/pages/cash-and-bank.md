@@ -5,8 +5,8 @@ order: 5
 modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
-reviewed: 2026-10-26
-fingerprint: 4500a5d272729d19
+reviewed: 2026-11-01
+fingerprint: f34510ca4043e0b3
 ---
 ## What it is for
 
@@ -84,6 +84,10 @@ any bills it settled become unpaid again. Then enter it correctly.
 
 
 From an invoice's **Linked documents**, **Create next** opens a new one here already started for the invoice's open amount. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+
+> Bank charges and interest that first appear on the bank's statement can
+> be posted from [Bank Reconciliation](bank-reconciliation.html) instead:
+> a Bank Payment or Receipt made from the statement line, matched at once.
 
 ## What happens in the books
 

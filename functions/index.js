@@ -343,7 +343,9 @@ exports.getProjectBudgetReport = require('./src/budget').getProjectBudgetReport;
 // Customer credit control, step C1 (docs/modules/CREDIT_CONTROL.md).
 ['getCreditControl', 'saveCreditLimit', 'setCreditHold', 'saveCreditSetup'].forEach(n => { exports[n] = require('./src/creditControl')[n]; });
 // Bank reconciliation, step R1 (docs/modules/RECONCILIATION.md).
-['getBankRecSetup', 'getBankRec', 'saveBankRec', 'deleteBankRecDraft'].forEach(n => { exports[n] = require('./src/bankRec')[n]; });
+['getBankRecSetup', 'getBankRec', 'saveBankRec', 'deleteBankRecDraft',
+  'postBankRecEntry', 'submitBankRec', 'decideBankRecApproval', 'reopenBankRec'] // R2
+  .forEach(n => { exports[n] = require('./src/bankRec')[n]; });
 ['previewInvoiceTax', 'previewOrderTax'].forEach(n => { exports[n] = require('./src/salesTax')[n]; }); // TAX_ENGINE.md, parts 2 and 4
 ['previewVendorInvoiceTax'].forEach(n => { exports[n] = require('./src/purchaseTax')[n]; }); // part 3
 // Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).

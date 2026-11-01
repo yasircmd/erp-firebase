@@ -803,3 +803,13 @@ exports.decideJournalEntryApproval = callable(decideJournalEntryApproval, ['jvId
 exports.reverseJournalEntry = callable(reverseJournalEntry, ['jvId', 'reversalDate']);
 exports.getPartyAccounts = callable(getPartyAccounts, ['companyId']);
 exports.getPartyOpenItems = callable(getPartyOpenItems, ['partyType', 'partyId', 'companyId', 'excludeJvId']);
+
+// For Bank Reconciliation (docs/modules/RECONCILIATION.md, step R2): a Cash &
+// Bank entry saved and posted for a statement line, through the same code and
+// rights as the Cash & Bank screen (the caller's request is the context).
+exports.saveAndPostCbt = (request, cbtData) => run(request, async (ctx) => {
+  const saved = await saveCbtDraft(ctx, cbtData);
+  if (!saved || saved.success === false) return saved;
+  const posted = await postJournalEntry(ctx, saved.jvId);
+  return Object.assign({ jvId: saved.jvId }, posted);
+});

@@ -75,3 +75,58 @@ test('bank reconciliation: a statement pasted, matches suggested and confirmed, 
   assert.match(await err(call('u-other', 'getBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-10' })), /access to that company/);
   assert.match(await err(call('u-admin', 'getBankRec', { companyId: 'C1', accountId: 'A-CASH', month: '2026-10' })), /one of the company's bank accounts/);
 });
+
+// Step R2 (Q369, Q370, Q374): an entry posted for a statement line and
+// matched; submitted only at nothing; approved through the levels, locked;
+// months in order; reopened, the latest only, with a reason; Period
+// Closing's check.
+test('R2: an entry from a statement line; submit, approve, lock; months in order; reopen; Period Closing', async () => {
+  const f = baseFixture();
+  f.coa['A-CHG'] = { AccountCode: '6900', AccountName: 'Bank Charges', AccountType: 'Expense', Status: 'Active', IsPostable: true };
+  f.approvalConfigurations = { BANKREC: { Enabled: true, ScopeType: 'Global' } };
+  f.approvalLevels = { BANKREC: { GLOBAL: { Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] } } };
+  await reset(f);
+  await post('2026-09-30', [['A-BANK', 1000, 0], ['A-EQ', 0, 1000]], { VoucherType: 'JV' });
+
+  // Period Closing: September's bank account not reconciled.
+  const before = (await call('u-admin', 'getPeriodClosingChecklist', { companyId: 'C1', month: '2026-09' })).Items.find(i => i.Key === 'bankRec');
+  assert.deepEqual([before.Result, before.Findings.map(x => [x.Number, x.Status])], ['Warning', [['1100 Bank', 'Not started']]]);
+
+  // September: a bank charge on the statement, posted from it and matched.
+  let r = await save('2026-09', { statementClosing: 985, pasteText: '30/09/2026\tCapital\t\t\t1000\n30/09/2026\tBank charges\t\t15\t' });
+  const [cap, chg] = r.rec.StatementLines;
+  r = await save('2026-09', { matches: [{ GL: [r.glLines[0].Key], ST: [cap.LineID] }] });
+  assert.equal(r.report.Difference, -15, 'the charge is the difference');
+  assert.match(await err(call('u-admin', 'submitBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-09' })), /difference is -15\.00/);
+  assert.match(await err(call('u-admin', 'postBankRecEntry', { companyId: 'C1', accountId: 'A-BANK', month: '2026-09', lineId: chg.LineID, accountCode: '' })), /Choose the account/);
+  r = await call('u-admin', 'postBankRecEntry', { companyId: 'C1', accountId: 'A-BANK', month: '2026-09', lineId: chg.LineID, accountCode: '6900', costCenterCode: 'CC1' });
+  assert.deepEqual([r.status, r.matched, r.report.Difference, r.unmatchedStatement.length], ['Posted', true, 0, 0]);
+  const posted = (await firestore.collection('journalEntries').where('CompanyID', '==', 'C1').where('VoucherType', '==', 'Bank Payment').get()).docs.map(d => d.data());
+  assert.deepEqual(posted.map(e => [e.JVDate, e.Status, e.Lines.map(l => [l.AccountID, l.Debit, l.Credit, l.CostCenterID || '']).sort()]), [['2026-09-30', 'Posted', [['A-BANK', 0, 15, 'CC1'], ['A-CHG', 15, 0, 'CC1']]]]);
+  assert.match(await err(call('u-admin', 'postBankRecEntry', { companyId: 'C1', accountId: 'A-BANK', month: '2026-09', lineId: chg.LineID, accountCode: '6900' })), /matched already/);
+
+  // October: not before September is approved.
+  await save('2026-10', { statementClosing: 985 });
+  assert.match(await err(call('u-admin', 'submitBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-10' })), /2026-09 is not approved yet/);
+
+  // September submitted: waiting; locked against changes; the approver decides.
+  assert.equal((await call('u-admin', 'submitBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-09' })).status, 'PendingApproval');
+  assert.match(await err(save('2026-09', { statementClosing: 1 })), /waiting for approval/);
+  const pending = await call('u-approver', 'getBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-09' });
+  assert.equal(pending.rec.MyLevel, 1);
+  assert.equal((await call('u-approver', 'decideBankRecApproval', { recId: pending.rec.RecID, levelNumber: 1, decision: 'Approved' })).status, 'Approved');
+  assert.match(await err(save('2026-09', { statementClosing: 1 })), /reconciled and locked: reopen it/);
+  const after = (await call('u-admin', 'getPeriodClosingChecklist', { companyId: 'C1', month: '2026-09' })).Items.find(i => i.Key === 'bankRec');
+  assert.equal(after.Result, 'OK');
+
+  // October approved too; reopening September refused (October rests on it), October reopened with a reason.
+  assert.equal((await call('u-admin', 'submitBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-10' })).status, 'PendingApproval');
+  const oct = await call('u-approver', 'getBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-10' });
+  await call('u-approver', 'decideBankRecApproval', { recId: oct.rec.RecID, levelNumber: 1, decision: 'Approved' });
+  assert.match(await err(call('u-admin', 'reopenBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-09', reason: 'x' })), /2026-10 is locked: reopen the latest month first/);
+  assert.match(await err(call('u-admin', 'reopenBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-10', reason: '' })), /reason/);
+  assert.match(await err(call('u-viewer', 'reopenBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-10', reason: 'x' })), /permission to reopen/);
+  assert.equal((await call('u-admin', 'reopenBankRec', { companyId: 'C1', accountId: 'A-BANK', month: '2026-10', reason: 'Statement corrected' })).status, 'Draft');
+  const hist = (await firestore.collection('bankRecs').doc('C1__A-BANK__2026-10').get()).data().History.map(h => h.What + (h.Note ? ': ' + h.Note : ''));
+  assert.deepEqual(hist.slice(-3), ['Submitted for approval', 'Approved', 'Reopened: Statement corrected']);
+});
