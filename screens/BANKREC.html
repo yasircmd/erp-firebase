@@ -1,0 +1,221 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Bank &amp; Cash</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-scale-balanced text-blue-500"></i> Bank Reconciliation</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="br-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="br-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="br-account" class="block text-xs font-medium text-slate-300 mb-1">Bank account</label><select id="br-account" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="br-month" class="block text-xs font-medium text-slate-300 mb-1">Month</label><input id="br-month" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></div>
+      <button id="br-open" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-folder-open"></i> Open</button>
+    </div>
+  </div>
+
+  <div id="br-none" class="text-sm text-slate-400">Choose the bank account and the month, then select Open.</div>
+
+  <div id="br-view" class="hidden space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div><p id="br-title" class="text-lg font-bold text-slate-100"></p><p id="br-sub" class="text-xs text-slate-400"></p></div>
+      <div class="flex flex-wrap gap-2">
+        <button id="br-copy" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy</button>
+        <button id="br-delete" class="br-edit bg-red-700 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-trash"></i> Delete draft</button>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-4">
+      <!-- The statement -->
+      <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
+        <p class="font-semibold text-slate-200">The bank's statement</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label for="br-st-open" class="block text-xs text-slate-300 mb-1">Opening balance</label><input id="br-st-open" inputmode="decimal" class="br-edit w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right font-mono"></div>
+          <div><label for="br-st-close" class="block text-xs text-slate-300 mb-1">Closing balance</label><input id="br-st-close" inputmode="decimal" class="br-edit w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right font-mono"></div>
+        </div>
+        <p id="br-prev" class="text-xs text-slate-400"></p>
+        <button id="br-save-bal" class="br-edit bg-slate-600 hover:bg-slate-500 text-sm px-3 py-1.5 rounded-lg">Save the balances</button>
+        <details id="br-paste-wrap" class="br-edit"><summary class="cursor-pointer text-sm text-blue-300">Paste the statement from Excel</summary>
+          <p class="text-xs text-slate-400 my-2">Columns: date, description, reference, withdrawal, deposit (or one amount, negative for a withdrawal). Only the month's lines.</p>
+          <textarea id="br-paste" rows="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-xs font-mono"></textarea>
+          <button id="br-paste-add" class="mt-2 bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg">Add the rows</button>
+        </details>
+      </div>
+      <!-- The report -->
+      <div class="lg:col-span-2 bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+        <p class="font-semibold text-slate-200 mb-2">Reconciliation</p>
+        <table class="w-full text-sm"><tbody id="br-report"></tbody></table>
+      </div>
+    </div>
+
+    <div id="br-suggest" class="hidden bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+      <span id="br-suggest-text" class="text-sm text-blue-100"></span>
+      <button id="br-accept" class="br-edit bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-check-double"></i> Accept the suggestions</button>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 br-edit">
+      <button id="br-match" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-link"></i> Match the lines selected</button>
+      <button id="br-tick" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-check"></i> Mark the GL lines selected cleared</button>
+      <span id="br-sel" class="text-xs text-slate-400"></span>
+      <label class="flex items-center gap-1 text-xs text-slate-300 ml-auto"><input id="br-open-only" type="checkbox" checked> Only what is not yet cleared</label>
+    </div>
+
+    <div class="grid xl:grid-cols-2 gap-4">
+      <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+        <p class="px-3 pt-3 font-semibold text-slate-200">The ERP's bank lines</p>
+        <table class="w-full text-left text-sm whitespace-nowrap"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2"></th><th class="py-2 px-2">Date</th><th class="py-2 px-2">Entry</th><th class="py-2 px-2">Description</th><th class="py-2 px-2 text-right">Out</th><th class="py-2 px-2 text-right">In</th><th class="py-2 px-2">Cleared</th></tr></thead>
+          <tbody id="br-gl"></tbody></table>
+      </div>
+      <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+        <p class="px-3 pt-3 font-semibold text-slate-200">The statement's lines</p>
+        <table class="w-full text-left text-sm whitespace-nowrap"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2"></th><th class="py-2 px-2">Date</th><th class="py-2 px-2">Description</th><th class="py-2 px-2">Reference</th><th class="py-2 px-2 text-right">Out</th><th class="py-2 px-2 text-right">In</th><th class="py-2 px-2">Matched</th></tr></thead>
+          <tbody id="br-st"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const plain = n => (n === null || n === undefined ? '' : String(Math.round((Number(n) || 0) * 100) / 100));
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const stAmt = s => r2((Number(s.Credit) || 0) - (Number(s.Debit) || 0));
+
+  let setup = null, cur = null;        // getBankRecSetup; getBankRec
+  let selGl = new Set(), selSt = new Set();
+  const key = () => ({ companyId: $('br-company').value, accountId: $('br-account').value, month: $('br-month').value });
+  const canEdit = () => setup && setup.rights.canPrepare && cur && (cur.rec.Status === 'New' || cur.rec.Status === 'Draft');
+
+  function loadSetup() {
+    return call('getBankRecSetup', { companyId: $('br-company').value }).then(r => {
+      setup = r;
+      $('br-account').innerHTML = (r.accounts || []).map(a => '<option value="' + esc(a.AccountID) + '">' + esc(a.AccountCode + ' ' + a.AccountName + (a.Currency ? ' (' + a.Currency + ')' : '')) + '</option>').join('') ||
+        '<option value="">No bank account (mark one Bank in the Chart of Accounts)</option>';
+    }, err => appAlert(err.message || 'Unable to load.'));
+  }
+  function open() {
+    const k = key();
+    if (!k.accountId || !k.month) { appAlert('Choose the bank account and the month.'); return Promise.resolve(); }
+    selGl = new Set(); selSt = new Set();
+    return call('getBankRec', k).then(show, err => appAlert(err.message || 'Unable to open the reconciliation.'));
+  }
+  function save(changes, done) {
+    return call('saveBankRec', Object.assign(key(), changes)).then(r => {
+      selGl = new Set(); selSt = new Set();
+      show(r);
+      if (r.badRows && r.badRows.length) appAlert('Rows not read (not a date, or no amount): ' + r.badRows.join(', ') + '.');
+      if (done) done(r);
+    }, err => appAlert(err.message || 'Unable to save.'));
+  }
+  const matches = () => (cur.rec.Matches || []).map(m => ({ MatchID: m.MatchID, GL: m.GL.slice(), ST: m.ST.slice() }));
+
+  function show(r) {
+    cur = r;
+    $('br-none').classList.add('hidden');
+    $('br-view').classList.remove('hidden');
+    const a = r.account;
+    $('br-title').textContent = a.AccountCode + ' ' + a.AccountName + ', ' + r.month;
+    $('br-sub').textContent = (r.rec.Status === 'New' ? 'Not started' : r.rec.Status) + (a.Currency ? ' · in ' + a.Currency : '') + (r.rec.UpdatedBy ? ' · last saved by ' + r.rec.UpdatedBy : '');
+    $('br-st-open').value = plain(r.rec.StatementOpening);
+    $('br-st-close').value = plain(r.rec.StatementClosing);
+    $('br-prev').textContent = r.previousClosing !== null && r.previousClosing !== undefined ? 'Last reconciled month\'s statement closing: ' + fmt(r.previousClosing) + '.' : '';
+    document.querySelectorAll('.br-edit').forEach(el => el.classList.toggle('hidden', !canEdit()));
+    $('br-delete').classList.toggle('hidden', !canEdit() || r.rec.Status !== 'Draft');
+    renderReport(); renderLines();
+  }
+  function renderReport() {
+    const p = cur.report;
+    const row = (label, v, cls) => '<tr class="border-b border-slate-800 ' + (cls || '') + '"><td class="py-1.5 pr-3">' + label + '</td><td class="py-1.5 text-right font-mono">' + (v === null ? '—' : fmt(v)) + '</td></tr>';
+    $('br-report').innerHTML = row('Balance per the ERP at ' + cur.monthEnd, p.GLBalance) +
+      row('add: payments not yet presented', p.PaymentsNotPresented) + row('less: deposits not yet credited', p.DepositsNotCredited) +
+      row('Balance per the bank', p.PerBank, 'font-semibold') + row('The statement\'s closing balance', p.StatementClosing) +
+      row('Difference', p.Difference, 'font-bold ' + (p.Difference === 0 ? 'text-emerald-400' : p.Difference === null ? 'text-slate-400' : 'text-red-400')) +
+      (cur.unmatchedStatement.length ? '<tr><td colspan="2" class="pt-2 text-xs text-amber-300">' + cur.unmatchedStatement.length + ' statement line(s) not matched yet.</td></tr>' : '');
+    const n = cur.suggestions.length;
+    $('br-suggest').classList.toggle('hidden', !n || !canEdit());
+    $('br-suggest-text').textContent = n + ' match' + (n === 1 ? '' : 'es') + ' suggested (the same amount within a week' + (cur.suggestions.some(s => s.ByReference) ? '; ' + cur.suggestions.filter(s => s.ByReference).length + ' by reference or cheque number' : '') + ').';
+  }
+  function renderLines() {
+    const onlyOpen = $('br-open-only').checked, edit = canEdit();
+    const matchOf = new Map(), stMatchOf = new Map();
+    (cur.rec.Matches || []).forEach((m, i) => { m.GL.forEach(k => matchOf.set(k, i + 1)); m.ST.forEach(s => stMatchOf.set(s, i + 1)); });
+    const ticked = new Set(cur.rec.Ticked || []);
+    const sugG = new Set(cur.suggestions.map(s => s.GL[0])), sugS = new Set(cur.suggestions.map(s => s.ST[0]));
+    const gl = cur.glLines.filter(g => !onlyOpen || (!matchOf.has(g.Key) && !ticked.has(g.Key) && !g.ClearedLater));
+    $('br-gl').innerHTML = gl.map(g => {
+      const status = matchOf.has(g.Key) ? '<button class="br-unmatch text-xs text-emerald-300 hover:underline" data-m="' + matchOf.get(g.Key) + '">Match ' + matchOf.get(g.Key) + ' ✕</button>'
+        : ticked.has(g.Key) ? '<button class="br-untick text-xs text-emerald-300 hover:underline" data-k="' + esc(g.Key) + '">Cleared ✕</button>'
+          : g.ClearedLater ? '<span class="text-xs text-slate-400">in ' + esc(g.ClearedLater) + '</span>' : (sugG.has(g.Key) ? '<span class="text-xs text-blue-300">suggested</span>' : '');
+      const free = !matchOf.has(g.Key) && !ticked.has(g.Key) && !g.ClearedLater;
+      return '<tr class="border-b border-slate-800" data-k="' + esc(g.Key) + '"><td class="py-1 px-2">' + (edit && free ? '<input type="checkbox" class="br-sel-gl"' + (selGl.has(g.Key) ? ' checked' : '') + '>' : '') + '</td>' +
+        '<td class="py-1 px-2">' + esc(g.Date) + '</td><td class="py-1 px-2">' + esc(g.Number) + (g.Reference ? ' <span class="text-slate-400">' + esc(g.Reference) + '</span>' : '') + '</td>' +
+        '<td class="py-1 px-2 max-w-[16rem] truncate" title="' + esc(g.Description) + '">' + esc(g.Description) + '</td>' +
+        '<td class="py-1 px-2 text-right font-mono">' + (g.Amount < 0 ? fmt(-g.Amount) : '') + '</td><td class="py-1 px-2 text-right font-mono">' + (g.Amount > 0 ? fmt(g.Amount) : '') + '</td><td class="py-1 px-2">' + status + '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="py-3 px-3 text-slate-400">Nothing to show.</td></tr>';
+    const st = (cur.rec.StatementLines || []).filter(s => !onlyOpen || !stMatchOf.has(s.LineID));
+    $('br-st').innerHTML = st.map(s => '<tr class="border-b border-slate-800" data-s="' + esc(s.LineID) + '"><td class="py-1 px-2">' + (edit && !stMatchOf.has(s.LineID) ? '<input type="checkbox" class="br-sel-st"' + (selSt.has(s.LineID) ? ' checked' : '') + '>' : '') + '</td>' +
+      '<td class="py-1 px-2">' + esc(s.Date) + '</td><td class="py-1 px-2 max-w-[16rem] truncate" title="' + esc(s.Description) + '">' + esc(s.Description) + '</td><td class="py-1 px-2">' + esc(s.Reference) + '</td>' +
+      '<td class="py-1 px-2 text-right font-mono">' + (s.Debit ? fmt(s.Debit) : '') + '</td><td class="py-1 px-2 text-right font-mono">' + (s.Credit ? fmt(s.Credit) : '') + '</td>' +
+      '<td class="py-1 px-2">' + (stMatchOf.has(s.LineID) ? '<button class="br-unmatch text-xs text-emerald-300 hover:underline" data-m="' + stMatchOf.get(s.LineID) + '">Match ' + stMatchOf.get(s.LineID) + ' ✕</button>' : sugS.has(s.LineID) ? '<span class="text-xs text-blue-300">suggested</span>' : '') + '</td></tr>').join('') ||
+      '<tr><td colspan="7" class="py-3 px-3 text-slate-400">' + ((cur.rec.StatementLines || []).length ? 'Every line is matched.' : 'No statement pasted: tick the ERP\'s lines the bank shows as cleared.') + '</td></tr>';
+    selection();
+  }
+  function selection() {
+    const g = cur.glLines.filter(x => selGl.has(x.Key)).reduce((t, x) => t + x.Amount, 0);
+    const s = (cur.rec.StatementLines || []).filter(x => selSt.has(x.LineID)).reduce((t, x) => t + stAmt(x), 0);
+    $('br-sel').textContent = selGl.size || selSt.size ? 'Selected: ERP ' + fmt(g) + ' (' + selGl.size + '), statement ' + fmt(s) + ' (' + selSt.size + ')' + (Math.abs(r2(g - s)) < 0.005 ? ' · they agree' : ' · difference ' + fmt(g - s)) : '';
+  }
+
+  function matchSelected() {
+    if (!selGl.size) { appAlert('Select the ERP\'s lines (and the statement\'s lines they match).'); return; }
+    save({ matches: matches().concat([{ GL: [...selGl], ST: [...selSt] }]) });
+  }
+  function tickSelected() {
+    if (!selGl.size) { appAlert('Select the ERP\'s lines the bank shows as cleared.'); return; }
+    if (selSt.size) { appAlert('Marking cleared is for the ERP\'s lines only: to pair them with statement lines, use Match.'); return; }
+    save({ ticked: (cur.rec.Ticked || []).concat([...selGl]) });
+  }
+  async function copy() {
+    if (!cur) return;
+    const p = cur.report, a = cur.account;
+    const lines = [['Bank reconciliation', a.AccountCode + ' ' + a.AccountName, cur.month].join('\t'),
+      ['Balance per the ERP', plain(p.GLBalance)].join('\t'), ['Payments not yet presented', plain(p.PaymentsNotPresented)].join('\t'),
+      ['Deposits not yet credited', plain(p.DepositsNotCredited)].join('\t'), ['Balance per the bank', plain(p.PerBank)].join('\t'),
+      ['Statement closing balance', plain(p.StatementClosing)].join('\t'), ['Difference', plain(p.Difference)].join('\t'), '', ['Not yet cleared', 'Date', 'Entry', 'Description', 'Amount'].join('\t')]
+      .concat(cur.glLines.filter(g => p.Uncleared.includes(g.Key)).map(g => ['', g.Date, g.Number, g.Description, plain(g.Amount)].join('\t')));
+    const text = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => appAlert('Copied: paste it into Excel.'), async () => (await appPrompt('Copy this text:', text)));
+    else await appPrompt('Copy this text:', text);
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-scale-balanced"></i> Bank Reconciliation';
+    const now = new Date(); now.setDate(1); now.setMonth(now.getMonth() - 1);
+    $('br-month').value = window.isoLocalDateTime ? window.isoLocalDateTime(now).slice(0, 7) : '';
+    $('br-company').addEventListener('change', () => { $('br-view').classList.add('hidden'); $('br-none').classList.remove('hidden'); loadSetup(); });
+    $('br-open').addEventListener('click', open);
+    $('br-save-bal').addEventListener('click', () => save({ statementOpening: $('br-st-open').value, statementClosing: $('br-st-close').value }));
+    $('br-paste-add').addEventListener('click', () => { const t = $('br-paste').value; if (!t.trim()) return; save({ pasteText: t }, () => { $('br-paste').value = ''; $('br-paste-wrap').open = false; }); });
+    $('br-accept').addEventListener('click', () => save({ matches: matches().concat(cur.suggestions.map(s => ({ GL: s.GL, ST: s.ST }))) }));
+    $('br-match').addEventListener('click', matchSelected);
+    $('br-tick').addEventListener('click', tickSelected);
+    $('br-open-only').addEventListener('change', renderLines);
+    $('br-copy').addEventListener('click', copy);
+    $('br-delete').addEventListener('click', async () => {
+      if (!(await appConfirm('Delete this month\'s reconciliation (its statement, matches and ticks)? The GL entries are not touched.'))) return;
+      call('deleteBankRecDraft', key()).then(open, err => appAlert(err.message || 'Unable to delete.'));
+    });
+    $('br-gl').addEventListener('change', e => { const tr = e.target.closest('tr[data-k]'); if (!tr || !e.target.classList.contains('br-sel-gl')) return; e.target.checked ? selGl.add(tr.dataset.k) : selGl.delete(tr.dataset.k); selection(); });
+    $('br-st').addEventListener('change', e => { const tr = e.target.closest('tr[data-s]'); if (!tr || !e.target.classList.contains('br-sel-st')) return; e.target.checked ? selSt.add(tr.dataset.s) : selSt.delete(tr.dataset.s); selection(); });
+    const unmatch = e => {
+      const b = e.target.closest('.br-unmatch, .br-untick'); if (!b || !canEdit()) return;
+      if (b.classList.contains('br-unmatch')) { const i = Number(b.dataset.m) - 1; save({ matches: matches().filter((m, j) => j !== i) }); }
+      else save({ ticked: (cur.rec.Ticked || []).filter(k => k !== b.dataset.k) });
+    };
+    $('br-gl').addEventListener('click', unmatch);
+    $('br-st').addEventListener('click', unmatch);
+    call('getActiveCompanies', {}).then(list => {
+      $('br-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+    }, () => {}).then(loadSetup);
+  };
+})();
+</script>

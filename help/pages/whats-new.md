@@ -12,6 +12,13 @@ screen.
 
 ## 01/11/2026
 
+- **Bank Reconciliation.** A new screen,
+  [Bank Reconciliation](bank-reconciliation.html), matches a bank
+  account's entries with the bank's statement for a month. Paste the
+  statement from Excel, accept the suggested matches, match the rest by
+  hand, and see what is not yet presented or credited until the
+  difference is nothing.
+
 - **Home, by its name.** The menu's title is now **Home** (with your
   company's name), and the button back to it from a screen is **← Home**,
   in place of "ERP Module Hierarchy Tree" and "Back to Hierarchy"

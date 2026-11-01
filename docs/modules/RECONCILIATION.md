@@ -110,3 +110,62 @@ Asked 2026-11-01; the owner took the recommendations (Q371-Q373 above).
   for every listed account; Period Closing's check for them (Q374).
 
 Each step has tests, a Help page in Finance and a What's new entry.
+
+## As built: step R1, bank reconciliation (2026-11-01)
+
+- **Module:** `BANKREC`, Bank Reconciliation. It sits in the tree under
+  Bank & Cash Ledger, and in Help under Finance. Its rights:
+  - *access*;
+  - *prepare*;
+  - *reopen* (added now for R2, so R2 needs no second full deploy).
+- **Server (`bankRec.js`, with the pure parts in `bankRecCalc.js`):**
+  - `getBankRecSetup`: the company's bank accounts (COA `CashBank`
+    'Bank', Active, postable) and its reconciliations;
+  - `getBankRec`: one account and month;
+  - `saveBankRec`: the balances, rows pasted (added to those kept), the
+    matches and the ticks, all checked again on the server;
+  - `deleteBankRecDraft`.
+- **GL lines:** the account's posted journal lines to the month's end,
+  read by company and date. Each line's key is `entryId:index`; its amount
+  is debit less credit (money in is positive). A foreign-currency account
+  uses `FcDebit` and `FcCredit`.
+- **A line cleared by an earlier month's reconciliation** leaves the later
+  months. One cleared by a later month stays open, and can't be used here.
+- **The balance** counts every line to the month's end, with earlier
+  months' cleared lines counted as cleared. A test caught a first version
+  that left those lines out of the balance.
+- **Matching:** a match's GL lines and statement lines must total the
+  same. With GL lines only, they must net to nothing (an entry and its
+  reversal). A line can be in only one match, and can't be both matched
+  and ticked.
+- **Suggestions:** one GL line to one statement line, the same amount
+  within 7 days. A reference, document number or cheque number found in
+  the statement's text comes first, then the closer date.
+- **The paste:** tab separated. Dates as yyyy-mm-dd, dd/mm/yyyy or
+  dd-mm-yyyy. Withdrawal and deposit columns, or one signed amount. A
+  header row is skipped and unreadable rows are listed. Lines dated
+  outside the month are refused.
+- **The report:** balance per the ERP, plus payments not presented, less
+  deposits not credited, gives the balance per the bank, set against the
+  statement's closing balance and the difference.
+- **The screen** (`screens/BANKREC.html`):
+  - the balances and the paste;
+  - the report panel;
+  - the suggestions, with Accept;
+  - the two lists, with selection totals, Match, Mark cleared and undo;
+  - "only what is not yet cleared";
+  - Copy;
+  - Delete draft.
+- **Data Reset:** Bank Reconciliations (transactional, browsable). It
+  clears the reconciliations only, not the GL.
+- **Tests:**
+  - unit/bankRec (3);
+  - emulator/bankRec (1): two months, the paste, the suggestion, one to
+    many, a reversal pair, ticks, refusals, carry-forward, rights;
+  - ui/bankRec (2);
+  - the Data Reset counts.
+  - Negative controls, each caught and restored:
+    - suggestions ignoring the reference (unit);
+    - an earlier month's cleared lines shown again (emulator).
+- **Deploy:** `tools/deploy-sets/bankrec-r1.txt`, every function
+  (moduleRegistry), with `--screens`, then "hosting".
