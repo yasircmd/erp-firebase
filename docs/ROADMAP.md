@@ -637,6 +637,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (fix removed) was caught.
   - **To go live:** Deploy → "functions set", set
     `bom-current-parent-name` (getBoms only; no screens).
+- [x] **Date-dependent tests fixed** (owner, 2026-11-01): three emulator
+  tests failed only on some days, all in the tests, not the code:
+  hrLeaveClose "the cut-off day" (on a month's last day the refusal
+  rightly says "up to the month's end"), recurringJournal "spread by
+  service period" (on a month's last day that month's run is due too),
+  essClaims "over the monthly limit" (the limit is by the bills' month,
+  two days back, not today's). Checked with the clock shifted to 31 Oct,
+  1 Nov, 15 Nov, 31 Dec, 1 Jan and 28 Feb: the old tests fail on those
+  dates and the fixed ones pass on all of them.
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any

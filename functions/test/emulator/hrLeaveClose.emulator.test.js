@@ -150,10 +150,11 @@ test('the cut-off day (payroll step 7, decision 56): the month locks from it, be
   const months = (await call('u-admin', 'getLeaveMonths', { companyId: 'C1' })).months;
   assert.deepEqual(months.find(m => m.Month === thisMonth).Ended, true);
   // A draft dated today blocks; one dated after today doesn't.
-  const now = (await call('u-admin', 'saveLeave', { leave: leave(ALI, 'UNPAID', t, t) })).leaveId;
-  await assert.rejects(lock(thisMonth), /Decide or delete the leave dated up to today first: draft \(Ali Hassan\)/);
-  await call('u-admin', 'deleteLeave', { leaveId: now });
   const end = new Date(Date.UTC(Number(t.slice(0, 4)), Number(t.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  const now = (await call('u-admin', 'saveLeave', { leave: leave(ALI, 'UNPAID', t, t) })).leaveId;
+  // On the month's last day, "up to today" is the month's end, and says so.
+  await assert.rejects(lock(thisMonth), new RegExp('Decide or delete the leave dated up to ' + (t === end ? "the month's end" : 'today') + ' first: draft \\(Ali Hassan\\)'));
+  await call('u-admin', 'deleteLeave', { leaveId: now });
   let later = null;
   if (end > t) later = (await call('u-admin', 'saveLeave', { leave: leave(SARA, 'UNPAID', end, end) })).leaveId;
   assert.equal((await lock(thisMonth)).employees, 2);
