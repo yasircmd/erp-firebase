@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-11-01
-fingerprint: 5dc4a91bb3a19f2a
+fingerprint: 6f9c7edbb8f8d8f8
 ---
 ## Signing in
 
@@ -14,7 +14,7 @@ fingerprint: 5dc4a91bb3a19f2a
    - **Corporate ID**: your organisation's ID, given by your administrator;
    - **Email or user ID** and **Password**: your own ERP account. The user
      ID is your Username in User Management; your email works as before.
-3. Select **Sign In**. You arrive at the menu (the *Module Hierarchy*).
+3. Select **Sign In**. You arrive at **Home**, the menu of modules.
 
 The Corporate ID decides which organisation's ERP you sign in to. The
 field starts empty; your browser can save it with your sign-in and offer
@@ -72,7 +72,7 @@ longer picks the company on each entry.
   first row shown, and **↑ ↓** move through the menu. **→** opens an area or
   folder and **←** closes it. **Enter** opens a screen. **Tab** reaches the
   same rows, each outlined when it has the focus.
-- Inside a screen, **Back to Hierarchy** returns to the menu. If you have
+- Inside a screen, **← Home** (top left) returns to the menu. If you have
   unsaved changes, the ERP asks before leaving.
 
 ### Favourites

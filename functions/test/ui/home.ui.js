@@ -247,23 +247,23 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const title = page => page.textContent('#app-title').then(t => t.trim());
     let page = await open(null, [{ CompanyID: 'C7', LegalName: 'Solo Trading LLC', CompanyRefCode: '07' }]);
     await page.waitForFunction(() => /Solo/.test(document.getElementById('app-title').textContent));
-    assert.equal(await title(page), 'ERP Module Hierarchy Tree - Solo Trading LLC');
+    assert.equal(await title(page), 'Home – Solo Trading LLC');
     await page.click('#toggle-expand-btn');
     await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
     await page.waitForSelector('#stub-module');
     await page.click('#back-to-tree-btn');
-    assert.equal(await title(page), 'ERP Module Hierarchy Tree - Solo Trading LLC', 'restored on returning from a module');
+    assert.equal(await title(page), 'Home – Solo Trading LLC', 'restored on returning from a module');
     assert.deepEqual(page.__errors, []);
     await page.close();
 
     page = await open(null, [{ CompanyID: 'C2', LegalName: 'Second Co', CompanyRefCode: '02' }, { CompanyID: 'C1', LegalName: 'Main Co', CompanyRefCode: '01' }]);
     await page.waitForFunction(() => /Main Co/.test(document.getElementById('app-title').textContent));
-    assert.equal(await title(page), 'ERP Module Hierarchy Tree - Main Co');
+    assert.equal(await title(page), 'Home – Main Co');
     await page.close();
 
     page = await open();
     await page.waitForTimeout(300);
-    assert.equal(await title(page), 'ERP Module Hierarchy Tree');
+    assert.equal(await title(page), 'Home');
     // A company assigned to the user in a module shows on returning to Home,
     // without a reload (onboarding dry run, 2026-10-23).
     await page.click('#toggle-expand-btn');
@@ -272,7 +272,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.evaluate(() => { window.__companies = [{ CompanyID: 'C9', LegalName: 'New Client Co', CompanyRefCode: '01' }]; });
     await page.click('#back-to-tree-btn');
     await page.waitForFunction(() => /New Client Co/.test(document.getElementById('app-title').textContent));
-    assert.equal(await title(page), 'ERP Module Hierarchy Tree - New Client Co');
+    assert.equal(await title(page), 'Home – New Client Co');
     assert.deepEqual(page.__errors, []);
     await page.close();
   });
@@ -601,7 +601,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(await page.evaluate(() => window.__savedCompanies), ['C2'], 'saved with the user');
     assert.equal(await page.isVisible('#company-filter-panel'), false, 'closed once applied');
     assert.equal((await page.textContent('#company-filter-label')).trim(), '1 of 2 companies');
-    assert.equal((await page.textContent('#app-title')).trim(), 'ERP Module Hierarchy Tree - Second Co', 'one chosen: its name');
+    assert.equal((await page.textContent('#app-title')).trim(), 'Home – Second Co', 'one chosen: its name');
     // Not inside a module.
     await page.click('#toggle-expand-btn');
     await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');

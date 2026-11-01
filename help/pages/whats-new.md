@@ -12,6 +12,11 @@ screen.
 
 ## 01/11/2026
 
+- **Home, by its name.** The menu's title is now **Home** (with your
+  company's name), and the button back to it from a screen is **← Home**,
+  in place of "ERP Module Hierarchy Tree" and "Back to Hierarchy"
+  ([Getting started](getting-started.html)).
+
 - **Wider screens.** Every module's screen now uses more of a large
   monitor (up to 1600px wide), with a margin kept at each side; Home keeps
   its column ([Working with screens](working-with-screens.html)).

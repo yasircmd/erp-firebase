@@ -1680,3 +1680,7 @@ from, and how it was verified. The deploy procedure is in the
   [#263](https://github.com/yasircmd/erp-firebase/actions/runs/41298902349)
   (10:45–10:46 UTC), success. The shell's picker only (index.html) and the
   Help; no functions, screens or rules.
+- **2026-11-01, Wider page on every module screen (`page-width`, PR #201, from
+  `41a4435`):** "hosting", run
+  [#264](https://github.com/yasircmd/erp-firebase/actions/runs/41300480749)
+  (11:07–11:08 UTC), success. The shell only (index.html) and the Help.
