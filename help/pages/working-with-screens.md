@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
 reviewed: 2026-11-01
-fingerprint: 7cb95a7e2632a5fc
+fingerprint: b8dcbb95edd919d7
 ---
 ## Company first
 
@@ -60,9 +60,13 @@ entry from a long list, you can search it:
   names. Choose with the mouse, or with the arrow keys and **Enter**
   (after the arrow keys, **Tab** also chooses). **Esc** closes the list
   and keeps what you typed.
-- In a long drop-down (a customer or vendor on a document, a journal
-  line's party), click it or start typing a letter: a search box opens
-  above the list.
+- A **customer or vendor** (on a document, a report, or a journal line's
+  party) is a box you type in, the same way: type part of its code or
+  name, and choose from the matches. The box shows the one chosen; click
+  it to see the whole list, recent first. Typing replaces what it shows;
+  **Esc** puts the choice back.
+- In another long drop-down (an employee, for example), click it or start
+  typing a letter: a search box opens above the list.
 - The last five entries you chose from each list appear first, under
   **Recent**. They are kept in this browser.
 - On a phone the list fills the screen, with a box to type in.
