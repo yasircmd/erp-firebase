@@ -1684,3 +1684,7 @@ from, and how it was verified. The deploy procedure is in the
   `41a4435`):** "hosting", run
   [#264](https://github.com/yasircmd/erp-firebase/actions/runs/41300480749)
   (11:07–11:08 UTC), success. The shell only (index.html) and the Help.
+- **2026-11-01, Home by its name (`home-names`, PR #202, from `b1171fe`):**
+  "hosting", run
+  [#265](https://github.com/yasircmd/erp-firebase/actions/runs/41306175066)
+  (12:22–12:23 UTC), success. The shell only (index.html) and the Help.
