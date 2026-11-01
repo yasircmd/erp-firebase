@@ -1656,3 +1656,14 @@ from, and how it was verified. The deploy procedure is in the
   [#257](https://github.com/yasircmd/erp-firebase/actions/runs/41223693637)
   (17:16–17:17 UTC), success. No rules change. Project budgets start off
   (within each year); each company's choice is in Budget → Setup.
+- **2026-10-31/11-01, Credit control step C1, limits, holds and the exposure
+  report (`credit-control`, PR #197, from `d21a46b`):** run
+  [#258](https://github.com/yasircmd/erp-firebase/actions/runs/41236295378)
+  stopped at its Deploy step at once (19:53 UTC): the set name given was not
+  one the workflow knows (it listed them); nothing deployed. Every function
+  (`credit-c1`) with `--screens`, run
+  [#259](https://github.com/yasircmd/erp-firebase/actions/runs/41236499702)
+  (19:55–22:09 UTC), success. "hosting", run
+  [#260](https://github.com/yasircmd/erp-firebase/actions/runs/41267355722)
+  (11-01 02:59–03:00 UTC), success. No rules change. The check starts Off;
+  each company sets its limits and choice in Credit Control.

@@ -100,6 +100,8 @@ or overdue. **Status: design agreed 2026-10-31 (Q360–Q365); C1 built 2026-10-3
 
 ## As built: step C1 (2026-10-31)
 
+Live 2026-11-01 (PR #197; runs #259 every function and the screens, #260 Hosting).
+
 - **Module:** `CREDITCONTROL` (Accounts Receivable in the tree; Help in
   Sales and Retail). It has five rights:
   - *access* reads;
