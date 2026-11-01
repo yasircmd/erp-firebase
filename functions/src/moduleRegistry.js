@@ -152,6 +152,11 @@ const MODULE_REGISTRY = [
   // lifts a credit hold, setup changes each company's setting, override goes
   // ahead where the credit check blocks (step C2).
   { id: 'CREDITCONTROL', label: 'Credit Control', capabilities: ['access', 'write', 'hold', 'setup', 'override'] },
+  // Bank reconciliation (docs/modules/RECONCILIATION.md; owner, 2026-11-01): access
+  // reads, prepare pastes the statement, matches and ticks (and posts an entry for
+  // a statement line, step R2), reopen reopens a locked month (R2); approving is
+  // the approval levels'.
+  { id: 'BANKREC', label: 'Bank Reconciliation', capabilities: ['access', 'prepare', 'reopen'] },
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
@@ -297,6 +302,7 @@ const DEFAULT_PERMISSIONS = {
   TAXREPORTS:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
   BUDGET:             { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
   CREDITCONTROL:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'], hold: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
+  BANKREC:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };

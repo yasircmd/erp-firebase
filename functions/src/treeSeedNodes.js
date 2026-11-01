@@ -67,6 +67,8 @@ const TREE_SEED_NODES = [
   { text: 'Cash and Bank Transactions (CBT)', depth: 3, moduleId: 'CBT' },
   { text: 'Electronic Funds Transfer (EFT) Processing', depth: 3 },
   { text: 'Electronic Bank Statement (EBS) Reconciliation', depth: 3 },
+  // New development (not in Code.gs): docs/modules/RECONCILIATION.md.
+  { text: 'Bank Reconciliation', depth: 3, moduleId: 'BANKREC' },
   { text: 'Financial Controlling & Managerial Accounting (CO)', depth: 1 },
   { text: 'Cost Center Accounting (CO-OM-CCA)', depth: 2 },
   { text: 'Cost Center Planning & Budgeting', depth: 3 },

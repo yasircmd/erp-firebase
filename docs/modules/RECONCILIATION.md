@@ -5,8 +5,8 @@ The owner chose two kinds: **bank reconciliation** and **GL account
 reconciliation**. Vendor statement and customer balance confirmation are
 not in scope.
 
-**Status:** the bank decisions are made. The GL account reconciliation
-questions are waiting for the owner.
+**Status:** all decisions made 2026-11-01. R1 (bank: paste, match,
+report) is being built.
 
 ## What already exists (from the code)
 
@@ -34,6 +34,10 @@ questions are waiting for the owner.
 | Q368 | **Matching:** the ERP suggests matches (same amount, close date, a cheque number or reference found); the user accepts them, matches the rest by hand, one to many or many to one (owner, 2026-11-01). |
 | Q369 | **A statement line with nothing in the GL** (bank charges, interest, a direct debit): a Cash & Bank entry is posted for it from the reconciliation screen, the account chosen (e.g. Bank Charges), and it is matched at once (owner, 2026-11-01, changed from "list only" the same day). |
 | Q370 | **Closing a month:** submitted and approved through Approval Configuration, then locked with its report (statement balance, uncleared items, difference 0); a later change means reopening it, recorded (owner, 2026-11-01; first left to the recommendation, then confirmed). |
+| Q371 | **A GL account's balance is explained** by matching its offsetting lines, or by a supporting schedule of items, chosen per account (owner, 2026-11-01, the recommendation). |
+| Q372 | **A per-company list of accounts reconciled monthly** (the bank accounts always in it), with each month's status (owner, 2026-11-01, the recommendation). |
+| Q373 | **Sign-off through Approval Configuration's levels** (owner, 2026-11-01, the recommendation). |
+| Q374 | **Period Closing checks reconciliations** (owner, 2026-11-01): closing a month checks that each bank account's, and each listed GL account's, reconciliation for it is approved; Block, Warn or Off as Period Closing's other checks. Added with R2 (bank: once approval exists) and R3 (GL accounts). |
 
 ## Bank reconciliation: the proposal
 
@@ -85,10 +89,9 @@ questions are waiting for the owner.
 - **Rights:** access; prepare (paste, match, post entries); reopen.
   Approving is the approval levels'.
 
-## GL account reconciliation: questions for the owner
+## GL account reconciliation: the questions as asked
 
-Asked 2026-11-01. The owner hasn't answered yet; these are the
-recommendations.
+Asked 2026-11-01; the owner took the recommendations (Q371-Q373 above).
 
 | # | Question | Options | Recommendation |
 |---|---|---|---|
@@ -101,8 +104,9 @@ recommendations.
 - **R1:** bank reconciliation: statement paste, suggested and manual
   matching, ticking by hand, the report, Excel copy.
 - **R2:** posting an entry from an unmatched statement line (Q369);
-  submit, approve, lock, reopen (Q370); carried forward.
-- **R3:** GL account reconciliation, once Q371–Q373 are decided; the
-  month's status board for every chosen account.
+  submit, approve, lock, reopen (Q370); Period Closing's check for bank
+  accounts (Q374).
+- **R3:** GL account reconciliation (Q371–Q373); the month's status board
+  for every listed account; Period Closing's check for them (Q374).
 
 Each step has tests, a Help page in Finance and a What's new entry.
