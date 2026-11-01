@@ -12,6 +12,10 @@ screen.
 
 ## 01/11/2026
 
+- **Wider screens.** Every module's screen now uses more of a large
+  monitor (up to 1600px wide), with a margin kept at each side; Home keeps
+  its column ([Working with screens](working-with-screens.html)).
+
 - **Customers and vendors typed in.** On every screen, a customer or
   vendor is now chosen as an account is: type part of its code or name in
   the box and pick from the matches, however short the list

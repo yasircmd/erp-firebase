@@ -485,7 +485,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await context.close();
   });
 
-  await check('a wide screen gets the page\'s width (up to 1792px); Home and other screens keep 1152px (UX_ROUND2.md items 5-6)', async () => {
+  await check('every module screen is wide (up to 1600px, a margin kept at each side); Home keeps 1152px (UX_ROUND2.md item 6; owner, 2026-11-01)', async () => {
     const page = await browser.newPage({ viewport: { width: 1920, height: 900 } });
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
@@ -499,10 +499,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await width(), 1152, 'Home');
     await page.evaluate(() => openModule('WIDESCREEN'));
     await page.waitForSelector('#stub-module');
-    assert.equal(await width(), 1792, 'a wide screen');
+    assert.equal(await width(), 1600, 'a module screen: up to 1600px (owner, 2026-11-01)');
     await page.evaluate(() => openModule('CUSTOMERINVOICE'));
     await page.waitForFunction(() => /CUSTOMERINVOICE/.test((document.getElementById('stub-module') || {}).textContent || ''));
-    assert.equal(await width(), 1152, 'another screen');
+    assert.equal(await width(), 1600, 'every module screen alike');
     await page.evaluate(() => openModule('WIDESCREEN'));
     await page.waitForSelector('#stub-module[data-wide-screen]');
     await page.click('#back-to-tree-btn');
@@ -513,6 +513,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForSelector('#stub-module[data-wide-screen]');
     const narrow = await width();
     assert.ok(narrow > 1152 && narrow <= 1300, 'the window\'s width, its padding aside: ' + narrow);
+    // A margin kept at each side: the body's 24px and the screen's 16px.
+    const left = await page.$eval('#stub-module', el => Math.round(el.getBoundingClientRect().left));
+    assert.ok(left >= 40, 'the content starts at least 40px in: ' + left);
     assert.deepEqual(page.__errors, []);
     await page.close();
   });
