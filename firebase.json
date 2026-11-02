@@ -28,7 +28,8 @@
     ]
   },
   "functions": {
-    "source": "functions"
+    "source": "functions",
+    "predeploy": ["node \"$PROJECT_DIR/tools/build-lazy-exports.js\""]
   },
   "firestore": {
     "rules": "firestore.rules",

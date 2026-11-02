@@ -1,16 +1,20 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { runInCorporate } = require('./firebaseAdmin');
 const { resolveCorporate } = require('./corporates');
+const perf = require('./perf');
 
 // onCall, run inside the request's corporate (docs/modules/
 // MULTI_CORPORATE.md §4): every database handle the handler reaches
 // (firebaseAdmin.js) is that corporate's, for the whole request. Every
 // callable goes through this (unit/corporateContext checks).
+// Each call is timed (perf.js, docs/modules/PERFORMANCE.md P1), from before
+// its corporate is found to its answer.
 function onCallInCorporate(options, handler) {
-  return onCall(options, async (request) => {
+  return onCall(options, (request) => perf.timed(async () => {
     const corporate = await resolveCorporate(request);
+    perf.setCorporate(corporate && corporate.id);
     return runInCorporate(corporate, () => handler(request));
-  });
+  }));
 }
 
 // onCallInCorporate, plus one guarantee the original GAS functions had: the

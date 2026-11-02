@@ -10,3 +10,6 @@ gha-creds-*.json
 
 # Built at deploy by tools/build-styles.sh (docs/modules/PWA.md)
 public/css/
+
+# Built at each functions deploy by tools/build-lazy-exports.js (docs/modules/PERFORMANCE.md)
+functions/lazy-exports.json

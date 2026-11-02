@@ -138,6 +138,12 @@ preserved quirks). Read it when touching a ported module.
 - Watch for duplicate project copies outside ~/erp-firebase/: a prior
   double-unzip caused a wrong-directory deploy. Always confirm `pwd` before
   git or firebase commands if anything behaves unexpectedly.
+- **Lazy loading** (docs/modules/PERFORMANCE.md, P2): a deployed function
+  loads only its own module, through functions/lazy-exports.json, built by
+  firebase.json's predeploy at every functions deploy (never committed).
+  Export each function from a module under functions/src (index.js only
+  re-exports), or its instance loads everything. Every callable logs a
+  "perf" timing line (perf.js, P1).
 - Functions runtime is Node 24 (engines.node); all live functions moved
   2026-09-25. After a future engines.node bump, run tools/deploy-runtime.sh
   from a clean worktree.

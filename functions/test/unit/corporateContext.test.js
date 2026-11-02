@@ -61,7 +61,8 @@ test('no module keeps data between requests, except these', () => {
     'periodLock.js': ['consentStore', 'ADJUSTABLE_TYPES'], // per request; static
     'budgetConsent.js': ['store'], // per request (the budget consent, docs/modules/BUDGET.md B3)
     'developer.js': ['HOME_ONLY'], // static: the registry's Corporate-100-only modules
-    'legacy/runtime.js': ['als'] // per request
+    'legacy/runtime.js': ['als'], // per request
+    'perf.js': ['store', 'served'] // per request; the instance's own count of calls (PERFORMANCE.md P1)
   };
   const found = {};
   files.forEach(p => {
