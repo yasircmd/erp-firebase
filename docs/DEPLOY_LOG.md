@@ -1708,3 +1708,9 @@ from, and how it was verified. The deploy procedure is in the
   (04:48–06:57 UTC), success. "hosting", run
   [#271](https://github.com/yasircmd/erp-firebase/actions/runs/41404086427)
   (07:05–07:06 UTC), success. No rules change. Reconciliations complete.
+- **2026-11-02, Chart of Accounts Tree view (PR #206, from `12aba2b`):**
+  "screens only", run
+  [#272](https://github.com/yasircmd/erp-firebase/actions/runs/41420106808)
+  (09:22–09:23 UTC), success. "hosting" (the Help), run
+  [#273](https://github.com/yasircmd/erp-firebase/actions/runs/41420694194)
+  (09:26–09:27 UTC), success. No functions, no rules.

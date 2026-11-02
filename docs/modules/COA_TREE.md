@@ -26,6 +26,8 @@ changes.
 
 ## As built (2026-11-02)
 
+Live 2026-11-02 (PR #206; runs #272 screens, #273 Hosting).
+
 - A **List / Tree view** tab bar above the filters. The tree is built in
   the browser from the accounts the screen already loads (`renderTree`,
   called from `renderTable` with the filtered accounts), so it always

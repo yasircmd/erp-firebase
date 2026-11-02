@@ -139,7 +139,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Q375-Q378, [COA_TREE.md](modules/COA_TREE.md)): a List / Tree view tab,
   by account type and heading, the screen's filters applied, the code
   opening the edit form. Built 2026-11-02 (SCREEN_EDITS, screen only).
-  Deploy: "screens only", then "hosting" (Help).
+  Live 2026-11-02 (PR #206, runs #272-#273).
 - [x] **The repository is private since 2026-11-02 (owner).** GitHub Actions
   minutes now count against the plan (Free: 2,000 Linux minutes a month).
   The Deploy workflow used about 2,790 minutes from 17 to 31 October; a
