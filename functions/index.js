@@ -4,6 +4,26 @@
 // folder structure (stock/, gl/, invoices/, shared/, per the earlier
 // scaffold plan).
 
+// Lazy loading (docs/modules/PERFORMANCE.md, P2). A deployed function's
+// instance needs only its own function, so it loads only the module that
+// defines it, named in lazy-exports.json (written at each deploy by
+// tools/build-lazy-exports.js, from this very source). Only where Cloud Run
+// runs one deployed function (FUNCTION_TARGET and K_SERVICE set), never in
+// the emulators (every function in one process) or when the Firebase CLI
+// reads the list of functions; without the map, or for a function not in
+// it, everything loads as below.
+if (process.env.FUNCTION_TARGET && process.env.K_SERVICE && process.env.FUNCTIONS_EMULATOR !== 'true') {
+  let lazyMap = null;
+  try { lazyMap = require(process.env.ERP_LAZY_EXPORTS || './lazy-exports.json'); } catch (e) { lazyMap = null; }
+  const own = lazyMap && Object.prototype.hasOwnProperty.call(lazyMap, process.env.FUNCTION_TARGET) && lazyMap[process.env.FUNCTION_TARGET];
+  const fn = own && require(own[0])[own[1]];
+  if (typeof fn === 'function') {
+    process.env.ERP_LAZY = '1'; // perf.js reports it on a cold start's line
+    module.exports = { [process.env.FUNCTION_TARGET]: fn };
+    return; // eslint-disable-line no-unreachable -- CommonJS: the rest of this file is not needed
+  }
+}
+
 const { getModuleFragment } = require('./src/getModuleFragment');
 const { completeLogin, corporateSignIn, userIdSignIn, restoreSession, getMyTree } = require('./src/session');
 const { getMyFavorites, toggleFavorite, saveMyTheme, getRoleFavorites, saveRoleFavorites } = require('./src/favorites');

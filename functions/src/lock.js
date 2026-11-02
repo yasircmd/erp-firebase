@@ -1,4 +1,5 @@
 const { firestore } = require('./firebaseAdmin');
+const perf = require('./perf'); // the call's lock wait and held time (docs/modules/PERFORMANCE.md, P1)
 
 // Replaces LockService.getScriptLock() — GAS's own script-wide mutex,
 // used throughout Code.gs to serialize every commit-posting function
@@ -33,9 +34,12 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 async function acquireGlobalLock(actor) {
   const lockRef = firestore.doc(LOCK_DOC_PATH);
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  const started = Date.now();
+  const deadline = started + LOCK_TIMEOUT_MS;
+  let tries = 0;
 
   while (Date.now() < deadline) {
+    tries++;
     const acquired = await firestore.runTransaction(async (tx) => {
       const snap = await tx.get(lockRef);
       const now = Date.now();
@@ -50,16 +54,18 @@ async function acquireGlobalLock(actor) {
       tx.set(lockRef, { lockedAt: now, lockedBy: actor || 'unknown' });
       return true;
     });
-    if (acquired) return;
+    if (acquired) { perf.lockAcquired(Date.now() - started, tries); return; }
     // Jittered retry — a fixed delay would have every waiting caller
     // retry in lockstep, repeatedly colliding with each other on the
     // very next attempt too.
     await sleep(120 + Math.random() * 120);
   }
+  perf.lockTimedOut(Date.now() - started, tries);
   throw new Error('Could not acquire lock — please try again.');
 }
 
 async function releaseGlobalLock() {
+  perf.lockReleased();
   await firestore.doc(LOCK_DOC_PATH).delete();
 }
 
