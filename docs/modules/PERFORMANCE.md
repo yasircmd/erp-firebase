@@ -80,7 +80,7 @@ these are the likely causes, read from the code:
   or for a function not in it, everything loads as before.
 - getModuleFragment's instance now loads 7 of our modules instead of 150;
   a generated-port function loads the port, and only that.
-- Full regression (2026-11-02): 760 passed, 1 failed (essPortal "who is away
+- Full regression (2026-11-02): 747 passed, 1 failed (essPortal "who is away
   today", date-dependent, fails on main too); unit 220 of 220.
 - Tests: unit/lazyExports (4: every function mapped to the same object; a
   deployed instance loads only its own; the CLI, emulators, no map and an
