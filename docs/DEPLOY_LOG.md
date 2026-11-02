@@ -1701,3 +1701,10 @@ from, and how it was verified. The deploy procedure is in the
   [#269](https://github.com/yasircmd/erp-firebase/actions/runs/41381713690)
   (11-02 03:11–03:12 UTC), success. No rules change. Period Closing's bank
   reconciliation check is Warn to start.
+- **2026-11-02, Reconciliations step R3, GL account reconciliation (`glrec-r3`,
+  PR #205, from `ad71b2d`):** every function (`glrec-r3`, 640) with
+  `--screens`, run
+  [#270](https://github.com/yasircmd/erp-firebase/actions/runs/41390468282)
+  (04:48–06:57 UTC), success. "hosting", run
+  [#271](https://github.com/yasircmd/erp-firebase/actions/runs/41404086427)
+  (07:05–07:06 UTC), success. No rules change. Reconciliations complete.
