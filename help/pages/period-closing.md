@@ -5,8 +5,8 @@ order: 14
 modules: [PERIODCLOSE]
 sources: [functions/src/periodClosing.js, functions/src/periodLock.js]
 summary: Check and close each month so nothing more can be posted into it, and close the financial year into Retained Earnings.
-reviewed: 2026-11-01
-fingerprint: fe925737f54fb234
+reviewed: 2026-11-02
+fingerprint: 204778bcdbb56b36
 ---
 ## What it is for
 
@@ -39,6 +39,7 @@ On the **Setup** tab, per company:
 | Stock value agrees with the inventory accounts |
 | The Trial Balance balances |
 | Bank reconciliations not approved for the month (each bank account with entries, see [Bank Reconciliation](bank-reconciliation.html)) |
+| GL account reconciliations not approved for the month (each account listed in [GL Account Reconciliation](gl-account-reconciliation.html)) |
 
 Two lists of your own, also each Block, Warn or Off:
 

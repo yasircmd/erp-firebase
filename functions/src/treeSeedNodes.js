@@ -17,6 +17,8 @@ const TREE_SEED_NODES = [
   { text: 'Period-End Closing & Financial Statements', depth: 3 },
   // New development (not in Code.gs): docs/modules/PERIOD_CLOSING.md.
   { text: 'Period Closing', depth: 3, moduleId: 'PERIODCLOSE' },
+  // New development (not in Code.gs): docs/modules/RECONCILIATION.md, step R3.
+  { text: 'GL Account Reconciliation', depth: 3, moduleId: 'GLREC' },
   // New development (not in Code.gs): docs/modules/TAX_ENGINE.md.
   { text: 'Tax Configuration', depth: 3, moduleId: 'TAXCONFIG' },
   { text: 'Tax Reports', depth: 3, moduleId: 'TAXREPORTS' },

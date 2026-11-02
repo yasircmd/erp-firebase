@@ -55,7 +55,8 @@ const CHECKLIST = [
   { key: 'stock', label: 'Stock value agrees with the inventory accounts' },
   { key: 'trialBalance', label: 'The Trial Balance balances' },
   // docs/modules/RECONCILIATION.md, Q374 (owner, 2026-11-01).
-  { key: 'bankRec', label: 'Bank reconciliations not approved for the month' }
+  { key: 'bankRec', label: 'Bank reconciliations not approved for the month' },
+  { key: 'glRec', label: 'GL account reconciliations not approved for the month' }
 ];
 const DEFAULT_MODE = 'Warn'; // also the new deliveries check's (decision 158)
 const MAX_ZERO_ACCOUNTS = 50, MAX_STEPS = 30;
@@ -323,7 +324,7 @@ async function runChecklist(companyId, month, state, settings) {
   const mode = k => settings.Checklist[k];
   const need = k => mode(k) !== 'Off';
   const zeroOn = settings.ZeroAccounts.filter(z => z.Mode !== 'Off');
-  const [docs, rec, dep, pay, pdc, dns, ar, ap, stock, tb, balances, coa, banks] = await Promise.all([
+  const [docs, rec, dep, pay, pdc, dns, ar, ap, stock, tb, balances, coa, banks, glAccounts] = await Promise.all([
     need('drafts') || need('approvals') ? unfinishedDocuments(companyId, from, to) : { drafts: [], approvals: [] },
     need('recurring') ? recurringDue(companyId, from, to) : [],
     need('depreciation') ? depreciationMissing(companyId, month) : [],
@@ -336,12 +337,14 @@ async function runChecklist(companyId, month, state, settings) {
     need('trialBalance') ? trialBalance(companyId, month) : null,
     zeroOn.length ? accountBalances(companyId, month, zeroOn.map(z => z.AccountID)) : {},
     zeroOn.length ? rtdb.ref('coa').get().then(x => x.val() || {}) : {},
-    need('bankRec') ? require('./bankRec').checkMonth(companyId, month) : []
+    need('bankRec') ? require('./bankRec').checkMonth(companyId, month) : [],
+    need('glRec') ? require('./glRec').checkMonth(companyId, month) : []
   ]);
   const found = {
     drafts: { findings: docs.drafts }, approvals: { findings: docs.approvals }, recurring: { findings: rec }, depreciation: { findings: dep },
     payroll: { findings: pay }, pdc: { findings: pdc }, deliveries: { findings: dns }, receivables: ar, payables: ap, stock, trialBalance: tb,
-    bankRec: { findings: banks.map(b => docRow('BANKREC', 'Bank account', b.Name, to, b.Status)) }
+    bankRec: { findings: banks.map(b => docRow('BANKREC', 'Bank account', b.Name, to, b.Status)) },
+    glRec: { findings: glAccounts.map(a => docRow('GLREC', 'Account', a.Name, to, a.Status)) }
   };
   const item = (key, label, m, f, extra) => {
     const findings = m === 'Off' ? [] : ((f && f.findings) || []);

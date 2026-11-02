@@ -59,6 +59,8 @@ const SOURCES = {
   FAASSET: { fs: 'faAssets', number: 'AssetNumber', date: 'CapitalizationDate' },
   FAACQ: posting('FAACQ'), FAAUC: posting('FAAUC'), FAADDDEP: posting('FAADDDEP'), FARETIRE: posting('FARETIRE'),
   FADEPRUN: { fs: 'faRuns', number: 'JVNumber', date: 'Period' },
+  // A GL account reconciliation's support (docs/modules/RECONCILIATION.md, step R3): a locked month takes no new files.
+  GLREC: { fs: 'glRecs', numberOf: r => [r.AccountCode || r.AccountID, r.Month].join(' '), date: 'Month', closed: r => r.Status === 'Approved' },
   // Company Documents (docs/modules/COMPANY_DOCUMENTS.md): a register
   // record, not a voucher. Its folder is <company>/Legal Documents/
   // <category>/<title - reference>; only users who can change the register
