@@ -220,7 +220,7 @@ exports.saveGlRec = onCallWithMessages(onCallOptions, async (request) => {
   }
   const now = new Date().toISOString(), by = actorOf(user);
   await recs().doc(cur.rec.RecID).set({
-    CompanyID: companyId, AccountID: accountId, Month: month, Method: cur.method, Status: cur.rec.Status === 'Rejected' ? 'Rejected' : 'Draft',
+    CompanyID: companyId, AccountID: accountId, AccountCode: cur.account.AccountCode, Month: month, Method: cur.method, Status: cur.rec.Status === 'Rejected' ? 'Rejected' : 'Draft',
     RejectionReason: cur.rec.RejectionReason || '', Matches: matches, Items: items, Notes: d.notes === undefined ? (cur.rec.Notes || '') : text(d.notes, 2000),
     History: historyWith(cur.rec, cur.rec.Status === 'New' ? 'Started' : 'Saved', user), CreatedAt: cur.rec.CreatedAt || now, CreatedBy: cur.rec.CreatedBy || by, UpdatedAt: now, UpdatedBy: by
   });

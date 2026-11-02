@@ -1,0 +1,265 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">General Ledger</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-list-check text-blue-500"></i> GL Account Reconciliation</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="gr-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="gr-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="gr-month" class="block text-xs font-medium text-slate-300 mb-1">Month</label><input id="gr-month" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></div>
+      <div class="flex gap-1 pb-0.5" role="tablist">
+        <button class="gr-tab bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-tab="board">The month</button>
+        <button class="gr-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="rec">Reconcile</button>
+        <button class="gr-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="setup">Setup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The month's board -->
+  <div id="gr-board-view" class="space-y-3">
+    <p class="text-xs text-slate-400">Every account the company reconciles each month, and its bank accounts (reconciled in Bank Reconciliation), with this month's status.</p>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Method</th><th class="py-2 px-3">Status</th></tr></thead><tbody id="gr-board"></tbody></table>
+    </div>
+  </div>
+
+  <!-- One account's month -->
+  <div id="gr-rec-view" class="hidden space-y-4">
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="gr-account" class="block text-xs font-medium text-slate-300 mb-1">Account</label><select id="gr-account" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <button id="gr-open" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-folder-open"></i> Open</button>
+    </div>
+    <div id="gr-rec" class="hidden space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div><p id="gr-title" class="text-lg font-bold text-slate-100"></p><p id="gr-sub" class="text-xs text-slate-400"></p></div>
+        <div class="flex flex-wrap gap-2">
+          <button id="gr-submit" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+          <button id="gr-approve" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-check"></i> Approve</button>
+          <button id="gr-reject" class="hidden bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2 rounded-lg"><i class="fa-solid fa-xmark"></i> Reject</button>
+          <button id="gr-reopen" class="hidden bg-amber-600 hover:bg-amber-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-lock-open"></i> Reopen</button>
+          <button id="gr-delete" class="hidden bg-red-700 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-trash"></i> Delete draft</button>
+        </div>
+      </div>
+      <div id="gr-banner" class="hidden rounded-xl px-4 py-2 text-sm"></div>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-3"><p class="text-xs text-slate-400">Balance at the month's end</p><p id="gr-bal" class="text-lg font-mono font-semibold"></p></div>
+        <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-3"><p id="gr-exp-label" class="text-xs text-slate-400"></p><p id="gr-exp" class="text-lg font-mono font-semibold"></p></div>
+        <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-3"><p class="text-xs text-slate-400">Difference</p><p id="gr-diff" class="text-lg font-mono font-bold"></p></div>
+      </div>
+
+      <!-- Match -->
+      <div id="gr-match-view" class="hidden space-y-2">
+        <div class="flex flex-wrap items-center gap-2 gr-edit">
+          <button id="gr-match" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-link"></i> Match the lines selected</button>
+          <span id="gr-sel" class="text-xs text-slate-400"></span>
+          <label class="flex items-center gap-1 text-xs text-slate-300 ml-auto"><input id="gr-open-only" type="checkbox" checked> Only what is not matched</label>
+        </div>
+        <p class="text-xs text-slate-400">Select lines that offset each other (a GRN and its bill, an advance and its settlement) and match them: they must net to nothing. What stays unmatched is the balance.</p>
+        <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+          <table class="w-full text-left text-sm whitespace-nowrap"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2"></th><th class="py-2 px-2">Date</th><th class="py-2 px-2">Entry</th><th class="py-2 px-2">Description</th><th class="py-2 px-2 text-right">Debit</th><th class="py-2 px-2 text-right">Credit</th><th class="py-2 px-2">Matched</th></tr></thead>
+            <tbody id="gr-lines"></tbody></table>
+        </div>
+      </div>
+
+      <!-- Schedule -->
+      <div id="gr-sched-view" class="hidden space-y-2">
+        <p class="text-xs text-slate-400">List what makes up the balance (a debit as a positive amount, a credit as negative). Attach the support below with Supporting documents.</p>
+        <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+          <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-2">Description</th><th class="py-2 px-2">Reference</th><th class="py-2 px-2 text-right">Amount</th><th class="py-2 px-2"></th></tr></thead>
+            <tbody id="gr-items"></tbody></table>
+        </div>
+        <div class="flex gap-2 gr-edit">
+          <button id="gr-item-add" class="bg-slate-600 hover:bg-slate-500 text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-plus"></i> Add an item</button>
+          <button id="gr-items-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save the schedule</button>
+        </div>
+      </div>
+
+      <div><label for="gr-notes" class="block text-xs font-medium text-slate-300 mb-1">Notes</label><textarea id="gr-notes" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea>
+        <button id="gr-notes-save" class="gr-edit mt-1 bg-slate-600 hover:bg-slate-500 text-xs px-3 py-1 rounded">Save the notes</button></div>
+      <details class="text-xs text-slate-400"><summary class="cursor-pointer">History</summary><ul id="gr-history" class="mt-2 space-y-1"></ul></details>
+    </div>
+  </div>
+
+  <!-- Setup: the accounts reconciled -->
+  <div id="gr-setup-view" class="hidden space-y-3">
+    <p class="text-xs text-slate-400">Tick the accounts the company reconciles each month and choose how: <b>Match</b> its lines that offset each other (clearing and suspense accounts), or a <b>Schedule</b> of items that make up the balance (accruals, prepayments). Bank accounts are reconciled in Bank Reconciliation.</p>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto max-h-[60vh]">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3"></th><th class="py-2 px-3">Account</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Method</th></tr></thead><tbody id="gr-setup"></tbody></table>
+    </div>
+    <button id="gr-setup-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const drcr = n => (Math.abs(n) < 0.005 ? '0.00' : fmt(Math.abs(n)) + (n > 0 ? ' Dr' : ' Cr'));
+  const STATUS = { 'Not started': 'text-slate-400', New: 'text-slate-400', Draft: 'text-amber-300', PendingApproval: 'text-blue-300', Approved: 'text-emerald-400', Rejected: 'text-red-400' };
+  const LABEL = { PendingApproval: 'Waiting for approval', Approved: 'Approved (locked)', New: 'Not started' };
+
+  let setup = null, cur = null, sel = new Set(), items = [];
+  const key = () => ({ companyId: $('gr-company').value, accountId: $('gr-account').value, month: $('gr-month').value });
+  const canEdit = () => setup && setup.rights.canPrepare && cur && ['New', 'Draft', 'Rejected'].includes(cur.rec.Status);
+
+  function tab(name) {
+    document.querySelectorAll('.gr-tab').forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on); b.classList.toggle('bg-slate-700', !on); });
+    ['board', 'rec', 'setup'].forEach(t => $('gr-' + t + '-view').classList.toggle('hidden', t !== name));
+  }
+  function loadSetup() {
+    return call('getGlRecSetup', { companyId: $('gr-company').value, month: $('gr-month').value }).then(r => {
+      setup = r;
+      const byId = {}; (r.candidates || []).forEach(a => { byId[a.AccountID] = a; });
+      $('gr-account').innerHTML = (r.list || []).map(a => '<option value="' + esc(a.AccountID) + '">' + esc((byId[a.AccountID] || {}).AccountCode + ' ' + (byId[a.AccountID] || {}).AccountName) + '</option>').join('') || '<option value="">No account listed yet (Setup)</option>';
+      renderBoard(); renderSetup();
+    }, err => appAlert(err.message || 'Unable to load.'));
+  }
+  function renderBoard() {
+    const rows = (setup && setup.board) || [];
+    $('gr-board').innerHTML = rows.map(r => '<tr class="border-b border-slate-800" data-id="' + esc(r.AccountID) + '" data-kind="' + r.Kind + '"><td class="py-2 px-3">' +
+      (r.Kind === 'GL' ? '<button class="gr-board-open text-left hover:underline">' + esc(r.Name) + '</button>' : esc(r.Name)) + '</td>' +
+      '<td class="py-2 px-3 text-xs text-slate-300">' + (r.Kind === 'Bank' ? 'Bank Reconciliation' : r.Method === 'Match' ? 'Match lines' : 'Schedule') + '</td>' +
+      '<td class="py-2 px-3 text-xs ' + (STATUS[r.Status] || '') + '">' + esc(LABEL[r.Status] || r.Status) + '</td></tr>').join('') ||
+      '<tr><td colspan="3" class="py-3 px-3 text-slate-400">No account listed yet: choose them in Setup.</td></tr>';
+  }
+  function renderSetup() {
+    const listed = {}; ((setup && setup.list) || []).forEach(a => { listed[a.AccountID] = a.Method; });
+    const can = setup && setup.rights.canSetup;
+    $('gr-setup').innerHTML = ((setup && setup.candidates) || []).map(a => '<tr class="border-b border-slate-800" data-id="' + esc(a.AccountID) + '">' +
+      '<td class="py-1.5 px-3"><input type="checkbox" class="gr-pick"' + (listed[a.AccountID] ? ' checked' : '') + (can ? '' : ' disabled') + ' aria-label="Reconcile ' + esc(a.AccountCode) + '"></td>' +
+      '<td class="py-1.5 px-3">' + esc(a.AccountCode + ' ' + a.AccountName) + '</td><td class="py-1.5 px-3 text-xs text-slate-400">' + esc(a.AccountType) + '</td>' +
+      '<td class="py-1.5 px-3"><select class="gr-method bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (can ? '' : ' disabled') + '><option value="Match"' + (listed[a.AccountID] !== 'Schedule' ? ' selected' : '') + '>Match lines</option><option value="Schedule"' + (listed[a.AccountID] === 'Schedule' ? ' selected' : '') + '>Schedule</option></select></td></tr>').join('');
+    $('gr-setup-save').classList.toggle('hidden', !can);
+  }
+  function saveSetup() {
+    const accounts = Array.from(document.querySelectorAll('#gr-setup tr[data-id]')).filter(tr => tr.querySelector('.gr-pick').checked)
+      .map(tr => ({ AccountID: tr.dataset.id, Method: tr.querySelector('.gr-method').value }));
+    call('saveGlRecList', { companyId: $('gr-company').value, accounts }).then(r => { appAlert('Saved: ' + r.count + ' account(s) reconciled monthly.'); return loadSetup(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
+  function open() {
+    const k = key();
+    if (!k.accountId || !k.month) { appAlert('Choose the account and the month.'); return Promise.resolve(); }
+    sel = new Set();
+    return call('getGlRec', k).then(show, err => appAlert(err.message || 'Unable to open.'));
+  }
+  function save(changes) {
+    return call('saveGlRec', Object.assign(key(), changes)).then(r => { sel = new Set(); show(r); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+  function show(r) {
+    cur = r; items = (r.rec.Items || []).map(x => Object.assign({}, x));
+    $('gr-rec').classList.remove('hidden');
+    $('gr-title').textContent = r.account.AccountCode + ' ' + r.account.AccountName + ', ' + r.month;
+    $('gr-sub').textContent = (r.method === 'Match' ? 'Matching its lines' : 'A supporting schedule') + ' · ' + (LABEL[r.rec.Status] || r.rec.Status) + (r.rec.UpdatedBy ? ' · last saved by ' + r.rec.UpdatedBy : '');
+    $('gr-bal').textContent = drcr(r.report.Balance);
+    $('gr-exp-label').textContent = r.method === 'Match' ? 'Not matched (' + r.report.OpenLines + ' line' + (r.report.OpenLines === 1 ? '' : 's') + ')' : 'The schedule';
+    $('gr-exp').textContent = drcr(r.report.Explained);
+    $('gr-diff').textContent = fmt(r.report.Difference);
+    $('gr-diff').className = 'text-lg font-mono font-bold ' + (r.report.Difference === 0 ? 'text-emerald-400' : 'text-red-400');
+    const st = r.rec.Status, rights = r.rights || setup.rights;
+    document.querySelectorAll('.gr-edit').forEach(el => el.classList.toggle('hidden', !canEdit()));
+    $('gr-notes').value = r.rec.Notes || ''; $('gr-notes').readOnly = !canEdit();
+    $('gr-submit').classList.toggle('hidden', !rights.canPrepare || !['Draft', 'Rejected'].includes(st));
+    $('gr-approve').classList.toggle('hidden', !(st === 'PendingApproval' && r.rec.MyLevel));
+    $('gr-reject').classList.toggle('hidden', !(st === 'PendingApproval' && r.rec.MyLevel));
+    $('gr-reopen').classList.toggle('hidden', !(st === 'Approved' && rights.canReopen));
+    $('gr-delete').classList.toggle('hidden', !canEdit() || st === 'New');
+    const banner = st === 'Approved' ? ['Reconciled and locked' + (r.rec.ApprovedBy ? ', approved by ' + r.rec.ApprovedBy : '') + '.', 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200']
+      : st === 'PendingApproval' ? ['Waiting for approval.', 'bg-blue-500/10 border border-blue-500/30 text-blue-200']
+        : st === 'Rejected' ? ['Rejected: ' + (r.rec.RejectionReason || '(no reason given)') + '. Change it and submit again.', 'bg-red-500/10 border border-red-500/30 text-red-200'] : null;
+    $('gr-banner').classList.toggle('hidden', !banner);
+    if (banner) { $('gr-banner').textContent = banner[0]; $('gr-banner').className = 'rounded-xl px-4 py-2 text-sm ' + banner[1]; }
+    $('gr-match-view').classList.toggle('hidden', r.method !== 'Match');
+    $('gr-sched-view').classList.toggle('hidden', r.method !== 'Schedule');
+    $('gr-history').innerHTML = (r.rec.History || []).slice().reverse().map(h => '<li>' + esc(window.isoLocalDateTime ? window.isoLocalDateTime(new Date(h.At)) : h.At) + ' · ' + esc(h.By) + ' · ' + esc(h.What) + (h.Note ? ': ' + esc(h.Note) : '') + '</li>').join('');
+    if (r.method === 'Match') renderLines(); else renderItems();
+  }
+  function renderLines() {
+    const matchOf = new Map();
+    (cur.rec.Matches || []).forEach((m, i) => m.GL.forEach(k => matchOf.set(k, i + 1)));
+    const onlyOpen = $('gr-open-only').checked, edit = canEdit();
+    const rows = cur.lines.filter(l => !onlyOpen || (!matchOf.has(l.Key) && !l.MatchedLater));
+    $('gr-lines').innerHTML = rows.map(l => {
+      const free = !matchOf.has(l.Key) && !l.MatchedLater;
+      return '<tr class="border-b border-slate-800" data-k="' + esc(l.Key) + '"><td class="py-1 px-2">' + (edit && free ? '<input type="checkbox" class="gr-sel"' + (sel.has(l.Key) ? ' checked' : '') + '>' : '') + '</td>' +
+        '<td class="py-1 px-2">' + esc(l.Date) + '</td><td class="py-1 px-2">' + esc(l.Number) + '</td><td class="py-1 px-2 max-w-[18rem] truncate" title="' + esc(l.Description) + '">' + esc(l.Description) + '</td>' +
+        '<td class="py-1 px-2 text-right font-mono">' + (l.Amount > 0 ? fmt(l.Amount) : '') + '</td><td class="py-1 px-2 text-right font-mono">' + (l.Amount < 0 ? fmt(-l.Amount) : '') + '</td>' +
+        '<td class="py-1 px-2">' + (matchOf.has(l.Key) ? (edit ? '<button class="gr-unmatch text-xs text-emerald-300 hover:underline" data-m="' + matchOf.get(l.Key) + '">Match ' + matchOf.get(l.Key) + ' ✕</button>' : '<span class="text-xs text-emerald-300">Match ' + matchOf.get(l.Key) + '</span>') : l.MatchedLater ? '<span class="text-xs text-slate-400">in ' + esc(l.MatchedLater) + '</span>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="py-3 px-3 text-slate-400">Nothing to show.</td></tr>';
+    const t = cur.lines.filter(l => sel.has(l.Key)).reduce((s, l) => s + l.Amount, 0);
+    $('gr-sel').textContent = sel.size ? 'Selected ' + sel.size + ': ' + drcr(t) + (Math.abs(t) < 0.005 && sel.size > 1 ? ' · they net to nothing' : '') : '';
+  }
+  function renderItems() {
+    const edit = canEdit();
+    $('gr-items').innerHTML = items.map((x, i) => '<tr class="border-b border-slate-800" data-i="' + i + '">' +
+      (edit ? '<td class="py-1 px-2"><input class="gr-it-desc w-full bg-slate-900 border border-slate-700 rounded py-1 px-2" value="' + esc(x.Description) + '" aria-label="Description"></td>' +
+        '<td class="py-1 px-2"><input class="gr-it-ref w-32 bg-slate-900 border border-slate-700 rounded py-1 px-2" value="' + esc(x.Reference) + '" aria-label="Reference"></td>' +
+        '<td class="py-1 px-2 text-right"><input class="gr-it-amt w-32 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-right font-mono" inputmode="decimal" value="' + esc(x.Amount === '' ? '' : String(x.Amount)) + '" aria-label="Amount"></td>' +
+        '<td class="py-1 px-2"><button class="gr-it-del text-slate-400 hover:text-red-400" title="Remove"><i class="fa-solid fa-trash"></i></button></td>'
+        : '<td class="py-1 px-2">' + esc(x.Description) + '</td><td class="py-1 px-2">' + esc(x.Reference) + '</td><td class="py-1 px-2 text-right font-mono">' + drcr(x.Amount) + '</td><td></td>') + '</tr>').join('') ||
+      '<tr><td colspan="4" class="py-3 px-3 text-slate-400">No item yet.</td></tr>';
+  }
+  const readItems = () => Array.from(document.querySelectorAll('#gr-items tr[data-i]')).map(tr => {
+    const x = items[Number(tr.dataset.i)];
+    if (tr.querySelector('.gr-it-desc')) { x.Description = tr.querySelector('.gr-it-desc').value; x.Reference = tr.querySelector('.gr-it-ref').value; x.Amount = tr.querySelector('.gr-it-amt').value.replace(/,/g, ''); }
+    return x;
+  });
+  function matchSelected() {
+    if (sel.size < 2) { appAlert('Select at least two lines that offset each other.'); return; }
+    save({ matches: (cur.rec.Matches || []).map(m => ({ MatchID: m.MatchID, GL: m.GL })).concat([{ GL: [...sel] }]) });
+  }
+  async function submit() {
+    if (!(await appConfirm('Submit ' + cur.month + ' for approval? Once approved it is locked.'))) return;
+    call('submitGlRec', key()).then(r => { appAlert(r.status === 'Approved' ? 'Approved and locked (no approval is set).' : 'Submitted for approval.'); open(); loadSetup(); }, err => appAlert(err.message || 'Unable to submit.'));
+  }
+  async function decide(decision) {
+    let reason = '';
+    if (decision === 'Rejected') { reason = await appPrompt('The reason for rejecting it:', ''); if (reason === null) return; }
+    call('decideGlRecApproval', { recId: cur.rec.RecID, levelNumber: cur.rec.MyLevel, decision, reason }).then(() => { open(); loadSetup(); }, err => appAlert(err.message || 'Unable to record the decision.'));
+  }
+  async function reopen() {
+    const reason = await appPrompt('Reopen ' + cur.month + '? The reason (kept in its history):', '');
+    if (reason === null) return;
+    if (!reason.trim()) { appAlert('Give the reason for reopening.'); return; }
+    call('reopenGlRec', Object.assign(key(), { reason })).then(() => { open(); loadSetup(); }, err => appAlert(err.message || 'Unable to reopen.'));
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-list-check"></i> GL Account Reconciliation';
+    const now = new Date(); now.setDate(1); now.setMonth(now.getMonth() - 1);
+    $('gr-month').value = window.isoLocalDateTime ? window.isoLocalDateTime(now).slice(0, 7) : '';
+    document.querySelectorAll('.gr-tab').forEach(b => b.addEventListener('click', () => tab(b.dataset.tab)));
+    $('gr-company').addEventListener('change', () => { $('gr-rec').classList.add('hidden'); loadSetup(); });
+    $('gr-month').addEventListener('change', () => { $('gr-rec').classList.add('hidden'); loadSetup(); });
+    $('gr-open').addEventListener('click', open);
+    $('gr-board').addEventListener('click', e => { const b = e.target.closest('.gr-board-open'); if (!b) return; $('gr-account').value = b.closest('tr').dataset.id; tab('rec'); open(); });
+    $('gr-setup-save').addEventListener('click', saveSetup);
+    $('gr-match').addEventListener('click', matchSelected);
+    $('gr-open-only').addEventListener('change', renderLines);
+    $('gr-lines').addEventListener('change', e => { if (!e.target.classList.contains('gr-sel')) return; const k = e.target.closest('tr').dataset.k; e.target.checked ? sel.add(k) : sel.delete(k); renderLines(); });
+    $('gr-lines').addEventListener('click', e => { const b = e.target.closest('.gr-unmatch'); if (!b || !canEdit()) return; const i = Number(b.dataset.m) - 1; save({ matches: (cur.rec.Matches || []).filter((m, j) => j !== i).map(m => ({ MatchID: m.MatchID, GL: m.GL })) }); });
+    $('gr-item-add').addEventListener('click', () => { readItems(); items.push({ Description: '', Reference: '', Amount: '' }); renderItems(); const d = document.querySelectorAll('#gr-items .gr-it-desc'); if (d.length) d[d.length - 1].focus(); });
+    $('gr-items').addEventListener('click', e => { const b = e.target.closest('.gr-it-del'); if (!b) return; readItems(); items.splice(Number(b.closest('tr').dataset.i), 1); renderItems(); });
+    $('gr-items-save').addEventListener('click', () => save({ items: readItems().filter(x => String(x.Description).trim() || String(x.Amount).trim()) }));
+    $('gr-notes-save').addEventListener('click', () => save({ notes: $('gr-notes').value }));
+    $('gr-submit').addEventListener('click', submit);
+    $('gr-approve').addEventListener('click', () => decide('Approved'));
+    $('gr-reject').addEventListener('click', () => decide('Rejected'));
+    $('gr-reopen').addEventListener('click', reopen);
+    $('gr-delete').addEventListener('click', async () => {
+      if (!(await appConfirm('Delete this month\'s reconciliation (its matches or schedule)? The GL entries are not touched.'))) return;
+      call('deleteGlRecDraft', key()).then(() => { open(); loadSetup(); }, err => appAlert(err.message || 'Unable to delete.'));
+    });
+    if (window.supportingDocs) window.supportingDocs.mount({ module: 'GLREC', view: 'gr-rec', id: () => cur && cur.rec.Status !== 'New' ? cur.rec.RecID : '' });
+    // Opened from Home (an approval): its company, account and month.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    const openId = pending && pending.OpenEntryId ? String(pending.OpenEntryId).split('__') : null;
+    call('getActiveCompanies', {}).then(list => {
+      $('gr-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      if (openId && openId.length === 3) { $('gr-company').value = openId[0]; $('gr-month').value = openId[2]; }
+    }, () => {}).then(loadSetup).then(() => {
+      if (!openId || openId.length !== 3) return;
+      $('gr-account').value = openId[1]; tab('rec'); return open();
+    });
+  };
+})();

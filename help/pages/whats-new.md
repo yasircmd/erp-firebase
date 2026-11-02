@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-01
+reviewed: 2026-11-02
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,15 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 02/11/2026
+
+- **GL Account Reconciliation.** A new screen,
+  [GL Account Reconciliation](gl-account-reconciliation.html), explains
+  each month the balance of the accounts the company chooses (GRN
+  Clearing, suspense, accruals, prepayments), by matching lines that
+  offset each other or by a schedule of items. The months are approved
+  and locked, and Period Closing checks them.
 
 ## 01/11/2026
 

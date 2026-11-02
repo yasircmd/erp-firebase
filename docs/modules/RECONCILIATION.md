@@ -5,8 +5,7 @@ The owner chose two kinds: **bank reconciliation** and **GL account
 reconciliation**. Vendor statement and customer balance confirmation are
 not in scope.
 
-**Status:** all decisions made 2026-11-01. R1 (bank: paste, match,
-report) is being built.
+**Status:** all decisions made 2026-11-01. R1 and R2 (bank) live; R3 (GL accounts) built 2026-11-02.
 
 ## What already exists (from the code)
 
@@ -229,3 +228,71 @@ Live 2026-11-02 (PR #204; runs #268 functions and screens, #269 Hosting).
 - **Deploy:** `tools/deploy-sets/bankrec-r2.txt` (287 functions: the
   require closure, the shared approval registry included), with
   `--screens`, then "hosting".
+
+## As built: step R3, GL account reconciliation (2026-11-02)
+
+- **Module:** `GLREC`, GL Account Reconciliation. It sits in the tree
+  beside Period Closing, and in Help under Finance. Its rights:
+  - *access*;
+  - *prepare*;
+  - *reopen*;
+  - *setup* (the list of accounts).
+- **The list (Q372):** Firestore `glRecSetup/{CompanyID}` `Accounts
+  [{ AccountID, Method }]`. It holds the company's Active, postable
+  balance-sheet accounts (Asset, Liability, Equity), not bank accounts.
+  `saveGlRecList` needs *setup*.
+- **A month:** Firestore `glRecs/{company__account__month}`, by the
+  method the account had when the month started (Q371):
+  - **Match:** groups of the account's posted lines, at least two, that
+    net to nothing. The unmatched lines are the balance, so the
+    difference is always nothing; what matters is reviewing the open
+    lines. A line matched in an earlier month leaves later months.
+  - **Schedule:** items (description, reference, amount, with a debit
+    positive) that must add up to the month-end balance. Supporting
+    documents can be attached (attachments.js source `GLREC`), but not
+    once the month is locked.
+  - **Notes and history** for both.
+- **Submit, approve, lock, reopen:** as Bank Reconciliation (R2).
+  - Submitting needs a difference of nothing and the previous month
+    approved, so the months go in order.
+  - It is approved through Approval Configuration as "GL Account
+    Reconciliation" (Q373); the amount is the balance. Home tasks and
+    the phone card decide it.
+  - Reopening needs a reason and is for the latest locked month only.
+- **The board:** `getGlRecSetup` with a month shows each listed account
+  and each bank account, with that month's status. Bank accounts are
+  read from `bankRecs`.
+- **Period Closing (Q374):** a new checklist item, "GL account
+  reconciliations not approved for the month" (Warn to start), listing
+  each account whose month isn't approved (`glRec.checkMonth`).
+- **The screen** (`screens/GLREC.html`) has three tabs:
+  - **The month** (the board);
+  - **Reconcile**:
+    - the balance, what explains it, and the difference;
+    - matching, or the schedule's items;
+    - notes;
+    - submit, approve, reject, reopen, delete;
+    - history;
+    - Supporting documents;
+  - **Setup**.
+
+  It opens a month from a Home task.
+- **Data Reset:**
+  - GL Account Reconciliations (transactional, browsable);
+  - GL Account Reconciliation Setup (setup).
+- **Tests:**
+  - emulator/glRec (1):
+    - the list and its refusals;
+    - the board;
+    - Period Closing before and after;
+    - matching (the refusals, the open line carried forward);
+    - the schedule (the difference, a description required);
+    - approval, the lock, months in order, reopening the latest only,
+      rights;
+  - ui/glRec (3);
+  - periodClosing (emulator and UI) and the Data Reset counts updated.
+  - Negative controls, each caught and restored:
+    - submitting an unexplained balance;
+    - the month order skipped.
+- **Deploy:** `tools/deploy-sets/glrec-r3.txt`, every function
+  (moduleRegistry), with `--screens`, then "hosting".
