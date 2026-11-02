@@ -96,6 +96,14 @@ Each made, caught, then restored:
 - a timed-out call's wait dropped from its line: unit/perf and
   emulator/perf fail. (This was a real bug, found by the first test run.)
 
+## Live (2026-11-02)
+
+Deployed 2026-11-02, run #274 (12:11-14:23 UTC, every function, 107
+batches, no errors; the predeploy mapped 640 of 640 each time). To confirm
+P2 in production: a cold line shows `lazy: true`
+(`jsonPayload.message="perf" AND jsonPayload.cold=true`). The figures for
+P3 and P4 are read about a week later (from 2026-11-09).
+
 ## Deploy
 
 Every function (`perf-p1`), from Cloud Shell inside tmux (README →

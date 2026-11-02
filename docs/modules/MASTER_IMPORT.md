@@ -686,3 +686,33 @@ master: key, id field, locked columns, what to keep) and `updateRows`
 - negative controls (see the PR).
 
 **To go live:** "functions set" `master-import-3b` (no screen change).
+
+## Fix (2026-11-02): items' tax columns, and the item code in Copy current records
+
+Reported by the owner, 2026-11-02:
+
+1. **Copy current records showed the user code in the Item Code column.**
+   The server writes the system code there, but the shell's ITEM CODES
+   block (public/index.html, docs/modules/ITEM_USER_CODE.md) rewrites every
+   copied cell that is an item's system code into its user code. That suits
+   reports, not a sheet that is pasted back: its key column would then find
+   no item. The shell now offers `copyKeepingItemCodes(text)` (the clipboard
+   as otherwise, dates as shown, item codes as they are), and this screen
+   copies through it. Elsewhere copies are unchanged.
+2. **Tax Code and HSN / SAC were not saved.** The ITEM master's `toData`
+   left them out, so a new item lost them and an update laid the stored
+   values back over the pasted ones. They now reach `saveItem`, which
+   stores them as Item Master does (taxEngine.itemTaxFields). They are also
+   checked when the paste is checked, in both modes (a column's own
+   `check`), so a bad code is said against its row before anything is
+   saved, not as a failure that undoes the import.
+
+Tests: unit/masterImportColumns (every column of every master reaches its
+save; the tax checks), emulator/masterImportItemTax (2: adding, updating,
+"-" clears, a blank cell keeps, the sheet), ui/masterImportItemCode (2: the
+copied key column; elsewhere unchanged). Negative controls, each caught and
+restored: the screen copying through the substituting clipboard (reproduces
+the reported bug); the tax columns left out of `toData`; the update mode's
+check removed. Import suites 29/29, UI masterImport 5/5, masterImportUpdate
+4/4, itemUserCode 4/4. Deploy set `import-item-fix`, then screens and
+Hosting.

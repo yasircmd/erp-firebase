@@ -1714,3 +1714,11 @@ from, and how it was verified. The deploy procedure is in the
   (09:22–09:23 UTC), success. "hosting" (the Help), run
   [#273](https://github.com/yasircmd/erp-firebase/actions/runs/41420694194)
   (09:26–09:27 UTC), success. No functions, no rules.
+- **2026-11-02, Speed P1 (timings) and P2 (lazy loading) (`perf-p1`, PR
+  #207, from `e963825`):** every function (640), run
+  [#274](https://github.com/yasircmd/erp-firebase/actions/runs/41442596647)
+  (12:11–14:23 UTC), success: 107 batches of 6, no errors. The new
+  predeploy ran before each batch ("lazy exports: 640 of 640 functions
+  mapped"). Run from the Deploy workflow, not Cloud Shell (owner): it fitted
+  the month's free minutes, and runs with the owner's computer off. No
+  screens, no rules, no Hosting.

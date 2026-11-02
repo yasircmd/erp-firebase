@@ -2307,9 +2307,15 @@
         return code ? cell.replace(v, code) : cell;
       }).join('\t')).join('\n');
     }
+    // A sheet that is pasted back into the system (Master Data Import's
+    // "Copy current records") keeps the system codes: copyKeepingItemCodes
+    // copies as the clipboard otherwise would (dates as shown), codes as
+    // they are (2026-11-02: the Item Code key column showed user codes).
+    window.copyKeepingItemCodes = null;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       const writeCodes = navigator.clipboard.writeText.bind(navigator.clipboard);
       navigator.clipboard.writeText = text => writeCodes(itemCodesInTable(text, false));
+      window.copyKeepingItemCodes = text => writeCodes(text);
     }
     // Pasted into a screen with an item list: the first column's user codes.
     const screenHasItemList = () => Array.from(document.querySelectorAll('#module-container datalist')).some(dl =>

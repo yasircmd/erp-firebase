@@ -126,8 +126,11 @@
   function copy(text, btn) {
     const original = btn.innerHTML;
     const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied — paste it into Excel' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2500); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => flash(true), () => copyViaStaging(text, flash));
+    // What is copied here is pasted back in: item codes stay the system's,
+    // not the user codes the shell shows elsewhere (docs/modules/ITEM_USER_CODE.md).
+    const write = window.copyKeepingItemCodes || (navigator.clipboard && navigator.clipboard.writeText ? t => navigator.clipboard.writeText(t) : null);
+    if (write) {
+      write(text).then(() => flash(true), () => copyViaStaging(text, flash));
       return;
     }
     copyViaStaging(text, flash);

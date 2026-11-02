@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
-reviewed: 2026-11-01
-fingerprint: ca693e786efa817e
+reviewed: 2026-11-02
+fingerprint: 7c171466a485df80
 ---
 ## The page
 
@@ -25,7 +25,9 @@ and reports always belong to the company chosen.
 
 An item with a user code of your own shows it in place of its item code on
 every screen, print and copy, and you can type either where you enter an
-item. See [Item Master](item-master.html#your-own-item-code).
+item. See [Item Master](item-master.html#your-own-item-code). The one
+exception is Master Data Import's **Copy current records**: that sheet is
+pasted back in, so it keeps the item codes as they are.
 
 ## Dates and periods
 

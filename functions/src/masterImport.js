@@ -124,6 +124,9 @@ const PRICE_MAPPINGS = labelled(['Local', 'Export']);
 // save; `idKey` is where its result carries the new id; `path` is where
 // the record lives (for undoing a failed import).
 const C = (h, key, extra) => Object.assign({ h, key, type: 'text' }, extra || {});
+// A column's own check (`check: v => why or ''`), on a filled cell, in both
+// modes. The item's tax fields are checked as Item Master's save does.
+const taxProblem = d => { try { require('./taxEngine').itemTaxFields(d); return ''; } catch (e) { return e.message; } };
 const companyCol = C('Company', 'CompanyID', { type: 'ref', ref: 'company', note: 'Ref Code (e.g. 01) or the company\'s legal name. Empty: all companies.' });
 
 const MASTERS = {
@@ -213,14 +216,16 @@ const MASTERS = {
       C('Batch Tracked', 'BatchTracked', { type: 'yesno' }),
       C('Reorder Level', 'ReorderLevel', { type: 'number' }),
       // docs/modules/TAX_ENGINE.md: the item's tax code (Tax Configuration's) and India's HSN / SAC.
-      C('Tax Code', 'TaxCode', { note: 'Optional: a code of Tax Configuration, e.g. SR or GST18.' }),
-      C('HSN / SAC', 'HSNCode', { note: 'Optional: HSN 4, 6 or 8 digits; a service\'s SAC 6 digits starting 99.' })
+      // Checked as Item Master's own save checks them (taxEngine.itemTaxFields), when the paste is checked.
+      C('Tax Code', 'TaxCode', { note: 'Optional: a code of Tax Configuration, e.g. SR or GST18.', check: v => taxProblem({ TaxCode: v }) }),
+      C('HSN / SAC', 'HSNCode', { note: 'Optional: HSN 4, 6 or 8 digits; a service\'s SAC 6 digits starting 99.', check: v => taxProblem({ HSNCode: v }) })
     ],
     sample: ['Steel Sheet 2mm', 'Raw Material', 'SS-2MM', 'Steel Sheets', 'PCS', '', '', '01', 'WH-MAIN', '130100', '510100', '', '', 'No', '0'],
     toData: r => ({ ItemName: r.ItemName, Category: r.Category, UserCode: r.UserCode, SubCategoryID: r.SubCategoryID, UOMID: r.UOMID, AltUOMID: r.AltUOMID,
       ConversionFactor: r.AltUOMID ? r.ConversionFactor : '', CompanyID: r.CompanyID, DefaultWarehouseID: r.DefaultWarehouseID,
       InventoryAccountID: r.InventoryAccountID, ConsumptionAccountID: r.ConsumptionAccountID, SalesCogsAccountID: r.SalesCogsAccountID,
-      WriteOffAccountID: r.WriteOffAccountID, BatchTracked: r.BatchTracked, ReorderLevel: r.ReorderLevel === '' ? 0 : r.ReorderLevel })
+      WriteOffAccountID: r.WriteOffAccountID, BatchTracked: r.BatchTracked, ReorderLevel: r.ReorderLevel === '' ? 0 : r.ReorderLevel,
+      TaxCode: r.TaxCode || '', HSNCode: r.HSNCode || '' }) // the tax columns reach the save too (2026-11-02: they were dropped)
   },
   VENDOR: {
     label: 'Vendors', module: 'VENDORMASTER', save: 'saveVendor', idKey: 'vendorId', path: 'vendors', nameKey: 'VendorName',
@@ -648,6 +653,8 @@ async function checkPaste(user, masterKey, text, opts) {
         r[col.key] = raw; // resolved below, once the row's own values are known
       } else {
         r[col.key] = raw;
+        const why = raw && col.check ? col.check(raw) : '';
+        if (why) issue(col, why);
       }
     }
     // References: by code, or by exact name; the master's own kind may also
@@ -1331,6 +1338,7 @@ async function checkUpdate(user, masterKey, text) {
           v = res.id;
         }
       }
+      if (col.check && typeof v === 'string') { const why = col.check(v); if (why) { issue(col, why); continue; } }
       set[col.key] = v;
     }
     const changes = [];
