@@ -108,6 +108,28 @@ P2 in production: a cold line shows `lazy: true`
 (`jsonPayload.message="perf" AND jsonPayload.cold=true`). The figures for
 P3 and P4 are read about a week later (from 2026-11-09).
 
+## First figures (2026-11-02, the owner's Cloud Shell)
+
+- **P2 works:** every cold line of the first 30 read `lazy: true`.
+- **Cold starts are the main remaining wait:** a cold function's start
+  (`loadMs`) was 1.2-3.4 s before its work (a simple read then took about
+  0.2 s, a posting 1.8-2.3 s). In about 22 minutes of ordinary use nearly
+  every call was cold: with ~640 separate functions, each first click on a
+  screen pays the start. One `loadMs` of 185 s was an instance started
+  ahead of its first call; `loadMs` counts that idle time, so it is an
+  upper bound.
+- **Not the instance size:** getmodulefragment runs with 1 vCPU, 256 MiB
+  and a concurrency of 80 (`gcloud run services describe`), so one warm
+  instance serves many users at once; busy hours do not force a cold start
+  per extra user.
+- **No baseline:** there were no timings before P1, so the gain from P2 is
+  not measured (the owner: "it feels faster").
+- **Next to weigh (with the figures from about 2026-11-09):** P3 the lock;
+  P4 warm instances for the busiest few; and **P5, grouping the callables
+  into a few shared services**, which would stay warm because everyone
+  shares them: the structural fix for per-function cold starts, a
+  significant change to design and agree first.
+
 ## Deploy
 
 Every function (`perf-p1`), from Cloud Shell inside tmux (README →
