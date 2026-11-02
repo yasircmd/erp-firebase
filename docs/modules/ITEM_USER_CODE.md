@@ -83,3 +83,11 @@ how it's **shown and typed**.
 - **Tests:** itemUserCode suite (3), itemUserCode UI (4); negative
   controls (the system-code check on the server; shown text, and the typed
   code, in the shell) caught.
+
+## Exception (2026-11-02): sheets pasted back in
+
+Master Data Import's **Copy current records** keeps the system codes: its
+Item Code column is the key that finds each record when the sheet is
+pasted back. The shell's `copyKeepingItemCodes(text)` copies without the
+substitution; a screen whose copy is input to the system uses it. See
+MASTER_IMPORT.md, "Fix (2026-11-02)".

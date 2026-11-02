@@ -1,0 +1,17 @@
+# Master Data Import fixes (owner, 2026-11-02; docs/modules/MASTER_IMPORT.md):
+# items' Tax Code and HSN / SAC saved when adding and updating, checked as
+# Item Master checks them; Copy current records keeps the system item code
+# (screens/MASTERIMPORT.html, public/index.html's copyKeepingItemCodes).
+# The functions whose code includes masterImport.js (openingBalances.js
+# requires it). Deploy: "functions set, then screens", then "hosting"
+# (public/index.html and the Help).
+checkMasterImport
+checkOpeningBalances
+findOpeningBatch
+getMasterImportRecords
+getMasterImportSpecs
+getOpeningBalanceSetup
+postOpeningBalances
+reverseOpeningBalanceBatch
+runMasterImport
+saveOpeningBalanceSettings

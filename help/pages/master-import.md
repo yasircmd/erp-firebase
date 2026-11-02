@@ -5,8 +5,8 @@ order: 9
 modules: [MASTERIMPORT]
 sources: [functions/src/masterImport.js]
 summary: Add or update ERP masters, employee records, opening balances and item barcodes from an Excel paste.
-reviewed: 2026-10-26
-fingerprint: fdca28a2d97f3873
+reviewed: 2026-11-02
+fingerprint: 6bb872390de374bb
 ---
 ## What it is for
 
@@ -43,7 +43,7 @@ This import does **not** load GL opening balances, opening stock or vendor/custo
 ## Step by step
 
 1. Open **Master Data Import** and choose a type from the ordered list.
-2. If the type offers **Rows**, choose **Add new** or **Update existing**. In Update mode, use **Copy current records** to get the key and editable values for records in your companies.
+2. If the type offers **Rows**, choose **Add new** or **Update existing**. In Update mode, use **Copy current records** to get the key and editable values for records in your companies. For items, the **Item Code** column keeps the system's item code (the key that finds the record when you paste the sheet back), with your own code in the **User Code** column.
 3. Copy the headers (and, for a new import, optionally the sample row) into Excel. Fill in the rows, then copy the headers and data back into the paste box.
 4. Select **Check**. Review the row- and column-specific issues below the preview, correct the spreadsheet and check again. No changes are made by Check.
 5. Select **Import** only after the whole batch checks clean, then confirm. Review the result summary, including system-generated codes where applicable.
@@ -64,7 +64,7 @@ This import does **not** load GL opening balances, opening stock or vendor/custo
 - **Inventory Valuation List:** only an active Finished Good or Semi-Finished Good with an active BOM in the company is eligible.
 - **Leave Opening Balances:** import one row per employee and balance-based leave type. The date is the balance date; entitlement accrues from the following day. Correct an existing opening with an adjustment on the employee's leave card.
 - **Payroll Provision Opening Balances:** import the employee's provision amount through the date shown. This is a balance already represented in the GL, not a new posting; later payroll runs provide only the change.
-- **Tax fields:** Items take a **Tax Code** and **HSN / SAC**; Vendors and Customers a **Tax Registration Type** and **State / Emirate** (a GST state code such as 27, or an emirate code such as DXB), with their **City** and **PIN / Postal Code**. A registered party in India's GSTIN is checked against its state, as in the master screens.
+- **Tax fields:** Items take a **Tax Code** and **HSN / SAC**, both when adding and when updating, checked as Item Master checks them (a tax code is up to 12 letters, digits or _; an HSN is 4, 6 or 8 digits, a service's SAC 6 digits starting 99); Vendors and Customers a **Tax Registration Type** and **State / Emirate** (a GST state code such as 27, or an emirate code such as DXB), with their **City** and **PIN / Postal Code**. A registered party in India's GSTIN is checked against its state, as in the master screens.
 - **Item Barcodes:** import one row per barcode. A barcode can represent a pack quantity; leave Pack Qty empty for one item unit. Existing barcodes are changed or removed in Item Master.
 
 ## What happens in the books

@@ -136,6 +136,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [x] **Master Data Import, items (owner, 2026-11-02):** Copy current records
+  showed user codes in the Item Code column; Tax Code and HSN / SAC were
+  not saved. Fixed 2026-11-02 (MASTER_IMPORT.md, "Fix (2026-11-02)").
+  Deploy: `import-item-fix` with screens, then Hosting.
 - [x] **Chart of Accounts: Tree view** (owner, 2026-11-02; decisions
   Q375-Q378, [COA_TREE.md](modules/COA_TREE.md)): a List / Tree view tab,
   by account type and heading, the screen's filters applied, the code

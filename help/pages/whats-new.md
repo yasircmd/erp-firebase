@@ -12,6 +12,13 @@ screen.
 
 ## 02/11/2026
 
+- **Master Data Import: items fixed.** On
+  [Master Data Import](master-import.html), an item's **Tax Code** and
+  **HSN / SAC** are now saved, when adding items and when updating them
+  (they were checked but not kept). **Copy current records** for items now
+  gives the system's item code in the **Item Code** column, so the sheet
+  can be pasted back, with your own code in **User Code**.
+
 - **Chart of Accounts: Tree view.** A new tab on the
   [Chart of Accounts](chart-of-accounts.html) shows the chart as a tree,
   by account type and heading, like the Org chart on Employees. The
