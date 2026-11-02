@@ -300,6 +300,56 @@
     #module-container table > tbody[id$="-grid-body"] > tr > td[class*="-account-name"] { min-width: 13rem; }
     #module-container tbody[id$="-grid-body"] > tr.line-grid-empty-tail { display: none; }
     /* ---------- END LINE GRIDS CSS ---------- */
+
+    /* ---------- ENTRY LAYOUT CSS ---------- */
+    /* Transaction entry screens (owner, 2026-11-02; docs/modules/ENTRY_LAYOUT.md,
+       decisions Q383-Q386). A screen opts in with these classes:
+         .entry-layout  the entry view: tighter spacing between its parts;
+         .entry-sticky  stays at the top while the lines scroll, under the
+                        app bar (--app-bar-h): the title bar (.entry-bar,
+                        number, status, actions) and the key fields;
+         .entry-fields  a grid of fields: 4 across on a wide window, 2 on a
+                        narrow one, 1 on a phone; .span-2 / .span-all widen one;
+                        .cols-3: 3 across (a panel's own fields); .cols-6: 6
+                        across on a wide window (the dimensions and one more);
+         .entry-panel   a boxed section (adjustments, totals), tighter;
+         .entry-split   two panels side by side on a wide window;
+         .entry-chips   a list of small chips (matched documents).
+       Below 768px nothing sticks: a phone keeps its screen for the lines. */
+    #app-container .entry-layout > * + * { margin-top: 0.6rem; }
+    #app-container .entry-layout > .hidden + *, #app-container .entry-layout > .entry-sticky + * { margin-top: 0.6rem; }
+    #app-container .entry-sticky { position: sticky; top: var(--app-bar-h, 0px); z-index: 30; padding: 0.35rem 0 0.5rem; border-bottom: 1px solid rgba(100,116,139,0.35); }
+    #app-container .entry-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+    #app-container .entry-bar h2 { font-size: 1.05rem; line-height: 1.4rem; margin: 0; }
+    #app-container .entry-bar .entry-meta { font-size: 0.7rem; color: #64748b; font-family: ui-monospace, monospace; white-space: nowrap; }
+    #app-container .entry-bar .entry-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+    #app-container .entry-bar .entry-actions button { padding: 0.3rem 0.7rem; }
+    #app-container .entry-sticky .entry-fields { margin-top: 0.45rem; }
+    #app-container .entry-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.4rem 0.75rem; }
+    #app-container .entry-fields label { margin-bottom: 0.1rem; font-size: 0.7rem; line-height: 1rem; }
+    #app-container .entry-fields :is(input, select, textarea):not([type=checkbox]):not([type=radio]) { padding: 0.3rem 0.5rem; font-size: 0.8rem; line-height: 1.2rem; border-radius: 0.375rem; }
+    #app-container .entry-fields .entry-hint { margin-top: 0.1rem; font-size: 0.68rem; line-height: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #app-container .entry-panel { border-radius: 0.6rem; padding: 0.5rem 0.75rem; }
+    #app-container .entry-panel > * + * { margin-top: 0.4rem; }
+    #app-container .entry-section-title { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; color: #94a3b8; }
+    #app-container .entry-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; }
+    #app-container .entry-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    #app-container .entry-chips > * { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 999px; }
+    @media (min-width: 768px) {
+      #app-container .entry-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #app-container .entry-fields .span-2, #app-container .entry-fields .span-all { grid-column: 1 / -1; }
+    }
+    @media (min-width: 1100px) {
+      #app-container .entry-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      #app-container .entry-fields .span-2 { grid-column: span 2; }
+      #app-container .entry-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+    }
+    @media (min-width: 768px) { #app-container .entry-fields.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 1100px) { #app-container .entry-fields.cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+    @media (max-width: 767px) { #app-container .entry-sticky { position: static; } }
+    html.phone-view #app-container .entry-sticky { position: static; }
+    @media print { #app-container .entry-sticky { position: static; } }
+    /* ---------- END ENTRY LAYOUT CSS ---------- */
     /* ---------- SEARCH PICKER CSS ---------- */
     /* The shell's searchable picker (SEARCH PICKER in the script below). */
     .erp-picker { position: fixed; z-index: 9000; display: flex; flex-direction: column; max-height: 18rem; overflow: hidden; background: #0f172a; color: #e2e8f0;
@@ -677,7 +727,7 @@
   </div>
 
   <div id="app-container" class="hidden w-full max-w-6xl mx-auto self-start">
-    <div class="sticky top-0 z-40 bg-slate-900/95 pt-2 pb-3 mb-4 border-b border-slate-800 flex justify-between items-center gap-4">
+    <div id="app-bar" class="sticky top-0 z-40 bg-slate-900/95 pt-2 pb-3 mb-4 border-b border-slate-800 flex justify-between items-center gap-4">
       <div class="flex items-center gap-3">
         <button id="back-to-tree-btn" onclick="handleBackToHierarchy()" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Home</button>
         <h1 id="app-title" class="text-xl font-bold text-blue-400"><i class="fa-solid fa-house"></i> Home</h1>
@@ -2333,6 +2383,17 @@
       };
     }
     // ---------- END ITEM CODES ----------
+    // ---------- ENTRY LAYOUT ----------
+    // The app bar's height (it wraps on a narrow window), so an entry
+    // screen's sticky title bar and key fields (.entry-sticky, the CSS above)
+    // sit just under it (docs/modules/ENTRY_LAYOUT.md).
+    (function () {
+      const bar = document.getElementById('app-bar');
+      const set = () => document.documentElement.style.setProperty('--app-bar-h', (bar ? bar.offsetHeight : 0) + 'px');
+      if (bar && window.ResizeObserver) new ResizeObserver(set).observe(bar);
+      set();
+    })();
+    // ---------- END ENTRY LAYOUT ----------
 
     // ---------- LIST PAGING ----------
     // Gmail-style document lists (owner, 2026-10-02; docs/modules/

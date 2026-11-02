@@ -32,6 +32,8 @@ const psStart = find(/---------- PRINT STYLE ----------/);
 const psEnd = find(/---------- END PRINT STYLE ----------/);
 const pkCssStart = find(/---------- SEARCH PICKER CSS ----------/);
 const pkCssEnd = find(/---------- END SEARCH PICKER CSS ----------/);
+const elCssStart = find(/---------- ENTRY LAYOUT CSS ----------/);
+const elCssEnd = find(/---------- END ENTRY LAYOUT CSS ----------/);
 const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
 const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
@@ -43,6 +45,7 @@ ${require('./_cdnStyles').harnessHead()}
 ${slice(lgCssStart, lgCssEnd)}
 ${slice(psStart, psEnd)}
 ${slice(pkCssStart, pkCssEnd)}
+${slice(elCssStart, elCssEnd)}
 </style></head>
 <body class="bg-slate-900 text-slate-100">
 <div id="global-loading-bar"></div>

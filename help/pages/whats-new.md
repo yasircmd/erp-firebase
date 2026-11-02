@@ -12,6 +12,16 @@ screen.
 
 ## 02/11/2026
 
+- **A more compact entry layout (first screens).** On
+  [Vendor Invoice](vendor-invoice.html), [Sales Order](sales-order.html) and
+  [Journal Entry](journal-entries.html), the header takes about half the
+  space it did: the key fields in one row, the dimensions and description
+  in another, adjustments beside the totals. The title bar with the
+  buttons (Save, Post, Confirm...) and the key fields stay at the top while
+  you scroll the lines. See
+  [Working with screens](working-with-screens.html). The other entry
+  screens follow.
+
 - **Sales Order: delivered quantities, Delivered, and Close.** An opened
   [Sales Order](sales-order.html) now shows each line's **Delivered** and
   **Remaining** after a Delivery Note or a delivering invoice (it showed

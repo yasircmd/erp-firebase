@@ -136,6 +136,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Entry layout: compact entry screens with a sticky top** (owner,
+  2026-11-02; decisions Q383-Q386, [ENTRY_LAYOUT.md](modules/ENTRY_LAYOUT.md)).
+  Pilot built 2026-11-02: Vendor Invoice, Sales Order, JV (header -62 % /
+  -46 % / -43 %). Deploy: "screens only", then "hosting". Next: the owner
+  tries them; then the other entry screens.
 - [x] **Sales Order: Delivered / Remaining, Delivered status, Close and Reopen**
   (owner, 2026-11-02; decisions Q379-Q382, [SO_CLOSE.md](modules/SO_CLOSE.md)).
   The screen dropped each line's delivered quantity when opening an order (an
