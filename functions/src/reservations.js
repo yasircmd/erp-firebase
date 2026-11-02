@@ -66,7 +66,11 @@ async function refreshSalesOrderReservationStatus(soId) {
 // reservations ([{ Status, SourceLineID, Quantity }]); null when it is not
 // reserving or already has it.
 function reservationStatusFor(so, sourceReservations) {
-  if (!so || (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved')) return null;
+  // Delivered (owner, 2026-11-02; docs/modules/SO_CLOSE.md, Q380): every
+  // line fully delivered; a reversal brings it back to Reserved or
+  // Partially Reserved. Closed and Cancelled are left as they are.
+  if (!so || !['Reserved', 'Partially Reserved', 'Delivered'].includes(so.Status)) return null;
+  const allDelivered = (so.Lines || []).length > 0 && (so.Lines || []).every(l => Number(l.DeliveredQuantity || 0) >= Number(l.OrderedQuantity || 0));
 
   let allLinesCovered = true;
   for (const soLine of (so.Lines || [])) {
@@ -77,7 +81,7 @@ function reservationStatusFor(so, sourceReservations) {
     if ((reserved + delivered) < Number(soLine.OrderedQuantity)) { allLinesCovered = false; break; }
   }
 
-  const correctStatus = allLinesCovered ? 'Reserved' : 'Partially Reserved';
+  const correctStatus = allDelivered ? 'Delivered' : allLinesCovered ? 'Reserved' : 'Partially Reserved';
   return correctStatus !== so.Status ? correctStatus : null;
 }
 

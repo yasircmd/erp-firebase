@@ -12,6 +12,14 @@ screen.
 
 ## 02/11/2026
 
+- **Sales Order: delivered quantities, Delivered, and Close.** An opened
+  [Sales Order](sales-order.html) now shows each line's **Delivered** and
+  **Remaining** after a Delivery Note or a delivering invoice (it showed
+  none delivered). An order whose lines are all delivered becomes
+  **Delivered** on its own. **Close Sales Order** ends what is left of an
+  order, with a reason: its reserved stock is released and no more
+  deliveries or invoices are made from it; **Reopen** takes it up again.
+
 - **Master Data Import: items fixed.** On
   [Master Data Import](master-import.html), an item's **Tax Code** and
   **HSN / SAC** are now saved, when adding items and when updating them

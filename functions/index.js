@@ -32,6 +32,9 @@ const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmi
 exports.getApprovalSummary = require('./src/homeTasks').getApprovalSummary;
 const { getActiveCompanies, saveMyCompanies } = require('./src/companies');
 const { issueProformaNumber } = require('./src/proforma');
+// Closing and reopening a Sales Order (docs/modules/SO_CLOSE.md, Q379-Q382).
+exports.closeSalesOrder = require('./src/salesOrderClose').closeSalesOrder;
+exports.reopenSalesOrder = require('./src/salesOrderClose').reopenSalesOrder;
 const { getItemUserCodes } = require('./src/itemCodes');
 const { getDocumentLinks } = require('./src/flows');
 const {

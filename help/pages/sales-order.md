@@ -3,10 +3,10 @@ title: Sales Order
 area: sales
 order: 4
 modules: [SALESORDER]
-sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js]
+sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js, functions/src/salesOrderClose.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-11-01
-fingerprint: 32ec4855e4ee68e1
+reviewed: 2026-11-02
+fingerprint: 2f37b7d097683241
 ---
 ## What it is for
 
@@ -34,6 +34,47 @@ warehouse that isn't found, a quantity that isn't a number above zero or a price
 nothing is pasted and the message names the rows to fix.
 4. Save or submit for approval if the company requires it.
 5. Use the order to create the delivery note or invoice when the goods are ready.
+
+## Delivered, remaining and the order's status
+
+A confirmed order shows, for each line, what is **Reserved**, **Delivered**
+and **Remaining**, with the line's own status (Not Started, Partial, Fully
+Delivered). Delivery Notes, and invoices that deliver stock themselves,
+update them when they are posted.
+
+The order's status:
+
+- **Reserved** or **Partially Reserved**: confirmed, with quantity still to
+  deliver (all of it reserved, or not all).
+- **Delivered**: every line is fully delivered. It is set on its own; if a
+  Delivery Note is reversed, the order goes back to Reserved and the
+  returned quantity is reserved again.
+- **Closed**: closed before everything was delivered (below).
+- **Cancelled**.
+
+**Claim** reserves stock only for what is still to deliver.
+
+## Closing an order
+
+When the customer will not take the rest (for example, 6 of 10 were
+delivered and the other 4 are no longer wanted), close the order instead of
+leaving it open:
+
+1. Open the order and click **Close Sales Order**.
+2. Give a reason (required) and confirm.
+
+What is left is no longer expected: its reserved stock is released, and no
+more Delivery Notes or invoices can be made from the order. What was
+delivered stays as it is. The order shows *Closed*, with the date, who
+closed it and why. A fully delivered order is Delivered already and has
+nothing to close.
+
+To take it up again, open it and click **Reopen**, with a reason. It goes
+back to Partially Reserved (Delivered if everything was delivered); its
+reserved stock is not restored, so use **Claim** to reserve again.
+
+Closing and reopening need the Sales Order **post** right (the same as
+confirming or cancelling an order).
 
 ## The credit check
 

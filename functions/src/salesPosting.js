@@ -79,9 +79,11 @@ async function planDelivery(actor, lines, mode, companyId) {
         remaining -= toReduce;
       }
     } else {
-      // The stock came back: reserved again, if the order still reserves.
+      // The stock came back: reserved again, if the order still reserves
+      // (a Delivered order does: it goes back to Reserved; SO_CLOSE.md Q380).
+      // A Closed one doesn't: what was left of it is no longer expected.
       const so = await order(soId);
-      if (so && (so.Status === 'Reserved' || so.Status === 'Partially Reserved')) {
+      if (so && ['Reserved', 'Partially Reserved', 'Delivered'].includes(so.Status)) {
         await ofOrder(soId);
         const { id, doc } = reservationRecord(actor, {
           ItemID: l.ItemID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID, CompanyID: companyId,
