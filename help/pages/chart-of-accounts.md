@@ -5,8 +5,8 @@ order: 1
 modules: [COA]
 sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
-reviewed: 2026-10-30
-fingerprint: 834147b4ee6575f8
+reviewed: 2026-11-02
+fingerprint: cafeb7f838edb570
 ---
 ## What it is for
 
@@ -74,6 +74,23 @@ Filter by company, type, status, or "Postable only". Choosing a company
 shows its own accounts **and** the shared ones; "Shared (All Companies)"
 shows only shared ones. The list opens on **Active** accounts; choose
 **All Statuses** or **Inactive** in the status filter to see retired ones.
+
+### See the chart as a tree
+
+Choose the **Tree view** tab above the filters to see the chart by account
+type (Asset, Liability, Equity, Revenue, COGS, Expense), each heading with
+the headings and accounts under it, in code order. It opens with the
+headings showing and the accounts folded away: click **+** beside a heading
+to open it, or use **Expand all** and **Collapse all**. A heading shows how
+many postable accounts are under it.
+
+The filters above apply to the tree too. When you search, the tree shows the
+accounts that match, opened out, with the headings above them shown greyed
+so you can see where each one sits (for example, searching "bank" shows
+110002 Bank current under 110000 Cash and bank, under 100000 Assets).
+
+If you may edit accounts, click an account's code to open its edit form.
+Otherwise the codes are plain text. Choose **List** to go back to the list.
 
 ### Move an account to another head
 

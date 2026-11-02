@@ -724,6 +724,138 @@ const SCREEN_EDITS = [
     to: "/000$/.test(String(a.AccountCode || '')) // class (X00000), group (XN0000) or sub-group (XNM000)" },
   { mod: 'COA', from: "        const isSubParent = /^\\d{2}[1-9]000$/.test(String(a.AccountCode || ''));\n        opt.textContent = (isSubParent ? '— ' : '') + a.AccountCode + ' — ' + a.AccountName;",
     to: "        const level = /^\\d00000$/.test(String(a.AccountCode || '')) ? 0 : /^\\d{2}0000$/.test(String(a.AccountCode || '')) ? 1 : 2;\n        opt.textContent = ['', '— ', '—— '][level] + a.AccountCode + ' — ' + a.AccountName;" },
+  // Tree view (owner, 2026-11-02, Q375-Q378; docs/modules/COA_TREE.md): a
+  // List / Tree tab; the tree uses the same filters, a match keeps the
+  // headings above it (greyed); by account type, then headings in code
+  // order; opens to the headings; the code opens the account's edit form for
+  // those who may edit, plain text otherwise.
+  { mod: 'COA', from: '  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">',
+    to: `  <div class="flex gap-2 border-b border-slate-800" role="tablist">
+    <button type="button" class="coa-tab px-4 py-2 text-sm border-b-2 border-blue-500 text-slate-100" data-tab="list" role="tab"><i class="fa-solid fa-list"></i> List</button>
+    <button type="button" class="coa-tab px-4 py-2 text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200" data-tab="tree" role="tab"><i class="fa-solid fa-sitemap"></i> Tree view</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">` },
+  { mod: 'COA', from: '  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">',
+    to: '  <div id="coa-list-view" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">' },
+  { mod: 'COA', from: '      </table>\n    </div>\n  </div>\n</div>\n',
+    to: `      </table>
+    </div>
+  </div>
+
+  <div id="coa-tree-view" class="hidden space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="text-xs text-slate-500 max-w-3xl">The chart by account type, each heading with the accounts under it, in code order. The filters above apply: a heading shown greyed is there only for an account under it that matches.</p>
+      <div class="flex gap-2">
+        <button type="button" id="coa-tree-expand" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Expand all</button>
+        <button type="button" id="coa-tree-collapse" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Collapse all</button>
+      </div>
+    </div>
+    <div id="coa-tree" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 text-sm overflow-x-auto"></div>
+  </div>
+</div>
+` },
+  { mod: 'COA', from: "    tbody.innerHTML = '';\n",
+    to: "    renderTree(filtered);\n    tbody.innerHTML = '';\n" },
+  { mod: 'COA', from: '  // Parent options are restricted to non-postable, top-level sub-category',
+    to: `  // ---------- the tree view ----------
+  // The accounts that pass the filters, each under its parent, the parents
+  // kept (greyed) up to the top for an account that matches; under its
+  // account type. An account whose parent is missing sits at its type's top;
+  // a loop in old data is still shown once. Opens to the headings: a heading
+  // with headings under it is open, one with only accounts under it is
+  // closed; with a search typed, everything is open.
+  const TREE_TYPES = ['Asset', 'Liability', 'Equity', 'Revenue', 'COGS', 'Expense'];
+  let treeOpen = {};
+  function renderTree(matched) {
+    const host = document.getElementById('coa-tree');
+    if (!host) return;
+    const byId = {}; accounts.forEach(a => { byId[a.AccountID] = a; });
+    const match = new Set(matched.map(a => a.AccountID));
+    const shown = new Set();
+    matched.forEach(a => { let x = a, hops = 0; while (x && !shown.has(x.AccountID) && hops++ < 50) { shown.add(x.AccountID); x = x.ParentAccountID ? byId[x.ParentAccountID] : null; } });
+    const list = accounts.filter(a => shown.has(a.AccountID));
+    const byCode = (a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true });
+    const parentOf = a => (a.ParentAccountID && a.ParentAccountID !== a.AccountID && shown.has(a.ParentAccountID)) ? a.ParentAccountID : null;
+    const kids = {};
+    list.forEach(a => { const p = parentOf(a); if (p) (kids[p] = kids[p] || []).push(a); });
+    Object.keys(kids).forEach(k => kids[k].sort(byCode));
+    const placed = new Set();
+    function node(a) { placed.add(a.AccountID); return { a, under: (kids[a.AccountID] || []).filter(k => !placed.has(k.AccountID)).map(node) }; }
+    const types = TREE_TYPES.concat([...new Set(list.map(a => a.AccountType))].filter(t => !TREE_TYPES.includes(t)));
+    const searching = Boolean(document.getElementById('coa-search-input').value.trim());
+    const isOpen = (key, dflt) => searching ? true : (key in treeOpen ? treeOpen[key] : dflt);
+    const postableUnder = n => n.under.reduce((t, c) => t + (c.a.IsPostable === true ? 1 : 0) + postableUnder(c), 0);
+    const toggle = (key, open, has) => has
+      ? '<button type="button" class="coa-tree-toggle w-5 text-slate-400 hover:text-slate-200" data-key="' + escapeHtml(key) + '" title="' + (open ? 'Collapse' : 'Expand') + '"><i class="fa-solid fa-' + (open ? 'minus' : 'plus') + '-square"></i></button>'
+      : '<span class="w-5 inline-block"></span>';
+    function html(n) {
+      const a = n.a, has = n.under.length > 0;
+      const open = isOpen(a.AccountID, n.under.some(c => c.under.length > 0 || c.a.IsPostable !== true));
+      const dim = match.has(a.AccountID) ? '' : ' opacity-50';
+      const code = canWrite
+        ? '<button type="button" class="coa-tree-edit font-mono text-xs text-blue-400 hover:text-blue-300 underline" title="Edit this account">' + escapeHtml(a.AccountCode) + '</button>'
+        : '<span class="font-mono text-xs text-slate-300">' + escapeHtml(a.AccountCode) + '</span>';
+      const count = postableUnder(n);
+      return '<li class="coa-tree-node" data-id="' + escapeHtml(a.AccountID) + '"><div class="flex flex-wrap items-center gap-2 py-1' + dim + '">' + toggle(a.AccountID, open, has) + code +
+        '<span class="' + (a.IsPostable === true ? 'text-slate-200' : 'font-semibold text-slate-100') + '">' + escapeHtml(a.AccountName) + '</span>' +
+        (a.IsPostable === true ? '<span class="text-[10px] uppercase text-emerald-400">Postable</span>' : '<span class="text-[10px] uppercase text-slate-500">Header</span>') +
+        (a.Currency ? '<span class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">' + escapeHtml(a.Currency) + '</span>' : '') +
+        (a.OwnCashBank ? '<span class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">' + escapeHtml(a.OwnCashBank) + '</span>' : '') +
+        (a.CompanyID ? '<span class="text-xs text-amber-400">' + escapeHtml(companyLabel(a.CompanyID)) + '</span>' : '') +
+        (a.Status !== 'Active' ? '<span class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">Inactive</span>' : '') +
+        (count ? '<span class="coa-tree-count text-xs text-slate-500">' + count + (count === 1 ? ' account' : ' accounts') + '</span>' : '') + '</div>' +
+        (has ? '<ul class="coa-tree-children ml-6 pl-3 border-l border-slate-700' + (open ? '' : ' hidden') + '">' + n.under.map(html).join('') + '</ul>' : '') + '</li>';
+    }
+    const out = types.map(t => {
+      const tops = list.filter(a => a.AccountType === t && !parentOf(a)).sort(byCode).map(node);
+      list.filter(a => a.AccountType === t && !placed.has(a.AccountID)).sort(byCode).forEach(a => { if (!placed.has(a.AccountID)) tops.push(node(a)); });
+      if (!tops.length) return '';
+      const key = 'type:' + t, open = isOpen(key, true);
+      const count = tops.reduce((s, n) => s + (n.a.IsPostable === true ? 1 : 0) + postableUnder(n), 0);
+      return '<li class="coa-tree-type" data-type="' + escapeHtml(t) + '"><div class="flex items-center gap-2 py-1">' + toggle(key, open, true) +
+        '<span class="font-bold text-blue-300 uppercase text-xs tracking-wide">' + escapeHtml(t) + '</span>' + (count ? '<span class="coa-tree-count text-xs text-slate-500">' + count + (count === 1 ? ' account' : ' accounts') + '</span>' : '') + '</div>' +
+        '<ul class="coa-tree-children ml-6 pl-3 border-l border-slate-700' + (open ? '' : ' hidden') + '">' + tops.map(html).join('') + '</ul></li>';
+    }).join('');
+    host.innerHTML = out ? '<ul>' + out + '</ul>' : '<p class="text-slate-500 text-center py-4">No accounts found.</p>';
+  }
+  function setAllTree(open) {
+    treeOpen = {};
+    TREE_TYPES.forEach(t => { treeOpen['type:' + t] = open; });
+    accounts.forEach(a => { treeOpen['type:' + a.AccountType] = open; treeOpen[a.AccountID] = open; });
+    renderTable();
+  }
+  function showTab(tab) {
+    document.querySelectorAll('.coa-tab').forEach(b => {
+      const on = b.dataset.tab === tab;
+      b.classList.toggle('border-blue-500', on); b.classList.toggle('text-slate-100', on);
+      b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on);
+    });
+    document.getElementById('coa-list-view').classList.toggle('hidden', tab !== 'list');
+    document.getElementById('coa-tree-view').classList.toggle('hidden', tab !== 'tree');
+  }
+
+  // Parent options are restricted to non-postable, top-level sub-category` },
+  { mod: 'COA', from: "    document.getElementById('coa-company-filter').addEventListener('change', renderTable);\n",
+    to: `    document.getElementById('coa-company-filter').addEventListener('change', renderTable);
+    document.querySelectorAll('.coa-tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    document.getElementById('coa-tree-expand').addEventListener('click', () => setAllTree(true));
+    document.getElementById('coa-tree-collapse').addEventListener('click', () => setAllTree(false));
+    document.getElementById('coa-tree').addEventListener('click', ev => {
+      const t = ev.target.closest('.coa-tree-toggle');
+      if (t) {
+        const ul = t.closest('li').querySelector(':scope > .coa-tree-children');
+        const open = ul.classList.contains('hidden');
+        ul.classList.toggle('hidden', !open);
+        treeOpen[t.dataset.key] = open;
+        t.title = open ? 'Collapse' : 'Expand';
+        t.innerHTML = '<i class="fa-solid fa-' + (open ? 'minus' : 'plus') + '-square"></i>';
+        return;
+      }
+      const e = ev.target.closest('.coa-tree-edit');
+      if (e && canWrite) openModal(e.closest('.coa-tree-node').dataset.id);
+    });
+` },
   // Item categories of your own (owner, 2026-10-16; docs/modules/
   // ITEM_CATEGORIES_CUSTOM.md): a sub-category may sit under one (X-<id>).
   { mod: 'ITEMSUBCAT', from: "  function fetchAndRender() {\n    rpc",

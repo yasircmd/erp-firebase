@@ -12,6 +12,11 @@ screen.
 
 ## 02/11/2026
 
+- **Chart of Accounts: Tree view.** A new tab on the
+  [Chart of Accounts](chart-of-accounts.html) shows the chart as a tree,
+  by account type and heading, like the Org chart on Employees. The
+  filters apply, and an account's code opens its edit form.
+
 - **GL Account Reconciliation.** A new screen,
   [GL Account Reconciliation](gl-account-reconciliation.html), explains
   each month the balance of the accounts the company chooses (GRN
