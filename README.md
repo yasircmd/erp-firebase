@@ -321,6 +321,26 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   Firebase Admin, Cloud Functions Admin, Cloud Run Admin and Service
   Account User. Log each run in the deploy log. All the deploy scripts
   exit non-zero when a step fails, so a failed run shows red.
+- **Which way, now the repository is private (owner, 2026-11-02):** GitHub
+  Actions minutes are limited (2,000 a month on the Free plan, no payment
+  method, so nothing is charged and a run simply stops when they run out).
+  Use the Deploy workflow for the short runs: "screens only", "hosting",
+  "database rules" and small function sets. **Run a deploy of every
+  function (about 130 minutes; any moduleRegistry or auth change) from
+  Cloud Shell**, inside tmux, on a clean, up-to-date checkout of `main`:
+
+  ```
+  git checkout main && git pull && git status --porcelain   # must print nothing
+  (cd functions && npm ci) && (cd tools/legacy-port && npm ci)
+  node tools/legacy-port/generate.js legacy-gas && git status --porcelain   # still nothing: the generated code matches
+  node --test functions/test/unit/noBrowserDialogs.test.js functions/test/unit/dateFormat.test.js functions/test/unit/help.test.js
+  bash tools/deploy-functions.sh <set> --screens
+  ```
+
+  These are the workflow's own checks before it deploys. Before a long run
+  in the workflow anyway, look at Settings → Billing and plans → Usage:
+  with under about 150 minutes left, use Cloud Shell, since a run stopped
+  partway leaves some functions on the new code until the next deploy.
 - **Runtime:** functions run on Node 24 (`engines.node`). After a future
   bump, run `tools/deploy-runtime.sh` from a clean worktree.
 - **Verify** with an unauthenticated call. A reply of "Please sign in

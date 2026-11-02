@@ -140,14 +140,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   by account type and heading, the screen's filters applied, the code
   opening the edit form. Built 2026-11-02 (SCREEN_EDITS, screen only).
   Deploy: "screens only", then "hosting" (Help).
-- [ ] **The repository is private since 2026-11-02 (owner).** GitHub Actions
+- [x] **The repository is private since 2026-11-02 (owner).** GitHub Actions
   minutes now count against the plan (Free: 2,000 Linux minutes a month).
   The Deploy workflow used about 2,790 minutes from 17 to 31 October; a
-  deploy of every function takes about 130. The owner to set a spending
-  budget (Settings, Billing) so a run is not stopped partway through a
-  deploy, or move deploys to a self-hosted runner. Secrets, the Claude
-  GitHub App, Hosting and Help are unaffected. Later: Workload Identity
-  Federation in place of the `GCP_SA_KEY` key.
+  deploy of every function takes about 130. The options were a spending
+  budget (it needs a payment method) or a self-hosted runner. **Decided (owner,
+  2026-11-02): no payment method for now; deploys of every function run
+  from Cloud Shell** (README, Deploying: "Which way"), the workflow keeps
+  the short runs. Secrets, the Claude GitHub App, Hosting and Help are
+  unaffected. Later: Workload Identity Federation in place of the
+  `GCP_SA_KEY` key.
 - [x] **Test upkeep (found 2026-10-17; done 2026-10-23, branch
   `copy-guard-tests`):**
   - `ui/searchPicker` and `ui/approvalRouting`: pass on `main` (4/4 each);
