@@ -43,6 +43,8 @@ const CATEGORIES = {
     detail: 'The receipts the sales reps gave customers from the Employee Portal (their GL entries and cheques are the GL and PDCs\' own). Each rep\'s receipt numbers restart.' },
   employeeRequests: { label: 'Employee Requests', group: T, fs: ['employeeRequests'], records: 'employeeRequests',
     detail: 'Payroll queries, expense claims and loan requests from the Employee Portal, with their messages.' },
+  glRecs: { label: 'GL Account Reconciliations', group: T, fs: ['glRecs'], records: 'glRecs',
+    detail: 'Every GL account reconciliation: each listed account\'s months, their matches and schedules. The GL entries themselves are not touched.' },
   bankRecs: { label: 'Bank Reconciliations', group: T, fs: ['bankRecs'], records: 'bankRecs',
     detail: 'Every bank reconciliation: each account\'s months, their statements pasted, matches and ticks. The GL entries themselves are not touched.' },
   budgets: { label: 'Budgets', group: T, fs: ['budgets', 'budgetForecasts'], records: 'budgets',
@@ -79,6 +81,8 @@ const CATEGORIES = {
   shareholders: { label: 'Shareholders', group: M, rtdb: ['companyShareholders'],
     detail: 'Each company\'s shareholders and issued shares.' },
 
+  glRecSetup: { label: 'GL Account Reconciliation Setup', group: S, fs: ['glRecSetup'],
+    detail: 'Each company\'s list of accounts reconciled monthly and their methods.' },
   creditSetup: { label: 'Credit Control Setup', group: S, fs: ['creditSetup'],
     detail: 'Each company\'s Credit Control Setup; the defaults (check off) apply until it is set again.' },
   budgetSetup: { label: 'Budget Setup', group: S, fs: ['budgetSetup'],

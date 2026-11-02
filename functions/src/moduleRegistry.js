@@ -157,6 +157,9 @@ const MODULE_REGISTRY = [
   // a statement line, step R2), reopen reopens a locked month (R2); approving is
   // the approval levels'.
   { id: 'BANKREC', label: 'Bank Reconciliation', capabilities: ['access', 'prepare', 'reopen'] },
+  // GL account reconciliation (RECONCILIATION.md, step R3): setup chooses the
+  // accounts reconciled and their method; the rest as Bank Reconciliation.
+  { id: 'GLREC', label: 'GL Account Reconciliation', capabilities: ['access', 'prepare', 'reopen', 'setup'] },
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
@@ -303,6 +306,7 @@ const DEFAULT_PERMISSIONS = {
   BUDGET:             { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
   CREDITCONTROL:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'], hold: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
   BANKREC:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'] },
+  GLREC:              { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };

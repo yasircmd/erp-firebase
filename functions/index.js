@@ -346,6 +346,9 @@ exports.getProjectBudgetReport = require('./src/budget').getProjectBudgetReport;
 ['getBankRecSetup', 'getBankRec', 'saveBankRec', 'deleteBankRecDraft',
   'postBankRecEntry', 'submitBankRec', 'decideBankRecApproval', 'reopenBankRec'] // R2
   .forEach(n => { exports[n] = require('./src/bankRec')[n]; });
+// GL account reconciliation, step R3.
+['getGlRecSetup', 'saveGlRecList', 'getGlRec', 'saveGlRec', 'deleteGlRecDraft', 'submitGlRec', 'decideGlRecApproval', 'reopenGlRec']
+  .forEach(n => { exports[n] = require('./src/glRec')[n]; });
 ['previewInvoiceTax', 'previewOrderTax'].forEach(n => { exports[n] = require('./src/salesTax')[n]; }); // TAX_ENGINE.md, parts 2 and 4
 ['previewVendorInvoiceTax'].forEach(n => { exports[n] = require('./src/purchaseTax')[n]; }); // part 3
 // Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).
