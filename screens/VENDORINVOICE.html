@@ -36,21 +36,38 @@
   </div>
 </div>
 
-<div id="vinv-entry-view" class="hidden space-y-5">
-  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-    <div class="flex items-center gap-3">
+<div id="vinv-entry-view" class="hidden entry-layout">
+  <!-- ENTRY LAYOUT (docs/modules/ENTRY_LAYOUT.md): the title bar, the actions and the key fields stay at the top while the lines scroll. -->
+  <div class="entry-sticky bg-slate-900/95">
+    <div class="entry-bar">
       <button id="vinv-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
       <button id="vinv-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="vinv-back-chain-label">Back</span></button>
-      <h2 id="vinv-entry-title" class="text-xl font-bold text-blue-400">New Vendor Invoice</h2>
-    </div>
-    <div class="flex items-center gap-2">
+      <h2 id="vinv-entry-title" class="font-bold text-blue-400">New Vendor Invoice</h2>
+      <span id="vinv-voucher-no-line" class="entry-meta"></span>
+      <span id="vinv-txn-ref-line" class="hidden entry-meta"></span>
       <span id="vinv-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
-      <button id="vinv-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+      <div class="entry-actions">
+        <button id="vinv-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+        <button id="vinv-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+        <button id="vinv-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse</button>
+        <button id="vinv-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save Draft</button>
+        <button id="vinv-post-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Post</button>
+      </div>
+    </div>
+    <div class="entry-fields">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+        <div id="vinv-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project <span class="text-slate-500">(every line)</span></label><select id="vinv-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+        <select id="vinv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Vendor</label>
+        <select id="vinv-form-vendor" title="Choosing a Vendor reveals their Posted, not-yet-invoiced GRNs below." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+      </div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Invoice Date</label><input type="date" id="vinv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Vendor's Own Invoice Number</label><input type="text" id="vinv-form-vendorref" placeholder="As printed on their bill" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
     </div>
   </div>
-
-  <div id="vinv-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
-  <div id="vinv-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
 
   <div id="vinv-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
 
@@ -74,58 +91,30 @@
     <div id="vinv-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div>
-      <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
-      <div id="vinv-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project <span class="text-slate-500">(every line)</span></label><select id="vinv-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <select id="vinv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+  <div class="entry-fields cols-6">
+    <div id="vinv-fx" class="hidden span-all">
+      <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the vendor is invoiced in its own currency; for now direct lines only, GRNs stay in <span class="vinv-base-code"></span>)</span></label>
+      <div class="flex flex-wrap items-center gap-2 text-sm"><span>1 <b id="vinv-fx-code" class="font-mono"></b> =</span>
+        <input id="vinv-fx-rate" inputmode="decimal" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"><span class="font-mono vinv-base-code"></span>
+        <input id="vinv-fx-reason" maxlength="200" placeholder="Reason for another rate" class="hidden flex-1 min-w-[10rem] bg-slate-900 border border-amber-500/50 rounded-lg py-1.5 px-2 text-sm"></div>
+      <p id="vinv-fx-note" class="text-xs text-slate-500 mt-1"></p>
     </div>
-    <div>
-      <label class="block text-xs font-medium text-slate-300 mb-1">Vendor</label>
-      <select id="vinv-form-vendor" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
-      <p class="text-xs text-slate-500 mt-1">Choosing a Vendor reveals their Posted, not-yet-invoiced GRNs below.</p>
-    </div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="vinv-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="vinv-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="vinv-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="vinv-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div class="span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input type="text" id="vinv-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Invoice Date</label><input type="date" id="vinv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Vendor's Own Invoice Number</label><input type="text" id="vinv-form-vendorref" placeholder="As printed on their bill" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
-  </div>
-
-  <div id="vinv-fx" class="hidden">
-    <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the vendor is invoiced in its own currency; for now direct lines only, GRNs stay in <span class="vinv-base-code"></span>)</span></label>
-    <div class="flex flex-wrap items-center gap-2 text-sm"><span>1 <b id="vinv-fx-code" class="font-mono"></b> =</span>
-      <input id="vinv-fx-rate" inputmode="decimal" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"><span class="font-mono vinv-base-code"></span>
-      <input id="vinv-fx-reason" maxlength="200" placeholder="Reason for another rate" class="hidden flex-1 min-w-[10rem] bg-slate-900 border border-amber-500/50 rounded-lg py-1.5 px-2 text-sm"></div>
-    <p id="vinv-fx-note" class="text-xs text-slate-500 mt-1"></p>
-  </div>
-
-  <div>
-    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
-    <input type="text" id="vinv-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
-  </div>
-
-  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
-    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="vinv-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="vinv-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="vinv-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="vinv-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-    </div>
-  </div>
-
-  <div id="vinv-grn-picker-section" class="hidden space-y-3">
-    <p class="text-xs font-semibold text-slate-400 uppercase" id="vinv-grn-picker-heading">Match Against Purchase Order GRNs <span class="normal-case font-normal text-slate-500">(Posted, not yet matched to any invoice — whole GRNs only, each contributes its own total value at the price it was received)</span></p>
-    <div id="vinv-grn-picker-list" class="space-y-2"></div>
+  <div id="vinv-grn-picker-section" class="hidden space-y-1">
+    <p class="entry-section-title" id="vinv-grn-picker-heading">Match Against Purchase Order GRNs <span class="normal-case font-normal text-slate-500">(Posted, not yet matched to any invoice — whole GRNs only, each contributes its own total value at the price it was received)</span></p>
+    <div id="vinv-grn-picker-list" class="entry-chips"></div>
     <p id="vinv-grn-picker-empty" class="hidden text-xs text-slate-500 text-center py-4">No eligible GRNs found for this Company and Vendor.</p>
   </div>
 
-  <div class="space-y-3">
-    <div class="flex items-center justify-between">
-      <p class="text-xs font-semibold text-slate-400 uppercase">Direct Lines <span class="normal-case font-normal text-slate-500">(charges not tied to any GRN — freight, services, etc.)</span></p>
-    </div>
+  <div class="space-y-1">
     <div class="flex flex-wrap items-center gap-2">
+      <p class="entry-section-title">Direct Lines <span class="normal-case font-normal text-slate-500">(charges not tied to any GRN — freight, services, etc.)</span></p>
       <button id="vinv-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
     </div>
     <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -142,40 +131,38 @@
     <datalist id="vinv-account-datalist"></datalist>
   </div>
 
-  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
-    <p class="text-xs font-semibold text-slate-400 uppercase">Adjustments</p>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Discount</label><input type="text" inputmode="decimal" id="vinv-form-discount" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
-      <div id="vinv-taxpercent-field"><label class="block text-xs font-medium text-slate-300 mb-1">Tax %</label><input type="text" inputmode="decimal" id="vinv-form-taxpercent" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Round Off <span class="text-slate-500">(+/-)</span></label><input type="text" inputmode="decimal" id="vinv-form-roundoff" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
-    </div>
-    <!-- Line tax, where the company has a Tax Configuration (docs/modules/TAX_ENGINE.md, part 3) -->
-    <div id="vinv-tax-box" class="hidden space-y-2">
-      <p id="vinv-tax-note" class="text-xs text-slate-400"></p>
-      <p id="vinv-tax-problem" class="hidden text-xs text-amber-400"></p>
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs">
-          <thead><tr class="text-slate-400 border-b border-slate-700"><th class="text-left py-1 pr-2">Line</th><th class="text-right py-1 pr-2">Taxable</th><th class="text-left py-1 pr-2">Tax code</th><th class="text-right py-1 pr-2">Rate %</th><th class="text-left py-1 pr-2">Components</th><th class="text-right py-1 pr-2">Tax</th><th class="text-right py-1">Reclaimed</th></tr></thead>
-          <tbody id="vinv-tax-lines"></tbody>
-        </table>
+  <div class="entry-split">
+    <div class="bg-slate-800/60 border border-slate-700 entry-panel">
+      <p class="entry-section-title">Adjustments</p>
+      <div class="entry-fields cols-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Discount</label><input type="text" inputmode="decimal" id="vinv-form-discount" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
+        <div id="vinv-taxpercent-field"><label class="block text-xs font-medium text-slate-300 mb-1">Tax %</label><input type="text" inputmode="decimal" id="vinv-form-taxpercent" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Round Off <span class="text-slate-500">(+/-)</span></label><input type="text" inputmode="decimal" id="vinv-form-roundoff" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
       </div>
-      <div id="vinv-tax-summary" class="text-xs text-slate-400"></div>
+      <!-- Line tax, where the company has a Tax Configuration (docs/modules/TAX_ENGINE.md, part 3) -->
+      <div id="vinv-tax-box" class="hidden space-y-2">
+        <p id="vinv-tax-note" class="text-xs text-slate-400"></p>
+        <p id="vinv-tax-problem" class="hidden text-xs text-amber-400"></p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead><tr class="text-slate-400 border-b border-slate-700"><th class="text-left py-1 pr-2">Line</th><th class="text-right py-1 pr-2">Taxable</th><th class="text-left py-1 pr-2">Tax code</th><th class="text-right py-1 pr-2">Rate %</th><th class="text-left py-1 pr-2">Components</th><th class="text-right py-1 pr-2">Tax</th><th class="text-right py-1">Reclaimed</th></tr></thead>
+            <tbody id="vinv-tax-lines"></tbody>
+          </table>
+        </div>
+        <div id="vinv-tax-summary" class="text-xs text-slate-400"></div>
+      </div>
     </div>
-    <div class="border-t border-slate-700 pt-3 space-y-1 text-sm">
-      <div class="flex justify-between text-slate-400"><span>Subtotal (GRNs + direct lines)</span><span id="vinv-subtotal-display" class="font-mono">0.00</span></div>
-      <div class="flex justify-between text-slate-400"><span>Discount</span><span id="vinv-discount-display" class="font-mono">0.00</span></div>
-      <div class="flex justify-between text-slate-400"><span>Tax Amount</span><span id="vinv-tax-display" class="font-mono">0.00</span></div>
-      <div class="flex justify-between text-slate-400"><span>Round Off</span><span id="vinv-roundoff-display" class="font-mono">0.00</span></div>
-      <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Total <span id="vinv-total-code" class="font-mono text-xs text-slate-400"></span></span><span id="vinv-total-display" class="font-mono">0.00</span></div>
-      <div id="vinv-total-base" class="hidden flex justify-between text-xs text-slate-400"><span>In <span class="vinv-base-code"></span> at the rate</span><span id="vinv-total-base-value" class="font-mono"></span></div>
+    <div class="bg-slate-800/60 border border-slate-700 entry-panel">
+      <p class="entry-section-title">Totals</p>
+      <div class="space-y-1 text-sm">
+        <div class="flex justify-between text-slate-400"><span>Subtotal (GRNs + direct lines)</span><span id="vinv-subtotal-display" class="font-mono">0.00</span></div>
+        <div class="flex justify-between text-slate-400"><span>Discount</span><span id="vinv-discount-display" class="font-mono">0.00</span></div>
+        <div class="flex justify-between text-slate-400"><span>Tax Amount</span><span id="vinv-tax-display" class="font-mono">0.00</span></div>
+        <div class="flex justify-between text-slate-400"><span>Round Off</span><span id="vinv-roundoff-display" class="font-mono">0.00</span></div>
+        <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Total <span id="vinv-total-code" class="font-mono text-xs text-slate-400"></span></span><span id="vinv-total-display" class="font-mono">0.00</span></div>
+        <div id="vinv-total-base" class="hidden flex justify-between text-xs text-slate-400"><span>In <span class="vinv-base-code"></span> at the rate</span><span id="vinv-total-base-value" class="font-mono"></span></div>
+      </div>
     </div>
-  </div>
-
-  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
-    <button id="vinv-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
-    <button id="vinv-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse</button>
-    <button id="vinv-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save Draft</button>
-    <button id="vinv-post-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Post</button>
   </div>
 </div>
 
@@ -536,11 +523,11 @@
     document.getElementById('vinv-grn-picker-empty').classList.toggle('hidden', eligibleGRNs.length > 0);
     eligibleGRNs.forEach(g => {
       const row = document.createElement(editable ? 'label' : 'div');
-      row.className = 'flex items-center gap-2 text-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2' + (editable ? ' cursor-pointer' : '');
+      row.className = 'bg-slate-900 border border-slate-700' + (editable ? ' cursor-pointer' : ''); // a chip (ENTRY LAYOUT)
       const marker = editable
         ? `<input type="checkbox" class="vinv-grn-checkbox" data-id="${g.GRNID}" ${selectedGRNIds.has(g.GRNID) ? 'checked' : ''}>`
         : '<i class="fa-solid fa-check text-emerald-400"></i>';
-      row.innerHTML = `${marker} <span>${escapeHtml(g.GRNNumber || g.GRNID)} — ${escapeHtml(g.Description || '')} — <span class="font-mono">${formatMoney(g.Amount)}</span></span>`;
+      row.innerHTML = `${marker} <span>${escapeHtml(g.GRNNumber || g.GRNID)}${g.Description ? ' — ' + escapeHtml(g.Description) : ''} — <span class="font-mono">${formatMoney(g.Amount)}</span></span>`;
       list.appendChild(row);
     });
     if (!editable) return;

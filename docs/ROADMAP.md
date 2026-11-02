@@ -136,15 +136,20 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Entry layout: compact entry screens with a sticky top** (owner,
+  2026-11-02; decisions Q383-Q386, [ENTRY_LAYOUT.md](modules/ENTRY_LAYOUT.md)).
+  Pilot built 2026-11-02: Vendor Invoice, Sales Order, JV (header -62 % /
+  -46 % / -43 %). Deploy: "screens only", then "hosting". Next: the owner
+  tries them; then the other entry screens.
 - [x] **Sales Order: Delivered / Remaining, Delivered status, Close and Reopen**
   (owner, 2026-11-02; decisions Q379-Q382, [SO_CLOSE.md](modules/SO_CLOSE.md)).
   The screen dropped each line's delivered quantity when opening an order (an
   Apps Script omission); fixed, with a Delivered status and short-closing.
-  Built 2026-11-02. Deploy: `so-close` with screens, then Hosting.
+  Live 2026-11-02 (PR #209, runs #277-#278).
 - [x] **Master Data Import, items (owner, 2026-11-02):** Copy current records
   showed user codes in the Item Code column; Tax Code and HSN / SAC were
   not saved. Fixed 2026-11-02 (MASTER_IMPORT.md, "Fix (2026-11-02)").
-  Deploy: `import-item-fix` with screens, then Hosting.
+  Live 2026-11-02 (PR #208, runs #275-#276).
 - [x] **Chart of Accounts: Tree view** (owner, 2026-11-02; decisions
   Q375-Q378, [COA_TREE.md](modules/COA_TREE.md)): a List / Tree view tab,
   by account type and heading, the screen's filters applied, the code

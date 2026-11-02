@@ -689,6 +689,8 @@ master: key, id field, locked columns, what to keep) and `updateRows`
 
 ## Fix (2026-11-02): items' tax columns, and the item code in Copy current records
 
+Live 2026-11-02 (PR #208; runs #275, #276).
+
 Reported by the owner, 2026-11-02:
 
 1. **Copy current records showed the user code in the Item Code column.**

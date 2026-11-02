@@ -5,13 +5,30 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
 reviewed: 2026-11-02
-fingerprint: 7c171466a485df80
+fingerprint: e74b2e58a2744c77
 ---
 ## The page
 
 Each screen opens wide, using more of a large monitor (up to 1600 pixels),
 with a margin kept at each side; Home stays a narrower column. On a phone,
 the [phone view](getting-started.html#on-a-phone) applies.
+
+## Entry screens: the top stays in view
+
+On **Vendor Invoice**, **Sales Order** and **Journal Entry** (the first
+screens with the new layout; the other entry screens follow), the top of an
+entry stays in view while you scroll down its lines:
+
+- the title bar: **Back to List**, the document's number and status, and its
+  buttons (**Save Draft**, **Post** or **Confirm**, and the others such as
+  Reverse, Close or Print);
+- the key fields (for example Company, Vendor, Date and the vendor's own
+  invoice number).
+
+The dimensions (Division, Branch, Cost Center, Profit Center) and the
+description are in one row under them, and on a wide window the
+adjustments and the totals are side by side. On a phone nothing stays
+fixed, so the lines keep the whole screen.
 
 ## Company first
 

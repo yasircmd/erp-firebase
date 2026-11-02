@@ -5,8 +5,8 @@ order: 4
 modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
-reviewed: 2026-11-01
-fingerprint: e42ef88616467095
+reviewed: 2026-11-02
+fingerprint: 44435aad593305fb
 ---
 ## What it is for
 
