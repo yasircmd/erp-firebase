@@ -174,6 +174,8 @@ Live 2026-11-01 (PR #203; runs #266 every function and the screens, #267 Hosting
 
 ## As built: step R2, bank reconciliation finished (2026-11-01)
 
+Live 2026-11-02 (PR #204; runs #268 functions and screens, #269 Hosting).
+
 - **An entry for a statement line (Q369): `postBankRecEntry`.**
   - It makes a Bank Payment (for a withdrawal) or a Bank Receipt (for a
     deposit), dated as the line, for the account typed, with an optional

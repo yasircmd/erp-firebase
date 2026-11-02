@@ -1694,3 +1694,10 @@ from, and how it was verified. The deploy procedure is in the
   (14:08–16:22 UTC), success. "hosting", run
   [#267](https://github.com/yasircmd/erp-firebase/actions/runs/41326775394)
   (16:31–16:32 UTC), success. No rules change.
+- **2026-11-01/02, Reconciliations step R2 (`bankrec-r2`, PR #204, from
+  `24d48ee`):** `bankrec-r2` (287 functions) with `--screens`, run
+  [#268](https://github.com/yasircmd/erp-firebase/actions/runs/41339623970)
+  (11-01 19:01–20:06 UTC), success. "hosting", run
+  [#269](https://github.com/yasircmd/erp-firebase/actions/runs/41381713690)
+  (11-02 03:11–03:12 UTC), success. No rules change. Period Closing's bank
+  reconciliation check is Warn to start.
