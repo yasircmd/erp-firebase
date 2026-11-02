@@ -59,6 +59,10 @@ these are the likely causes, read from the code:
   - cold starts: `jsonPayload.message="perf" AND jsonPayload.cold=true`
   - lock waits: `jsonPayload.message="perf" AND jsonPayload.lockWaitMs>500`
   - lock timeouts: `jsonPayload.message="perf" AND jsonPayload.lockTimeout=true`
+- These are Logs Explorer queries, not shell commands. In Cloud Shell, run
+  one through `gcloud logging read` (single quotes around the query), e.g.
+  the cold starts of the last day:
+  `gcloud logging read 'jsonPayload.message="perf" AND jsonPayload.cold=true' --freshness=1d --limit=30 --format='table(timestamp, jsonPayload.fn, jsonPayload.ms, jsonPayload.loadMs, jsonPayload.lazy)'`
 - Tests: unit/perf (4: the line, cold then warm, the lock's figures, a
   timeout's wait, concurrent calls kept apart, emulator silence, a log
   failure), emulator/perf (2: two postings with the real lock, the second
