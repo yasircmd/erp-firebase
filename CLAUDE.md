@@ -104,6 +104,10 @@ preserved quirks). Read it when touching a ported module.
 - Deploy from a clean checkout only (`git status --porcelain` empty),
   inside tmux: batches of 20 there, 6 outside (the old limit, from Cloud
   Shell connection timeouts). Details: README → Deploying.
+- The repository is private (owner, 2026-11-02), with no payment method:
+  Actions minutes are capped at 2,000 a month. So a deploy of every function
+  (about 130 minutes) goes through Cloud Shell, not the Deploy workflow,
+  which keeps the short runs (README → Deploying, "Which way").
 - **A change to functions/src/moduleRegistry.js (or auth.js) reaches every
   function**: auth.js seeds the default permissions from it, and
   getModuleFragment and the legacy port check module ids against it. Its

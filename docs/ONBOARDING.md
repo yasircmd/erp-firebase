@@ -41,7 +41,8 @@ them through two grants, with no key.
    IAM & Admin → IAM → Grant access, or in Cloud Shell (replace
    `CLIENT_PROJECT` with the project ID, and `THE-FIRMS-DEPLOY-ACCOUNT`
    with the email the firm sends the client separately; it is kept out of
-   this public repository, owner 2026-10-23). That email has the form
+   the repository, owner 2026-10-23, and stays out now that the repository
+   is private, 2026-11-02). That email has the form
    `some-name@erp1-8f4cd.iam.gserviceaccount.com`, and the commands stop
    on anything else. Both accounts were confirmed in the Cloud console by
    the owner on 2026-10-23. Each account also needs **Service Usage

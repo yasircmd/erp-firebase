@@ -5,7 +5,7 @@ The owner chose two kinds: **bank reconciliation** and **GL account
 reconciliation**. Vendor statement and customer balance confirmation are
 not in scope.
 
-**Status:** all decisions made 2026-11-01. R1 and R2 (bank) live; R3 (GL accounts) built 2026-11-02.
+**Status:** all decisions made 2026-11-01. R1, R2 (bank) and R3 (GL accounts) live; the module is complete (2026-11-02).
 
 ## What already exists (from the code)
 
@@ -230,6 +230,8 @@ Live 2026-11-02 (PR #204; runs #268 functions and screens, #269 Hosting).
   `--screens`, then "hosting".
 
 ## As built: step R3, GL account reconciliation (2026-11-02)
+
+Live 2026-11-02 (PR #205; runs #270 every function and the screens, #271 Hosting).
 
 - **Module:** `GLREC`, GL Account Reconciliation. It sits in the tree
   beside Period Closing, and in Help under Finance. Its rights:
