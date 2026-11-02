@@ -38,6 +38,8 @@ close a SO".
 
 ## As built (2026-11-02)
 
+Live 2026-11-02 (PR #209; runs #277 functions and the screen, #278 Hosting).
+
 - **functions/src/salesOrderClose.js** (hand-written): `closeSalesOrder`
   and `reopenSalesOrder` ({ soId, reason }). Under the global lock; close
   writes the order and its released reservations in one batch. The order

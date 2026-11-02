@@ -1722,3 +1722,17 @@ from, and how it was verified. The deploy procedure is in the
   mapped"). Run from the Deploy workflow, not Cloud Shell (owner): it fitted
   the month's free minutes, and runs with the owner's computer off. No
   screens, no rules, no Hosting.
+- **2026-11-02, Master Data Import item fixes (`import-item-fix`, PR #208,
+  from `57552f0`):** "functions set, then screens", run
+  [#275](https://github.com/yasircmd/erp-firebase/actions/runs/41471379770)
+  (15:25–15:29 UTC), success. "hosting" (public/index.html's
+  copyKeepingItemCodes and the Help), run
+  [#276](https://github.com/yasircmd/erp-firebase/actions/runs/41472140580)
+  (15:29–15:31 UTC), success.
+- **2026-11-02, Sales Order: Delivered / Remaining, Delivered status, Close
+  and Reopen (`so-close`, 156, PR #209, from `7d462ce`):** "functions set,
+  then screens", run
+  [#277](https://github.com/yasircmd/erp-firebase/actions/runs/41497868121)
+  (18:09–18:43 UTC), success. "hosting" (the Help), run
+  [#278](https://github.com/yasircmd/erp-firebase/actions/runs/41503885730)
+  (18:47–18:48 UTC), success. No rules change.
