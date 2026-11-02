@@ -22,7 +22,7 @@
     <select id="so-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
       <option value="">All Statuses</option>
       <option value="Draft">Draft</option><option value="Reserved">Reserved</option>
-      <option value="Partially Reserved">Partially Reserved</option><option value="Cancelled">Cancelled</option>
+      <option value="Partially Reserved">Partially Reserved</option><option value="Delivered">Delivered</option><option value="Closed">Closed</option><option value="Cancelled">Cancelled</option>
     </select>
     <input type="date" id="so-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
   </div>
@@ -162,6 +162,8 @@
 
   <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
     <button id="so-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="so-close-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg text-xs" title="Short-close: what is left is no longer expected; its reserved stock is released"><i class="fa-solid fa-lock"></i> Close Sales Order</button>
+    <button id="so-reopen-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg text-xs"><i class="fa-solid fa-lock-open"></i> Reopen</button>
     <button id="so-cancel-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Cancel Sales Order</button>
     <button id="so-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
     <button id="so-confirm-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-check"></i> Confirm</button>
@@ -272,7 +274,7 @@
       .getSalesOrderEntries({ limit: currentLimit });
   }
 
-  const STATUS_COLORS = { Draft: 'bg-slate-700 text-slate-300', Reserved: 'bg-emerald-500/10 text-emerald-400', 'Partially Reserved': 'bg-amber-500/10 text-amber-400', Cancelled: 'bg-red-500/10 text-red-400' };
+  const STATUS_COLORS = { Delivered: 'bg-blue-500/10 text-blue-400', Closed: 'bg-slate-600/40 text-slate-300', Draft: 'bg-slate-700 text-slate-300', Reserved: 'bg-emerald-500/10 text-emerald-400', 'Partially Reserved': 'bg-amber-500/10 text-amber-400', Cancelled: 'bg-red-500/10 text-red-400' };
 
   function renderList() {
     const query = document.getElementById('so-search-input').value.trim().toLowerCase();
@@ -436,6 +438,9 @@
     document.getElementById('so-confirm-btn').classList.toggle('hidden', !isDraft || !canPost);
     document.getElementById('so-delete-btn').classList.toggle('hidden', !isDraft || !currentSo || !canDraft);
     document.getElementById('so-cancel-btn').classList.toggle('hidden', !currentSo || status === 'Cancelled' || !canPost);
+    document.getElementById('so-close-btn').classList.toggle('hidden', !currentSo || !['Reserved', 'Partially Reserved'].includes(status) || !canPost);
+    document.getElementById('so-reopen-btn').classList.toggle('hidden', !currentSo || status !== 'Closed' || !canPost);
+    if (currentSo && status === 'Closed') document.getElementById('so-voucher-no-line').textContent += ' · Closed ' + String(currentSo.ClosedAt || '').slice(0, 10) + ' by ' + (currentSo.ClosedBy || '') + ': ' + (currentSo.CloseReason || '');
     document.getElementById('so-proforma-btn').classList.toggle('hidden', !currentSo || status === 'Cancelled');
     document.getElementById('so-add-line-btn').classList.toggle('hidden', !isDraft);
     document.getElementById('so-paste-btn').classList.toggle('hidden', !isDraft);
@@ -453,10 +458,12 @@
   function openEntry(soId) {
     currentSo = entries.find(e => e.SOID === soId) || null;
     if (!currentSo) return;
+    // DeliveredQuantity too (2026-11-02, docs/modules/SO_CLOSE.md): without it
+    // an opened order showed Delivered 0 whatever was delivered.
     gridLines = (currentSo.Lines || []).map(l => ({
       LineID: l.LineID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID || '',
       OrderedQuantity: l.OrderedQuantity, EnteredUOMID: l.EnteredUOMID || '',
-      UnitPrice: l.UnitPrice, LineTotal: l.LineTotal, ReservedQuantity: l.ReservedQuantity || 0
+      UnitPrice: l.UnitPrice, LineTotal: l.LineTotal, ReservedQuantity: l.ReservedQuantity || 0, DeliveredQuantity: Number(l.DeliveredQuantity) || 0
     }));
     document.getElementById('so-form-company').value = currentSo.CompanyID || '';
     document.getElementById('so-form-customer').value = currentSo.CustomerID || '';
@@ -573,7 +580,8 @@
     const ordered = Number(line.OrderedQuantity) || 0;
     const reserved = Number(line.ReservedQuantity) || 0;
     let html = '';
-    if (ordered > reserved) html += `<button data-row="${rowIndex}" class="so-claim-btn text-xs text-blue-400 hover:text-blue-300 underline mr-2">Claim</button>`;
+    if (!currentSo || !['Reserved', 'Partially Reserved'].includes(currentSo.Status)) return '';
+    if (ordered - (Number(line.DeliveredQuantity) || 0) > reserved) html += `<button data-row="${rowIndex}" class="so-claim-btn text-xs text-blue-400 hover:text-blue-300 underline mr-2">Claim</button>`;
     if (reserved > 0) html += `<button data-row="${rowIndex}" class="so-release-btn text-xs text-amber-400 hover:text-amber-300 underline">Release</button>`;
     return html;
   }
@@ -811,6 +819,23 @@
       .deleteDraftSalesOrder({ soId: currentSo.SOID });
   }
 
+  // Close (short-close) and reopen, each with a reason (SO_CLOSE.md); the
+  // order then opens again with its new status.
+  async function closeOrReopen(kind) {
+    if (!currentSo) return;
+    const ask = kind === 'close'
+      ? 'Close this Sales Order? What is left of it is no longer expected: its reserved stock is released and no more Delivery Notes or invoices can be made from it. What was delivered stays.\n\nReason:'
+      : 'Reopen this Sales Order? Reserved stock is not restored: use Claim to reserve again.\n\nReason:';
+    const reason = await appPrompt(ask, '');
+    if (reason === null) return;
+    if (!reason.trim()) { appAlert('Give a reason.'); return; }
+    const id = currentSo.SOID;
+    rpc
+      .withSuccessHandler(() => { pendingOpenEntryId = id; listLoaded = false; fetchAndRenderList(currentLimit); })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to ' + kind + ' the Sales Order.'))
+      [kind === 'close' ? 'closeSalesOrder' : 'reopenSalesOrder']({ soId: id, reason: reason.trim() });
+  }
+
   async function cancelEntry() {
     if (!currentSo) return;
     if (!(await appConfirm('Cancel this Sales Order? Any reserved stock will be released back to available.'))) return;
@@ -982,6 +1007,8 @@
     document.getElementById('so-confirm-btn').addEventListener('click', confirmEntry);
     document.getElementById('so-delete-btn').addEventListener('click', deleteDraft);
     document.getElementById('so-cancel-btn').addEventListener('click', cancelEntry);
+    document.getElementById('so-close-btn').addEventListener('click', () => closeOrReopen('close'));
+    document.getElementById('so-reopen-btn').addEventListener('click', () => closeOrReopen('reopen'));
     document.getElementById('so-proforma-btn').addEventListener('click', printProforma);
     document.getElementById('so-cr-cancel').addEventListener('click', closeClaimReleaseModal);
     document.getElementById('so-cr-submit').addEventListener('click', submitClaimReleaseModal);
