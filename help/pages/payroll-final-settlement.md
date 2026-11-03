@@ -5,8 +5,8 @@ order: 11
 modules: [PAYROLLFS]
 sources: [functions/src/payrollSettlement.js, functions/src/eosStatement.js, functions/src/payrollCalc.js, functions/src/payrollRun.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js]
 summary: Finalise the employee’s end-of-service or exit settlement with all remaining balances and payments.
-reviewed: 2026-10-25
-fingerprint: 748ea12bd449e3b4
+reviewed: 2026-11-03
+fingerprint: 5f3b0993e1b9061b
 ---
 ## What it is for
 

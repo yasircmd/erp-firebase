@@ -1,6 +1,6 @@
 ---
-fingerprint: c491df08d7c8ba09
-reviewed: 2026-10-31
+fingerprint: 7b76ce62c1b66652
+reviewed: 2026-11-03
 title: Budget
 area: finance
 order: 17

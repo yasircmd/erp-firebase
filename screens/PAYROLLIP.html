@@ -14,26 +14,26 @@
   </div></div>
 </div>
 
-<div id="ip-entry-view" class="hidden space-y-5">
-  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-    <div class="flex items-center gap-3">
+<div id="ip-entry-view" class="hidden entry-layout">
+  <!-- ENTRY LAYOUT (docs/modules/ENTRY_LAYOUT.md): the title bar, the actions and the key fields stay at the top while the lines scroll. -->
+  <div class="entry-sticky bg-slate-900/95">
+    <div class="entry-bar">
       <button id="ip-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
-      <h3 id="ip-heading" class="text-lg font-bold text-slate-100"></h3>
+      <h3 id="ip-heading" class="font-bold text-blue-400"></h3>
       <span id="ip-status" class="text-xs text-slate-400"></span>
+      <div class="entry-actions">
+        <button id="ip-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
+        <button id="ip-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        <button id="ip-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+      </div>
     </div>
-    <div class="flex gap-2">
-      <button id="ip-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
-      <button id="ip-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-      <button id="ip-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+    <div class="entry-fields keys">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><div id="ip-company" class="text-sm py-2"></div></div>
+      <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Payment date *</label><input id="ip-date" type="date" class="ip-f bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="ip-note" maxlength="300" class="ip-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
     </div>
   </div>
   <p id="ip-state-note" class="hidden text-xs"></p>
-
-  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap items-end gap-3">
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><div id="ip-company" class="text-sm py-2"></div></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date *</label><input id="ip-date" type="date" class="ip-f bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <div class="flex-1 min-w-[16rem]"><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="ip-note" maxlength="300" class="ip-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-  </div>
 
   <div id="ip-approval" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
     <div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>

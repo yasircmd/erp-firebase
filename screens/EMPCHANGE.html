@@ -20,31 +20,31 @@
   </div></div>
 </div>
 
-<div id="ec-entry-view" class="hidden space-y-5">
-  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-    <div class="flex items-center gap-3">
+<div id="ec-entry-view" class="hidden entry-layout">
+  <!-- ENTRY LAYOUT (docs/modules/ENTRY_LAYOUT.md): the title bar, the actions and the key fields stay at the top while the lines scroll. -->
+  <div class="entry-sticky bg-slate-900/95">
+    <div class="entry-bar">
       <button id="ec-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
-      <h3 id="ec-heading" class="text-lg font-bold text-slate-100"></h3>
+      <h3 id="ec-heading" class="font-bold text-blue-400"></h3>
       <span id="ec-status-badge"></span>
+      <div class="entry-actions">
+        <button id="ec-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
+        <button id="ec-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
+        <button id="ec-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+      </div>
     </div>
-    <div class="flex gap-2" id="ec-actions">
-      <button id="ec-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
-      <button id="ec-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
-      <button id="ec-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+    <div class="entry-fields keys">
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Employee *</label><select id="ec-employee" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="ec-type" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Promotion</option><option>Increment</option><option>Transfer</option></select></div>
+      <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Effective date *</label><input id="ec-effective" type="date" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
     </div>
+  </div>
+  <div class="entry-fields keys">
+    <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><textarea id="ec-reason" rows="2" maxlength="1000" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
   </div>
   <p id="ec-note" class="hidden text-xs"></p>
   <div id="ec-error" class="hidden text-xs text-red-400"></div>
   <ul id="ec-warnings" class="hidden text-xs text-amber-400 space-y-1"></ul>
-
-  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Employee *</label><select id="ec-employee" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="ec-type" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Promotion</option><option>Increment</option><option>Transfer</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Effective date *</label><input id="ec-effective" type="date" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-      <div class="md:col-span-4"><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><textarea id="ec-reason" rows="2" maxlength="1000" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
-    </div>
-  </div>
 
   <div id="ec-sec-job" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
     <div class="text-xs font-semibold text-slate-400 uppercase">Job</div>

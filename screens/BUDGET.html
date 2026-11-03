@@ -42,8 +42,9 @@
   </div>
 
   <!-- ---------- Budgets: one budget (or one forecast) ---------- -->
-  <div id="bud-entry-view" class="hidden space-y-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+  <div id="bud-entry-view" class="hidden entry-layout">
+    <!-- ENTRY LAYOUT (docs/modules/ENTRY_LAYOUT.md): the title bar and its actions stay at the top while the grid scrolls. -->
+    <div class="entry-sticky bg-slate-900/95 flex flex-wrap items-center justify-between gap-2">
       <div><p id="bud-entry-title" class="text-lg font-bold text-slate-100"></p><p id="bud-entry-sub" class="text-xs text-slate-400"></p></div>
       <div class="flex flex-wrap gap-2">
         <button id="bud-back" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-arrow-left"></i> Back</button>
