@@ -11,6 +11,10 @@
   <script>if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
+    /* A hidden icon stays hidden (owner, 2026-11-03: Cash and Bank showed all five type ticks).
+       Font Awesome's stylesheet comes after erp.css and sets its icons' display, which beat
+       .hidden on an icon such as <i class="hidden fa-solid ...">. */
+    .hidden.fa-solid, .hidden.fa-regular, .hidden.fa-brands, .hidden.fa { display: none; }
     details > summary { list-style: none; }
     details > summary::-webkit-details-marker, details > summary::marker { display: none; }
 

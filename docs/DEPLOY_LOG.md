@@ -1764,3 +1764,11 @@ from, and how it was verified. The deploy procedure is in the
   (10:19–10:21 UTC), success. "hosting", run
   [#289](https://github.com/yasircmd/erp-firebase/actions/runs/41620234934)
   (10:33–10:34 UTC), success. No functions.
+- **2026-11-03, Entry layout wave 3 (PR #214, from `f42ab38`):** "screens
+  only", run
+  [#290](https://github.com/yasircmd/erp-firebase/actions/runs/41626969915)
+  (11:22–11:23 UTC), success. "hosting", run
+  [#291](https://github.com/yasircmd/erp-firebase/actions/runs/41627198619)
+  (11:23–11:25 UTC), success. No functions. Every entry screen has the
+  layout. The owner then found all five CBT type ticks shown (fixed on
+  branch `fix-hidden-icons`).

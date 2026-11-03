@@ -12,6 +12,9 @@ screen.
 
 ## 03/11/2026
 
+- **Cash and Bank: only the chosen type is ticked.** All five transaction
+  types showed a tick; now only the one chosen does (the same for a Job
+  Order Request's origin). See [Cash and Bank](cash-and-bank.html).
 - **Every entry screen: the compact layout.** The last ones too:
   [Recurring journals](recurring-journals.html), the fixed asset entries
   ([capitalization](fixed-asset-capitalization.html),
