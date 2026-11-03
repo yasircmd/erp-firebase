@@ -12,6 +12,10 @@ screen.
 
 ## 03/11/2026
 
+- **Cash and Bank: receipts print as Cash Receipt or Bank Receipt.** A
+  printed Cash Receipt or Bank Receipt is now titled by its type (it said
+  "Payment Receipt"); payments keep their voucher title. See
+  [Cash and Bank](cash-and-bank.html).
 - **Cash and Bank: only the chosen type is ticked.** All five transaction
   types showed a tick; now only the one chosen does (the same for a Job
   Order Request's origin). See [Cash and Bank](cash-and-bank.html).

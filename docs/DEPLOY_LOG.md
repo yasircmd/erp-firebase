@@ -1772,3 +1772,6 @@ from, and how it was verified. The deploy procedure is in the
   (11:23–11:25 UTC), success. No functions. Every entry screen has the
   layout. The owner then found all five CBT type ticks shown (fixed on
   branch `fix-hidden-icons`).
+- **2026-11-03, Fix: hidden icons (PR #215, from `88e98e2`):** "hosting",
+  run [#292](https://github.com/yasircmd/erp-firebase/actions/runs/41635600233)
+  (12:25–12:26 UTC), success. Only the chosen CBT type is ticked.

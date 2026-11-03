@@ -160,7 +160,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   the four fixed asset entries, Employee Changes, Loans, Interim Payment,
   Final Settlement, Budget) built 2026-11-03: every entry screen now has the
   layout; live 2026-11-03 (PR #214, runs #290-#291). Fix: hidden icons (all
-  five CBT type ticks showed), branch `fix-hidden-icons`, Hosting only.
+  five CBT type ticks showed), PR #215, live (run #292). CBT receipts print
+  as CASH RECEIPT / BANK RECEIPT (owner), branch `cbt-receipt-title`.
 - [x] **Sales Order: Delivered / Remaining, Delivered status, Close and Reopen**
   (owner, 2026-11-02; decisions Q379-Q382, [SO_CLOSE.md](modules/SO_CLOSE.md)).
   The screen dropped each line's delivered quantity when opening an order (an

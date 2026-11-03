@@ -1221,13 +1221,14 @@
 
     const total = validLines.reduce((sum, l) => sum + (Number(l.Amount) || 0), 0);
 
-    // Receipt types (money in) print as a Payment Receipt — a document
-    // meant to be handed to the payer as their proof of payment, signed
-    // by whoever on the company side physically accepted the cash or
-    // cheque. Payment types (money out) keep the existing
-    // voucher/internal-signoff format, since that wasn't asked to change.
+    // Receipt types (money in) print as a receipt — a document meant to be
+    // handed to the payer as their proof of payment, signed by whoever on
+    // the company side physically accepted the cash or cheque — titled by
+    // its type, CASH RECEIPT or BANK RECEIPT (owner, 2026-11-03; it was
+    // "PAYMENT RECEIPT"). Payment types (money out) keep the existing
+    // voucher/internal-signoff format.
     const isReceiptType = currentType === 'Cash Receipt' || currentType === 'Bank Receipt';
-    const title = isReceiptType ? 'PAYMENT RECEIPT' : escapeHtml((currentType || 'CASH/BANK TRANSACTION').toUpperCase()) + ' VOUCHER';
+    const title = isReceiptType ? currentType.toUpperCase() : escapeHtml((currentType || 'CASH/BANK TRANSACTION').toUpperCase()) + ' VOUCHER';
     const signatureBlock = isReceiptType
       ? `<div style="margin-top:60px; font-size:11px;">
           <div>Received By: _________________ (Signature &amp; Name — Company Representative)</div>
