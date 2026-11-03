@@ -68,6 +68,8 @@ matched GRN, Adjustments and totals stacked, the buttons at the bottom).
 - **Deploy:** "screens only" (the three screens), then "hosting"
   (public/index.html and the Help). No functions.
 
+Live 2026-11-02 (PR #210; runs #279 screens, #280 Hosting).
+
 ## Owner's review (2026-11-03)
 
 "All looks good except date, it has more width": on a wide window the key
