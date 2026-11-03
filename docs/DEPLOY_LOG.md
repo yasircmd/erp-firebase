@@ -1736,3 +1736,10 @@ from, and how it was verified. The deploy procedure is in the
   (18:09–18:43 UTC), success. "hosting" (the Help), run
   [#278](https://github.com/yasircmd/erp-firebase/actions/runs/41503885730)
   (18:47–18:48 UTC), success. No rules change.
+- **2026-11-02, Entry layout pilot (Vendor Invoice, Sales Order, JV; PR
+  #210, from `42a7fb2`):** "screens only", run
+  [#279](https://github.com/yasircmd/erp-firebase/actions/runs/41515123862)
+  (20:00–20:01 UTC), success. "hosting" (public/index.html and the Help),
+  run [#280](https://github.com/yasircmd/erp-firebase/actions/runs/41515379395)
+  (20:01–20:02 UTC), success. No functions. The owner's review (2026-11-03):
+  good, except the dates too wide (fixed with projects step 1).

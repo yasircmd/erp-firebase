@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-02
+reviewed: 2026-11-03
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,17 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 03/11/2026
+
+- **Project on entry screens, and narrower dates.** On
+  [Vendor Invoice](vendor-invoice.html), [Sales Order](sales-order.html)
+  and [Journal Entry](journal-entries.html), the **Project** field now
+  comes after Cost Center and Profit Center, once the company has
+  projects. It is the default for new lines; a Vendor Invoice's direct
+  lines and a Journal Entry's lines can each have their own. Date fields
+  take only the width a date needs, leaving more room for the vendor,
+  customer and description. More screens follow.
 
 ## 02/11/2026
 

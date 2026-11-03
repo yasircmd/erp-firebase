@@ -5,8 +5,8 @@ order: 7
 modules: [VENDORINVOICE]
 sources: [functions/src/grn.js, functions/src/partyLedger.js, functions/src/purchaseTax.js]
 summary: Match the supplier bill to the received GRNs and post the payable amount to the company books.
-reviewed: 2026-11-02
-fingerprint: 1651650984a90247
+reviewed: 2026-11-03
+fingerprint: a3868c9d1035bd71
 ---
 ## What it is for
 
@@ -84,12 +84,13 @@ keeps its foreign amount too. A reversal uses the invoice's own rate.
 
 ## Project
 
-Once the company has projects, the invoice has a **Project** field: every
-line the invoice posts carries it, for the
-[Project Report](project-report.html).
-
-
-From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+Once the company has projects, the invoice has a **Project** field, after
+Profit Center: it is the default for the invoice's lines. Each direct line
+also has a **Project** column, so one line can go to another project (for
+example, freight for Tower B on an invoice for Tower A); a new line takes
+the invoice's project. Lines matched from GRNs take the invoice's project.
+Only the company's own and shared projects are offered, and a closed
+project can't be used. See the [Project Report](project-report.html).
 
 ## The budget
 

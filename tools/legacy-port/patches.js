@@ -3636,4 +3636,37 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 
     const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {`
   }
+  ,
+  {
+    id: 'projects-docs (vendor invoice direct lines, save)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-03; docs/modules/PROJECTS_DIMENSIONS.md, Q388): a Vendor Invoice direct line may have its own project; the header project is its default.',
+    find: `        AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim()
+      };`,
+    replace: `        AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim(),
+        ProjectID: String(l.ProjectID || '').trim().slice(0, 80) // [NEW DEVELOPMENT projects-docs] checked when posted (glWriting)
+      };`
+  },
+  {
+    id: 'projects-docs (vendor invoice direct lines, post)',
+    why: 'As above: the direct line\'s own project on its GL line (linesWithProject_ then gives the others the header\'s).',
+    find: `      Description: l.Description, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || ''`,
+    replace: `      Description: l.Description, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || '', ProjectID: l.ProjectID || '' // [NEW DEVELOPMENT projects-docs]`
+  },
+  {
+    id: 'projects-docs (vendor invoice direct lines, reverse)',
+    why: 'As above: the reversal mirrors the line\'s project.',
+    find: `Credit: l.Amount, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || '' });`,
+    replace: `Credit: l.Amount, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || '', ProjectID: l.ProjectID || '' }); // [NEW DEVELOPMENT projects-docs]`
+  },
+  {
+    id: 'projects-docs (sales order)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-03; docs/modules/PROJECTS_DIMENSIONS.md, Q387, Q390): a Sales Order\'s project, checked when saved; carried on to its Delivery Notes and invoices.',
+    find: `      CostCenterID: costCenterId, ProfitCenterID: String(header.ProfitCenterID || '').trim(),
+      SODate: soDate, RequestedDeliveryDate: header.RequestedDeliveryDate || '',`,
+    replace: `      CostCenterID: costCenterId, ProfitCenterID: String(header.ProfitCenterID || '').trim(),
+      ProjectID: documentProject_(idToken, header.ProjectID, companyId), // [NEW DEVELOPMENT projects-docs]
+      SODate: soDate, RequestedDeliveryDate: header.RequestedDeliveryDate || '',`
+  }
 ];

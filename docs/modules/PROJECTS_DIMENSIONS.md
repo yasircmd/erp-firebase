@@ -143,3 +143,62 @@ and the JV and CBT screens read the rule from the server instead of a copy.
 - a project budget (decision 224, later).
 
 **Tests:** unit `dimensionRules` (4); emulator `projectsDimensions` (6); UI `projectsEInvoice` (5). Negative control: a required dimension not refused — 3 suite tests and 1 unit test fail.
+
+## Projects on every document (owner, 2026-11-03)
+
+Asked 2026-11-03: "add the Project section after cost center and profit
+center for all modules". Decisions:
+
+| # | Decision |
+|---|---|
+| Q387 | Every posting document gets a Project: SO, PO, Delivery Note, GRN, Customer / Vendor Invoice, Sales / Purchase Return, Stock Adjustment, Material Issue, Warehouse Movement, PDC, Retail Sales, JV, CBT, **and payroll now**. |
+| Q388 | A header Project, the default for new lines; where a screen has dimension columns per line (JV, CBT, the invoices' direct lines) a line may differ. Stock documents: header only. |
+| Q389 | The field shows when the company has a project (as JV / CBT today); nothing changes for a company without projects. |
+| Q390 | Carried along the chain (SO -> Delivery Note -> Customer Invoice, PO -> GRN -> Vendor Invoice), changeable on the next document. |
+| Q391 | Payroll: an employee's default Project on their record, and a run may split an employee's cost across projects by %, as it splits by cost centre. |
+| Q392 | In steps, each its own PR: (1) Vendor Invoice, Sales Order, JV, with the entry layout's date width; (2) the sales chain (Delivery Note, Customer Invoice, Sales Return); (3) purchase (PO, GRN, Purchase Return); (4) stock entries, PDC, Retail Sales, CBT; (5) payroll. |
+
+The field sits after Cost Center and Profit Center (the entry layout's
+dimension row, docs/modules/ENTRY_LAYOUT.md).
+
+## As built: step 1, Vendor Invoice, Sales Order, JV (2026-11-03)
+
+- **projects.js:** `linesWithProject` keeps a line's own project (the
+  header's is the default, Q388); new `documentProject(projectId,
+  companyId)` checks a document's header project when saved (unknown,
+  another company's or not Active is refused, as `assertProjects` does for
+  a line). Routed into the port as `documentProject_` (generate.js MAPPED).
+- **Vendor Invoice** (patches `projects-docs (vendor invoice direct lines,
+  save / post / reverse)`): a direct line saves its own `ProjectID` and
+  posts it; the reversal mirrors it. The posting's line check
+  (glWriting.assertProjects) refuses a line project of another company or
+  closed. Screen: the Project field moved from inside the Company box to
+  the dimension row after Profit Center ("line default"); the direct lines
+  get a Project column; a new line takes the header project.
+- **Sales Order** (patch `projects-docs (sales order)`): the order keeps
+  its `ProjectID`, checked when saved; it is carried on to its Delivery
+  Notes and invoices in step 2. Screen: Project after Profit Center.
+- **JV** (journal.js): the header `ProjectID` is saved and checked; the
+  screen's header Project (after Profit Center) is the default for new
+  lines (the trailing row, Add Line, a paste's new rows) and fills the
+  lines that have none when chosen, as the Cost / Profit Center do.
+- **All three:** the field shows once the company has a project (the
+  company's or shared; the screens' list holds Active units only, and a
+  saved project since closed stays shown, marked "(closed)").
+- **Date width** (ENTRY_LAYOUT.md): on a wide window the sticky key row
+  and the dimension row are flexible rows (`.entry-fields.keys`): a date
+  takes 10rem (`.entry-date`), Vendor / Customer / Description a double
+  share (`.grow-2`), the rest share what is left.
+- **Tests:** emulator/projectsDocs (4: the Vendor Invoice's header and line
+  projects posted and reversed; a line project of another company or
+  closed refused; the Sales Order's kept and checked; the JV header's kept
+  and checked), ui/projectsDocs (3: the date widths and the Project field's
+  place on the three screens; new lines take the header project; no field
+  for a company without projects). Negative controls, each caught and
+  restored: the header overwriting a line's project; the Sales Order's
+  project unchecked; the date rule removed.
+- **Results:** full emulator regression 756 passed, 1 failed (essPortal
+  "who is away today", date-dependent, fails on main too); unit 222/222;
+  UI projectsDocs 3/3, entryLayout 6/6 and the three screens' suites pass.
+- **Deploy:** `projects-step1` (445: projects.js and journal.js reach most
+  functions), with screens, then Hosting.

@@ -72,11 +72,11 @@
         <button id="so-confirm-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-check"></i> Confirm</button>
       </div>
     </div>
-    <div class="entry-fields">
+    <div class="entry-fields keys">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="so-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Customer</label><select id="so-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a customer...</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Order Date</label><input type="date" id="so-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Requested Delivery Date</label><input type="date" id="so-form-deliverydate" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Customer</label><select id="so-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a customer...</option></select></div>
+      <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Order Date</label><input type="date" id="so-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Requested Delivery Date</label><input type="date" id="so-form-deliverydate" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
     </div>
   </div>
 
@@ -88,12 +88,14 @@
   <div id="so-pricelist-note" class="hidden text-xs text-slate-400 bg-slate-800/60 border border-slate-700 rounded-lg py-2 px-3"></div>
   <div id="so-nopricelist-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">No price list is mapped to this customer's classification — line prices will need to be entered manually.</div>
 
-  <div class="entry-fields cols-6">
+  <div class="entry-fields keys">
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="so-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="so-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="so-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(optional)</span></label><select id="so-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-    <div class="span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(optional)</span></label><input type="text" id="so-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <!-- The order's project (docs/modules/PROJECTS_DIMENSIONS.md, Q387, Q390): carried on to its deliveries and invoices; once the company has a project. -->
+    <div id="so-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="so-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(optional)</span></label><input type="text" id="so-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
   </div>
 
   <div id="so-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company and Customer above before adding lines.</div>
@@ -225,6 +227,19 @@
   function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
   function customerById(id) { return customers.find(c => c.CustomerID === id); }
   function orgUnitById(id) { return orgUnits.find(u => u.UnitID === id); }
+  // The order's project (PROJECTS_DIMENSIONS.md, Q387-Q389): the company's and
+  // shared Active projects (the one set kept); shown once the company has one.
+  function setProject(id) {
+    const co = document.getElementById('so-form-company').value;
+    const mine = orgUnits.filter(u => u.Type === 'Project' && (!u.CompanyID || !co || u.CompanyID === co));
+    const sel = document.getElementById('so-form-project');
+    sel.innerHTML = '<option value="">—</option>' + mine
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .map(u => `<option value="${u.UnitID}">${escapeHtml(u.Code + ' — ' + u.Name)}</option>`).join('')
+    if (id && !Array.from(sel.options).some(o => o.value === id)) sel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(id)}">${escapeHtml(id)} (closed)</option>`);
+    sel.value = id || '';
+    document.getElementById('so-project-field').classList.toggle('hidden', !(mine.length > 0 || id));
+  }
 
   function orgUnitOptionsHtml(type, selectedId) {
     let html = '<option value="">—</option>';
@@ -329,6 +344,7 @@
         document.getElementById('so-form-branch').innerHTML = orgUnitOptionsHtml('Branch', '');
         document.getElementById('so-form-costcenter').innerHTML = orgUnitOptionsHtml('CostCenter', '');
         document.getElementById('so-form-profitcenter').innerHTML = orgUnitOptionsHtml('ProfitCenter', '');
+        setProject(document.getElementById('so-form-project').value);
         renderList();
         refDone();
       })
@@ -415,7 +431,7 @@
     document.getElementById('so-status-col-header').classList.toggle('hidden', isDraft);
     document.getElementById('so-actions-col-header').classList.toggle('hidden', isDraft || !canPost);
 
-    ['so-form-company', 'so-form-customer', 'so-form-date', 'so-form-deliverydate', 'so-form-description', 'so-form-division', 'so-form-branch', 'so-form-costcenter', 'so-form-profitcenter'].forEach(id => {
+    ['so-form-company', 'so-form-customer', 'so-form-date', 'so-form-deliverydate', 'so-form-description', 'so-form-division', 'so-form-branch', 'so-form-costcenter', 'so-form-profitcenter', 'so-form-project'].forEach(id => {
       document.getElementById(id).disabled = !isDraft;
     });
 
@@ -459,6 +475,7 @@
     document.getElementById('so-form-branch').value = currentSo.BranchID || '';
     document.getElementById('so-form-costcenter').value = currentSo.CostCenterID || '';
     document.getElementById('so-form-profitcenter').value = currentSo.ProfitCenterID || '';
+    setProject(currentSo.ProjectID || '');
     populateItemDatalist(currentSo.CompanyID);
     showCreditBanner('so', currentSo);
     loadPriceListForCurrentCustomer(showEntryView);
@@ -477,6 +494,7 @@
     document.getElementById('so-form-branch').value = '';
     document.getElementById('so-form-costcenter').value = '';
     document.getElementById('so-form-profitcenter').value = '';
+    setProject('');
     currentPriceList = null;
     document.getElementById('so-pricelist-note').classList.add('hidden');
     document.getElementById('so-nopricelist-note').classList.add('hidden');
@@ -719,6 +737,7 @@
       BranchID: document.getElementById('so-form-branch').value,
       CostCenterID: document.getElementById('so-form-costcenter').value,
       ProfitCenterID: document.getElementById('so-form-profitcenter').value,
+      ProjectID: document.getElementById('so-form-project').value,
       Lines: gridLines.filter(l => l.ItemCode).map(l => ({
         LineID: l.LineID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID,
         OrderedQuantity: l.OrderedQuantity, EnteredUOMID: l.EnteredUOMID, UnitPrice: l.UnitPrice
@@ -971,6 +990,7 @@
     document.getElementById('so-status-filter').addEventListener('change', renderList);
     document.getElementById('so-from-filter').addEventListener('change', renderList);
 
+    document.getElementById('so-form-company').addEventListener('change', () => setProject(document.getElementById('so-form-project').value)); // the company's projects
     document.getElementById('so-form-company').addEventListener('change', e => {
       if (e.isTrusted) isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('so-form-company').value);
       loadPriceListForCurrentCustomer();

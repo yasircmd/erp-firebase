@@ -312,6 +312,8 @@
                         narrow one, 1 on a phone; .span-2 / .span-all widen one;
                         .cols-3: 3 across (a panel's own fields); .cols-6: 6
                         across on a wide window (the dimensions and one more);
+                        .keys: the sticky key row, where .entry-date takes
+                        only a date's width and .grow-2 a double share;
          .entry-panel   a boxed section (adjustments, totals), tighter;
          .entry-split   two panels side by side on a wide window;
          .entry-chips   a list of small chips (matched documents).
@@ -346,6 +348,14 @@
     }
     @media (min-width: 768px) { #app-container .entry-fields.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (min-width: 1100px) { #app-container .entry-fields.cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+    /* The key row on a wide window (owner, 2026-11-03): a date takes what it
+       needs (.entry-date), the rest share the width; .grow-2 takes twice. */
+    @media (min-width: 1100px) {
+      #app-container .entry-fields.keys { display: flex; flex-wrap: wrap; }
+      #app-container .entry-fields.keys > * { flex: 1 1 12rem; min-width: 0; }
+      #app-container .entry-fields.keys > .grow-2 { flex-grow: 2; }
+      #app-container .entry-fields.keys > .entry-date { flex: 0 0 10rem; }
+    }
     @media (max-width: 767px) { #app-container .entry-sticky { position: static; } }
     html.phone-view #app-container .entry-sticky { position: static; }
     @media print { #app-container .entry-sticky { position: static; } }

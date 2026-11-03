@@ -68,6 +68,17 @@ matched GRN, Adjustments and totals stacked, the buttons at the bottom).
 - **Deploy:** "screens only" (the three screens), then "hosting"
   (public/index.html and the Help). No functions.
 
+Live 2026-11-02 (PR #210; runs #279 screens, #280 Hosting).
+
+## Owner's review (2026-11-03)
+
+"All looks good except date, it has more width": on a wide window the key
+row and the dimension row are now flexible rows (`.entry-fields.keys`): a
+date takes 10rem (`.entry-date`), the party and the description a double
+share (`.grow-2`), the rest share the remaining width. The Project field
+joins the dimension row after Profit Center (PROJECTS_DIMENSIONS.md,
+Q387-Q392).
+
 ## Next (after the owner's review)
 
 The other entry screens, the same way: CBT, Purchase Order, Customer

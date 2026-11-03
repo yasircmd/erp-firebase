@@ -33,8 +33,7 @@
 <ul><li>the screen shows <strong>Currency and rate</strong>: the rate on the invoice date, from <a href="currencies.html">Currency Configuration</a>;</li><li>you may type another rate, with a reason;</li><li>the total shows in the vendor's currency, with its value in the default currency beside it;</li><li>for now such an invoice takes <strong>direct lines only</strong>: GRNs stay in the default currency.</li></ul>
 <p>The books are in the default currency, at the invoice's rate; each line keeps its foreign amount too. A reversal uses the invoice's own rate.</p>
 <h2 id="project">Project</h2>
-<p>Once the company has projects, the invoice has a <strong>Project</strong> field: every line the invoice posts carries it, for the <a href="project-report.html">Project Report</a>.</p>
-<p>From a saved document, <strong>Create next</strong> starts the next step and <strong>Linked documents</strong> shows the documents before and after it. See <a href="working-with-screens.html#linked-documents-and-create-next">Working with screens</a>.</p>
+<p>Once the company has projects, the invoice has a <strong>Project</strong> field, after Profit Center: it is the default for the invoice's lines. Each direct line also has a <strong>Project</strong> column, so one line can go to another project (for example, freight for Tower B on an invoice for Tower A); a new line takes the invoice's project. Lines matched from GRNs take the invoice's project. Only the company's own and shared projects are offered, and a closed project can't be used. See the <a href="project-report.html">Project Report</a>.</p>
 <h2 id="the-budget">The budget</h2>
 <p>Where the company has a budget for the year and its spending check on, an invoice's direct lines are checked against it when posted (lines from goods receipts were counted at the receipt). Over budget, you're told by how much and can go ahead with a warning, or, with a block, only someone who may override the budget can, with a reason. See <a href="budget.html#the-spending-check">Budget</a>.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
@@ -42,7 +41,7 @@
 <h2 id="rights">Rights</h2>
 <p>Users need access and post rights for supplier invoice processing; approval may be required in some companies.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If the invoice is refused, the supplier, GRN or company may not match.</li><li><strong>&quot;No exchange rate for USD on or before …&quot;</strong>: enter a rate in Currency Configuration → Rates.</li><li>If the amount does not tie to the GRN, recheck the posted receipt and the supplier bill.</li></ul><p class="crumb">Last reviewed 02/11/2026</p></main>
+<ul><li>If the invoice is refused, the supplier, GRN or company may not match.</li><li><strong>&quot;No exchange rate for USD on or before …&quot;</strong>: enter a rate in Currency Configuration → Rates.</li><li>If the amount does not tie to the GRN, recheck the posted receipt and the supplier bill.</li></ul><p class="crumb">Last reviewed 03/11/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>
