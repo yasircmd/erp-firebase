@@ -1207,6 +1207,21 @@
     const ledgerLabel = ledgerSelect.selectedOptions.length ? ledgerSelect.selectedOptions[0].textContent : '';
 
     const validLines = gridLines.filter(l => l.AccountCode);
+    // A line on a party account prints its customer / vendor (or sales rep)
+    // with code and name (owner, 2026-11-03); one party on every such line
+    // also heads the document: Received from / Paid to.
+    const partyText = l => {
+      if (!l.PartyID) return '';
+      const p = party.partyOf(l);
+      const code = (p && p.Code) || l.PartyCode || '';
+      const name = (p && p.Name) || l.PartyName || l.PartyID;
+      return (code ? code + ' — ' : '') + name;
+    };
+    const partyLines = validLines.filter(l => l.PartyID);
+    const partyNames = [...new Set(partyLines.map(partyText))];
+    const isPayment = String(currentType || '').indexOf('Payment') >= 0;
+    const partyHead = partyNames.length === 1
+      ? `<p style="font-size:12px; margin: 6px 0 4px;">${isPayment ? 'Paid to' : 'Received from'}: <strong>${escapeHtml(partyNames[0])}</strong></p>` : '';
     const rows = validLines.map((l, i) => {
       const account = accountByCode(l.AccountCode);
       const amount = Number(l.Amount) || 0;
@@ -1214,10 +1229,12 @@
         <td>${i + 1}</td>
         <td>${escapeHtml(l.AccountCode)}</td>
         <td>${account ? escapeHtml(account.AccountName) : ''}</td>
+        ${partyLines.length ? `<td class="cbt-print-party">${escapeHtml(partyText(l))}</td>` : ''}
         <td>${escapeHtml(l.Description || '')}</td>
         <td style="text-align:right">${formatMoney(amount)}</td>
       </tr>`;
     }).join('');
+    const cols = partyLines.length ? 6 : 5;
 
     const total = validLines.reduce((sum, l) => sum + (Number(l.Amount) || 0), 0);
 
@@ -1249,13 +1266,14 @@
         <span>Ledger Account: <strong>${escapeHtml(ledgerLabel)}</strong></span>
         <span>Reference: ${escapeHtml(reference) || '—'}</span>
       </div>
+      ${partyHead}
       <p style="font-size:11px; margin: 8px 0 12px;">Description: ${escapeHtml(description)}</p>
       <table>
         <thead><tr>
-          <th>#</th><th>Account Code</th><th>Account Name</th><th>Description</th><th style="text-align:right">Amount${ledgerCurrency() ? ' (' + escapeHtml(ledgerCurrency()) + ')' : ''}</th>
+          <th>#</th><th>Account Code</th><th>Account Name</th>${partyLines.length ? '<th>Customer / Vendor</th>' : ''}<th>Description</th><th style="text-align:right">Amount${ledgerCurrency() ? ' (' + escapeHtml(ledgerCurrency()) + ')' : ''}</th>
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
-        <tfoot><tr><td colspan="4" style="text-align:right; font-weight:bold;">Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(total)}</td></tr>${ledgerCurrency() && currentEntry && currentEntry.ExchangeRate ? '<tr><td colspan="5" style="text-align:right; font-size:10px;">At 1 ' + escapeHtml(ledgerCurrency()) + ' = ' + escapeHtml(currentEntry.ExchangeRate) + ' ' + escapeHtml(defaultCurrency ? defaultCurrency.Code : '') + '</td></tr>' : ''}</tfoot>
+        <tfoot><tr><td colspan="${cols - 1}" style="text-align:right; font-weight:bold;">Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(total)}</td></tr>${ledgerCurrency() && currentEntry && currentEntry.ExchangeRate ? '<tr><td colspan="' + cols + '" style="text-align:right; font-size:10px;">At 1 ' + escapeHtml(ledgerCurrency()) + ' = ' + escapeHtml(currentEntry.ExchangeRate) + ' ' + escapeHtml(defaultCurrency ? defaultCurrency.Code : '') + '</td></tr>' : ''}</tfoot>
       </table>
       ${signatureBlock}
       <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>

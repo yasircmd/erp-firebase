@@ -1775,3 +1775,9 @@ from, and how it was verified. The deploy procedure is in the
 - **2026-11-03, Fix: hidden icons (PR #215, from `88e98e2`):** "hosting",
   run [#292](https://github.com/yasircmd/erp-firebase/actions/runs/41635600233)
   (12:25–12:26 UTC), success. Only the chosen CBT type is ticked.
+- **2026-11-03, CBT receipts print as CASH / BANK RECEIPT (PR #216, from
+  `2aab22c`):** "screens only", run
+  [#293](https://github.com/yasircmd/erp-firebase/actions/runs/41637694901)
+  (12:40–12:41 UTC), success. "hosting", run
+  [#294](https://github.com/yasircmd/erp-firebase/actions/runs/41638230713)
+  (12:44–12:45 UTC), success.

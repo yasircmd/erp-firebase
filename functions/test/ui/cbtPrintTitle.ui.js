@@ -1,19 +1,27 @@
-// CBT print titles (owner, 2026-11-03): a Cash Receipt prints as CASH
-// RECEIPT and a Bank Receipt as BANK RECEIPT (they printed as "PAYMENT
-// RECEIPT"); payments keep their voucher title.
+// CBT prints (owner, 2026-11-03): a Cash Receipt prints as CASH RECEIPT and
+// a Bank Receipt as BANK RECEIPT (they printed as "PAYMENT RECEIPT");
+// payments keep their voucher title. A line on a customer's or vendor's
+// account prints the party's code and name, and one party heads the print
+// (Received from / Paid to).
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/cbtPrintTitle.ui.js
 const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
-const { app, reset, baseFixture } = require('../emulator/_helpers');
+const { app, reset, baseFixture, call } = require('../emulator/_helpers');
 
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300)]); }); }
 
 (async () => {
-  await reset(baseFixture());
+  const f = baseFixture();
+  f.customers = { CU1: { CustomerCode: 'C001', CustomerName: 'Retail Co', Status: 'Active', CompanyID: 'C1', TradeReceivablesAccountID: 'A-AR' } };
+  await reset(f);
+  // A saved Bank Receipt from the customer (no allocation: an advance).
+  const saved = await call('u-admin', 'saveCbtDraft', { cbtData: { VoucherType: 'Bank Receipt', SelectedAccountCode: '1100', JVDate: '2026-10-10', Description: 'Advance',
+    CompanyID: 'C1', CostCenterID: 'CC1', OppositeLines: [{ AccountCode: '1200', Amount: 300, Description: 'Advance for order', PartyType: 'Customer', PartyID: 'CU1', Allocations: [] }] } });
+  assert.equal(saved.success, true, saved.error);
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'text/html' }); r.end(harness); }).listen(8209);
   const browser = await chromium.launch();
@@ -38,6 +46,23 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.doesNotMatch(await page.textContent('#cbt-print-document'), /PAYMENT RECEIPT/);
     assert.deepEqual(errors, []);
   });
+  await check('a receipt from a customer prints the customer\'s code and name, on its line and as Received from', async () => {
+    await page.click('#cbt-back-btn').catch(() => {});
+    await page.reload();
+    await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
+    await page.waitForSelector('.cbt-open', { timeout: 30000 });
+    await page.click('.cbt-open');
+    await page.waitForSelector('#cbt-entry-view:not(.hidden)', { timeout: 30000 });
+    await page.waitForFunction(() => /Retail Co/.test(document.getElementById('cbt-grid-body').textContent), null, { timeout: 30000 }); // the party list is in
+    await page.evaluate(() => { const b = document.getElementById('cbt-print-btn'); b.classList.remove('hidden'); b.click(); });
+    const doc = await page.textContent('#cbt-print-document');
+    assert.match(doc, /BANK RECEIPT/);
+    assert.match(doc, /Received from: C001 — Retail Co/);
+    assert.deepEqual(await page.$$eval('#cbt-print-document .cbt-print-party', c => c.map(x => x.textContent)), ['C001 — Retail Co']);
+    assert.ok((await page.$$eval('#cbt-print-document th', t => t.map(x => x.textContent))).includes('Customer / Vendor'));
+    assert.deepEqual(errors, []);
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;
