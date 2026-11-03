@@ -25,6 +25,10 @@
     })();
   </script>
   <style>
+    /* A hidden icon stays hidden (owner, 2026-11-03: Cash and Bank showed all five type ticks).
+       Font Awesome's stylesheet comes after erp.css and sets its icons' display, which beat
+       .hidden on an icon such as <i class="hidden fa-solid ...">. */
+    .hidden.fa-solid, .hidden.fa-regular, .hidden.fa-brands, .hidden.fa { display: none; }
     body { -webkit-tap-highlight-color: transparent; }
     .ess-card { border-radius: 1rem; }
     .ess-safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 4.5rem); }
