@@ -49,20 +49,26 @@
 </div>
 
 <!-- ============ CREATE / EDIT VIEW (Draft only) ============ -->
-<div id="po-edit-view" class="hidden space-y-5">
-  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-    <div class="flex items-center gap-3">
+<div id="po-edit-view" class="hidden entry-layout">
+  <!-- ENTRY LAYOUT (docs/modules/ENTRY_LAYOUT.md): the title bar, the actions and the key fields stay at the top while the lines scroll. -->
+  <div class="entry-sticky bg-slate-900/95">
+    <div class="entry-bar">
       <button id="po-edit-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
-      <h2 class="text-xl font-bold text-blue-400">New Purchase Order</h2>
+      <h2 class="font-bold text-blue-400">New Purchase Order</h2>
+      <div class="entry-actions">
+        <button id="po-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+        <button id="po-save-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+        <button id="po-submit-btn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+      </div>
+    </div>
+    <div class="entry-fields keys">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="po-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Vendor</label><select id="po-form-vendor" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select></div>
+      <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">PO Date</label><input type="date" id="po-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="po-form-costcenter" title="defaults from the first requisition selected below — always editable" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first...</option></select></div>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="po-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(defaults from the first requisition selected below — always editable)</span></label><select id="po-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first...</option></select></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Vendor</label><select id="po-form-vendor" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">PO Date</label><input type="date" id="po-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
-  </div>
   <p id="po-currency-note" class="hidden text-xs text-slate-500"></p>
 
   <div id="po-req-picker-section" class="hidden space-y-3">
@@ -131,11 +137,6 @@
 
   <div id="po-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
 
-  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
-    <button id="po-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
-    <button id="po-save-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
-    <button id="po-submit-btn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-paper-plane"></i> Submit</button>
-  </div>
 </div>
 
 <!-- ============ DETAIL VIEW (Submitted and beyond) ============ -->
@@ -145,23 +146,28 @@
     <p id="po-print-company-address" class="text-sm"></p>
   </div>
   <div id="po-print-document" class="print-only"></div>
-  <div class="no-print space-y-5">
-  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
-    <div class="flex items-center gap-3">
+  <div class="no-print entry-layout">
+  <!-- ENTRY LAYOUT (docs/modules/ENTRY_LAYOUT.md): the title bar, the actions and the key fields stay at the top while the lines scroll. -->
+  <div class="entry-sticky bg-slate-900/95">
+    <div class="entry-bar">
       <button id="po-detail-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
-      <h2 id="po-detail-title" class="text-xl font-bold text-blue-400"></h2>
-    </div>
-    <div class="flex items-center gap-3">
-      <button id="po-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+      <h2 id="po-detail-title" class="font-bold text-blue-400"></h2>
       <span id="po-detail-status-badge" class="text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <div class="entry-actions">
+        <button id="po-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+        <button id="po-cancel-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Cancel PO</button>
+        <button id="po-revise-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Revise Prices</button>
+        <button id="po-resubmit-btn" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Resubmit</button>
+        <button id="po-close-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Close PO</button>
+        <button id="po-reopen-btn" class="hidden px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg text-xs">Request Reopen</button>
+      </div>
     </div>
-  </div>
-
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <div><p class="text-xs text-slate-500 uppercase mb-1">Vendor</p><p id="po-detail-vendor" class="text-sm text-slate-200"></p></div>
-    <div><p class="text-xs text-slate-500 uppercase mb-1">Currency</p><p id="po-detail-currency" class="text-sm text-slate-200"></p></div>
-    <div><p class="text-xs text-slate-500 uppercase mb-1">Cost Center</p><p id="po-detail-costcenter" class="text-sm text-slate-200"></p></div>
-    <div><p class="text-xs text-slate-500 uppercase mb-1">PO Date</p><p id="po-detail-date" class="text-sm text-slate-200"></p></div>
+    <div class="entry-fields keys">
+      <div class="grow-2"><p class="text-xs text-slate-500 uppercase mb-1">Vendor</p><p id="po-detail-vendor" class="text-sm text-slate-200"></p></div>
+      <div><p class="text-xs text-slate-500 uppercase mb-1">Currency</p><p id="po-detail-currency" class="text-sm text-slate-200"></p></div>
+      <div class="grow-2"><p class="text-xs text-slate-500 uppercase mb-1">Cost Center</p><p id="po-detail-costcenter" class="text-sm text-slate-200"></p></div>
+      <div class="entry-date"><p class="text-xs text-slate-500 uppercase mb-1">PO Date</p><p id="po-detail-date" class="text-sm text-slate-200"></p></div>
+    </div>
   </div>
 
   <div id="po-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1">
@@ -204,13 +210,6 @@
 
   <div id="po-revise-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
 
-  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
-    <button id="po-cancel-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Cancel PO</button>
-    <button id="po-revise-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Revise Prices</button>
-    <button id="po-resubmit-btn" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Resubmit</button>
-    <button id="po-close-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Close PO</button>
-    <button id="po-reopen-btn" class="hidden px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg text-xs">Request Reopen</button>
-  </div>
   </div>
 </div>
 
@@ -591,7 +590,6 @@
     document.getElementById('po-grid-section').classList.toggle('hidden', !gridLines.length);
     renderGrid();
   }
-
 
   function addDirectLine() {
     const error = document.getElementById('po-direct-line-error');

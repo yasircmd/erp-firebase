@@ -12,6 +12,24 @@ screen.
 
 ## 03/11/2026
 
+- **Purchase, cash and stock screens: the compact layout.**
+  [Purchase Order](purchase-order.html),
+  [Goods Receipt Note](goods-receipt-note.html),
+  [Purchase Return](purchase-return.html),
+  [Cash and Bank](cash-and-bank.html) and
+  [Post-dated cheques](post-dated-cheques.html),
+  [Stock Adjustment](stock-adjustment.html),
+  [Material Issue](material-issue.html),
+  [Warehouse Movement](warehouse-movement.html),
+  [Physical Count](physical-count.html),
+  [Production Entry](production.html) and the
+  [Purchase](purchase-requisition.html) and
+  [Inventory Purchase](inventory-purchase-requisition.html) requisitions
+  now keep the title bar,
+  the buttons (Save, Post and the others, moved up from the bottom) and the
+  key fields at the top while you scroll; the dimensions and the
+  description share one row. A field's longer note shows when you point at
+  it. See [Working with screens](working-with-screens.html#entry-screens-the-top-stays-in-view).
 - **Delivery Note, Customer Invoice and Sales Return: the new layout and
   Project.** [Delivery Note](delivery-note.html),
   [Customer Invoice](customer-invoice.html) and

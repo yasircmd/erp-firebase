@@ -90,11 +90,62 @@ invoice's project), each with its actions in the sticky bar. A
 `.span-all` cell in a flexible row takes a whole row
 (`.entry-fields.keys > .span-all`). Tests: ui/projectsSales.
 
+## Wave 1: purchase and cash (2026-11-03)
+
+The owner (2026-11-03): the layout of every entry screen is the main
+request; projects were a suggestion (steps 3-5 parked). Wave 1, by hand
+(the screens are hand-maintained; PDC Issued is built from PDC Received by
+tools/build-pdc-screens.js):
+
+- **Purchase Order:** edit view: key row Company, Vendor, PO Date, Cost
+  Center (its note in the tooltip); Delete / Save / Submit in the bar. The
+  detail view: Print and Cancel / Revise / Resubmit / Close / Reopen in the
+  bar, the Vendor, Currency, Cost Center and Date row under it.
+- **GRN:** key row Company, Vendor, Date, Reference (the long notes in the
+  tooltips); then the dimensions and the Description, above the Purchase
+  Order picker; GL impact, Labels, Print and the actions in the bar.
+- **Purchase Return:** Company, Vendor, the invoice (its hint under it),
+  Return Date; then the credit note reference and the Description.
+- **CBT:** the five transaction types as compact buttons in the sticky
+  part, then Company, Ledger Account, Date, Reference; Currency, the
+  dimensions and the Description in one row (the line-default note in the
+  Cost / Profit Center tooltips).
+- **PDC Received / Issued:** Company, Customer / Vendor, Date, Bank
+  Account (Issued), Reference; the dimensions, Replaces and the Description
+  above the cheques.
+
+Header at 1400 px (first visible part to the lines): Purchase Order
+382 -> 263 px, GRN 796 -> 300, Purchase Return 467 -> 245, CBT 715 -> 324,
+PDC 314 -> 205. Tests: ui/entryLayoutWave (wave 1, 12 checks: the key row,
+the actions in the bar, every id once, the header at most 75 % of before,
+still in view when scrolled, nothing sticky on a phone). Negative control:
+CBT's key row back in a two-column grid -> the one-row check fails;
+restored.
+
+## Wave 2: stock and requisitions (2026-11-03)
+
+The stock family (Stock Adjustment, Material Issue, Warehouse Movement,
+Physical Count, Production; the GRN's template) and the two requisitions:
+
+- **Stock family:** key row Company, (Material Issue: the Issue / Return
+  choice, compact; Production: the Job Order), Date, Reference; then the
+  dimensions and the Description (with its posted-edit buttons) in one row.
+  GL impact, Labels, Print and every action in the bar. The long notes
+  (Company, Entry Type, Job Order) are the tooltips.
+- **Purchase / Inventory Purchase Requisition:** Company, Date, Needed By,
+  Priority; then the dimensions and the Description / Purpose.
+
+Header at 1400 px: Stock Adjustment 618 -> 300 px, Material Issue 692 ->
+279, Warehouse Movement 602 -> 300, Physical Count 618 -> 300, Production
+655 -> 276, the requisitions 546 -> 254. Tests: ui/entryLayoutWave wave 2
+(14 checks). Negative control: Warehouse Movement's sticky part made a plain
+block -> its two checks fail; restored.
+
 ## Next (after the owner's review)
 
-The other entry screens, the same way: CBT, Purchase Order, GRN, Purchase
-Return, Stock Adjustment,
-Material Issue, Warehouse Movement, PDC, Purchase Requisition, Retail
-Sales, Production, Physical Count and the rest with an entry view. Ported
+Wave 3, the same way: Recurring JV, BOM (generated: SCREEN_EDITS), the
+Fixed Asset entries, the payroll entries (Earnings & Deductions, loans,
+interim payments, final settlement), Employee Changes, Budget, Retail Sales
+and the rest with an entry view. Ported
 screens that are generated (not on modules.json's handScreens list) take
 it through SCREEN_EDITS.
