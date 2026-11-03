@@ -139,15 +139,18 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 - [ ] **Projects on every document** (owner, 2026-11-03; Q387-Q392,
   [PROJECTS_DIMENSIONS.md](modules/PROJECTS_DIMENSIONS.md)): step 1 live
   2026-11-03, runs #281-#282 (Vendor Invoice header + direct-line projects, Sales Order,
-  JV header project; the entry layout's date width). Next: step 2 the sales
-  chain (Delivery Note, Customer Invoice, Sales Return, carrying the SO's
-  project); 3 purchase (PO, GRN, Purchase Return); 4 stock entries, PDC,
+  JV header project; the entry layout's date width). Step 2, the sales
+  chain, built and tested 2026-11-03 (Delivery Note, Customer Invoice with
+  direct-line projects, Sales Return from its invoice, carried from the SO;
+  reversals post on a closed project; the three screens with the entry
+  layout); deploy set `projects-step2` with screens, then Hosting. Next: 3 purchase (PO, GRN, Purchase Return); 4 stock entries, PDC,
   Retail Sales, CBT; 5 payroll (employee default + run split).
 - [ ] **Entry layout: compact entry screens with a sticky top** (owner,
   2026-11-02; decisions Q383-Q386, [ENTRY_LAYOUT.md](modules/ENTRY_LAYOUT.md)).
   Pilot built 2026-11-02: Vendor Invoice, Sales Order, JV (header -62 % /
   -46 % / -43 %). Deploy: "screens only", then "hosting". Next: the owner
-  tries them; then the other entry screens.
+  tries them; then the other entry screens. Live 2026-11-02 (runs #279-#280);
+  Delivery Note, Customer Invoice and Sales Return laid out with projects step 2.
 - [x] **Sales Order: Delivered / Remaining, Delivered status, Close and Reopen**
   (owner, 2026-11-02; decisions Q379-Q382, [SO_CLOSE.md](modules/SO_CLOSE.md)).
   The screen dropped each line's delivered quantity when opening an order (an

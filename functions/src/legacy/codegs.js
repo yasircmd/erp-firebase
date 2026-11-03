@@ -3909,7 +3909,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
     type: 'VendorInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.VendorRefNumber,
     lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
     dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfDocument: invoiceId } // [NEW DEVELOPMENT projects-docs]
   }, inputTax ? inputTax.ledgerUpdates : {}, (gl, at) => Object.assign(markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: '' }), inputTax ? inputTax.docs(gl, at) : {}), invoiceReversalWriter_(invoiceId, newId, reversal, actor, 'vendorInvoices')); // [NEW DEVELOPMENT vendor-line-tax]
 
   return { invoiceId: newId, invoiceNumber: glResult.jvNumber };
@@ -4246,7 +4246,8 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       return {
         AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
         SalesTypeID: salesType.SalesTypeID,
-        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim()
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim(),
+        ProjectID: String(l.ProjectID || '').trim().slice(0, 80) // [NEW DEVELOPMENT projects-docs] checked when posted (glWriting)
       };
     });
 
@@ -4432,11 +4433,11 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
   // is exactly why the header Cost Center is required at save time
   // whenever any Delivery Note is attached.
   const revenueByKey = {};
-  function addRevenue_(salesTypeId, amount, costCenterId, profitCenterId, contextLabel) {
+  function addRevenue_(salesTypeId, amount, costCenterId, profitCenterId, contextLabel, projectId) {
     const salesType = salesTypeData[salesTypeId];
     if (!salesType || salesType.Status !== 'Active') throw new Error(contextLabel + ': its Sales Type is no longer valid — check Sales Invoice Configuration.');
-    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId;
-    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, amount: 0 };
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId + '|' + (projectId || ''); // [NEW DEVELOPMENT projects-docs]
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, projectId: projectId || '', amount: 0 };
     revenueByKey[key].amount += amount;
   }
   (existing.SourceDeliveryNotes || []).forEach(dn => {
@@ -4448,14 +4449,14 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
     // revenue recognition itself follows the same Sales-Type-mapped
     // account as everything else — consistent treatment across the
     // whole invoice regardless of source.
-    addRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '', 'Direct line — ' + l.Description);
+    addRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '', 'Direct line — ' + l.Description, l.ProjectID || ''); // [NEW DEVELOPMENT projects-docs]
   });
   Object.values(revenueByKey).forEach(entry => {
     const account = coaData[entry.accountId];
     if (!account || !account.IsPostable) throw new Error('A Sales Type\'s mapped Revenue Account is no longer valid — check Sales Invoice Configuration.');
     glLines.push({
       AccountCode: account.AccountCode, Debit: 0, Credit: Math.round(entry.amount * 100) / 100,
-      Description: existing.Description, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId
+      Description: existing.Description, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId, ProjectID: entry.projectId || '' // [NEW DEVELOPMENT projects-docs]
     });
   });
 
@@ -4612,22 +4613,22 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
   // classification decision).
   const glLines = [];
   const revenueByKey = {};
-  function addReversalRevenue_(salesTypeId, amount, costCenterId, profitCenterId) {
+  function addReversalRevenue_(salesTypeId, amount, costCenterId, profitCenterId, projectId) {
     const salesType = salesTypeData[salesTypeId];
     if (!salesType) return;
-    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId;
-    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, amount: 0 };
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId + '|' + (projectId || ''); // [NEW DEVELOPMENT projects-docs]
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, projectId: projectId || '', amount: 0 };
     revenueByKey[key].amount += amount;
   }
   (existing.SourceDeliveryNotes || []).forEach(dn => {
     addReversalRevenue_(dn.SalesTypeID, dn.Amount - includedTaxOf_(existing, dn.DeliveryNoteID), existing.CostCenterID || '', existing.ProfitCenterID || ''); // [NEW DEVELOPMENT invoice-line-tax]
   });
   (existing.DirectLines || []).forEach(l => {
-    addReversalRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '');
+    addReversalRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '', l.ProjectID || ''); // [NEW DEVELOPMENT projects-docs]
   });
   Object.values(revenueByKey).forEach(entry => {
     const account = coaData[entry.accountId];
-    glLines.push({ AccountCode: account.AccountCode, Debit: Math.round(entry.amount * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId });
+    glLines.push({ AccountCode: account.AccountCode, Debit: Math.round(entry.amount * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId, ProjectID: entry.projectId || '' }); // [NEW DEVELOPMENT projects-docs]
   });
   if (existing.Discount > 0) {
     const discountAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountGivenAccountID', 'Discount Given Account')];
@@ -4684,7 +4685,7 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
     type: 'CustomerInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: '',
     lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
     dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfDocument: invoiceId } // [NEW DEVELOPMENT projects-docs]
   }, {}, () => markStockTxs_(matchedDns, dnIds, { MatchedToInvoiceID: '' }), invoiceReversalWriter_(invoiceId, newId, reversal, actor));
   // [PORT CHANGE invoice-item-lines-reverse] its own delivery, reversed with it.
   if (existing.AutoDeliveryNoteID) {
@@ -4996,6 +4997,7 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
       TransactionDate: transactionDate, Description: description, Reference: reference,
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
+      ProjectID: await documentProject_(idToken, dnData.ProjectID, companyId), // [NEW DEVELOPMENT projects-docs]
       Lines: lines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor
     };
 
@@ -5136,7 +5138,7 @@ async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
   const salesPlan = await planDelivery_(idToken, existing.Lines, 'post', existing.CompanyID);
   const glResult = await postStock_(idToken, user, {
     type: 'DeliveryNote', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
-    lines: movement.inventoryGlLines.concat(cogsGlLines),
+    lines: linesWithProject_(movement.inventoryGlLines.concat(cogsGlLines), existing.ProjectID), // [NEW DEVELOPMENT projects-docs]
     dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
     extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: dnId }
   }, movement.ledgerUpdates, (gl, now) => ({
@@ -5160,6 +5162,7 @@ async function createInvoiceDeliveryNote_(idToken, user, inv, invoiceId) {
   const record = {
     TransactionType: 'DeliveryNote', TransactionDate: inv.InvoiceDate, Description: inv.Description, Reference: '',
     CompanyID: inv.CompanyID, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '', CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    ProjectID: inv.ProjectID || '', // [NEW DEVELOPMENT projects-docs]
     CustomerID: inv.CustomerID, Lines: lines, Status: 'Draft', AutoFromInvoiceID: invoiceId,
     CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
   };
@@ -5285,9 +5288,9 @@ async function reverseDeliveryNote(idToken, dnId, reversalDate) {
     const salesPlan = await planDelivery_(idToken, existing.Lines, 'reverse', existing.CompanyID);
     const glResult = await postStock_(idToken, user, {
       type: 'DeliveryNote', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.Reference,
-      lines: movement.inventoryGlLines.concat(cogsGlLines),
+      lines: linesWithProject_(movement.inventoryGlLines.concat(cogsGlLines), existing.ProjectID), // [NEW DEVELOPMENT projects-docs]
       dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfDocument: dnId } // [NEW DEVELOPMENT projects-docs]
     }, movement.ledgerUpdates, (gl, posted) => ({
       [dnId]: applyStockUpdate_(existing, { ReversedByDeliveryNoteID: newId }),
       [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: reversalMovementLines }))

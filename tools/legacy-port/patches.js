@@ -3669,4 +3669,148 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       ProjectID: documentProject_(idToken, header.ProjectID, companyId), // [NEW DEVELOPMENT projects-docs]
       SODate: soDate, RequestedDeliveryDate: header.RequestedDeliveryDate || '',`
   }
+  ,
+  {
+    id: 'projects-docs (delivery note, save)',
+    why: "NEW DEVELOPMENT (owner, 2026-11-03; docs/modules/PROJECTS_DIMENSIONS.md, Q387-Q390, step 2): a Delivery Note's project (carried from its Sales Order on the screen), checked when saved.",
+    find: `      CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
+      Lines: lines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor`,
+    replace: `      CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
+      ProjectID: documentProject_(idToken, dnData.ProjectID, companyId), // [NEW DEVELOPMENT projects-docs]
+      Lines: lines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor`
+  }
+  ,
+  {
+    id: 'projects-docs (delivery note, post)',
+    why: 'As above: its project on every GL line it posts.',
+    find: `    type: 'DeliveryNote', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
+    lines: movement.inventoryGlLines.concat(cogsGlLines),`,
+    replace: `    type: 'DeliveryNote', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
+    lines: linesWithProject_(movement.inventoryGlLines.concat(cogsGlLines), existing.ProjectID), // [NEW DEVELOPMENT projects-docs]`
+  }
+  ,
+  {
+    id: 'projects-docs (delivery note, reverse)',
+    why: 'As above, mirrored; a reversal (ReversalOfDocument) posts even on a project closed since (decision 221).',
+    find: `      type: 'DeliveryNote', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.Reference,
+      lines: movement.inventoryGlLines.concat(cogsGlLines),
+      dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }`,
+    replace: `      type: 'DeliveryNote', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.Reference,
+      lines: linesWithProject_(movement.inventoryGlLines.concat(cogsGlLines), existing.ProjectID), // [NEW DEVELOPMENT projects-docs]
+      dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfDocument: dnId } // [NEW DEVELOPMENT projects-docs]`
+  }
+  ,
+  {
+    id: "projects-docs (invoice's delivery note)",
+    why: "As above: the Delivery Note an invoice makes for its item lines takes the invoice's project.",
+    find: `    CompanyID: inv.CompanyID, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '', CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    CustomerID: inv.CustomerID, Lines: lines, Status: 'Draft', AutoFromInvoiceID: invoiceId,`,
+    replace: `    CompanyID: inv.CompanyID, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '', CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    ProjectID: inv.ProjectID || '', // [NEW DEVELOPMENT projects-docs]
+    CustomerID: inv.CustomerID, Lines: lines, Status: 'Draft', AutoFromInvoiceID: invoiceId,`
+  }
+  ,
+  {
+    id: 'projects-docs (VendorInvoice reversal)',
+    why: "A reversal posts even on a project closed since (decision 221): marked ReversalOfDocument, which glWriting's project check skips.",
+    find: `    type: 'VendorInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.VendorRefNumber,
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }`,
+    replace: `    type: 'VendorInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.VendorRefNumber,
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfDocument: invoiceId } // [NEW DEVELOPMENT projects-docs]`
+  }
+  ,
+  {
+    id: 'projects-docs (CustomerInvoice reversal)',
+    why: "A reversal posts even on a project closed since (decision 221): marked ReversalOfDocument, which glWriting's project check skips.",
+    find: `    type: 'CustomerInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: '',
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }`,
+    replace: `    type: 'CustomerInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: '',
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfDocument: invoiceId } // [NEW DEVELOPMENT projects-docs]`
+  }
+  ,
+  {
+    id: 'projects-docs (customer invoice direct lines, save)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-03; docs/modules/PROJECTS_DIMENSIONS.md, Q387-Q390, step 2): a Customer Invoice direct line may have its own project; the header project is its default.',
+    find: `        AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
+        SalesTypeID: salesType.SalesTypeID,
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim()
+      };`,
+    replace: `        AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
+        SalesTypeID: salesType.SalesTypeID,
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim(),
+        ProjectID: String(l.ProjectID || '').trim().slice(0, 80) // [NEW DEVELOPMENT projects-docs] checked when posted (glWriting)
+      };`
+  }
+  ,
+  {
+    id: 'projects-docs (customer invoice revenue by project)',
+    why: "As above: revenue is summed by account, cost centre, profit centre and project, so a direct line's own project posts.",
+    find: `  function addRevenue_(salesTypeId, amount, costCenterId, profitCenterId, contextLabel) {
+    const salesType = salesTypeData[salesTypeId];
+    if (!salesType || salesType.Status !== 'Active') throw new Error(contextLabel + ': its Sales Type is no longer valid — check Sales Invoice Configuration.');
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId;
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, amount: 0 };`,
+    replace: `  function addRevenue_(salesTypeId, amount, costCenterId, profitCenterId, contextLabel, projectId) {
+    const salesType = salesTypeData[salesTypeId];
+    if (!salesType || salesType.Status !== 'Active') throw new Error(contextLabel + ': its Sales Type is no longer valid — check Sales Invoice Configuration.');
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId + '|' + (projectId || ''); // [NEW DEVELOPMENT projects-docs]
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, projectId: projectId || '', amount: 0 };`
+  }
+  ,
+  {
+    id: 'projects-docs (customer invoice direct line revenue)',
+    why: 'As above.',
+    find: `    addRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '', 'Direct line — ' + l.Description);`,
+    replace: `    addRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '', 'Direct line — ' + l.Description, l.ProjectID || ''); // [NEW DEVELOPMENT projects-docs]`
+  }
+  ,
+  {
+    id: 'projects-docs (customer invoice revenue lines)',
+    why: 'As above.',
+    find: `      AccountCode: account.AccountCode, Debit: 0, Credit: Math.round(entry.amount * 100) / 100,
+      Description: existing.Description, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId
+    });`,
+    replace: `      AccountCode: account.AccountCode, Debit: 0, Credit: Math.round(entry.amount * 100) / 100,
+      Description: existing.Description, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId, ProjectID: entry.projectId || '' // [NEW DEVELOPMENT projects-docs]
+    });`
+  }
+  ,
+  {
+    id: 'projects-docs (customer invoice reversal revenue)',
+    why: 'As above, on the reversal.',
+    find: `  function addReversalRevenue_(salesTypeId, amount, costCenterId, profitCenterId) {
+    const salesType = salesTypeData[salesTypeId];
+    if (!salesType) return;
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId;
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, amount: 0 };`,
+    replace: `  function addReversalRevenue_(salesTypeId, amount, costCenterId, profitCenterId, projectId) {
+    const salesType = salesTypeData[salesTypeId];
+    if (!salesType) return;
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId + '|' + (projectId || ''); // [NEW DEVELOPMENT projects-docs]
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, projectId: projectId || '', amount: 0 };`
+  }
+  ,
+  {
+    id: 'projects-docs (customer invoice reversal direct lines)',
+    why: 'As above.',
+    find: `    addReversalRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '');`,
+    replace: `    addReversalRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '', l.ProjectID || ''); // [NEW DEVELOPMENT projects-docs]`
+  }
+  ,
+  {
+    id: 'projects-docs (customer invoice reversal lines)',
+    why: 'As above.',
+    find: `Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId });`,
+    replace: `Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId, ProjectID: entry.projectId || '' }); // [NEW DEVELOPMENT projects-docs]`
+  }
 ];

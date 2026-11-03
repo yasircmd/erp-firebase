@@ -42,12 +42,15 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.dispatchEvent('#' + p + '-form-company', 'change');
     return page;
   }
+  // The Project field shows once the company's org units are in (they load after the company is set).
+  const projectShown = (page, p) => page.waitForSelector('#' + p + '-project-field:not(.hidden)', T);
   // The field's cell (a party select is shown as the shell's type-in box beside it).
   const box = (page, id) => page.evaluate(id => { const el = document.getElementById(id); const b = (el.closest('.entry-fields > *') || el).getBoundingClientRect(); return { top: Math.round(b.top), width: Math.round(b.width), left: Math.round(b.left) }; }, id);
   const options = (page, id) => page.$$eval('#' + id + ' option', o => o.map(x => x.textContent.trim()));
 
   await check('Vendor Invoice: the date as wide as a date, the vendor wider; Project after Profit Center in its row; a new line takes the header project', async () => {
     const page = await open('VENDORINVOICE', 'vinv');
+    await projectShown(page, 'vinv');
     const [date, vendor, ref] = [await box(page, 'vinv-form-date'), await box(page, 'vinv-form-vendor'), await box(page, 'vinv-form-vendorref')];
     assert.ok(date.width <= 165 && vendor.width > 2 * date.width && ref.width > date.width, JSON.stringify({ date, vendor, ref }));
     const [pc, proj] = [await box(page, 'vinv-form-profitcenter'), await box(page, 'vinv-form-project')];
@@ -63,6 +66,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('Sales Order and JV: the dates narrow; Project after Profit Center; JV new lines take the header project, and lines without one get it', async () => {
     const so = await open('SALESORDER', 'so');
+    await projectShown(so, 'so');
     const [d1, d2, cust] = [await box(so, 'so-form-date'), await box(so, 'so-form-deliverydate'), await box(so, 'so-form-customer')];
     assert.ok(d1.width <= 165 && d2.width <= 165 && cust.width > 2 * d1.width, JSON.stringify({ d1, d2, cust }));
     const [pc, proj] = [await box(so, 'so-form-profitcenter'), await box(so, 'so-form-project')];
@@ -71,6 +75,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await so.close();
 
     const jv = await open('JV', 'jv');
+    await projectShown(jv, 'jv');
     assert.ok((await box(jv, 'jv-form-date')).width <= 165);
     const [jpc, jproj] = [await box(jv, 'jv-form-profitcenter'), await box(jv, 'jv-form-project')];
     assert.ok(jproj.top === jpc.top && jproj.left > jpc.left, JSON.stringify({ jpc, jproj }));
