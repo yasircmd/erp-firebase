@@ -5,8 +5,8 @@ order: 5
 modules: [DELIVERYNOTE]
 sources: [functions/src/stockMovement.js]
 summary: Deliver the ordered goods and record the stock movement out of the warehouse to the customer.
-reviewed: 2026-10-30
-fingerprint: 91bd02bcc5582c93
+reviewed: 2026-11-03
+fingerprint: 3e5b488361a5c1bb
 ---
 ## What it is for
 
@@ -30,6 +30,14 @@ A Delivery Note can also be made by a [Customer Invoice](customer-invoice.html) 
 
 
 From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+
+## Project
+
+Once the company has projects, the Delivery Note has a **Project** field,
+after Profit Center. Ticking a Sales Order's line fills it in with the
+order's project when it has none yet; you can change it. Every line the
+Delivery Note posts (stock and cost of sales) carries it, and its reversal
+too, even after the project is closed.
 
 ## What happens in the books
 

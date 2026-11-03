@@ -79,10 +79,21 @@ share (`.grow-2`), the rest share the remaining width. The Project field
 joins the dimension row after Profit Center (PROJECTS_DIMENSIONS.md,
 Q387-Q392).
 
+## As built: the sales chain (2026-11-03)
+
+With projects step 2 (PROJECTS_DIMENSIONS.md): **Delivery Note** (key row
+Company, Customer, Date, Reference; then the dimensions, Project and the
+Description), **Customer Invoice** (Company, Customer, Date, Description;
+then the dimensions, Project and the currency row) and **Sales Return**
+(Company, Customer, Invoice, Date; then Reference, Description and the
+invoice's project), each with its actions in the sticky bar. A
+`.span-all` cell in a flexible row takes a whole row
+(`.entry-fields.keys > .span-all`). Tests: ui/projectsSales.
+
 ## Next (after the owner's review)
 
-The other entry screens, the same way: CBT, Purchase Order, Customer
-Invoice, Delivery Note, GRN, Purchase / Sales Return, Stock Adjustment,
+The other entry screens, the same way: CBT, Purchase Order, GRN, Purchase
+Return, Stock Adjustment,
 Material Issue, Warehouse Movement, PDC, Purchase Requisition, Retail
 Sales, Production, Physical Count and the rest with an entry view. Ported
 screens that are generated (not on modules.json's handScreens list) take

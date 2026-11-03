@@ -1743,3 +1743,10 @@ from, and how it was verified. The deploy procedure is in the
   run [#280](https://github.com/yasircmd/erp-firebase/actions/runs/41515379395)
   (20:01–20:02 UTC), success. No functions. The owner's review (2026-11-03):
   good, except the dates too wide (fixed with projects step 1).
+- **2026-11-03, Projects on documents step 1 and the date width
+  (`projects-step1`, 445, PR #211, from `b84e271`):** "functions set, then
+  screens", run
+  [#281](https://github.com/yasircmd/erp-firebase/actions/runs/41576107154)
+  (04:06–05:37 UTC), success. "hosting", run
+  [#282](https://github.com/yasircmd/erp-firebase/actions/runs/41590723407)
+  (06:34–06:35 UTC), success. No rules change.

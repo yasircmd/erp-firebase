@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-11-03
-fingerprint: 1ea9ba1994ee4a1e
+fingerprint: 2298794b0143b6e5
 ---
 ## Signing in
 

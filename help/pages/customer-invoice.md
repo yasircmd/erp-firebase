@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-11-01
-fingerprint: 382345938741ac33
+reviewed: 2026-11-03
+fingerprint: 3e4527a9ae9a2680
 ---
 ## What it is for
 
@@ -121,12 +121,14 @@ VAT (an export, for example), it shows nothing in the default currency.
 
 ## Project
 
-Once the company has projects, the invoice has a **Project** field: every
-line the invoice posts carries it, for the
+Once the company has projects, the invoice has a **Project** field, after
+Profit Center: it is the default for the invoice's lines, and the lines from
+Delivery Notes take it. Each direct line also has a **Project** column, so
+one charge can go to another project; a new line takes the invoice's.
+Ticking a Delivery Note, or adding lines from a Sales Order, fills in the
+invoice's project from it when it has none yet; you can change it. Only the
+company's own and shared projects are offered. See the
 [Project Report](project-report.html).
-
-
-From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

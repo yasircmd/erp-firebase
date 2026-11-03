@@ -5,8 +5,8 @@ order: 7
 modules: [SALESRETURN]
 sources: [functions/src/salesReturn.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
-reviewed: 2026-10-30
-fingerprint: 57d7971997f51249
+reviewed: 2026-11-03
+fingerprint: c8aa7ca91be14754
 ---
 ## What it is for
 
@@ -25,6 +25,12 @@ fingerprint: 57d7971997f51249
 3. Enter the return quantity and the reason for the return.
 4. Post the return. The stock ledger and receivable balance update accordingly.
 5. Review the resulting credit note and any variance entries created.
+
+## Project
+
+A return takes its invoice's project, as it takes its other dimensions:
+choosing the invoice shows it (**Project**, *from the invoice*), and every
+line the return posts carries it.
 
 ## What happens in the books
 

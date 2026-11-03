@@ -234,8 +234,9 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   const glLines = clubGlLines(rawGlLines);
   const normalized = validateAndNormalizeLines(glLines, coaData, dim.CompanyID);
   normalized.lines = carryPartyFields(glLines, normalized.lines);
-  // A closed project takes no new postings; a reversal still posts (PROJECTS_DIMENSIONS.md).
-  if (!extraFields.ReversalOfJV) await require('./projects').assertProjects(normalized.lines, dim.CompanyID);
+  // A closed project takes no new postings; a reversal still posts (PROJECTS_DIMENSIONS.md):
+  // a JV's (ReversalOfJV) or a document's (ReversalOfDocument: Delivery Note, invoices).
+  if (!extraFields.ReversalOfJV && !extraFields.ReversalOfDocument) await require('./projects').assertProjects(normalized.lines, dim.CompanyID);
   const totalDebit = normalized.totalDebit;
   const totalCredit = normalized.totalCredit;
   if (Math.round((totalDebit - totalCredit) * 100) !== 0) {

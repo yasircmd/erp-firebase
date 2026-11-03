@@ -163,6 +163,8 @@ dimension row, docs/modules/ENTRY_LAYOUT.md).
 
 ## As built: step 1, Vendor Invoice, Sales Order, JV (2026-11-03)
 
+Live 2026-11-03 (PR #211; runs #281 functions and screens, #282 Hosting).
+
 - **projects.js:** `linesWithProject` keeps a line's own project (the
   header's is the default, Q388); new `documentProject(projectId,
   companyId)` checks a document's header project when saved (unknown,
@@ -202,3 +204,57 @@ dimension row, docs/modules/ENTRY_LAYOUT.md).
   UI projectsDocs 3/3, entryLayout 6/6 and the three screens' suites pass.
 - **Deploy:** `projects-step1` (445: projects.js and journal.js reach most
   functions), with screens, then Hosting.
+
+## As built: step 2, the sales chain (2026-11-03)
+
+- **Delivery Note** (patches `projects-docs (delivery note ...)`): the note
+  keeps its `ProjectID`, checked when saved (`documentProject_`); every
+  line it posts (stock and cost of sales) carries it through
+  `linesWithProject_`, and so does its reversal. Screen: Project after
+  Profit Center; ticking a Sales Order's line takes the order's project
+  when the note has none yet (changeable, Q390).
+- **Customer Invoice:** a direct line saves its own `ProjectID` and its
+  revenue posts on it (`addRevenue_` / `addReversalRevenue_` key the
+  revenue by project too); the rest posts on the invoice's. The Delivery
+  Note an invoice makes for its own items (direct stock) takes the
+  invoice's project. The order lines offered to an invoice
+  (getInvoiceableOrderLines) carry their order's `ProjectID`. Screen: the
+  Project field moved from the Company box to after Profit Center ("line
+  default"); the direct lines get a Project column, a new line takes the
+  invoice's; ticking a Delivery Note or adding order lines takes their
+  project when the invoice has none yet.
+- **Sales Return** (salesReturn.js): takes its invoice's project, as it
+  takes the invoice's other dimensions (Q390: the return follows the
+  invoice); posted and reversed on it. Screen: shown read-only, "(from the
+  invoice)", once an invoice with a project is chosen.
+- **A reversal posts on a closed project** (a gap from decision 221's
+  build): glWriting skips the line project check for a mirror marked
+  `ReversalOfDocument` as it did for `ReversalOfJV`. The Delivery Note,
+  Customer Invoice and Vendor Invoice reversals now mark it; before, each
+  was refused once its project was closed.
+- **Tests:** emulator/projectsSales (4: the Delivery Note's project
+  checked, posted and reversed after closing; a Customer Invoice direct
+  line's own project, a Sales Return taking the invoice's, the invoice
+  reversed after closing; a Vendor Invoice reversed after closing; the
+  invoice's own Delivery Note and the offered order lines), ui/projectsSales
+  (3: the layout of the three screens, Project after Profit Center, the
+  Delivery Note taking the order's project, the invoice's line column, the
+  return showing the invoice's project). Negative controls, each caught and
+  restored: glWriting without `ReversalOfDocument` (3 tests fail); the
+  return without the invoice's project; the Delivery Note's carry from the
+  order removed.
+- **Results:** full emulator regression 760 passed, 1 failed (essPortal
+  "who is away today", date-dependent, fails on main too); unit 222/222;
+  UI projectsSales 3/3 (three runs) and the three screens' suites pass
+  (createNext, directSalesInvoice, documentLinks, gridClipboard, home,
+  invoiceState, multiCurrency, projectsEInvoice, salesReturn, salesTax,
+  searchPicker, singleCompany, smoke, support, supportingDocs, entryLayout,
+  projectsDocs, creditControl, salesOrderClose, printStyle, phoneView,
+  dateFormat). ui/projectsDocs now waits for the Project field to show (the
+  org units load after the company is set; it measured too early once).
+- **Deploy:** `projects-step2` (452: glWriting.js reaches most functions),
+  with screens, then Hosting.
+- **For the owner:** a Sales Return is a new posting, so a return against
+  an invoice whose project has since been closed is refused until the
+  project is reopened (as any new posting on it). Say if returns should
+  post on a closed project, as reversals do.

@@ -292,7 +292,8 @@ exports.getReturnableCustomerInvoices = onCallWithMessages(onCallOptions, async 
       CustomerInvoiceID: id, TransactionNumber: inv.TransactionNumber || '', InvoiceDate: inv.InvoiceDate || '',
       Description: inv.Description || '', Status: inv.Status,
       Subtotal: inv.Subtotal, Discount: inv.Discount || 0, TaxPercent: inv.TaxPercent || 0, Total: inv.Total, Lines: lines,
-      TaxLines: inv.TaxLines || null // line tax (TAX_ENGINE.md, part 2): the screen's share of it
+      TaxLines: inv.TaxLines || null, // line tax (TAX_ENGINE.md, part 2): the screen's share of it
+      ProjectID: inv.ProjectID || '' // the return takes it (PROJECTS_DIMENSIONS.md, Q390)
     });
   }
   await annotateInvoiceOutstanding('CustomerInvoice', out);
@@ -333,6 +334,7 @@ exports.saveSalesReturnDraft = onCallWithMessages(onCallOptions, async (request)
     Reference: String(data.Reference || '').trim(),
     CompanyID: companyId, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '',
     CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    ProjectID: inv.ProjectID || '', // the invoice's project, as its other dimensions (PROJECTS_DIMENSIONS.md, Q390)
     CustomerID: customerId, SourceInvoiceID: invoiceId, SourceInvoiceNumber: inv.TransactionNumber || '',
     Lines: lines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor
   }, computeValues(lines, inv));
@@ -440,7 +442,7 @@ async function commitSalesReturnPosting(user, existing, returnId) {
   // (stockPosting.js, TRANSACTIONS_FIRESTORE.md T1b).
   const glResult = await postStock(user, {
     type: TYPE, date: existing.TransactionDate, description: existing.Description, reference: existing.Reference || existing.SourceInvoiceNumber || '',
-    lines: glLines,
+    lines: require('./projects').linesWithProject(glLines, existing.ProjectID), // its project on every line (Q390)
     dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
     extra: {
       CommitAttemptID: randomUUID(), SourceTransactionID: returnId, ReversalOfJV: '',
@@ -578,7 +580,7 @@ exports.reverseSalesReturn = onCallWithMessages(onCallOptions, async (request) =
       TransactionType: TYPE, Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: reversalDescription, Reference: existing.TransactionNumber,
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID || '', BranchID: existing.BranchID || '',
-      CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '',
+      CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '', ProjectID: existing.ProjectID || '',
       CustomerID: existing.CustomerID, SourceInvoiceID: existing.SourceInvoiceID, SourceInvoiceNumber: existing.SourceInvoiceNumber || '',
       ReturnValue: existing.ReturnValue, DiscountAmount: existing.DiscountAmount, TaxPercent: existing.TaxPercent,
       TaxAmount: existing.TaxAmount, Total: existing.Total,
@@ -590,7 +592,7 @@ exports.reverseSalesReturn = onCallWithMessages(onCallOptions, async (request) =
     // The GL entry, the balances, the reversal, the original and its GL
     // entry's mark in one batch: all or none (stockPosting.js, T1b).
     const glResult = await postStock(user, {
-      type: TYPE, date, description: reversalDescription, reference: existing.TransactionNumber, lines: glLines,
+      type: TYPE, date, description: reversalDescription, reference: existing.TransactionNumber, lines: require('./projects').linesWithProject(glLines, existing.ProjectID),
       dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: existing.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] }
     }, movement.ledgerUpdates, (gl, posted) => ({

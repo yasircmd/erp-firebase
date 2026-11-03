@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
 reviewed: 2026-11-03
-fingerprint: 913c0d91ce2b08a0
+fingerprint: bfd95451b12af5a1
 ---
 ## The page
 
@@ -15,8 +15,9 @@ the [phone view](getting-started.html#on-a-phone) applies.
 
 ## Entry screens: the top stays in view
 
-On **Vendor Invoice**, **Sales Order** and **Journal Entry** (the first
-screens with the new layout; the other entry screens follow), the top of an
+On **Vendor Invoice**, **Sales Order**, **Journal Entry**, **Delivery
+Note**, **Customer Invoice** and **Sales Return** (the other entry screens
+follow), the top of an
 entry stays in view while you scroll down its lines:
 
 - the title bar: **Back to List**, the document's number and status, and its

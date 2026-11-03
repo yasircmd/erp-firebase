@@ -126,7 +126,8 @@ exports.getInvoiceableOrderLines = onCallWithMessages(onCallOptions, async (requ
       const remaining = Math.max(0, Number(l.OrderedQuantity || 0) - Number(l.DeliveredQuantity || 0));
       const max = Math.min(remaining, reservedQty);
       if (max > 0.000001) out.push({ SOID: id, SONumber: o.SONumber || '', SODate: o.SODate || '', LineID: l.LineID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID,
-        UnitPrice: Number(l.UnitPrice) || 0, Remaining: remaining, Reserved: reservedQty, MaxQuantity: max });
+        UnitPrice: Number(l.UnitPrice) || 0, Remaining: remaining, Reserved: reservedQty, MaxQuantity: max,
+        ProjectID: o.ProjectID || '' }); // the order's project, carried to the invoice (PROJECTS_DIMENSIONS.md, Q390)
     });
   }
   return out.sort((a, b) => (a.SODate + a.SONumber).localeCompare(b.SODate + b.SONumber));

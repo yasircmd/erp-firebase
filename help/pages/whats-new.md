@@ -12,6 +12,16 @@ screen.
 
 ## 03/11/2026
 
+- **Delivery Note, Customer Invoice and Sales Return: the new layout and
+  Project.** [Delivery Note](delivery-note.html),
+  [Customer Invoice](customer-invoice.html) and
+  [Sales Return](sales-return.html) have the compact layout, with the title
+  bar, buttons and key fields staying at the top. Each has a **Project**:
+  a Delivery Note takes its Sales Order's project, an invoice its Delivery
+  Notes' or order's (both changeable), and a return its invoice's. An
+  invoice's direct lines can each have their own project. A reversal now
+  posts even after its project is closed.
+
 - **Project on entry screens, and narrower dates.** On
   [Vendor Invoice](vendor-invoice.html), [Sales Order](sales-order.html)
   and [Journal Entry](journal-entries.html), the **Project** field now
