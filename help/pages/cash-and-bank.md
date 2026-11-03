@@ -6,7 +6,7 @@ modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
 reviewed: 2026-11-03
-fingerprint: fe81fc346e22c8d1
+fingerprint: d557d88d46add4e6
 ---
 ## What it is for
 
@@ -41,7 +41,8 @@ Records every movement through a cash or bank account:
    [Paying and allocating](payments-and-allocation.html)).
 7. **Save as Draft**, or post. Where an approval applies to that
    transaction type, it goes for approval instead.
-8. **Print** gives the payment or receipt voucher.
+8. **Print** gives the payment voucher, or for a receipt the Cash Receipt or
+   Bank Receipt to hand to the payer.
 
 ### A vendor or customer in a foreign currency
 
