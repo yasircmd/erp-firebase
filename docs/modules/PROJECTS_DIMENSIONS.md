@@ -163,6 +163,8 @@ dimension row, docs/modules/ENTRY_LAYOUT.md).
 
 ## As built: step 1, Vendor Invoice, Sales Order, JV (2026-11-03)
 
+Live 2026-11-03 (PR #211; runs #281 functions and screens, #282 Hosting).
+
 - **projects.js:** `linesWithProject` keeps a line's own project (the
   header's is the default, Q388); new `documentProject(projectId,
   companyId)` checks a document's header project when saved (unknown,
