@@ -12,6 +12,10 @@ screen.
 
 ## 03/11/2026
 
+- **Cash and Bank: the customer or vendor on the print.** A receipt or
+  payment on a customer's or vendor's account prints the party's code and
+  name on its line, and, when there is one party, at the top ("Received
+  from" or "Paid to"). See [Cash and Bank](cash-and-bank.html).
 - **Cash and Bank: receipts print as Cash Receipt or Bank Receipt.** A
   printed Cash Receipt or Bank Receipt is now titled by its type (it said
   "Payment Receipt"); payments keep their voucher title. See
