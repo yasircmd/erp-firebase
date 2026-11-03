@@ -59,46 +59,41 @@
     <p id="cbt-print-company-address" class="text-sm"></p>
   </div>
   <div id="cbt-print-document" class="print-only"></div>
-  <div class="no-print space-y-5">
-  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
-    <div class="flex items-center gap-3">
+  <div class="no-print entry-layout">
+  <!-- ENTRY LAYOUT (docs/modules/ENTRY_LAYOUT.md): the title bar, the actions and the key fields stay at the top while the lines scroll. -->
+  <div class="entry-sticky bg-slate-900/95">
+    <div class="entry-bar">
       <button id="cbt-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
       <button id="cbt-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="cbt-back-chain-label">Back</span></button>
-      <h2 id="cbt-entry-title" class="text-xl font-bold text-blue-400">New Transaction</h2>
-    </div>
-    <div class="flex items-center gap-2">
+      <h2 id="cbt-entry-title" class="font-bold text-blue-400">New Transaction</h2>
+      <span id="cbt-voucher-no-line" class="entry-meta"></span>
+      <span id="cbt-txn-ref-line" class="hidden entry-meta"></span>
       <span id="cbt-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
-      <button id="cbt-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+      <div class="entry-actions">
+        <button id="cbt-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+        <button id="cbt-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+        <button id="cbt-duplicate-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"><i class="fa-solid fa-clone"></i> Duplicate Entry</button>
+        <button id="cbt-rematch-btn" class="hidden px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs"><i class="fa-solid fa-link"></i> Re-match references</button>
+        <button id="cbt-rematch-cancel-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel re-match</button>
+        <button id="cbt-rematch-save-btn" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save re-match</button>
+        <button id="cbt-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse Entry</button>
+        <button id="cbt-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+        <button id="cbt-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post Entry</button>
+      </div>
     </div>
-  </div>
-
-  <div id="cbt-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
-  <div id="cbt-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
-
-  <div>
-    <label class="block text-xs font-medium text-slate-300 mb-2">Transaction Type</label>
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="cbt-type-buttons">
-      <button data-type="Cash Receipt" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Cash Receipt</div><div class="text-xs text-slate-500">Money in — cash</div></button>
-      <button data-type="Bank Receipt" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Bank Receipt</div><div class="text-xs text-slate-500">Money in — bank</div></button>
-      <button data-type="Cash Payment" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Cash Payment</div><div class="text-xs text-slate-500">Money out — cash</div></button>
-      <button data-type="Bank Payment" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Bank Payment</div><div class="text-xs text-slate-500">Money out — bank</div></button>
-      <button data-type="Fund Transfer" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Fund Transfer</div><div class="text-xs text-slate-500">Between cash / bank</div></button>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-2" id="cbt-type-buttons" title="Transaction Type">
+      <button data-type="Cash Receipt" class="cbt-type-btn relative text-left px-3 py-1 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-1.5 right-2"></i><div class="font-medium">Cash Receipt</div><div class="text-xs text-slate-500">Money in — cash</div></button>
+      <button data-type="Bank Receipt" class="cbt-type-btn relative text-left px-3 py-1 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-1.5 right-2"></i><div class="font-medium">Bank Receipt</div><div class="text-xs text-slate-500">Money in — bank</div></button>
+      <button data-type="Cash Payment" class="cbt-type-btn relative text-left px-3 py-1 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-1.5 right-2"></i><div class="font-medium">Cash Payment</div><div class="text-xs text-slate-500">Money out — cash</div></button>
+      <button data-type="Bank Payment" class="cbt-type-btn relative text-left px-3 py-1 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-1.5 right-2"></i><div class="font-medium">Bank Payment</div><div class="text-xs text-slate-500">Money out — bank</div></button>
+      <button data-type="Fund Transfer" class="cbt-type-btn relative text-left px-3 py-1 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-1.5 right-2"></i><div class="font-medium">Fund Transfer</div><div class="text-xs text-slate-500">Between cash / bank</div></button>
     </div>
-  </div>
-
-  <div>
-    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
-    <select id="cbt-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
-    <p class="text-xs text-slate-500 mt-1">Choose a Company first — the Ledger Account and opposite accounts below are filtered to what that company can use.</p>
-  </div>
-
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div>
-      <label class="block text-xs font-medium text-slate-300 mb-1" id="cbt-ledger-label">Ledger Account</label>
-      <select id="cbt-form-ledger" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select transaction type first...</option></select>
+    <div class="entry-fields keys">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="cbt-form-company" title="Choose a Company first — the Ledger Account and opposite accounts below are filtered to what that company can use." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1" id="cbt-ledger-label">Ledger Account</label><select id="cbt-form-ledger" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select transaction type first...</option></select></div>
+      <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="cbt-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input type="text" id="cbt-form-reference" placeholder="e.g. Receipt #, Cheque #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
     </div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="cbt-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="cbt-form-reference" placeholder="e.g. Receipt #, Cheque #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
   </div>
 
   <div id="cbt-fx" class="hidden">
@@ -114,26 +109,13 @@
     <p class="text-xs text-slate-500 mt-1">The To account is in its own currency: what it receives, in it.</p>
   </div>
 
-  <div>
-    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
-    <div class="flex gap-2">
-      <input type="text" id="cbt-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
-      <button id="cbt-desc-edit-btn" class="hidden no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 rounded border border-slate-700" title="Edit description"><i class="fa-solid fa-pen-to-square"></i></button>
-      <button id="cbt-desc-save-btn" class="hidden no-print bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 rounded">Save</button>
-      <button id="cbt-desc-cancel-btn" class="hidden no-print bg-slate-700 hover:bg-slate-600 text-xs px-3 rounded">Cancel</button>
-    </div>
-  </div>
-
-  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
-    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input type="text" id="cbt-form-currency" readonly class="w-full bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-400"></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="cbt-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="cbt-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="cbt-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="cbt-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-    </div>
-    <p class="text-xs text-slate-500">New lines pick up the Cost Center / Profit Center above as a starting default — each line can still be changed individually afterward.</p>
+  <div class="entry-fields keys">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input type="text" id="cbt-form-currency" readonly class="w-full bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-400"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="cbt-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="cbt-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="cbt-form-costcenter" title="line default: New lines pick up the Cost Center / Profit Center above as a starting default — each line can still be changed individually afterward." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="cbt-form-profitcenter" title="line default: New lines pick up the Cost Center / Profit Center above as a starting default — each line can still be changed individually afterward." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><div class="flex gap-2"><input type="text" id="cbt-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"><button id="cbt-desc-edit-btn" class="hidden no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 rounded border border-slate-700" title="Edit description"><i class="fa-solid fa-pen-to-square"></i></button><button id="cbt-desc-save-btn" class="hidden no-print bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 rounded">Save</button><button id="cbt-desc-cancel-btn" class="hidden no-print bg-slate-700 hover:bg-slate-600 text-xs px-3 rounded">Cancel</button></div></div>
   </div>
 
   <div id="cbt-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above before choosing a ledger or opposite accounts — no accounts can be chosen until then.</div>
@@ -194,16 +176,6 @@
     <div id="cbt-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
   </div>
 
-  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
-    <button id="cbt-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
-    <button id="cbt-duplicate-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"><i class="fa-solid fa-clone"></i> Duplicate Entry</button>
-    <button id="cbt-rematch-btn" class="hidden px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs"><i class="fa-solid fa-link"></i> Re-match references</button>
-    <button id="cbt-rematch-cancel-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel re-match</button>
-    <button id="cbt-rematch-save-btn" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save re-match</button>
-    <button id="cbt-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse Entry</button>
-    <button id="cbt-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
-    <button id="cbt-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post Entry</button>
-  </div>
   </div>
 </div>
 

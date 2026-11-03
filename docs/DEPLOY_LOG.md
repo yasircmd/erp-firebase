@@ -1750,3 +1750,11 @@ from, and how it was verified. The deploy procedure is in the
   (04:06–05:37 UTC), success. "hosting", run
   [#282](https://github.com/yasircmd/erp-firebase/actions/runs/41590723407)
   (06:34–06:35 UTC), success. No rules change.
+- **2026-11-03, Projects on documents step 2, the sales chain
+  (`projects-step2`, 452, PR #212, from `1b6ea72`):** "functions set, then
+  screens", run
+  [#284](https://github.com/yasircmd/erp-firebase/actions/runs/41602426555)
+  (08:19–09:52 UTC), success. "hosting", run
+  [#285](https://github.com/yasircmd/erp-firebase/actions/runs/41616561044)
+  (10:07–10:08 UTC), success. No rules change. Projects steps 3-5 parked
+  after this (owner: the entry layout is the main request).
