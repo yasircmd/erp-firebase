@@ -263,7 +263,9 @@ async function saveJournalRecord_(
     DivisionID: String(dim.DivisionID || ''),
     BranchID: String(dim.BranchID || ''),
     CostCenterID: String(dim.CostCenterID || ''),
-    ProfitCenterID: String(dim.ProfitCenterID || '')
+    ProfitCenterID: String(dim.ProfitCenterID || ''),
+    // The lines' default project (PROJECTS_DIMENSIONS.md, Q388), checked below.
+    ProjectID: String(dim.ProjectID || '').trim().slice(0, 80)
   };
 
   // Company is mandatory — without it there's no way to know which
@@ -274,6 +276,7 @@ async function saveJournalRecord_(
   if (!userCanAccessCompany_(user.profile, dimensionFields.CompanyID)) {
     throw new Error('You do not have access to that company.');
   }
+  dimensionFields.ProjectID = await require('./projects').documentProject(dimensionFields.ProjectID, dimensionFields.CompanyID);
 
   const coaData = await getCoaData_(idToken);
   const normalized = validateAndNormalizeLines_(rawLines, coaData, dimensionFields.CompanyID);
@@ -349,7 +352,7 @@ async function saveJournalDraft(idToken, jvData) {
       {
         CurrencyCode: jvData.CurrencyCode, CompanyID: jvData.CompanyID,
         DivisionID: jvData.DivisionID, BranchID: jvData.BranchID,
-        CostCenterID: jvData.CostCenterID, ProfitCenterID: jvData.ProfitCenterID
+        CostCenterID: jvData.CostCenterID, ProfitCenterID: jvData.ProfitCenterID, ProjectID: jvData.ProjectID
       },
       { VoucherType: 'JV' }
     );

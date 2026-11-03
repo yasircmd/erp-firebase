@@ -5,8 +5,8 @@ order: 2
 modules: [ORGUNITS]
 sources: [functions/src/companies.js, functions/src/projects.js]
 summary: Maintain divisions, branches, warehouses, racks, cost centers, profit centers, locations and projects used by ERP workflows.
-reviewed: 2026-10-24
-fingerprint: 504edb9c0c2c7a1c
+reviewed: 2026-11-03
+fingerprint: d91742ab8b74a29c
 ---
 ## What it is for
 
@@ -14,7 +14,7 @@ fingerprint: 504edb9c0c2c7a1c
 
 A **Project** is a job you want to see the result of (a building, a
 contract). It can name its **Customer** and its **Start** and **End** dates.
-Journal, cash and bank lines and invoices carry it, and the
+Journal, cash and bank lines, invoices and Sales Orders carry it, and the
 [Project Report](project-report.html) shows its income, costs and result.
 A project is **Active** or **Closed**: a closed project takes no new
 postings, though an entry on it can still be reversed.

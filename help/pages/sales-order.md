@@ -5,8 +5,8 @@ order: 4
 modules: [SALESORDER]
 sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js, functions/src/salesOrderClose.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-11-02
-fingerprint: 8101f18c0543d21a
+reviewed: 2026-11-03
+fingerprint: 17207c3b6e474456
 ---
 ## What it is for
 
@@ -34,6 +34,13 @@ warehouse that isn't found, a quantity that isn't a number above zero or a price
 nothing is pasted and the message names the rows to fix.
 4. Save or submit for approval if the company requires it.
 5. Use the order to create the delivery note or invoice when the goods are ready.
+
+## Project
+
+Once the company has projects, the order has a **Project** field after
+Profit Center. Only the company's own and shared projects that are open
+are offered. The order's Delivery Notes and invoices will take its project
+(the next step of this work).
 
 ## Delivered, remaining and the order's status
 

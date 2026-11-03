@@ -50,7 +50,19 @@ async function assertProjects(lines, companyId) {
 }
 
 // A document's project on each of its GL lines (Customer / Vendor Invoice,
-// patch projects): an account whose rule is Not used drops it again.
-const linesWithProject = (lines, projectId) => (projectId ? lines.map(l => Object.assign({}, l, { ProjectID: projectId })) : lines);
+// patch projects): an account whose rule is Not used drops it again. A line
+// with its own project keeps it (owner, 2026-11-03, Q388: the header is the
+// lines' default, a line may differ).
+const linesWithProject = (lines, projectId) => (projectId ? lines.map(l => Object.assign({}, l, { ProjectID: l.ProjectID || projectId })) : lines);
 
-module.exports = { projectFields, assertProjects, linesWithProject };
+// A document's header project, checked when the document is saved (owner,
+// 2026-11-03, Q387): '' or a project the company may use, as assertProjects
+// checks a line's. Throws Error.
+async function documentProject(projectId, companyId) {
+  const id = String(projectId || '').trim().slice(0, 80);
+  if (!id) return '';
+  try { await assertProjects([{ ProjectID: id }], companyId); } catch (e) { throw new Error(e.message.replace(/^Line 1: the project/, 'The project').replace(/^Line 1: project/, 'Project')); }
+  return id;
+}
+
+module.exports = { projectFields, assertProjects, linesWithProject, documentProject };

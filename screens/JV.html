@@ -73,11 +73,11 @@
         <button id="jv-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post Entry</button>
       </div>
     </div>
-    <div class="entry-fields">
+    <div class="entry-fields keys">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="jv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Entry Date</label><input type="date" id="jv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Entry Date</label><input type="date" id="jv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="jv-form-reference" placeholder="e.g. Invoice #, PO #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
-      <div>
+      <div class="grow-2">
         <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
         <div class="flex gap-2">
           <input type="text" id="jv-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
@@ -89,11 +89,13 @@
     </div>
   </div>
 
-  <div class="entry-fields cols-6">
+  <div class="entry-fields keys">
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="jv-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="jv-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1" title="New lines pick up the Cost Center / Profit Center above as a starting default — each line can still be changed individually afterward.">Cost Center <span class="text-slate-500">(line default)</span></label><select id="jv-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="jv-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <!-- The lines' default project (docs/modules/PROJECTS_DIMENSIONS.md, Q388): once the company has a project. -->
+    <div id="jv-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project <span class="text-slate-500">(line default)</span></label><select id="jv-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input type="text" id="jv-form-currency" readonly class="w-full bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-400"></div>
   </div>
 
@@ -705,6 +707,17 @@
 
   function currentHeaderCostCenter() { return document.getElementById('jv-form-costcenter').value; }
   function currentHeaderProfitCenter() { return document.getElementById('jv-form-profitcenter').value; }
+  function currentHeaderProject() { return document.getElementById('jv-form-project').value; }
+  // The header Project: the company's (and shared) Active projects, the one set kept.
+  function setHeaderProject(id) {
+    const sel = document.getElementById('jv-form-project');
+    sel.innerHTML = '<option value="">—</option>' + projectsOf()
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .map(u => `<option value="${u.UnitID}">${escapeHtml(u.Code + ' — ' + u.Name)}</option>`).join('')
+    if (id && !Array.from(sel.options).some(o => o.value === id)) sel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(id)}">${escapeHtml(id)} (closed)</option>`);
+    sel.value = id || '';
+    document.getElementById('jv-project-field').classList.toggle('hidden', !(projectsOf().length > 0 || id));
+  }
   function currentHeaderDescription() { return document.getElementById('jv-form-description').value; }
 
   // A new row defaults its Description to the header Description — often
@@ -718,7 +731,7 @@
     if (!last || last.AccountCode || last.Debit || last.Credit) {
       gridLines.push({
         AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '',
-        CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter()
+        CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(), ProjectID: currentHeaderProject()
       });
     }
   }
@@ -731,6 +744,7 @@
     const partyReadOnly = (readOnly || Boolean(currentJv && currentJv.Status === 'PendingApproval')) && !rematching;
 
     const withProjects = projectsOf().length > 0 || gridLines.some(l => l.ProjectID);
+    setHeaderProject(currentHeaderProject());
     document.getElementById('jv-project-head').classList.toggle('hidden', !withProjects);
     document.getElementById('jv-total-dims').colSpan = withProjects ? 3 : 2;
     gridLines.forEach((line, i) => {
@@ -875,7 +889,7 @@
     rows.forEach((rowText, r) => {
       const cells = rowText.split('\t');
       const targetRow = startRow + r;
-      while (gridLines.length <= targetRow) gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
+      while (gridLines.length <= targetRow) gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(), ProjectID: currentHeaderProject() });
 
       cells.forEach((cellText, c) => {
         const targetCol = startCol + c;
@@ -988,6 +1002,7 @@
     document.getElementById('jv-form-branch').value = currentJv.BranchID || '';
     document.getElementById('jv-form-costcenter').value = currentJv.CostCenterID || '';
     document.getElementById('jv-form-profitcenter').value = currentJv.ProfitCenterID || '';
+    setHeaderProject(currentJv.ProjectID || '');
     if (currentJv.CurrencyCode) document.getElementById('jv-form-currency').value = currentJv.CurrencyCode;
     rebuildAccountDatalist();
 
@@ -1006,6 +1021,7 @@
     document.getElementById('jv-form-branch').value = '';
     document.getElementById('jv-form-costcenter').value = '';
     document.getElementById('jv-form-profitcenter').value = '';
+    setHeaderProject('');
     document.getElementById('jv-form-currency').value = defaultCurrency ? (defaultCurrency.Code + (defaultCurrency.Symbol ? ' (' + defaultCurrency.Symbol + ')' : '')) : 'No default currency set';
     rebuildAccountDatalist();
     showEntryView();
@@ -1034,6 +1050,7 @@
       document.getElementById('jv-form-branch').value = source.BranchID || '';
       document.getElementById('jv-form-costcenter').value = source.CostCenterID || '';
       document.getElementById('jv-form-profitcenter').value = source.ProfitCenterID || '';
+      setHeaderProject(source.ProjectID || '');
       document.getElementById('jv-form-currency').value = defaultCurrency ? (defaultCurrency.Code + (defaultCurrency.Symbol ? ' (' + defaultCurrency.Symbol + ')' : '')) : 'No default currency set';
       rebuildAccountDatalist();
       showEntryView();
@@ -1193,7 +1210,7 @@
     // still change, so printing one would be printing something stale.
     document.getElementById('jv-print-btn').classList.toggle('hidden', !posted);
 
-    ['jv-form-date', 'jv-form-reference', 'jv-form-description', 'jv-form-company', 'jv-form-division', 'jv-form-branch', 'jv-form-costcenter', 'jv-form-profitcenter'].forEach(id => {
+    ['jv-form-date', 'jv-form-reference', 'jv-form-description', 'jv-form-company', 'jv-form-division', 'jv-form-branch', 'jv-form-costcenter', 'jv-form-profitcenter', 'jv-form-project'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
     });
 
@@ -1301,7 +1318,8 @@
       DivisionID: document.getElementById('jv-form-division').value,
       BranchID: document.getElementById('jv-form-branch').value,
       CostCenterID: document.getElementById('jv-form-costcenter').value,
-      ProfitCenterID: document.getElementById('jv-form-profitcenter').value
+      ProfitCenterID: document.getElementById('jv-form-profitcenter').value,
+      ProjectID: currentHeaderProject()
     };
   }
 
@@ -1478,6 +1496,7 @@
     populateOrgUnitSelect('jv-form-branch', 'Branch');
     populateOrgUnitSelect('jv-form-costcenter', 'CostCenter');
     populateOrgUnitSelect('jv-form-profitcenter', 'ProfitCenter');
+    setHeaderProject(currentHeaderProject()); // shows once the company has a project
 
     // Line-level Cost/Profit Center dropdowns depend on the same orgUnits
     // list — refresh the grid too if it's currently visible, so lines don't
@@ -1536,7 +1555,7 @@
     document.getElementById('jv-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
     document.getElementById('jv-add-line-btn').addEventListener('click', () => {
       isDirty = true;
-      gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
+      gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(), ProjectID: currentHeaderProject() });
       renderGrid();
     });
     document.getElementById('jv-paste-btn').addEventListener('click', handlePasteButton);
@@ -1566,6 +1585,14 @@
       gridLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
       renderGrid();
     });
+    // The header Project fills the lines that have none, as the Cost / Profit Center do.
+    document.getElementById('jv-form-project').addEventListener('change', () => {
+      const headerValue = currentHeaderProject();
+      isDirty = true;
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.ProjectID) line.ProjectID = headerValue; });
+      renderGrid();
+    });
     document.getElementById('jv-delete-btn').addEventListener('click', deleteCurrentDraft);
     document.getElementById('jv-approve-btn').addEventListener('click', () => decide('Approved'));
     document.getElementById('jv-reject-btn').addEventListener('click', () => decide('Rejected'));
@@ -1575,6 +1602,7 @@
     document.getElementById('jv-rematch-cancel-btn').addEventListener('click', cancelRematch);
     document.getElementById('jv-rematch-save-btn').addEventListener('click', saveRematch);
     document.getElementById('jv-form-company').addEventListener('change', rebuildAccountDatalist);
+    document.getElementById('jv-form-company').addEventListener('change', () => setHeaderProject(currentHeaderProject())); // the company's projects
     document.getElementById('jv-form-company').addEventListener('change', updatePrintHeader);
     document.getElementById('jv-desc-edit-btn').addEventListener('click', startDescriptionEdit);
     document.getElementById('jv-desc-save-btn').addEventListener('click', saveDescriptionEdit);

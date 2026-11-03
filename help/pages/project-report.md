@@ -1,6 +1,6 @@
 ---
-fingerprint: 21d681931823fd6f
-reviewed: 2026-10-16
+fingerprint: 616611af924fb347
+reviewed: 2026-11-03
 title: Project Report
 area: finance
 order: 13
@@ -20,7 +20,7 @@ project show under **No project**.
 - The projects exist in [Organizational Units](org-units.html) (type
   **Project**).
 - Entries carry their project: a Project on the journal or cash and bank
-  line, or on the invoice.
+  line, on the invoice, or on one of a Vendor Invoice's direct lines.
 
 ## Step by step
 

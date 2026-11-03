@@ -96,6 +96,7 @@ const MAPPED = {
   cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
   needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],
   linesWithProject_: ['projects', 'linesWithProject', 'pure'],
+  documentProject_: ['projects', 'documentProject', 'dropCtx'], // a document's header project, checked (PROJECTS_DIMENSIONS.md, Q387)
   recordEInvoice_: ['eInvoicing', 'recordEInvoice', 'dropCtx'], // docs/modules/E_INVOICING.md
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],

@@ -71,6 +71,7 @@ const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
 const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
 const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
 const linesWithProject_ = (...a) => __projects.linesWithProject(...a);
+const documentProject_ = (idToken, ...a) => __projects.documentProject(...a);
 const recordEInvoice_ = (idToken, ...a) => __eInvoicing.recordEInvoice(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
@@ -3553,7 +3554,8 @@ async function saveVendorInvoiceDraft(idToken, invoiceData) {
       if (!lineDescription) throw new Error('Direct line ' + (idx + 1) + ': description is required.');
       return {
         AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
-        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim()
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim(),
+        ProjectID: String(l.ProjectID || '').trim().slice(0, 80) // [NEW DEVELOPMENT projects-docs] checked when posted (glWriting)
       };
     });
 
@@ -3699,7 +3701,7 @@ async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
   (existing.DirectLines || []).forEach(l => {
     glLines.push({
       AccountCode: l.AccountCode, Debit: l.Amount, Credit: 0,
-      Description: l.Description, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || ''
+      Description: l.Description, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || '', ProjectID: l.ProjectID || '' // [NEW DEVELOPMENT projects-docs]
     });
   });
 
@@ -3846,7 +3848,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
     glLines.push({ AccountCode: clearingAccount.AccountCode, Debit: 0, Credit: Math.round(grnSubtotal * 100) / 100, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
   }
   (existing.DirectLines || []).forEach(l => {
-    glLines.push({ AccountCode: l.AccountCode, Debit: 0, Credit: l.Amount, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || '' });
+    glLines.push({ AccountCode: l.AccountCode, Debit: 0, Credit: l.Amount, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || '', ProjectID: l.ProjectID || '' }); // [NEW DEVELOPMENT projects-docs]
   });
   if (existing.Discount > 0) {
     const discountAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountReceivedAccountID', 'Discount Received Account')];
@@ -8508,6 +8510,7 @@ async function saveDraftSalesOrder(idToken, header) {
       CustomerID: customerId, CompanyID: companyId,
       DivisionID: String(header.DivisionID || '').trim(), BranchID: String(header.BranchID || '').trim(),
       CostCenterID: costCenterId, ProfitCenterID: String(header.ProfitCenterID || '').trim(),
+      ProjectID: await documentProject_(idToken, header.ProjectID, companyId), // [NEW DEVELOPMENT projects-docs]
       SODate: soDate, RequestedDeliveryDate: header.RequestedDeliveryDate || '',
       PriceListID: priceList ? priceList.PriceListID : '', CurrencyID: priceList ? priceList.CurrencyID : '',
       Description: String(header.Description || '').trim(),
