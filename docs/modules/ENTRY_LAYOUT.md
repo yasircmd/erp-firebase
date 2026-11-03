@@ -141,11 +141,33 @@ Header at 1400 px: Stock Adjustment 618 -> 300 px, Material Issue 692 ->
 (14 checks). Negative control: Warehouse Movement's sticky part made a plain
 block -> its two checks fail; restored.
 
+## Wave 3: the rest (2026-11-03)
+
+- **Fixed asset entries** (Capitalization, Capital Work in Progress,
+  Retirement, Additional Depreciation; one template): the GL impact and
+  every action (from the bottom row) in the bar; the field grid as the key
+  row (date narrow, reason / description wider).
+- **Recurring JV:** its actions were already in the title bar; now sticky,
+  with Company, Description, Reference; the dimensions in one row under it
+  (no box).
+- **Employee Changes, Loans, Interim Payment:** the title bar (actions
+  already there) sticky, with Employee, Type, the date or amounts as the key
+  row; the reason / note in the row under it.
+- **Final Settlement, Budget:** their title bar (with every action) made
+  sticky; their bodies are working panels, unchanged.
+- **Left as they are:** Earnings & Deductions (its entry is already one
+  inline row), the asset card and the BOM (master records, not postings;
+  the BOM is a generated screen), Retail Sales (a point-of-sale screen).
+
+Header at 1400 px: Recurring JV 573 -> 470 px, Capitalization and CWIP 247
+-> 201, Retirement 338 -> 218, Additional Depreciation 226 -> 117, Employee
+Changes 275 -> 195. Tests: ui/entryLayoutWave wave 3 (14 checks; these were
+compact already, so the header is checked at 75-90 % of before). Negative
+control: Additional Depreciation's key row back in a two-column grid -> its
+one-row check fails; restored.
+
 ## Next (after the owner's review)
 
-Wave 3, the same way: Recurring JV, BOM (generated: SCREEN_EDITS), the
-Fixed Asset entries, the payroll entries (Earnings & Deductions, loans,
-interim payments, final settlement), Employee Changes, Budget, Retail Sales
-and the rest with an entry view. Ported
-screens that are generated (not on modules.json's handScreens list) take
-it through SCREEN_EDITS.
+Every entry screen has the layout (waves 1-3). The owner reviews; changes
+from that review go here. A generated (ported) screen that needs it later
+takes it through SCREEN_EDITS.

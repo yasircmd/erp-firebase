@@ -12,6 +12,16 @@ screen.
 
 ## 03/11/2026
 
+- **Every entry screen: the compact layout.** The last ones too:
+  [Recurring journals](recurring-journals.html), the fixed asset entries
+  ([capitalization](fixed-asset-capitalization.html),
+  [capital work in progress](capital-work-in-progress.html),
+  [retirement](fixed-asset-retirement.html),
+  [additional depreciation](additional-depreciation.html)),
+  [Employee Changes](employee-change.html), [Loans](payroll-loan.html),
+  [Interim payments](payroll-interim.html),
+  [Final settlement](payroll-final-settlement.html) and
+  [Budget](budget.html): the title bar and its buttons stay at the top.
 - **Purchase, cash and stock screens: the compact layout.**
   [Purchase Order](purchase-order.html),
   [Goods Receipt Note](goods-receipt-note.html),

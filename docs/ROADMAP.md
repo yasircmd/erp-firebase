@@ -156,7 +156,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Wave 1 (Purchase Order, GRN, Purchase Return, CBT, PDC Received / Issued)
   and wave 2 (Stock Adjustment, Material Issue, Warehouse Movement, Physical
   Count, Production, the two requisitions) built 2026-11-03: headers -31 % to
-  -62 %; one PR, "screens only", then Hosting. Next: wave 3 (the rest).
+  -62 %; PR #213, live 2026-11-03 (runs #287, #289). Wave 3 (Recurring JV,
+  the four fixed asset entries, Employee Changes, Loans, Interim Payment,
+  Final Settlement, Budget) built 2026-11-03: every entry screen now has the
+  layout; screens only, then Hosting. Next: the owner's review.
 - [x] **Sales Order: Delivered / Remaining, Delivered status, Close and Reopen**
   (owner, 2026-11-02; decisions Q379-Q382, [SO_CLOSE.md](modules/SO_CLOSE.md)).
   The screen dropped each line's delivered quantity when opening an order (an

@@ -1758,3 +1758,9 @@ from, and how it was verified. The deploy procedure is in the
   [#285](https://github.com/yasircmd/erp-firebase/actions/runs/41616561044)
   (10:07–10:08 UTC), success. No rules change. Projects steps 3-5 parked
   after this (owner: the entry layout is the main request).
+- **2026-11-03, Entry layout waves 1 and 2 (PR #213, from `0ee7614`):**
+  "screens only", run
+  [#287](https://github.com/yasircmd/erp-firebase/actions/runs/41618312939)
+  (10:19–10:21 UTC), success. "hosting", run
+  [#289](https://github.com/yasircmd/erp-firebase/actions/runs/41620234934)
+  (10:33–10:34 UTC), success. No functions.

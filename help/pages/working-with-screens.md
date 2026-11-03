@@ -15,13 +15,12 @@ the [phone view](getting-started.html#on-a-phone) applies.
 
 ## Entry screens: the top stays in view
 
-On the entry screens (**Vendor Invoice**, **Sales Order**, **Journal
-Entry**, **Delivery Note**, **Customer Invoice**, **Sales Return**,
-**Purchase Order**, **Goods Receipt Note**, **Purchase Return**, **Cash and
-Bank**, **PDC Received**, **PDC Issued**, **Stock Adjustment**, **Material
-Issue**, **Warehouse Movement**, **Physical Count**, **Production Entry**,
-**Purchase Requisition** and **Inventory Purchase Requisition**; the others
-follow), the top of an entry stays in view while you scroll down its lines:
+On the entry screens (the documents you save and post: invoices, orders,
+deliveries, receipts and returns, cash and bank, cheques, stock entries,
+requisitions, journals, recurring journals, the fixed asset entries, and
+the HR and payroll entries such as Employee Changes, loans, interim
+payments and final settlements), the top of an entry stays in view while
+you scroll down its lines:
 
 - the title bar: **Back to List**, the document's number and status, and its
   buttons (**Save Draft**, **Post** or **Confirm**, and the others such as

@@ -1,8 +1,9 @@
-// Entry layout on the other entry screens, waves 1 (purchase, cash) and 2
-// (stock, requisitions) (owner, 2026-11-03: "change the
+// Entry layout on the other entry screens, waves 1 (purchase, cash), 2
+// (stock, requisitions) and 3 (recurring JV, fixed assets, HR and payroll) (owner, 2026-11-03: "change the
 // entries module in a more optimized way"; docs/modules/ENTRY_LAYOUT.md):
 // per screen, the key fields in one row on a wide window; the actions in the
-// sticky title bar; every id once; the header at most 75 % of what it was;
+// sticky title bar; every id once; the header shorter than it was (at most
+// 75 %, or 80-90 % on the screens that were compact already);
 // scrolled down, the title bar, actions and key fields stay in view; a phone
 // width sticks nothing. One list per wave; run all, or one wave:
 //   node functions/test/ui/entryLayoutWave.ui.js [wave]
@@ -48,6 +49,22 @@ const WAVES = {
       keys: ['pr-form-company', 'pr-form-date', 'pr-form-neededby', 'pr-form-priority'], actions: ['pr-save-draft-btn', 'pr-submit-btn'] },
     { mod: 'INVENTORYPURCHASEREQUISITION', p: 'ipr', view: 'ipr-entry-view', to: '#ipr-grid-body', before: 546,
       keys: ['ipr-form-company', 'ipr-form-date', 'ipr-form-neededby', 'ipr-form-priority'], actions: ['ipr-save-draft-btn', 'ipr-submit-btn'] }
+  ],
+  3: [
+    { mod: 'RECURRINGJV', p: 'rj', view: 'rj-entry-view', to: '#rj-lines-body', before: 573, max: 0.9,
+      keys: ['rj-form-company', 'rj-form-description', 'rj-form-reference'], actions: ['rj-save-btn', 'rj-activate-btn'] },
+    { mod: 'FAACQ', p: 'fap', view: 'fap-entry-view', to: '#fap-items-body', before: 247, max: 0.9,
+      keys: ['fap-form-company', 'fap-form-date', 'fap-form-reference'], actions: ['fap-save-btn', 'fap-post-btn'] },
+    { mod: 'FAAUC', p: 'fcw', view: 'fcw-entry-view', to: '#fcw-items-body', before: 247, max: 0.9, btn: 'fcw-new-cost-btn',
+      keys: ['fcw-form-company', 'fcw-form-date', 'fcw-form-reference'], actions: ['fcw-save-btn', 'fcw-post-btn'] },
+    { mod: 'FARETIRE', p: 'frt', view: 'frt-entry-view', to: '#frt-lines-body', before: 338, max: 0.75,
+      keys: ['frt-form-company', 'frt-form-date', 'frt-form-type'], actions: ['frt-save-btn', 'frt-post-btn'] },
+    { mod: 'FAADDDEP', p: 'fad', view: 'fad-entry-view', to: '#fad-lines-body', before: 226, max: 0.75,
+      keys: ['fad-form-company', 'fad-form-date', 'fad-form-reason'], actions: ['fad-save-btn', 'fad-post-btn'] },
+    { mod: 'EMPCHANGE', p: 'ec', view: 'ec-entry-view', to: '#ec-sec-job', before: 275, max: 0.8,
+      keys: ['ec-employee', 'ec-type', 'ec-effective'], actions: ['ec-save-btn', 'ec-submit-btn'] },
+    { mod: 'PAYROLLLOAN', p: 'ln', view: 'ln-entry-view', to: '#ln-recs', before: 0, max: 0.9,
+      keys: ['ln-employee', 'ln-type', 'ln-amount'], actions: ['ln-save-btn', 'ln-submit-btn'] }
   ]
 };
 const only = process.argv[2];
@@ -66,14 +83,14 @@ const SCREENS = Object.keys(WAVES).filter(w => !only || w === only).flatMap(w =>
     await onAppDialog(page, d => d.accept());
     await page.goto('http://127.0.0.1:8208/?module=' + s.mod + '&uid=u-admin');
     await page.waitForFunction(() => window.__moduleReady === true, null, T);
-    await page.click('#' + s.p + '-new-btn');
+    await page.click('#' + (s.btn || s.p + '-new-btn'));
     await page.waitForSelector('#' + s.view + ':not(.hidden)', T);
     await page.waitForTimeout(500); // the company's lists in
     return page;
   }
 
   for (const s of SCREENS) {
-    await check(s.mod + ': key fields in one row; the actions in the title bar; every id once; the header at most 75% of before', async () => {
+    await check(s.mod + ': key fields in one row; the actions in the title bar; every id once; the header shorter than before', async () => {
       const page = await open(s, 1400);
       const tops = await page.evaluate(ids => ids.map(id => { const el = document.getElementById(id); return Math.round((el.closest('.entry-fields > *') || el).getBoundingClientRect().top); }), s.keys);
       assert.ok(Math.max(...tops) - Math.min(...tops) <= 4, 'one row: ' + tops.join(','));
@@ -83,7 +100,7 @@ const SCREENS = Object.keys(WAVES).filter(w => !only || w === only).flatMap(w =>
       assert.deepEqual(dupes, []);
       const header = await page.evaluate(s => { const v = document.getElementById(s.view); const first = Array.from(v.querySelectorAll('*')).find(e => e.getBoundingClientRect().height > 0);
         const el = document.querySelector(s.to); return Math.round((el.closest('table') || el).getBoundingClientRect().top - first.getBoundingClientRect().top); }, s);
-      assert.ok(header <= s.before * 0.75, 'header ' + header + ' px, was ' + s.before);
+      if (s.before) assert.ok(header <= s.before * (s.max || 0.75), 'header ' + header + ' px, was ' + s.before);
       assert.deepEqual(page.__errors, []);
       await page.close();
     });

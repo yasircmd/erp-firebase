@@ -5,8 +5,8 @@ order: 9
 modules: [PAYROLLIP]
 sources: [functions/src/payrollInterim.js, functions/src/payrollFiles.js, functions/src/payrollPlan.js]
 summary: Run an ad hoc or partial payroll when a monthly payroll needs an interim adjustment.
-reviewed: 2026-10-16
-fingerprint: a4bd51944dc2674c
+reviewed: 2026-11-03
+fingerprint: 1e8ca115fcccad38
 ---
 ## What it is for
 
