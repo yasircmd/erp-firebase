@@ -143,7 +143,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   chain, built and tested 2026-11-03 (Delivery Note, Customer Invoice with
   direct-line projects, Sales Return from its invoice, carried from the SO;
   reversals post on a closed project; the three screens with the entry
-  layout); deploy set `projects-step2` with screens, then Hosting. Steps 3-5
+  layout); live 2026-11-03 (runs #284-#285). Steps 3-5
   **parked** (owner, 2026-11-03: the entry layout is the main request,
   projects were a suggestion; resume on request). Were: 3 purchase (PO, GRN, Purchase Return); 4 stock entries, PDC,
   Retail Sales, CBT; 5 payroll (employee default + run split).
