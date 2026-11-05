@@ -197,7 +197,7 @@ function build() {
   all.forEach(p => p.modules.forEach(id => { modules[id] = p.slug; }));
   const text = md => md.replace(/[#>*`|_[\]()-]/g, ' ').replace(/\s+/g, ' ').trim();
   files[OUT_DIR + '/search.json'] = JSON.stringify({ modules, pages: all.map(p => ({ slug: p.slug, title: p.meta.title, summary: p.meta.summary || '',
-    text: (p.modules.map(id => label[id] || '').join(' ') + ' ' + text(p.body)).slice(0, 20000) })) }) + '\n';
+    text: (p.modules.map(id => label[id] || '').join(' ') + ' ' + text(p.body)).slice(0, 100000) })) }) + '\n'; // a page's whole text: What's new outgrew 20000 (2026-11-04)
   files[OUT_DIR + '/help.css'] = CSS + '\n';
   files[OUT_DIR + '/help.js'] = JS + '\n' + THEME_JS + '\n' + BACK_JS + '\n';
   files[OUT_DIR + '/sitemap.xml'] = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +

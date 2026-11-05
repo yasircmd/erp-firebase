@@ -4,13 +4,15 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
-reviewed: 2026-11-03
-fingerprint: a97cafb91320668b
+reviewed: 2026-11-04
+fingerprint: fd0478ef071c7e4b
 ---
 ## The page
 
 Each screen opens wide, using more of a large monitor (up to 1600 pixels),
-with a margin kept at each side; Home stays a narrower column. On a phone,
+with a margin kept at each side; Home stays a narrower column. The screen's
+name shows once, in the bar at the top (with **Back** and Help); a printed
+list still carries it. On a phone,
 the [phone view](getting-started.html#on-a-phone) applies.
 
 ## Entry screens: the top stays in view

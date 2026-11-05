@@ -163,7 +163,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   five CBT type ticks showed), PR #215, live (run #292). CBT receipts print
   as CASH RECEIPT / BANK RECEIPT (owner), PR #216, live (runs #293-#294).
   The print names the customer / vendor (code and name) of a party line, and
-  one party heads it (Received from / Paid to), branch `cbt-print-party`.
+  one party heads it (Received from / Paid to), PR #217, live (runs
+  #295-#296). One module title (owner, 2026-11-04: the name showed twice):
+  the app bar's title only, the screens' own heading hidden on screen (kept
+  in print); branch `one-module-title`.
 - [x] **Sales Order: Delivered / Remaining, Delivered status, Close and Reopen**
   (owner, 2026-11-02; decisions Q379-Q382, [SO_CLOSE.md](modules/SO_CLOSE.md)).
   The screen dropped each line's delivered quantity when opening an order (an
