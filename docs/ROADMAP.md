@@ -166,7 +166,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   one party heads it (Received from / Paid to), PR #217, live (runs
   #295-#296). One module title (owner, 2026-11-04: the name showed twice):
   the app bar's title only, the screens' own heading hidden on screen (kept
-  in print); branch `one-module-title`.
+  in print); PR #218, live 2026-11-05 (runs #297-#298).
 - [x] **Sales Order: Delivered / Remaining, Delivered status, Close and Reopen**
   (owner, 2026-11-02; decisions Q379-Q382, [SO_CLOSE.md](modules/SO_CLOSE.md)).
   The screen dropped each line's delivered quantity when opening an order (an
