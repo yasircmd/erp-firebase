@@ -103,6 +103,7 @@
   }
 
   window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-diagram-project"></i> Project Report'; // the module's one title (the app bar)
     const today = new Date().toISOString().substring(0, 10);
     $('pr-from-date').value = today.substring(0, 4) + '-01-01';
     $('pr-to-date').value = today;

@@ -177,6 +177,18 @@ the Employee Portal now keep a hidden icon hidden (`.hidden.fa-solid` and
 the other Font Awesome styles). Test: ui/hiddenIcons (the live stylesheet
 order); negative control: the rule removed -> the shell's check fails.
 
+## One module title (owner, 2026-11-04)
+
+"In every module two times the name is displaying in top": the app bar's
+title (#app-title, which each screen sets) and the screen's own heading
+(h2.text-2xl with its area line, on 94 screens). The shell (ENTRY LAYOUT
+CSS block) now hides the screen's heading on screen; print keeps it, so a
+printed list is still titled. The Project Report did not set the app bar
+title and now does. Tests: unit/oneTitle (every screen with a heading sets
+#app-title; the rule is there), ui/oneTitle (9 screens across the areas).
+Negative controls: the Project Report's title line removed -> the unit check
+fails; the rule made display: block -> 0/9.
+
 ## Next (after the owner's review)
 
 Every entry screen has the layout (waves 1-3). The owner reviews; changes

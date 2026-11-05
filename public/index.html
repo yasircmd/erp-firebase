@@ -364,6 +364,13 @@
     @media (max-width: 767px) { #app-container .entry-sticky { position: static; } }
     html.phone-view #app-container .entry-sticky { position: static; }
     @media print { #app-container .entry-sticky { position: static; } }
+    /* One module title (owner, 2026-11-04: "the name is displaying two times"): the app bar's
+       title (#app-title, set by each screen) names the module; a screen's own heading (its
+       h2.text-2xl and the area line above it) is not shown on screen. Printed lists keep it. */
+    @media screen {
+      #module-container h2.text-2xl.font-bold,
+      #module-container div.uppercase.mb-1:has(+ h2.text-2xl.font-bold) { display: none; }
+    }
     /* ---------- END ENTRY LAYOUT CSS ---------- */
     /* ---------- SEARCH PICKER CSS ---------- */
     /* The shell's searchable picker (SEARCH PICKER in the script below). */

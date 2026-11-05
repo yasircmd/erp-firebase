@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-03
+reviewed: 2026-11-04
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,12 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 04/11/2026
+
+- **The screen's name once.** An open screen showed its name twice, in the
+  top bar and again as a large heading; now it shows once, in the top bar.
+  See [Working with screens](working-with-screens.html#the-page).
 
 ## 03/11/2026
 

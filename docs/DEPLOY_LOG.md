@@ -1781,3 +1781,9 @@ from, and how it was verified. The deploy procedure is in the
   (12:40–12:41 UTC), success. "hosting", run
   [#294](https://github.com/yasircmd/erp-firebase/actions/runs/41638230713)
   (12:44–12:45 UTC), success.
+- **2026-11-03, CBT print: the customer / vendor (PR #217, from `19b7a39`):**
+  "screens only", run
+  [#295](https://github.com/yasircmd/erp-firebase/actions/runs/41640839671)
+  (13:02–13:04 UTC), success. "hosting", run
+  [#296](https://github.com/yasircmd/erp-firebase/actions/runs/41641304831)
+  (13:05–13:06 UTC), success.
