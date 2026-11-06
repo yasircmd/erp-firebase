@@ -1,6 +1,6 @@
 # CRM: leads, opportunities, activities and quotations
 
-Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); C1 and C2 (quotations) live 2026-11-06; C3 (rep portal) built 2026-11-06.
+Status: **live** (owner, 2026-11-05: "Go on", the design and the defaults as proposed): C1-C4 all live 2026-11-06 (PRs #219-#222). The CRM build is complete.
 
 ## The owner's direction (2026-11-05)
 
