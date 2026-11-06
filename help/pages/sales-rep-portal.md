@@ -1,11 +1,11 @@
 ---
-fingerprint: a7b5d1ad9b1f4501
-reviewed: 2026-11-03
+fingerprint: 79c203f51e73e1ee
+reviewed: 2026-11-06
 title: Sales reps in the Employee Portal
 area: sales
 order: 20
-sources: [functions/src/salesRep.js, public/ess.html]
-summary: Sales reps see their customers, send orders, collect cash and cheques with a receipt at once, and see what they hold, from the Employee Portal on their phone.
+sources: [functions/src/salesRep.js, public/ess.html, functions/src/crm.js, functions/src/quotations.js]
+summary: Sales reps see their customers, send orders, collect cash and cheques with a receipt at once, see what they hold, and keep their leads, pipeline, activities and quotes, from the Employee Portal on their phone.
 ---
 ## What it is for
 
@@ -47,6 +47,37 @@ until they hand it to the office.
    the rep still holds. **My receipts** lists every receipt with what it is
    now, and opens one to share it again.
 
+## Leads, pipeline, activities and quotes
+
+The chips at the top of the Sales tab, **Customers**, **Leads**,
+**Pipeline**, **Activities** and **Quotes**, are the rep's own part of the
+[CRM](crm.html). What a rep adds is theirs; a **Sales manager** sees the
+company's. The office sees them all in CRM and Quotations.
+
+- **Leads:** **New lead** with the organisation or name, a phone or an
+  email, and where it came from. If it looks like another lead or a
+  customer, the portal says which; **Save anyway** keeps it. A lead has
+  **New opportunity**, **New quote** and **Disqualify**. Converting a lead
+  to a customer is done by the office (CRM → **Convert to Customer**).
+- **Pipeline:** the rep's open opportunities by stage, with the total and
+  weighted value. Change a card's stage to move it; **Lost** asks why.
+  **Quote** starts a quote for it.
+- **Activities:** the rep's open calls, visits and tasks by due date,
+  overdue ones in amber. **Done** asks what came of it and offers to
+  schedule the next one a week later.
+- **Quotes:** **New quote** for one of the rep's customers or leads. Choose
+  the items: the price is the price list's and can't be changed, but the
+  rep can give a **discount** on each line. **Save the quote**, then
+  **Submit**: where the company approves quotations, it waits for approval
+  in the office; otherwise it is approved at once. **Share** sends the
+  quote as a PDF (**Download PDF** saves it). When the customer accepts an
+  approved quote, choose the warehouse and **send the order**: a draft
+  Sales Order at the quote's prices goes to the office to confirm. A quote
+  for a lead is ordered once the office has made the lead a customer.
+  **Revise** offers an approved, rejected or expired quote again.
+
+See [Quotations](quotation.html) for the statuses and the rules.
+
 ## Your receipts and what you hold
 
 - Each rep numbers their own receipts, **RC-<code>-000001**, then 000002
@@ -74,7 +105,8 @@ until they hand it to the office.
 ## Good to know
 
 - The portal needs a connection: nothing is kept on the phone.
-- Prices come from the price list only; the rep can't change them.
+- Prices come from the price list only; the rep can't change them (on a
+  quote, the rep can give a discount).
 - A customer invoiced in a foreign currency is not collected from the
   portal: the office records its receipts.
 - For example: Sam Seller (code SS) collects 350.00 in cash from *Corner

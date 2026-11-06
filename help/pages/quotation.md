@@ -1,5 +1,5 @@
 ---
-fingerprint: 0920b169ec301b5c
+fingerprint: 10f1221c4ff40835
 reviewed: 2026-11-06
 title: Quotations
 area: crm
@@ -74,6 +74,15 @@ shows the order.
 A quotation for a lead asks you to convert the lead first: it opens the lead
 in [CRM](crm.html), where **Convert to Customer** makes it a customer and
 moves its quotations to the customer.
+
+## From the rep's phone
+
+Sales reps make quotes for their own customers and leads in the Employee
+Portal (see [Sales reps](sales-rep-portal.html#leads-pipeline-activities-and-quotes)).
+The price is the price list's; the rep can give a discount per line. They
+appear here with the rep as owner, and are approved the same way. When the
+customer accepts, the rep sends a draft Sales Order from the phone, which
+the office confirms in Sales Order.
 
 ## From CRM
 

@@ -19,8 +19,9 @@ test('every decide function named exists, and reads the id the card sends', () =
   fns.forEach(fn => assert.equal(typeof index[fn], 'function', fn + ' is a deployed function'));
   for (const [mod, d] of Object.entries(C.DECIDE)) {
     if (d.positional) continue;
-    // The id is read by name where the function is defined (exports.fn = ... d.<id> / { <id> }).
-    const at = allSource.search(new RegExp('\\b' + d.fn + '\\b\\s*[:=]'));
+    // The id is read by name where the function is defined (exports.fn = ... d.<id> / { <id> };
+    // or callable('fn', ...) in a module whose callables the rep portal shares, crm.js and quotations.js).
+    const at = allSource.search(new RegExp('\\b' + d.fn + '\\b\\s*[:=]|callable\\(\'' + d.fn + '\''));
     assert.ok(at >= 0, mod + ': ' + d.fn + ' defined');
     assert.match(allSource.slice(at, at + 3000), new RegExp('\\b' + d.id + '\\b'), mod + ': ' + d.fn + ' reads ' + d.id);
   }
