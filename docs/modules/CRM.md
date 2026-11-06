@@ -234,7 +234,7 @@ each step; What's new at each release.
   lead given `OpenLeadId`.
 - **Approval Configuration:** the Quotation type (off until set); the approval
   card decides through `decideQuotationApproval`.
-- **Menu:** Sales → Pre-Sales Activities → Quotations (the tree's existing
+- **Menu:** Sales & Distribution → Pre-Sales Activities → Quotations (the tree's existing
   node, now the module). **Numbering:** the QT series. **Data Reset:**
   quotations with the CRM records.
 - **Help:** the Quotations page (CRM area); CRM, Numbering, Data Reset and
@@ -248,5 +248,11 @@ each step; What's new at each release.
   test fails); Convert not moving quotations (the lead test fails). The UI
   test also found a real race, fixed: an item chosen while the price list was
   still loading got no price; the price now waits for the list.
+- **Results:** full emulator regression all passed but essPortal "who is
+  away today" (date-dependent, fails on main too); unit 224/224; UI quotation
+  6/6, crm 6/6, home 19/19, dataReset, rolesMatrix, developer, smoke 123/123,
+  singleCompany 58/58, help 7/7, oneTitle 9/9, approvalRouting 4/4,
+  entryLayoutWave 39/40 (PDC Issued's header 248 px over its 235 px limit;
+  the same on main, PDC Received too: not this change).
 - **Deploy:** `crm-c2` (every function: moduleRegistry.js), with screens,
   then Hosting.
