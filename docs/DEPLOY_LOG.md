@@ -1799,3 +1799,9 @@ from, and how it was verified. The deploy procedure is in the
   (03:13–05:25 UTC), success. "hosting", run
   [#300](https://github.com/yasircmd/erp-firebase/actions/runs/42168425599)
   (05:26–05:27 UTC), success. No rules change.
+- **2026-11-06, CRM C2: quotations (`crm-c2`, every function, PR #220, from
+  `df1eff9`):** "functions set, then screens", run
+  [#301](https://github.com/yasircmd/erp-firebase/actions/runs/42178002457)
+  (07:00–09:13 UTC), success. "hosting", run
+  [#302](https://github.com/yasircmd/erp-firebase/actions/runs/42194112781)
+  (09:19–09:20 UTC), success. No rules change.

@@ -1,6 +1,6 @@
 # CRM: leads, opportunities, activities and quotations
 
-Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); C1 live 2026-11-06, C2 (quotations) built 2026-11-06.
+Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); C1 and C2 (quotations) live 2026-11-06; next C3.
 
 ## The owner's direction (2026-11-05)
 
