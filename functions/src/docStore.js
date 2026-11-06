@@ -198,11 +198,26 @@ function makeStore(spec) {
   // asks query.
   async function all() { return toMap(await col().get()); }
 
+  // UX round 3 item 3 (Q411; docs/modules/UX_ROUND3.md): a document's own date
+  // (spec.dateField) is not set or changed to after this month's end, on any
+  // save, a draft's too (periodLock.assertNotPostDated). A document that has
+  // such a date already keeps it through other changes.
+  async function dateGuard(r, next, before) {
+    const f = spec.dateField;
+    if (!f || !next || !next[f]) return;
+    const lock = require('./periodLock');
+    if (String(next[f]).slice(0, 10) <= lock.latestDate('')) return;
+    const prev = before !== undefined ? before : await r.get().then(s => (s.exists ? fromStore(s.data()) : null));
+    if (prev && prev[f] === next[f]) return;
+    lock.assertNotPostDated(next[f], name);
+  }
+
   // RTDB set(): replaces the document (null or empty: deletes it). With a
   // batch or transaction, the write joins it.
   async function set(id, doc, tx) {
     const r = ref(id);
     const v = normalize(doc);
+    await dateGuard(r, v);
     if (tx) { if (v === null) tx.delete(r); else tx.set(r, stored(v)); return v; }
     if (v === null) await r.delete(); else await r.set(stored(v));
     return v;
@@ -212,7 +227,9 @@ function makeStore(spec) {
     const r = ref(id);
     return fs().runTransaction(async t => {
       const s = await t.get(r);
-      const next = applyUpdate(s.exists ? fromStore(s.data()) : null, fieldsToSet);
+      const current = s.exists ? fromStore(s.data()) : null;
+      const next = applyUpdate(current, fieldsToSet);
+      await dateGuard(r, next, current);
       if (next === null) t.delete(r); else t.set(r, stored(next));
       return next;
     });
@@ -229,6 +246,7 @@ function makeStore(spec) {
       const next = fn(current === null ? null : JSON.parse(JSON.stringify(current)));
       if (next === undefined) return { committed: false, snapshot: { val: () => current, exists: () => current !== null } };
       const v = normalize(next);
+      await dateGuard(r, v, current);
       if (v === null) t.delete(r); else t.set(r, stored(v));
       return { committed: true, snapshot: { val: () => v, exists: () => v !== null } };
     });

@@ -255,6 +255,7 @@ async function saveJournalRecord_(
 
   if (!jvDate) throw new Error('Entry date is required.');
   if (!description) throw new Error('Description is required.');
+  require('./periodLock').assertNotPostDated(jvDate, 'The entry'); // no entry after this month (UX round 3 item 3, Q411)
 
   const dim = dimensions || {};
   const dimensionFields = {

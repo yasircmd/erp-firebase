@@ -77,13 +77,13 @@ test('the owner\'s example BP-01-26-00001: prefix, company then year, 5 digits; 
   assert.equal(await bankPayment(), 'BP-01-26-00001');
   assert.equal(await bankPayment(), 'BP-01-26-00002');
   assert.equal(await bankPayment('C2'), 'BP-02-26-00001', 'each company its own sequence');
-  assert.equal(await bankPayment('C1', '2027-01-05'), 'BP-01-27-00001', 'a new year starts again');
+  assert.equal(await bankPayment('C1', '2025-01-05'), 'BP-01-25-00001', 'another year starts again (an earlier one: no entry is dated after this month)');
   assert.equal(await val('gl/counters/BP/2026/01'), 3, 'the default\'s counter untouched');
   // Prefix "10", no company code, no year: one sequence for all companies, never restarting.
   await save('doc:BP', fmt({ Prefix: '10', Company: false, Year: '', Digits: 5 }));
   assert.equal(await bankPayment('C1'), '10-00001');
   assert.equal(await bankPayment('C2'), '10-00002');
-  assert.equal(await bankPayment('C1', '2027-02-01'), '10-00003');
+  assert.equal(await bankPayment('C1', '2025-02-01'), '10-00003');
   // No separator, 4-digit year.
   await save('doc:BP', fmt({ Prefix: 'PAY', Company: false, Year: 'YYYY', Sep: '', Digits: 4 }));
   assert.equal(await bankPayment(), 'PAY20260001');

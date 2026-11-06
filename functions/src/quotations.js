@@ -189,6 +189,7 @@ callable('saveQuotation', async (user, request) => {
   const quoteDate = text(d.QuoteDate, 10), validUntil = text(d.ValidUntil, 10);
   if (!isDate(quoteDate) || !isDate(validUntil)) throw new HttpsError('invalid-argument', 'Give the quotation date and Valid until.');
   if (validUntil < quoteDate) throw new HttpsError('invalid-argument', 'Valid until cannot be before the quotation date.');
+  require('./periodLock').assertNotPostDated(quoteDate, 'The quotation'); // its date this month or before (UX round 3 item 3); Valid until is free
   const opportunityId = text(d.OpportunityID, 80);
   if (opportunityId) {
     const o = (await firestore.collection('crmOpportunities').doc(opportunityId).get()).data();

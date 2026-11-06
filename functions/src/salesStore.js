@@ -20,7 +20,7 @@ const listOf = v => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object
 const distinct = (rows, key) => [...new Set(rows.map(r => r[key]).filter(Boolean).map(String))].sort();
 
 const salesOrders = makeStore({
-  name: 'Sales Order', path: 'salesOrders', collection: 'salesOrders',
+  name: 'Sales Order', path: 'salesOrders', collection: 'salesOrders', dateField: 'SODate',
   fields: ['Status', 'CompanyID', 'CustomerID', 'SONumber', 'CreatedBy'],
   derived: {
     // A line's item: the orders that want it.
@@ -30,7 +30,7 @@ const salesOrders = makeStore({
 });
 
 const customerInvoices = makeStore({
-  name: 'Customer Invoice', path: 'customerInvoices', collection: 'customerInvoices',
+  name: 'Customer Invoice', path: 'customerInvoices', collection: 'customerInvoices', dateField: 'InvoiceDate',
   fields: ['Status', 'CompanyID', 'CustomerID', 'TransactionNumber', 'ReversalOfInvoiceID', 'AutoDeliveryNoteID'],
   derived: {
     // The Delivery Notes it invoices, and the Sales Orders its item lines

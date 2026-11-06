@@ -135,3 +135,14 @@ test('checks: each cheque\'s fields, a cheque entered twice, one recorded elsewh
   ok(await call('u-approver', 'decidePdcApproval', { pdcId: s.pdcId, levelNumber: 1, decision: 'Approved', reason: '' }));
   assert.deepEqual((await Promise.all([s.pdcId, s.pdcId + '-02', s.pdcId + '-03'].map(rec))).map(x => x.Status), ['Pending', 'Pending', 'Pending']);
 });
+
+test('no entry after this month (UX round 3 item 3, Q411): the entry\'s date checked, its cheque dates free', async () => {
+  await reset(fixture());
+  const lock = require('../../src/periodLock');
+  const today = new Date().toISOString().slice(0, 10);
+  const later = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const nextMonth = new Date(Date.parse(lock.latestDate('') + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+  const s = ok(await call('u-admin', 'savePdcDraft', entry({ TransactionDate: today, Cheques: [cheque('400001', later(90), 700), cheque('400002', later(200), 700)] })));
+  ok(await call('u-admin', 'postPdc', { pdcId: s.pdcId }));
+  assert.match(await err(call('u-admin', 'savePdcDraft', entry({ TransactionDate: nextMonth, Allocations: [] }))), /is after .*the end of this month/);
+});

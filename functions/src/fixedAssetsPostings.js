@@ -400,6 +400,7 @@ exports.saveFaPostingDraft = onCallWithMessages(onCallOptions, async (request) =
     if (!['Draft', 'Rejected'].includes(existing.Status)) throw new HttpsError('failed-precondition', 'Only draft or rejected documents can be edited.');
   }
   const { doc } = await prepare(user, data);
+  require('./periodLock').assertNotPostDated(doc.Date, 'The document'); // no entry after this month (UX round 3 item 3, Q411)
   const now = C.nowIso();
   Object.assign(doc, { Status: 'Draft', UpdatedAt: now, UpdatedBy: C.actorOf(user) });
   if (postingId) {

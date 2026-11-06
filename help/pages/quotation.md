@@ -1,5 +1,5 @@
 ---
-fingerprint: d1f09127abec621c
+fingerprint: 91b9af5aea2603f8
 reviewed: 2026-11-06
 title: Quotations
 area: crm
@@ -24,7 +24,8 @@ another **Status** to see the rest.
 1. Select **New Quotation** and choose the **Customer or lead**. For a
    lead, choose the **Classification** whose price list applies.
 2. Check the **Date** and **Valid until** (the CRM Setup's number of days
-   on, 30 by default) and, if you like, the **Opportunity** it is for.
+   on, 30 by default) and, if you like, the **Opportunity** it is for. The
+   date is this month or before; Valid until can be any later date.
 3. Add the lines: type or choose the item; its price comes from the price
    list (or type it). Enter the **Qty** and any **Disc %**.
 4. Write the **Terms and notes** to print, and select **Save**. The

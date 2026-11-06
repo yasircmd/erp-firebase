@@ -13,6 +13,10 @@ screen.
 
 ## 06/11/2026
 
+- **No entry after this month.** A document can be dated at most the last day
+  of the current month (on save and on post); payroll up to 12 months
+  ahead. A post-dated cheque's date, delivery dates, Valid until and due
+  dates stay free. See [Working with screens](working-with-screens.html#dates-and-periods).
 - **Signed out after 30 minutes.** The ERP now signs you out after 30
   minutes without activity (it was 10), still warning 30 seconds before. See
   [Getting started](getting-started.html).
