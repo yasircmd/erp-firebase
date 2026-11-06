@@ -365,6 +365,8 @@ exports.getCashForecast = require('./src/cashForecast').getCashForecast; // step
 exports.getProjectBudgetReport = require('./src/budget').getProjectBudgetReport; // step B5
 // Customer credit control, step C1 (docs/modules/CREDIT_CONTROL.md).
 ['getCreditControl', 'saveCreditLimit', 'setCreditHold', 'saveCreditSetup'].forEach(n => { exports[n] = require('./src/creditControl')[n]; });
+// CRM, step C1 (docs/modules/CRM.md).
+['getCrm', 'saveCrmSetup', 'saveLead', 'disqualifyLead', 'convertLead', 'saveOpportunity', 'setOpportunityStage', 'saveActivity', 'closeActivity', 'reassignCrm', 'getCrmActivitiesDueForUser'].forEach(n => { exports[n] = require('./src/crm')[n]; });
 // Bank reconciliation, step R1 (docs/modules/RECONCILIATION.md).
 ['getBankRecSetup', 'getBankRec', 'saveBankRec', 'deleteBankRecDraft',
   'postBankRecEntry', 'submitBankRec', 'decideBankRecApproval', 'reopenBankRec'] // R2

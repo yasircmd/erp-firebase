@@ -844,6 +844,14 @@
           </div>
           <div id="home-recurring-due-list" class="divide-y divide-slate-800"></div>
         </div>
+        <!-- CRM activities due today or overdue (docs/modules/CRM.md, Q401) -->
+        <div id="home-crm-due-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-handshake text-blue-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">CRM Activities Due</p>
+          </div>
+          <div id="home-crm-due-list" class="divide-y divide-slate-800"></div>
+        </div>
         <div id="home-docs-expiring-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
           <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
             <i class="fa-solid fa-file-contract text-amber-400 text-xs"></i>
@@ -1486,6 +1494,7 @@
     let homeRejectedCount = 0;
     let homePdcDueCount = 0;
     let homeRecurringDueCount = 0;
+    let homeCrmDueCount = 0;
     let homeDraftsCount = 0;
     let homeFollowUpCount = 0;
     let homeDocsExpiringCount = 0;
@@ -1551,6 +1560,12 @@
         .withSuccessHandler(result => { renderRecurringDue(result || []); })
         .withFailureHandler(() => { renderRecurringDue([]); })
         .getRecurringJournalsDueForUser();
+
+      // CRM activities due today or overdue, the user's own (docs/modules/CRM.md, Q401).
+      rpc
+        .withSuccessHandler(result => { renderCrmDue(result || []); })
+        .withFailureHandler(() => { renderCrmDue([]); })
+        .getCrmActivitiesDueForUser({ today: localToday });
 
       // Company documents expiring within 30 days, or expired, for users who
       // can change them (docs/modules/COMPANY_DOCUMENTS.md).
@@ -1681,6 +1696,29 @@
           <div class="flex items-center gap-3 shrink-0">
             <span class="text-xs text-amber-400">${item.DueCount} due since ${escapeHtml(item.OldestDueDate)}</span>
             ${item.FailedCount ? `<span class="text-xs text-red-400">${item.FailedCount} failed</span>` : ''}
+            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+          </div>`;
+        row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        list.appendChild(row);
+      });
+    }
+
+    function renderCrmDue(items) {
+      homeCrmDueCount = items.length;
+      const list = document.getElementById('home-crm-due-list');
+      document.getElementById('home-crm-due-block').classList.toggle('hidden', items.length === 0);
+      updateHomeTasksToggleButton();
+      list.innerHTML = '';
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
+        row.innerHTML = `
+          <div class="min-w-0">
+            <span class="text-slate-200 font-medium">${escapeHtml(item.Type)}</span>
+            <span class="text-slate-400 text-xs ml-2">${escapeHtml(item.Subject)}</span>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs ${item.Overdue ? 'text-amber-400' : 'text-slate-400'}">${item.Overdue ? 'Overdue, due ' : 'Due '}${escapeHtml(item.Due)}${item.DueTime ? ' ' + escapeHtml(item.DueTime) : ''}</span>
             <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
           </div>`;
         row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
@@ -1842,7 +1880,7 @@
     // and renderRejectedSubmissions call this after updating their own
     // count, since either one changing can change the combined total.
     function updateHomeTasksToggleButton() {
-      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount + homeDocsExpiringCount + homeEmpDocsExpiringCount +
+      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeCrmDueCount + homeDraftsCount + homeFollowUpCount + homeDocsExpiringCount + homeEmpDocsExpiringCount +
         homeEmpRequestsCount + homeClearanceCount;
       const countSpan = document.getElementById('home-tasks-count');
       // Button itself is always visible now — only the red count badge

@@ -4,8 +4,8 @@ area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
-reviewed: 2026-11-04
-fingerprint: 546d0ae413c0b591
+reviewed: 2026-11-06
+fingerprint: 1b5f48b708c83e70
 ---
 ## Signing in
 
@@ -96,6 +96,7 @@ role:
 | My Drafts — Not Yet Submitted or Posted | Documents you saved as drafts. |
 | Post-dated Cheques Due to Clear | Cheques whose date has come. |
 | Recurring Journal Entries Due to Post | Recurring entries whose date has come. |
+| CRM Activities Due | Your [CRM](crm.html) calls, meetings, visits and tasks due today, or overdue (in amber). |
 | Company / Employee Documents Expiring | Licences, contracts or employee documents near or past expiry. |
 | Employee Requests Waiting for You | Employees' queries, loan requests, claims and requests of the types HR sets up, to handle (an overdue one says so). |
 | Clearances Waiting for You | A leaver's clearance step for your team to sign off ([Clearances](clearances.html)). |

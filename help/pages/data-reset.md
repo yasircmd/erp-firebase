@@ -5,8 +5,8 @@ order: 12
 modules: [DATARESET]
 sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
 summary: Clear test data module by module, or rebuild the stock balances, before going live.
-reviewed: 2026-11-02
-fingerprint: 145026759642c922
+reviewed: 2026-11-06
+fingerprint: 4a4dee67b147f16f
 ---
 ## What it is for
 
@@ -32,14 +32,15 @@ data.
   balances; Sales Orders; Purchase Requisitions and Orders; Job Orders;
   approval records; e-invoices; employee changes; leave; payroll runs and
   payslips; final settlements; payroll loans; employee requests;
-  budgets; bank and GL account reconciliations; supporting documents; company documents; period closing; the logs.
+  budgets; bank and GL account reconciliations; CRM leads, opportunities
+  and activities; supporting documents; company documents; period closing; the logs.
 - **Master data:** items and their categories, sub-categories, units and
   barcodes; the chart of accounts; companies; org units; sales types;
   customer classifications; BOMs; vendors; customers; price lists; the
   inventory valuation list; requisition categories; currencies and
   exchange rates; shareholders; employees; credit limits and holds.
 - **Setup:** HR Setup, Payroll Setup (with the employee request types),
-  Approval Configuration, Tax Configuration, Budget Setup, Credit Control Setup, GL Account Reconciliation Setup, and the numbering formats and
+  Approval Configuration, Tax Configuration, Budget Setup, Credit Control Setup, CRM Setup, GL Account Reconciliation Setup, and the numbering formats and
   settings (with the Rep Cash Clearing account).
 
 **Budgets** (a transaction) are every version of every company's budget,

@@ -1,0 +1,617 @@
+<!-- CRM, step C1 (owner, 2026-11-05; docs/modules/CRM.md, Q393-Q404): leads
+     with the duplicate warning and Convert to Customer, opportunities (a list
+     and a stage board), activities (due ones on Home), CRM Setup (a manager's).
+     Each record's entry in the entry layout. -->
+<style>
+  #crm-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(13rem, 1fr); gap: 0.6rem; overflow-x: auto; }
+  #crm-board .crm-col { background: rgba(30,41,59,0.5); border: 1px solid #334155; border-radius: 0.75rem; min-height: 12rem; }
+  #crm-board .crm-col.drop { outline: 2px dashed #3b82f6; }
+  #crm-board .crm-card { cursor: grab; }
+  .crm-overdue { color: #fbbf24; }
+</style>
+<div class="space-y-5">
+  <div id="crm-head" class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Customer Experience</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-handshake text-blue-500"></i> CRM</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="crm-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="crm-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div class="flex gap-1 pb-0.5" role="tablist">
+        <button class="crm-tab bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-tab="leads">Leads</button>
+        <button class="crm-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="opps">Opportunities</button>
+        <button class="crm-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="acts">Activities</button>
+        <button id="crm-tab-setup" class="crm-tab hidden bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="setup">Setup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Leads ---------- -->
+  <div id="crm-leads-view" class="space-y-3">
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label for="crm-lead-search" class="block text-xs font-medium text-slate-300 mb-1">Find</label><input id="crm-lead-search" type="search" placeholder="Name, organisation, phone, email" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-64"></div>
+      <div><label for="crm-lead-status" class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="crm-lead-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option>Open</option><option>Converted</option><option>Disqualified</option><option value="">All</option></select></div>
+      <button id="crm-lead-new" class="crm-write bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New Lead</button>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Lead</th><th class="py-2 px-3">Phone</th><th class="py-2 px-3">Email</th><th class="py-2 px-3">Source</th><th class="py-2 px-3">Owner</th><th class="py-2 px-3">Status</th></tr></thead>
+        <tbody id="crm-leads-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+  </div>
+
+  <!-- A lead -->
+  <div id="crm-lead-entry" class="hidden entry-layout">
+    <div class="entry-sticky bg-slate-900/95">
+      <div class="entry-bar">
+        <button id="crm-lead-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+        <h2 id="crm-lead-title" class="font-bold text-blue-400">New Lead</h2>
+        <span id="crm-lead-badge" class="text-xs px-2.5 py-1 rounded-full font-medium"></span>
+        <div class="entry-actions">
+          <button id="crm-lead-newopp" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-bullseye"></i> New Opportunity</button>
+          <button id="crm-lead-newact" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-phone"></i> New Activity</button>
+          <button id="crm-lead-disqualify" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Disqualify</button>
+          <button id="crm-lead-convert" class="hidden px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs"><i class="fa-solid fa-user-check"></i> Convert to Customer</button>
+          <button id="crm-lead-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+      </div>
+      <div class="entry-fields keys">
+        <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Organisation</label><input id="crm-lead-org" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Contact name</label><input id="crm-lead-name" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Phone</label><input id="crm-lead-phone" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Email</label><input id="crm-lead-email" type="email" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+    </div>
+    <div class="entry-fields keys">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Source</label><select id="crm-lead-source" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Owner</label><select id="crm-lead-owner" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Country</label><input id="crm-lead-country" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Address</label><input id="crm-lead-address" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="span-all"><label class="block text-xs font-medium text-slate-300 mb-1">Notes</label><textarea id="crm-lead-notes" rows="2" class="crm-lead-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+    <p id="crm-lead-info" class="text-xs text-slate-400"></p>
+    <div id="crm-lead-related" class="grid md:grid-cols-2 gap-3"></div>
+  </div>
+
+  <!-- ---------- Opportunities ---------- -->
+  <div id="crm-opps-view" class="hidden space-y-3">
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="flex gap-1 pb-0.5"><button class="crm-mode bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-mode="board"><i class="fa-solid fa-table-columns"></i> Board</button><button class="crm-mode bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-mode="list"><i class="fa-solid fa-list"></i> List</button></div>
+      <div><label for="crm-opp-status" class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="crm-opp-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option>Open</option><option>Won</option><option>Lost</option><option value="">All</option></select></div>
+      <button id="crm-opp-new" class="crm-write bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New Opportunity</button>
+      <p id="crm-opp-totals" class="text-xs text-slate-400 pb-2"></p>
+    </div>
+    <div id="crm-board"></div>
+    <div id="crm-opps-list" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Opportunity</th><th class="py-2 px-3">Lead / customer</th><th class="py-2 px-3">Stage</th><th class="py-2 px-3 text-right">Value</th><th class="py-2 px-3">Expected close</th><th class="py-2 px-3">Owner</th><th class="py-2 px-3">Status</th></tr></thead>
+        <tbody id="crm-opps-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+  </div>
+
+  <!-- An opportunity -->
+  <div id="crm-opp-entry" class="hidden entry-layout">
+    <div class="entry-sticky bg-slate-900/95">
+      <div class="entry-bar">
+        <button id="crm-opp-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+        <h2 id="crm-opp-heading" class="font-bold text-blue-400">New Opportunity</h2>
+        <span id="crm-opp-badge" class="text-xs px-2.5 py-1 rounded-full font-medium"></span>
+        <div class="entry-actions">
+          <button id="crm-opp-newact" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-phone"></i> New Activity</button>
+          <button id="crm-opp-lost" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Lost</button>
+          <button id="crm-opp-won" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-trophy"></i> Won</button>
+          <button id="crm-opp-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+      </div>
+      <div class="entry-fields keys">
+        <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Title</label><input id="crm-opp-title" class="crm-opp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Lead or customer</label><select id="crm-opp-party" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Expected value</label><input id="crm-opp-value" inputmode="decimal" class="crm-opp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right"></div>
+        <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Expected close</label><input id="crm-opp-close" type="date" class="crm-opp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+    </div>
+    <div class="entry-fields keys">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Stage</label><select id="crm-opp-stage" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input id="crm-opp-currency" maxlength="3" placeholder="AED" class="crm-opp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Owner</label><select id="crm-opp-owner" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div class="span-all"><label class="block text-xs font-medium text-slate-300 mb-1">Notes</label><textarea id="crm-opp-notes" rows="2" class="crm-opp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+    <p id="crm-opp-info" class="text-xs text-slate-400"></p>
+    <div id="crm-opp-related"></div>
+  </div>
+
+  <!-- ---------- Activities ---------- -->
+  <div id="crm-acts-view" class="hidden space-y-3">
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label for="crm-act-status" class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="crm-act-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option>Open</option><option>Done</option><option>Cancelled</option><option value="">All</option></select></div>
+      <label id="crm-act-mine-wrap" class="hidden flex items-center gap-1 text-xs text-slate-300 pb-2"><input id="crm-act-mine" type="checkbox" checked> Only mine</label>
+      <button id="crm-act-new" class="crm-write bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New Activity</button>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Due</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Subject</th><th class="py-2 px-3">About</th><th class="py-2 px-3">Owner</th><th class="py-2 px-3">Status</th></tr></thead>
+        <tbody id="crm-acts-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+  </div>
+
+  <!-- An activity -->
+  <div id="crm-act-entry" class="hidden entry-layout">
+    <div class="entry-sticky bg-slate-900/95">
+      <div class="entry-bar">
+        <button id="crm-act-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+        <h2 id="crm-act-heading" class="font-bold text-blue-400">New Activity</h2>
+        <span id="crm-act-badge" class="text-xs px-2.5 py-1 rounded-full font-medium"></span>
+        <div class="entry-actions">
+          <button id="crm-act-cancel" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Cancel Activity</button>
+          <button id="crm-act-done" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-check"></i> Done</button>
+          <button id="crm-act-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+      </div>
+      <div class="entry-fields keys">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Type</label><select id="crm-act-type" class="crm-act-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Subject</label><input id="crm-act-subject" class="crm-act-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Due</label><input id="crm-act-due" type="date" class="crm-act-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Time</label><input id="crm-act-time" type="time" class="crm-act-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+    </div>
+    <div class="entry-fields keys">
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">About</label><select id="crm-act-about" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Owner</label><select id="crm-act-owner" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div class="span-all"><label class="block text-xs font-medium text-slate-300 mb-1">Notes</label><textarea id="crm-act-notes" rows="2" class="crm-act-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+    <p id="crm-act-info" class="text-xs text-slate-400"></p>
+  </div>
+
+  <!-- ---------- Setup (a CRM Manager's) ---------- -->
+  <div id="crm-setup-view" class="hidden space-y-4 max-w-3xl">
+    <div>
+      <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Stages <span class="normal-case font-normal text-slate-500">(in order; Won and Lost always follow)</span></p>
+      <table class="text-sm"><thead><tr class="text-xs text-slate-400"><th class="py-1 pr-3 text-left">Stage</th><th class="py-1 pr-3 text-left">Win probability %</th><th></th></tr></thead><tbody id="crm-stages-body"></tbody></table>
+      <button id="crm-stage-add" class="mt-2 bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add stage</button>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div><label for="crm-setup-lost" class="block text-xs font-medium text-slate-300 mb-1">Lost reasons (one per line)</label><textarea id="crm-setup-lost" rows="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+      <div><label for="crm-setup-sources" class="block text-xs font-medium text-slate-300 mb-1">Lead sources (one per line)</label><textarea id="crm-setup-sources" rows="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+      <div><label for="crm-setup-types" class="block text-xs font-medium text-slate-300 mb-1">Activity types (one per line)</label><textarea id="crm-setup-types" rows="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+    <div><label for="crm-setup-days" class="block text-xs font-medium text-slate-300 mb-1">A quotation is valid for (days)</label><input id="crm-setup-days" type="number" min="1" max="365" class="w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <button id="crm-setup-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+  </div>
+</div>
+
+<!-- Lost: the reason from the list -->
+<div id="crm-lost-modal" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 w-full max-w-md space-y-3">
+    <p class="font-semibold">Why was it lost?</p>
+    <select id="crm-lost-reason" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select>
+    <textarea id="crm-lost-note" rows="2" placeholder="Note (optional)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea>
+    <div class="flex justify-end gap-2"><button id="crm-lost-cancel" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg">Cancel</button><button id="crm-lost-ok" class="bg-red-600 hover:bg-red-500 text-white text-xs px-4 py-2 rounded-lg">Mark Lost</button></div>
+  </div>
+</div>
+
+<!-- Done: the outcome, and the next activity -->
+<div id="crm-done-modal" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 w-full max-w-md space-y-3">
+    <p class="font-semibold">What came of it?</p>
+    <textarea id="crm-done-outcome" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea>
+    <label class="flex items-center gap-2 text-sm"><input id="crm-done-next" type="checkbox" checked> Schedule the next activity</label>
+    <div id="crm-done-next-fields" class="grid grid-cols-2 gap-2">
+      <select id="crm-done-next-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select>
+      <input id="crm-done-next-due" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+      <input id="crm-done-next-subject" placeholder="Subject" class="col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-2"><button id="crm-done-cancel" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg">Cancel</button><button id="crm-done-ok" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg">Done</button></div>
+  </div>
+</div>
+
+<!-- Convert to Customer: Customer Master's fields, filled from the lead (Q394) -->
+<div id="crm-convert-modal" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 w-full max-w-lg space-y-3">
+    <p class="font-semibold">Convert to Customer</p>
+    <p class="text-xs text-slate-400">The customer is saved as in Customer Master, with its rules; the lead's open opportunities and activities move to it.</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Customer name</label><input id="crm-cv-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Contact person</label><input id="crm-cv-contact" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Phone</label><input id="crm-cv-phone" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Email</label><input id="crm-cv-email" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment terms (days)</label><input id="crm-cv-terms" type="number" min="0" value="30" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Classification</label><select id="crm-cv-class" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Trade Receivables account</label><select id="crm-cv-ar" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Address</label><input id="crm-cv-address" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="crm-cv-country-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Country (export)</label><input id="crm-cv-country" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+    <div class="flex justify-end gap-2"><button id="crm-cv-cancel" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg">Cancel</button><button id="crm-cv-ok" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg">Save customer and convert</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const todayStr = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  const BADGE = { Open: 'bg-blue-500/20 text-blue-300', Converted: 'bg-emerald-500/20 text-emerald-300', Disqualified: 'bg-slate-600/40 text-slate-300', Won: 'bg-emerald-500/20 text-emerald-300',
+    Lost: 'bg-red-500/20 text-red-300', Done: 'bg-emerald-500/20 text-emerald-300', Cancelled: 'bg-slate-600/40 text-slate-300' };
+  const badge = s => '<span class="text-xs px-2 py-0.5 rounded-full ' + (BADGE[s] || 'bg-slate-700') + '">' + esc(s) + '</span>';
+
+  let D = null;        // getCrm for the chosen company
+  let tabNow = 'leads';
+  let mode = 'board';
+  let lead = null, opp = null, act = null; // the record open in its entry (null: new)
+  let canWrite = true;
+  let pendingOpen = null;
+
+  // ---------- names ----------
+  const ownerName = k => { const o = D && D.owners.find(x => x.Key === k); return o ? o.Name : (k || '—'); };
+  const leadName = l => l ? (l.Organisation || l.Name) + (l.Organisation && l.Name ? ' (' + l.Name + ')' : '') : '';
+  const customerName = id => { const c = D && D.customers.find(x => x.CustomerID === id); return c ? c.Name + (c.Code ? ' (' + c.Code + ')' : '') : id; };
+  const partyOf = o => o.LeadID ? 'Lead: ' + leadName(D.leads.find(l => l.ID === o.LeadID) || { Name: o.LeadID }) : customerName(o.CustomerID);
+  function aboutName(a) {
+    if (!a || !a.About) return '';
+    if (a.About.Kind === 'Customer') return customerName(a.About.ID);
+    if (a.About.Kind === 'Lead') return 'Lead: ' + leadName(D.leads.find(l => l.ID === a.About.ID) || { Name: a.About.ID });
+    const o = D.opportunities.find(x => x.ID === a.About.ID);
+    return 'Opportunity: ' + (o ? o.Title : a.About.ID);
+  }
+  const options = (list, sel) => list.map(([v, t]) => '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+  function ownerSelect(id, key) {
+    const keys = D.owners.map(o => [o.Key, o.Name]);
+    if (key && !keys.some(k => k[0] === key)) keys.push([key, ownerName(key)]);
+    $(id).innerHTML = options(keys, key || D.myKeys[0]);
+    $(id).disabled = !D.manager; // a manager gives records to others (Q396)
+  }
+
+  // ---------- load ----------
+  function load() {
+    const companyId = $('crm-company').value;
+    if (!companyId) return Promise.resolve();
+    return call('getCrm', { companyId }).then(r => {
+      D = r;
+      canWrite = Boolean(D.canWrite);
+      document.querySelectorAll('.crm-write').forEach(b => show(b.id, canWrite));
+      show('crm-tab-setup', D.manager);
+      show('crm-act-mine-wrap', D.manager);
+      renderAll();
+      if (pendingOpen) { const id = pendingOpen; pendingOpen = null; const a = D.activities.find(x => x.ID === id); if (a) { tab('acts'); openAct(a); } }
+    }, e => appAlert(e.message));
+  }
+  function renderAll() { renderLeads(); renderOpps(); renderActs(); if (D.manager) renderSetup(); }
+
+  function tab(name) {
+    tabNow = name;
+    document.querySelectorAll('.crm-tab').forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on); b.classList.toggle('bg-slate-700', !on); });
+    ['leads', 'opps', 'acts', 'setup'].forEach(t => show('crm-' + t + '-view', t === name));
+    ['crm-lead-entry', 'crm-opp-entry', 'crm-act-entry'].forEach(id => show(id, false));
+  }
+  function openEntry(id) { ['leads', 'opps', 'acts', 'setup'].forEach(t => show('crm-' + t + '-view', false)); ['crm-lead-entry', 'crm-opp-entry', 'crm-act-entry'].forEach(x => show(x, x === id)); window.scrollTo(0, 0); }
+  function back() { tab(tabNow); }
+
+  // ---------- leads ----------
+  function renderLeads() {
+    const q = $('crm-lead-search').value.trim().toLowerCase(), st = $('crm-lead-status').value;
+    const rows = D.leads.filter(l => (!st || l.Status === st) && (!q || [l.Name, l.Organisation, l.Phone, l.Email].join(' ').toLowerCase().includes(q)))
+      .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+    $('crm-leads-body').innerHTML = rows.length ? rows.map(l => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(l.ID) + '"><td class="py-2 px-3 text-slate-200">' + esc(leadName(l)) + '</td><td class="py-2 px-3 text-xs">' + esc(l.Phone) +
+      '</td><td class="py-2 px-3 text-xs">' + esc(l.Email) + '</td><td class="py-2 px-3 text-xs">' + esc(l.Source) + '</td><td class="py-2 px-3 text-xs">' + esc(ownerName(l.OwnerKey)) + '</td><td class="py-2 px-3">' + badge(l.Status) + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="py-6 text-center text-slate-500">No leads.</td></tr>';
+  }
+  function openLead(l) {
+    lead = l || null;
+    const open = !lead || lead.Status === 'Open';
+    $('crm-lead-title').textContent = lead ? leadName(lead) : 'New Lead';
+    $('crm-lead-badge').innerHTML = lead ? badge(lead.Status) : '';
+    $('crm-lead-org').value = lead ? lead.Organisation || '' : ''; $('crm-lead-name').value = lead ? lead.Name || '' : '';
+    $('crm-lead-phone').value = lead ? lead.Phone || '' : ''; $('crm-lead-email').value = lead ? lead.Email || '' : '';
+    $('crm-lead-country').value = lead ? lead.Country || '' : ''; $('crm-lead-address').value = lead ? lead.Address || '' : ''; $('crm-lead-notes').value = lead ? lead.Notes || '' : '';
+    $('crm-lead-source').innerHTML = '<option value="">—</option>' + options(D.setup.LeadSources.map(s => [s, s]), lead ? lead.Source : '');
+    ownerSelect('crm-lead-owner', lead ? lead.OwnerKey : '');
+    document.querySelectorAll('.crm-lead-f').forEach(el => { el.disabled = !open || !canWrite; });
+    show('crm-lead-save', open && canWrite);
+    ['crm-lead-newopp', 'crm-lead-newact', 'crm-lead-disqualify', 'crm-lead-convert'].forEach(id => show(id, Boolean(lead) && open && canWrite));
+    $('crm-lead-info').textContent = lead ? (lead.Status === 'Converted' ? 'Converted to customer ' + customerName(lead.CustomerID) + '.' : lead.Status === 'Disqualified' ? 'Disqualified: ' + (lead.DisqualifiedReason || '') : '') : '';
+    $('crm-lead-related').innerHTML = lead ? related('Opportunity', D.opportunities.filter(o => o.LeadID === lead.ID || o.FromLeadID === lead.ID)) + related('Activity', D.activities.filter(a => (a.About && a.About.ID === lead.ID) || a.FromLeadID === lead.ID)) : '';
+    openEntry('crm-lead-entry');
+  }
+  function related(kind, list) {
+    const rows = list.map(x => kind === 'Opportunity'
+      ? '<li><button class="crm-open-opp text-blue-400 hover:underline" data-id="' + esc(x.ID) + '">' + esc(x.Title) + '</button> · ' + esc(x.Stage) + ' · ' + fmt(x.ExpectedValue) + '</li>'
+      : '<li><button class="crm-open-act text-blue-400 hover:underline" data-id="' + esc(x.ID) + '">' + esc(x.Type + ': ' + x.Subject) + '</button> · ' + esc(x.Due) + ' · ' + esc(x.Status) + '</li>').join('');
+    return '<div class="bg-slate-800/40 border border-slate-700 rounded-xl p-3"><p class="text-xs font-semibold text-slate-400 uppercase mb-1">' + (kind === 'Opportunity' ? 'Opportunities' : 'Activities') + '</p><ul class="text-sm space-y-1">' + (rows || '<li class="text-slate-500">None.</li>') + '</ul></div>';
+  }
+  function leadFields() {
+    return { ID: lead ? lead.ID : '', CompanyID: $('crm-company').value, Organisation: $('crm-lead-org').value, Name: $('crm-lead-name').value, Phone: $('crm-lead-phone').value, Email: $('crm-lead-email').value,
+      Source: $('crm-lead-source').value, Country: $('crm-lead-country').value, Address: $('crm-lead-address').value, Notes: $('crm-lead-notes').value, OwnerKey: $('crm-lead-owner').value };
+  }
+  async function saveLead(force) {
+    const f = leadFields();
+    try {
+      const r = await call('saveLead', { lead: f, force: Boolean(force) });
+      if (r && r.duplicates) {
+        const lines = r.duplicates.map(d => '• ' + d.Kind + ': ' + d.Name + ' (the same ' + d.Match.join(', ') + ')').join('\n');
+        if (await appConfirm('This looks like:\n' + lines + '\n\nSave it anyway?')) return saveLead(true);
+        return;
+      }
+      if (lead && f.OwnerKey !== lead.OwnerKey && D.manager) await call('reassignCrm', { kind: 'Lead', id: lead.ID, ownerKey: f.OwnerKey });
+      await load();
+      openLead(D.leads.find(l => l.ID === r.leadId));
+    } catch (e) { appAlert(e.message); }
+  }
+  async function disqualify() {
+    const reason = await appPrompt('Why is this lead disqualified?', '');
+    if (reason === null) return;
+    try { await call('disqualifyLead', { leadId: lead.ID, reason }); await load(); openLead(D.leads.find(l => l.ID === lead.ID)); } catch (e) { appAlert(e.message); }
+  }
+
+  // Convert to Customer (Q394): Customer Master's own save, then the link.
+  let convertLists = null;
+  function convertStart() {
+    $('crm-cv-name').value = lead.Organisation || lead.Name; $('crm-cv-contact').value = lead.Name || ''; $('crm-cv-phone').value = lead.Phone || '';
+    $('crm-cv-email').value = lead.Email || ''; $('crm-cv-address').value = lead.Address || ''; $('crm-cv-country').value = lead.Country || '';
+    const fill = () => {
+      $('crm-cv-class').innerHTML = options(convertLists.classes.map(c => [c.Name, c.Name + (c.IsExport ? ' (export)' : '')]));
+      $('crm-cv-ar').innerHTML = options(convertLists.accounts.map(a => [a.AccountID, a.AccountCode + ' — ' + a.AccountName]));
+      exportToggle();
+      show('crm-convert-modal', true);
+    };
+    if (convertLists) return fill();
+    Promise.all([call('getActiveCustomerClassifications', {}), call('getChartOfAccounts', {})]).then(([classes, accounts]) => {
+      const co = $('crm-company').value;
+      convertLists = { classes: classes || [], accounts: (accounts || []).filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountType === 'Asset' && (!a.CompanyID || a.CompanyID === co)) };
+      fill();
+    }, e => appAlert(e.message));
+  }
+  function exportToggle() { const c = convertLists && convertLists.classes.find(x => x.Name === $('crm-cv-class').value); show('crm-cv-country-wrap', Boolean(c && c.IsExport)); }
+  async function convertOk() {
+    const lines = $('crm-cv-address').value;
+    const data = { CustomerName: $('crm-cv-name').value, ContactPerson: $('crm-cv-contact').value, Phone: $('crm-cv-phone').value, Email: $('crm-cv-email').value,
+      CompanyID: $('crm-company').value, Classification: $('crm-cv-class').value, Country: $('crm-cv-country').value, TradeReceivablesAccountID: $('crm-cv-ar').value,
+      PaymentTermsDays: Number($('crm-cv-terms').value), AddressLine1: lines };
+    try {
+      const c = await call('saveCustomer', { customerData: data });
+      if (!c || !c.success) throw new Error((c && c.error) || 'The customer was not saved.');
+      await call('convertLead', { leadId: lead.ID, customerId: c.customerId });
+      show('crm-convert-modal', false);
+      await load();
+      openLead(D.leads.find(l => l.ID === lead.ID));
+    } catch (e) { appAlert(e.message); }
+  }
+
+  // ---------- opportunities ----------
+  function oppList() { const st = $('crm-opp-status').value; return D.opportunities.filter(o => !st || o.Status === st); }
+  function renderOpps() {
+    const list = oppList();
+    const total = list.reduce((s, o) => s + (Number(o.ExpectedValue) || 0), 0), weighted = list.reduce((s, o) => s + (Number(o.ExpectedValue) || 0) * (Number(o.Probability) || 0) / 100, 0);
+    $('crm-opp-totals').textContent = list.length + ' · total ' + fmt(total) + ' · weighted ' + fmt(weighted);
+    $('crm-opps-body').innerHTML = list.length ? list.map(o => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(o.ID) + '"><td class="py-2 px-3 text-slate-200">' + esc(o.Title) + '</td><td class="py-2 px-3 text-xs">' + esc(partyOf(o)) +
+      '</td><td class="py-2 px-3 text-xs">' + esc(o.Stage) + ' (' + o.Probability + '%)</td><td class="py-2 px-3 text-right font-mono text-xs">' + fmt(o.ExpectedValue) + ' ' + esc(o.Currency || '') + '</td><td class="py-2 px-3 text-xs">' + esc(o.ExpectedClose || '') +
+      '</td><td class="py-2 px-3 text-xs">' + esc(ownerName(o.OwnerKey)) + '</td><td class="py-2 px-3">' + badge(o.Status) + '</td></tr>').join('')
+      : '<tr><td colspan="7" class="py-6 text-center text-slate-500">No opportunities.</td></tr>';
+    // The board: a column per stage; cards dragged between stages (Lost asks why).
+    // Open ones: the working stages only (Won and Lost by their buttons); otherwise every stage.
+    const stages = D.setup.AllStages.filter(s => $('crm-opp-status').value !== 'Open' || !['Won', 'Lost'].includes(s.Name));
+    $('crm-board').innerHTML = stages.map(s => {
+      const cards = list.filter(o => o.Stage === s.Name);
+      const sum = cards.reduce((t, o) => t + (Number(o.ExpectedValue) || 0), 0);
+      return '<div class="crm-col p-2 space-y-2" data-stage="' + esc(s.Name) + '"><p class="text-xs font-semibold text-slate-300">' + esc(s.Name) + ' <span class="text-slate-500">' + s.Probability + '% · ' + cards.length + ' · ' + fmt(sum) + '</span></p>' +
+        cards.map(o => '<div class="crm-card bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs" draggable="' + (o.Status === 'Open' && canWrite) + '" data-id="' + esc(o.ID) + '"><p class="text-slate-200 font-medium">' + esc(o.Title) + '</p><p class="text-slate-400">' + esc(partyOf(o)) +
+          '</p><p class="text-slate-400">' + fmt(o.ExpectedValue) + ' ' + esc(o.Currency || '') + (o.ExpectedClose ? ' · ' + esc(o.ExpectedClose) : '') + '</p></div>').join('') + '</div>';
+    }).join('');
+    show('crm-board', mode === 'board'); show('crm-opps-list', mode === 'list');
+  }
+  function openOpp(o, preset) {
+    opp = o || null;
+    const open = !opp || opp.Status === 'Open';
+    $('crm-opp-heading').textContent = opp ? opp.Title : 'New Opportunity';
+    $('crm-opp-badge').innerHTML = opp ? badge(opp.Status === 'Open' ? opp.Stage : opp.Status) : '';
+    $('crm-opp-title').value = opp ? opp.Title : ''; $('crm-opp-value').value = opp ? opp.ExpectedValue : '';
+    $('crm-opp-currency').value = opp ? opp.Currency || '' : ''; $('crm-opp-close').value = opp ? opp.ExpectedClose || '' : ''; $('crm-opp-notes').value = opp ? opp.Notes || '' : '';
+    const parties = D.leads.filter(l => l.Status === 'Open').map(l => ['L:' + l.ID, 'Lead: ' + leadName(l)]).concat(D.customers.map(c => ['C:' + c.CustomerID, c.Name + (c.Code ? ' (' + c.Code + ')' : '')]));
+    const current = opp ? (opp.LeadID ? 'L:' + opp.LeadID : 'C:' + opp.CustomerID) : (preset || '');
+    if (current && !parties.some(p => p[0] === current)) parties.unshift([current, opp ? partyOf(opp) : current]);
+    $('crm-opp-party').innerHTML = '<option value="">Choose…</option>' + options(parties, current);
+    $('crm-opp-party').disabled = Boolean(opp);
+    $('crm-opp-stage').innerHTML = options(D.setup.AllStages.map(s => [s.Name, s.Name + ' (' + s.Probability + '%)']), opp ? opp.Stage : D.setup.AllStages[0].Name);
+    $('crm-opp-stage').disabled = !opp || !open || !canWrite;
+    ownerSelect('crm-opp-owner', opp ? opp.OwnerKey : '');
+    document.querySelectorAll('.crm-opp-f').forEach(el => { el.disabled = !open || !canWrite; });
+    show('crm-opp-save', open && canWrite);
+    ['crm-opp-newact', 'crm-opp-lost', 'crm-opp-won'].forEach(id => show(id, Boolean(opp) && open && canWrite));
+    $('crm-opp-info').textContent = opp && opp.Status === 'Lost' ? 'Lost: ' + (opp.LostReason || '') + (opp.LostNote ? ' — ' + opp.LostNote : '') : '';
+    $('crm-opp-related').innerHTML = opp ? related('Activity', D.activities.filter(a => a.About && a.About.Kind === 'Opportunity' && a.About.ID === opp.ID)) : '';
+    openEntry('crm-opp-entry');
+  }
+  async function saveOpp() {
+    const party = $('crm-opp-party').value;
+    const f = { ID: opp ? opp.ID : '', CompanyID: $('crm-company').value, Title: $('crm-opp-title').value, ExpectedValue: $('crm-opp-value').value,
+      Currency: $('crm-opp-currency').value, ExpectedClose: $('crm-opp-close').value, Notes: $('crm-opp-notes').value, OwnerKey: $('crm-opp-owner').value };
+    if (!opp) { if (party.startsWith('L:')) f.LeadID = party.slice(2); else if (party.startsWith('C:')) f.CustomerID = party.slice(2); }
+    try {
+      const r = await call('saveOpportunity', { opportunity: f });
+      if (opp && f.OwnerKey !== opp.OwnerKey && D.manager) await call('reassignCrm', { kind: 'Opportunity', id: opp.ID, ownerKey: f.OwnerKey });
+      await load();
+      openOpp(D.opportunities.find(o => o.ID === r.opportunityId));
+    } catch (e) { appAlert(e.message); }
+  }
+  let lostFor = null;
+  function stageTo(o, stage) {
+    if (stage === 'Lost') {
+      lostFor = o;
+      $('crm-lost-reason').innerHTML = options(D.setup.LostReasons.map(r => [r, r]));
+      $('crm-lost-note').value = '';
+      show('crm-lost-modal', true);
+      return Promise.resolve();
+    }
+    return call('setOpportunityStage', { opportunityId: o.ID, stage }).then(load).then(() => { if (!$('crm-opp-entry').classList.contains('hidden')) openOpp(D.opportunities.find(x => x.ID === o.ID)); }, e => { appAlert(e.message); return load(); });
+  }
+  function lostOk() {
+    const o = lostFor;
+    call('setOpportunityStage', { opportunityId: o.ID, stage: 'Lost', lostReason: $('crm-lost-reason').value, note: $('crm-lost-note').value }).then(() => {
+      show('crm-lost-modal', false);
+      return load().then(() => { if (!$('crm-opp-entry').classList.contains('hidden')) openOpp(D.opportunities.find(x => x.ID === o.ID)); });
+    }, e => appAlert(e.message));
+  }
+
+  // ---------- activities ----------
+  function renderActs() {
+    const st = $('crm-act-status').value, mine = !D.manager || $('crm-act-mine').checked, today = todayStr();
+    const list = D.activities.filter(a => (!st || a.Status === st) && (!mine || D.myKeys.includes(a.OwnerKey))).sort((a, b) => (a.Due + (a.DueTime || '')).localeCompare(b.Due + (b.DueTime || '')));
+    $('crm-acts-body').innerHTML = list.length ? list.map(a => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(a.ID) + '"><td class="py-2 px-3 text-xs ' + (a.Status === 'Open' && a.Due < today ? 'crm-overdue' : '') + '">' + esc(a.Due) + (a.DueTime ? ' ' + esc(a.DueTime) : '') +
+      '</td><td class="py-2 px-3 text-xs">' + esc(a.Type) + '</td><td class="py-2 px-3 text-slate-200">' + esc(a.Subject) + '</td><td class="py-2 px-3 text-xs">' + esc(aboutName(a)) + '</td><td class="py-2 px-3 text-xs">' + esc(ownerName(a.OwnerKey)) +
+      '</td><td class="py-2 px-3">' + badge(a.Status) + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="py-6 text-center text-slate-500">No activities.</td></tr>';
+  }
+  function aboutOptions(current) {
+    const list = D.leads.filter(l => l.Status === 'Open').map(l => ['Lead:' + l.ID, 'Lead: ' + leadName(l)])
+      .concat(D.opportunities.filter(o => o.Status === 'Open').map(o => ['Opportunity:' + o.ID, 'Opportunity: ' + o.Title]))
+      .concat(D.customers.map(c => ['Customer:' + c.CustomerID, c.Name + (c.Code ? ' (' + c.Code + ')' : '')]));
+    if (current && !list.some(x => x[0] === current)) list.unshift([current, act ? aboutName(act) : current]);
+    return '<option value="">Choose…</option>' + options(list, current);
+  }
+  function openAct(a, preset) {
+    act = a || null;
+    const open = !act || act.Status === 'Open';
+    $('crm-act-heading').textContent = act ? act.Type + ': ' + act.Subject : 'New Activity';
+    $('crm-act-badge').innerHTML = act ? badge(act.Status) : '';
+    $('crm-act-type').innerHTML = options(D.setup.ActivityTypes.map(t => [t, t]), act ? act.Type : D.setup.ActivityTypes[0]);
+    $('crm-act-subject').value = act ? act.Subject : ''; $('crm-act-due').value = act ? act.Due : todayStr(); $('crm-act-time').value = act ? act.DueTime || '' : ''; $('crm-act-notes').value = act ? act.Notes || '' : '';
+    $('crm-act-about').innerHTML = aboutOptions(act ? act.About.Kind + ':' + act.About.ID : (preset || ''));
+    $('crm-act-about').disabled = Boolean(act);
+    ownerSelect('crm-act-owner', act ? act.OwnerKey : '');
+    document.querySelectorAll('.crm-act-f').forEach(el => { el.disabled = !open || !canWrite; });
+    show('crm-act-save', open && canWrite);
+    ['crm-act-done', 'crm-act-cancel'].forEach(id => show(id, Boolean(act) && open && canWrite));
+    $('crm-act-info').textContent = act && act.Status !== 'Open' ? act.Status + (act.Outcome ? ': ' + act.Outcome : '') : '';
+    openEntry('crm-act-entry');
+  }
+  async function saveAct() {
+    const about = $('crm-act-about').value.split(':');
+    const f = { ID: act ? act.ID : '', CompanyID: $('crm-company').value, Type: $('crm-act-type').value, Subject: $('crm-act-subject').value, Due: $('crm-act-due').value,
+      DueTime: $('crm-act-time').value, Notes: $('crm-act-notes').value, OwnerKey: $('crm-act-owner').value, About: { Kind: about[0], ID: about.slice(1).join(':') } };
+    try {
+      const r = await call('saveActivity', { activity: f });
+      if (act && f.OwnerKey !== act.OwnerKey && D.manager) await call('reassignCrm', { kind: 'Activity', id: act.ID, ownerKey: f.OwnerKey });
+      await load();
+      openAct(D.activities.find(x => x.ID === r.activityId));
+    } catch (e) { appAlert(e.message); }
+  }
+  function doneStart() {
+    $('crm-done-outcome').value = '';
+    $('crm-done-next').checked = true;
+    $('crm-done-next-type').innerHTML = options(D.setup.ActivityTypes.map(t => [t, t]), act.Type);
+    const d = new Date(); d.setDate(d.getDate() + 7);
+    $('crm-done-next-due').value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    $('crm-done-next-subject').value = 'Follow up: ' + act.Subject;
+    show('crm-done-next-fields', true);
+    show('crm-done-modal', true);
+  }
+  async function doneOk() {
+    const next = $('crm-done-next').checked ? { Type: $('crm-done-next-type').value, Subject: $('crm-done-next-subject').value, Due: $('crm-done-next-due').value } : null;
+    try {
+      await call('closeActivity', Object.assign({ activityId: act.ID, outcome: $('crm-done-outcome').value }, next ? { next } : {}));
+      show('crm-done-modal', false);
+      await load();
+      openAct(D.activities.find(x => x.ID === act.ID));
+    } catch (e) { appAlert(e.message); }
+  }
+  async function cancelAct() {
+    if (!(await appConfirm('Cancel this activity?'))) return;
+    try { await call('closeActivity', { activityId: act.ID, cancel: true }); await load(); openAct(D.activities.find(x => x.ID === act.ID)); } catch (e) { appAlert(e.message); }
+  }
+
+  // ---------- setup ----------
+  let stagesDraft = [];
+  function renderSetup() {
+    stagesDraft = D.setup.Stages.map(s => Object.assign({}, s));
+    drawStages();
+    $('crm-setup-lost').value = D.setup.LostReasons.join('\n'); $('crm-setup-sources').value = D.setup.LeadSources.join('\n');
+    $('crm-setup-types').value = D.setup.ActivityTypes.join('\n'); $('crm-setup-days').value = D.setup.QuoteValidDays;
+  }
+  function drawStages() {
+    $('crm-stages-body').innerHTML = stagesDraft.map((s, i) => '<tr data-i="' + i + '"><td class="pr-3 py-1"><input class="crm-st-name bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + esc(s.Name) + '"></td>' +
+      '<td class="pr-3 py-1"><input class="crm-st-prob w-20 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-right" type="number" min="0" max="100" value="' + esc(s.Probability) + '"></td>' +
+      '<td class="py-1 space-x-1"><button class="crm-st-up text-xs text-slate-400" title="Up">▲</button><button class="crm-st-down text-xs text-slate-400" title="Down">▼</button><button class="crm-st-del text-xs text-red-400" title="Remove">✕</button></td></tr>').join('');
+  }
+  function readStages() { document.querySelectorAll('#crm-stages-body tr').forEach(tr => { const i = Number(tr.dataset.i); stagesDraft[i] = { Name: tr.querySelector('.crm-st-name').value.trim(), Probability: Number(tr.querySelector('.crm-st-prob').value) }; }); }
+  function saveSetup() {
+    readStages();
+    const lines = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean);
+    call('saveCrmSetup', { companyId: $('crm-company').value, setup: { Stages: stagesDraft, LostReasons: lines('crm-setup-lost'), LeadSources: lines('crm-setup-sources'),
+      ActivityTypes: lines('crm-setup-types'), QuoteValidDays: Number($('crm-setup-days').value) } }).then(() => load().then(() => appAlert('CRM Setup saved.')), e => appAlert(e.message));
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-handshake"></i> CRM';
+    const pending = window.__pendingModuleParams; window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) pendingOpen = pending.OpenEntryId;
+    document.querySelectorAll('.crm-tab').forEach(b => b.addEventListener('click', () => tab(b.dataset.tab)));
+    document.querySelectorAll('.crm-mode').forEach(b => b.addEventListener('click', () => {
+      mode = b.dataset.mode;
+      document.querySelectorAll('.crm-mode').forEach(x => { const on = x === b; x.classList.toggle('bg-blue-600', on); x.classList.toggle('text-white', on); x.classList.toggle('bg-slate-700', !on); });
+      renderOpps();
+    }));
+    $('crm-company').addEventListener('change', () => { back(); load(); });
+    $('crm-lead-search').addEventListener('input', () => D && renderLeads());
+    $('crm-lead-status').addEventListener('change', () => D && renderLeads());
+    $('crm-opp-status').addEventListener('change', () => D && renderOpps());
+    $('crm-act-status').addEventListener('change', () => D && renderActs());
+    $('crm-act-mine').addEventListener('change', () => D && renderActs());
+    $('crm-leads-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openLead(D.leads.find(l => l.ID === tr.dataset.id)); });
+    $('crm-opps-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openOpp(D.opportunities.find(o => o.ID === tr.dataset.id)); });
+    $('crm-acts-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openAct(D.activities.find(a => a.ID === tr.dataset.id)); });
+    $('crm-board').addEventListener('click', e => { const c = e.target.closest('.crm-card'); if (c) openOpp(D.opportunities.find(o => o.ID === c.dataset.id)); });
+    $('crm-board').addEventListener('dragstart', e => { const c = e.target.closest('.crm-card'); if (c) e.dataTransfer.setData('text/plain', c.dataset.id); });
+    $('crm-board').addEventListener('dragover', e => { const col = e.target.closest('.crm-col'); if (col) { e.preventDefault(); col.classList.add('drop'); } });
+    $('crm-board').addEventListener('dragleave', e => { const col = e.target.closest('.crm-col'); if (col) col.classList.remove('drop'); });
+    $('crm-board').addEventListener('drop', e => {
+      const col = e.target.closest('.crm-col'); if (!col) return;
+      e.preventDefault(); col.classList.remove('drop');
+      const o = D.opportunities.find(x => x.ID === e.dataTransfer.getData('text/plain'));
+      if (o && o.Stage !== col.dataset.stage) stageTo(o, col.dataset.stage);
+    });
+    ['crm-lead-entry', 'crm-opp-entry', 'crm-act-entry'].forEach(id => $(id).addEventListener('click', e => {
+      const b = e.target.closest('.crm-open-opp, .crm-open-act'); if (!b) return;
+      if (b.classList.contains('crm-open-opp')) openOpp(D.opportunities.find(o => o.ID === b.dataset.id)); else openAct(D.activities.find(a => a.ID === b.dataset.id));
+    }));
+    $('crm-lead-new').addEventListener('click', () => openLead(null));
+    $('crm-lead-back').addEventListener('click', back);
+    $('crm-lead-save').addEventListener('click', () => saveLead(false));
+    $('crm-lead-disqualify').addEventListener('click', disqualify);
+    $('crm-lead-convert').addEventListener('click', convertStart);
+    $('crm-lead-newopp').addEventListener('click', () => { tabNow = 'opps'; openOpp(null, 'L:' + lead.ID); });
+    $('crm-lead-newact').addEventListener('click', () => { tabNow = 'acts'; openAct(null, 'Lead:' + lead.ID); });
+    $('crm-cv-class').addEventListener('change', exportToggle);
+    $('crm-cv-cancel').addEventListener('click', () => show('crm-convert-modal', false));
+    $('crm-cv-ok').addEventListener('click', convertOk);
+    $('crm-opp-new').addEventListener('click', () => openOpp(null));
+    $('crm-opp-back').addEventListener('click', back);
+    $('crm-opp-save').addEventListener('click', saveOpp);
+    $('crm-opp-won').addEventListener('click', () => stageTo(opp, 'Won'));
+    $('crm-opp-lost').addEventListener('click', () => stageTo(opp, 'Lost'));
+    $('crm-opp-stage').addEventListener('change', () => { if (opp && $('crm-opp-stage').value !== opp.Stage) stageTo(opp, $('crm-opp-stage').value); });
+    $('crm-opp-newact').addEventListener('click', () => { tabNow = 'acts'; openAct(null, 'Opportunity:' + opp.ID); });
+    $('crm-lost-cancel').addEventListener('click', () => { show('crm-lost-modal', false); if (opp) $('crm-opp-stage').value = opp.Stage; });
+    $('crm-lost-ok').addEventListener('click', lostOk);
+    $('crm-act-new').addEventListener('click', () => openAct(null));
+    $('crm-act-back').addEventListener('click', back);
+    $('crm-act-save').addEventListener('click', saveAct);
+    $('crm-act-done').addEventListener('click', doneStart);
+    $('crm-act-cancel').addEventListener('click', cancelAct);
+    $('crm-done-next').addEventListener('change', () => show('crm-done-next-fields', $('crm-done-next').checked));
+    $('crm-done-cancel').addEventListener('click', () => show('crm-done-modal', false));
+    $('crm-done-ok').addEventListener('click', doneOk);
+    $('crm-stage-add').addEventListener('click', () => { readStages(); stagesDraft.push({ Name: '', Probability: 50 }); drawStages(); });
+    $('crm-stages-body').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+      readStages();
+      const i = Number(tr.dataset.i);
+      if (e.target.closest('.crm-st-del')) stagesDraft.splice(i, 1);
+      else if (e.target.closest('.crm-st-up') && i > 0) stagesDraft.splice(i - 1, 0, stagesDraft.splice(i, 1)[0]);
+      else if (e.target.closest('.crm-st-down') && i < stagesDraft.length - 1) stagesDraft.splice(i + 1, 0, stagesDraft.splice(i, 1)[0]);
+      drawStages();
+    });
+    $('crm-setup-save').addEventListener('click', saveSetup);
+    call('getActiveCompanies', {}).then(list => {
+      $('crm-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+    }, () => {}).then(load);
+  };
+})();
+</script>
