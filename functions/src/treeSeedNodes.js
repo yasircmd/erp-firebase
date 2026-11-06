@@ -139,7 +139,7 @@ const TREE_SEED_NODES = [
   { text: 'Pre-Sales Activities', depth: 2 },
   { text: 'Lead Tracking', depth: 3 },
   { text: 'Inquiries', depth: 3 },
-  { text: 'Quotations', depth: 3 },
+  { text: 'Quotations', depth: 3, moduleId: 'QUOTATION' }, // CRM.md, step C2
   { text: 'Sales Order Management (SD-SLS)', depth: 2 },
   { text: 'Order Entry, Contract Management & Backorder Handling', depth: 3 },
   { text: 'Available-to-Promise (ATP / Advanced ATP Check)', depth: 3 },

@@ -60,7 +60,7 @@ test('the counts: every new category, in its group, browsable only where records
   assert.deepEqual([c.taxConfig.label, c.taxConfig.group], ['Tax Configuration', 'setup']);
   assert.deepEqual([c.budgets.label, c.budgets.group, c.budgets.browse, c.budgetSetup.group], ['Budgets', 'transactional', true, 'setup']);
   assert.deepEqual([c.creditLimits.label, c.creditLimits.group, c.creditLimits.browse, c.creditSetup.group], ['Credit Limits & Holds', 'master', true, 'setup']);
-  assert.deepEqual([c.crm.label, c.crm.group, c.crm.browse, c.crmSetup.group], ['CRM: Leads, Opportunities & Activities', 'transactional', true, 'setup']);
+  assert.deepEqual([c.crm.label, c.crm.group, c.crm.browse, c.crmSetup.group], ['CRM: Leads, Opportunities, Activities & Quotations', 'transactional', true, 'setup']);
   assert.deepEqual([c.clearances.group, c.clearances.browse], ['transactional', true]);
   assert.deepEqual([c.repReceipts.label, c.repReceipts.group, c.repReceipts.browse], ['Sales Rep Receipts', 'transactional', true]);
   assert.deepEqual([c.employees.group, c.employees.count, c.employees.browse], ['master', 2, false], 'the employees, not their compensation or sign-ins');

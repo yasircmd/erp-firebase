@@ -156,6 +156,9 @@ const MODULE_REGISTRY = [
   // opportunities and activities; write creates and changes them; manage (the CRM
   // Manager) sees every record of one's companies, reassigns and changes CRM Setup.
   { id: 'CRM', label: 'CRM', capabilities: ['access', 'write', 'manage'] },
+  // Quotations (CRM.md, step C2; Q398): access sees the company's quotations, write
+  // makes, submits, revises them and turns an approved one into a Sales Order.
+  { id: 'QUOTATION', label: 'Quotation', capabilities: ['access', 'write'] },
   // Bank reconciliation (docs/modules/RECONCILIATION.md; owner, 2026-11-01): access
   // reads, prepare pastes the statement, matches and ticks (and posts an entry for
   // a statement line, step R2), reopen reopens a locked month (R2); approving is
@@ -310,6 +313,7 @@ const DEFAULT_PERMISSIONS = {
   BUDGET:             { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
   CREDITCONTROL:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'], hold: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
   CRM:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], manage: ['ADMIN', 'FINANCE_MGR'] },
+  QUOTATION:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
   BANKREC:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'] },
   GLREC:              { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
