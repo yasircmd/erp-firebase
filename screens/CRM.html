@@ -4,10 +4,10 @@
      Each record's entry in the entry layout. -->
 <style>
   #crm-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(13rem, 1fr); gap: 0.6rem; overflow-x: auto; }
-  #crm-board .crm-col { background: rgba(30,41,59,0.5); border: 1px solid #334155; border-radius: 0.75rem; min-height: 12rem; }
+  /* A column's colours from its classes (bg-slate-800/40, border-slate-700), which the light theme remaps. */
+  #crm-board .crm-col { border-radius: 0.75rem; min-height: 12rem; }
   #crm-board .crm-col.drop { outline: 2px dashed #3b82f6; }
   #crm-board .crm-card { cursor: grab; }
-  .crm-overdue { color: #fbbf24; }
 </style>
 <div class="space-y-5">
   <div id="crm-head" class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
@@ -479,7 +479,7 @@
     $('crm-board').innerHTML = stages.map(s => {
       const cards = list.filter(o => o.Stage === s.Name);
       const sum = cards.reduce((t, o) => t + (Number(o.ExpectedValue) || 0), 0);
-      return '<div class="crm-col p-2 space-y-2" data-stage="' + esc(s.Name) + '"><p class="text-xs font-semibold text-slate-300">' + esc(s.Name) + ' <span class="text-slate-500">' + s.Probability + '% · ' + cards.length + ' · ' + fmt(sum) + '</span></p>' +
+      return '<div class="crm-col bg-slate-800/40 border border-slate-700 p-2 space-y-2" data-stage="' + esc(s.Name) + '"><p class="text-xs font-semibold text-slate-300">' + esc(s.Name) + ' <span class="text-slate-500">' + s.Probability + '% · ' + cards.length + ' · ' + fmt(sum) + '</span></p>' +
         cards.map(o => '<div class="crm-card bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs" draggable="' + (o.Status === 'Open' && canWrite) + '" data-id="' + esc(o.ID) + '"><p class="text-slate-200 font-medium">' + esc(o.Title) + '</p><p class="text-slate-400">' + esc(partyOf(o)) +
           '</p><p class="text-slate-400">' + fmt(o.ExpectedValue) + ' ' + esc(o.Currency || '') + (o.ExpectedClose ? ' · ' + esc(o.ExpectedClose) : '') + '</p></div>').join('') + '</div>';
     }).join('');
@@ -542,7 +542,7 @@
   function renderActs() {
     const st = $('crm-act-status').value, mine = !D.manager || $('crm-act-mine').checked, today = todayStr();
     const list = D.activities.filter(a => (!st || a.Status === st) && (!mine || D.myKeys.includes(a.OwnerKey))).sort((a, b) => (a.Due + (a.DueTime || '')).localeCompare(b.Due + (b.DueTime || '')));
-    $('crm-acts-body').innerHTML = list.length ? list.map(a => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(a.ID) + '"><td class="py-2 px-3 text-xs ' + (a.Status === 'Open' && a.Due < today ? 'crm-overdue' : '') + '">' + esc(a.Due) + (a.DueTime ? ' ' + esc(a.DueTime) : '') +
+    $('crm-acts-body').innerHTML = list.length ? list.map(a => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(a.ID) + '"><td class="py-2 px-3 text-xs ' + (a.Status === 'Open' && a.Due < today ? 'crm-overdue text-amber-400' : '') + '">' + esc(a.Due) + (a.DueTime ? ' ' + esc(a.DueTime) : '') +
       '</td><td class="py-2 px-3 text-xs">' + esc(a.Type) + '</td><td class="py-2 px-3 text-slate-200">' + esc(a.Subject) + '</td><td class="py-2 px-3 text-xs">' + esc(aboutName(a)) + '</td><td class="py-2 px-3 text-xs">' + esc(ownerName(a.OwnerKey)) +
       '</td><td class="py-2 px-3">' + badge(a.Status) + '</td></tr>').join('')
       : '<tr><td colspan="6" class="py-6 text-center text-slate-500">No activities.</td></tr>';

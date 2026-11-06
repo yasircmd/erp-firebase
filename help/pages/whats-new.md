@@ -12,6 +12,10 @@ screen.
 
 ## 06/11/2026
 
+- **Light theme: Quotations and the CRM board.** In the light theme, a
+  quotation's line fields and the CRM stage board's columns showed dark;
+  they now follow the theme. See [Quotations](quotation.html) and
+  [CRM](crm.html#opportunities).
 - **CRM reports and lead import.** CRM has a **Reports** tab: the pipeline
   by stage, owner and expected close month, win / loss with the win rate
   and the lost reasons, activities done and overdue, and lead sources with

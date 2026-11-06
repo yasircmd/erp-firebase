@@ -14,6 +14,18 @@ const { onAppDialog } = require('./_appDialogs');
 const { app, reset, baseFixture, call } = require('../emulator/_helpers');
 const engine = require('../../src/taxEngine');
 
+// The shell's light theme (public/index.html, LIGHT THEME), applied to a harness page.
+function lightThemeCss() {
+  const html = fs.readFileSync(__dirname + '/../../../public/index.html', 'utf8');
+  const a = html.indexOf('LIGHT THEME'), b = html.indexOf('/* =====', html.indexOf('=====', a + 20) + 70);
+  return html.slice(html.lastIndexOf('/*', a), b);
+}
+async function inLight(page) {
+  await page.addStyleTag({ content: lightThemeCss() });
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+}
+const DARK = ['rgb(15, 23, 42)', 'rgba(30, 41, 59, 0.5)'];
+
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, (e.message + ' @' + ((e.stack || '').match(/quotation.ui.js:(\d+)/) || [])[1]).replace(/\s+/g, ' ').slice(0, 300)]); }); }
 const T = { timeout: 30000 };
@@ -65,6 +77,20 @@ const today = new Date().toISOString().slice(0, 10);
     assert.equal(await page.textContent('#qt-total'), '945.00');
     assert.match(await page.textContent('#qt-tax-rows'), /SR 5%\s*45\.00/);
     assert.ok(await page.isVisible('#qt-submit') && await page.isHidden('#qt-order'));
+  });
+
+  await check('the light theme: a new line\'s fields are light, not the dark theme\'s (owner, 2026-11-06)', async () => {
+    await page.click('#qt-back');
+    await page.click('#qt-new');
+    await inLight(page);
+    const bg = await page.$eval('#qt-lines tr:first-child input[data-k="ItemCode"]', el => getComputedStyle(el).backgroundColor);
+    assert.ok(!DARK.includes(bg), 'the line field is ' + bg);
+    assert.equal(bg, 'rgb(248, 250, 252)');
+    await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+    assert.equal(await page.$eval('#qt-lines tr:first-child input[data-k="ItemCode"]', el => getComputedStyle(el).backgroundColor), 'rgb(15, 23, 42)', 'the dark theme as before');
+    await page.click('#qt-back');
+    await page.click('#qt-body tr:has-text("000001")');
+    await page.waitForSelector('#qt-submit:not(.hidden)', T);
   });
 
   await check('Submit (no approval levels): Approved; read-only; the print shows the quotation', async () => {

@@ -12,6 +12,18 @@ const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
 const { app, reset, baseFixture, call } = require('../emulator/_helpers');
 
+// The shell's light theme (public/index.html, LIGHT THEME), applied to a harness page.
+function lightThemeCss() {
+  const html = fs.readFileSync(__dirname + '/../../../public/index.html', 'utf8');
+  const a = html.indexOf('LIGHT THEME'), b = html.indexOf('/* =====', html.indexOf('=====', a + 20) + 70);
+  return html.slice(html.lastIndexOf('/*', a), b);
+}
+async function inLight(page) {
+  await page.addStyleTag({ content: lightThemeCss() });
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+}
+const DARK = ['rgb(15, 23, 42)', 'rgba(30, 41, 59, 0.5)'];
+
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300)]); }); }
 const T = { timeout: 30000 };
@@ -66,6 +78,11 @@ const T = { timeout: 30000 };
     await page.dragAndDrop('#crm-board .crm-col[data-stage="New"] .crm-card', '#crm-board .crm-col[data-stage="Proposal"]');
     await page.waitForSelector('#crm-board .crm-col[data-stage="Proposal"] .crm-card', T);
     assert.match(await page.textContent('#crm-opp-totals'), /weighted 2,500\.00/);
+    // The light theme (owner, 2026-11-06): the board's columns light too.
+    await inLight(page);
+    const col = await page.$eval('#crm-board .crm-col[data-stage="Proposal"]', el => getComputedStyle(el).backgroundColor);
+    assert.ok(!DARK.includes(col), 'the column is ' + col);
+    await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
     await page.click('#crm-board .crm-card');
     await page.click('#crm-opp-lost');
     await page.waitForSelector('#crm-lost-modal:not(.hidden)', T);
