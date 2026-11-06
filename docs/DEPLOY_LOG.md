@@ -1817,3 +1817,9 @@ from, and how it was verified. The deploy procedure is in the
   (13:39–13:45 UTC), success. "hosting", run
   [#306](https://github.com/yasircmd/erp-firebase/actions/runs/42234957066)
   (14:33–14:34 UTC), success. No rules change. The CRM build (C1-C4) is live.
+- **2026-11-06, Light theme: quotation lines and the CRM board (PR #223, from
+  `ffddc27`):** screens (QUOTATION, CRM), run
+  [#307](https://github.com/yasircmd/erp-firebase/actions/runs/42238920384)
+  (14:59–15:01 UTC), success. "hosting", run
+  [#308](https://github.com/yasircmd/erp-firebase/actions/runs/42239210172)
+  (15:01–15:03 UTC), success. No functions or rules.
