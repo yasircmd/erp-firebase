@@ -21,7 +21,7 @@ const listOf = v => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object
 const distinct = (rows, key) => [...new Set(rows.map(r => r[key]).filter(Boolean).map(String))].sort();
 
 const vendorInvoices = makeStore({
-  name: 'Vendor Invoice', path: 'vendorInvoices', collection: 'vendorInvoices',
+  name: 'Vendor Invoice', path: 'vendorInvoices', collection: 'vendorInvoices', dateField: 'InvoiceDate',
   fields: ['Status', 'CompanyID', 'VendorID', 'TransactionNumber', 'ReversalOfInvoiceID'],
   derived: {
     // The GRNs it invoices.
@@ -31,7 +31,7 @@ const vendorInvoices = makeStore({
 });
 
 const purchaseOrders = makeStore({
-  name: 'Purchase Order', path: 'purchaseOrders', collection: 'purchaseOrders',
+  name: 'Purchase Order', path: 'purchaseOrders', collection: 'purchaseOrders', dateField: 'PODate',
   fields: ['Status', 'CompanyID', 'VendorID', 'PONumber', 'CreatedBy'],
   derived: {
     ItemCode: { field: 'ItemCodes', op: 'array-contains', value: d => distinct(listOf(d.Lines), 'ItemCode') },
@@ -40,12 +40,12 @@ const purchaseOrders = makeStore({
 });
 
 const purchaseRequisitions = makeStore({
-  name: 'Purchase Requisition', path: 'purchaseRequisitions', collection: 'purchaseRequisitions',
+  name: 'Purchase Requisition', path: 'purchaseRequisitions', collection: 'purchaseRequisitions', dateField: 'PRDate',
   fields: ['Status', 'CompanyID', 'PRNumber', 'CreatedBy']
 });
 
 const inventoryPurchaseRequisitions = makeStore({
-  name: 'Inventory Purchase Requisition', path: 'inventoryPurchaseRequisitions', collection: 'inventoryPurchaseRequisitions',
+  name: 'Inventory Purchase Requisition', path: 'inventoryPurchaseRequisitions', collection: 'inventoryPurchaseRequisitions', dateField: 'IPRDate',
   fields: ['Status', 'CompanyID', 'IPRNumber', 'CreatedBy']
 });
 

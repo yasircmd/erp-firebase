@@ -43,7 +43,7 @@ function queryFields(d) {
 // Equality filters only, on these fields; ItemID matches any line's item,
 // WarehouseID any warehouse the document names.
 const txStore = makeStore({
-  name: 'stock transaction', path: 'stock/transactions', collection: TX, queryName: 'queryTx',
+  name: 'stock transaction', path: 'stock/transactions', collection: TX, queryName: 'queryTx', dateField: 'TransactionDate',
   fields: ['TransactionType', 'Status', 'CompanyID', 'SourceInvoiceID', 'ReturnOfSaleID', 'TransactionNumber', 'VendorID', 'CustomerID'],
   derived: {
     ItemID: { field: 'ItemIDs', op: 'array-contains', value: d => queryFields(d).ItemIDs },

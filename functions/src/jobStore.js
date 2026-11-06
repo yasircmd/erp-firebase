@@ -22,7 +22,7 @@ const jobOrderLines = makeStore({
 });
 
 const pdcCheques = makeStore({
-  name: 'PDC', path: 'pdcCheques', collection: 'pdcCheques',
+  name: 'PDC', path: 'pdcCheques', collection: 'pdcCheques', dateField: 'TransactionDate', // the entry's date; its cheque dates are free
   fields: ['Status', 'CompanyID', 'Direction', 'PartyType', 'PartyID', 'BankAccountID', 'ChequeNumber', 'CreatedBy', 'LinkedJVID', 'RepEmployeeID']
 });
 

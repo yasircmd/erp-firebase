@@ -300,6 +300,9 @@ exports.createPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   const co = await companyFor(user, d.companyId);
   const month = text(d.month, 7);
   if (!isMonth(month)) bad('Choose the month.');
+  // Payroll up to 12 months ahead (owner, 2026-11-06; UX round 3 item 3).
+  const lock = require('./periodLock');
+  if (month > lock.latestDate('Payroll').slice(0, 7)) bad('A payroll run is for a month up to ' + lock.latestDate('Payroll').slice(0, 7) + ' (12 months ahead).');
   await requireLocked(co, month);
   const ref = RUNS().doc(co + '_' + month);
   const run = { CompanyID: co, Month: month, Status: 'Draft', Description: 'Payroll ' + co + ' ' + month, CreatedAt: new Date().toISOString(), CreatedBy: user.uid, CreatedByName: actorName(user) };

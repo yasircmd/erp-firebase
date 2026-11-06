@@ -221,10 +221,11 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   const numberAs = extraFields.NumberAs || '';
   delete extraFields.NumberAs;
   if (periodLock.ADJUSTABLE_TYPES.has(stockTransactionType) && (redo || extraFields.ReversalOfJV)) {
+    periodLock.assertNotPostDated(transactionDate, '', stockTransactionType);
     const posted = await periodLock.adjustableDate(dim.CompanyID, transactionDate, redo || periodLock.consentGiven());
     if (posted !== transactionDate) { extraFields.AdjustedFromDate = transactionDate; transactionDate = posted; }
   } else {
-    await periodLock.assertOpen(dim.CompanyID, transactionDate);
+    await periodLock.assertOpen(dim.CompanyID, transactionDate, '', stockTransactionType);
   }
 
   const coaSnap = await rtdb.ref('coa').get();
@@ -274,7 +275,7 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
 // their own (Warehouse Movement) where writeStockGlEntry's own
 // numbering logic never runs.
 async function assignStockVoucherNumbering(stockTransactionType, transactionDate, companyId) {
-  await require('./periodLock').assertOpen(companyId, transactionDate); // a stock movement with no GL entry: the period lock here
+  await require('./periodLock').assertOpen(companyId, transactionDate, '', stockTransactionType); // a stock movement with no GL entry: the period lock here
   const year = (new Date(transactionDate)).getFullYear() || new Date().getFullYear();
   const prefix = STOCK_TRANSACTION_PREFIXES[stockTransactionType];
   if (!prefix) throw new Error('Unknown stock transaction type: ' + stockTransactionType);
