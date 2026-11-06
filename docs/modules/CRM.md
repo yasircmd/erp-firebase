@@ -154,6 +154,17 @@ Defaults taken from what is already agreed (say if any should differ):
 - The quotation PDF is shared from the phone as a receipt is (the share sheet,
   or a download).
 
+## Step C4: reports and import (owner, 2026-11-06)
+
+Four more decisions, asked before building C4:
+
+| # | Decision |
+|---|---|
+| Q407 | **Currencies in the reports:** the Pipeline and Win / loss totals are in the company's **base currency at the latest rate** in Currency Master; each line still shows its own currency and amount. |
+| Q408 | **Who sees the reports:** a **Reports tab in CRM**, the same visibility as the records: a user sees their own; a CRM Manager sees every owner of their companies, with an owner filter. |
+| Q409 | **Duplicates on import:** the check lists a row matching a lead or customer (phone, email or name) as a **warning**; such rows are skipped unless the user ticks **Import matches too**. |
+| Q410 | **Owner on import:** an optional **Owner** column (a user ID or a sales rep's employee code); empty is the person importing; only a CRM Manager may name someone else. |
+
 ## Build plan
 
 Each step its own PR, tested and deployed before the next:
