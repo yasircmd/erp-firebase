@@ -1,6 +1,6 @@
 # CRM: leads, opportunities, activities and quotations
 
-Status: **design, waiting for the owner's agreement** (requested 2026-11-05).
+Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); building C1.
 
 ## The owner's direction (2026-11-05)
 
@@ -145,3 +145,45 @@ Each step its own PR, tested and deployed before the next:
 
 Help: a CRM area in help/areas.json with a page per screen, written with
 each step; What's new at each release.
+
+## As built: step C1, the pipeline (2026-11-06)
+
+- **functions/src/crm.js** (Firestore `crmSetup`, `crmLeads`,
+  `crmOpportunities`, `crmActivities`; equality queries by company or by
+  owner only):
+  - **Owners** are keys: `U:<uid>` (an ERP user) or `E:<employeeId>` (a
+    sales rep, for the portal in C3). A user's own keys are theirs and the
+    employee linked to them (`employees.UserUID`). Owners offered: the
+    company's users with the CRM write right and its active sales reps.
+  - **Rights** (moduleRegistry `CRM`): access (see one's own), write (create
+    and change), manage (the CRM Manager: every record of one's companies,
+    reassign, Setup). Defaults: Admin and Finance Manager all, Accountant
+    access and write, Viewer access.
+  - `getCrm` (the screen's data), `saveCrmSetup`, `saveLead` (the
+    duplicate check, Q403: phone on its last 9 digits as Customer Master,
+    email, name; `{ success: false, duplicates }` until saved with force),
+    `disqualifyLead`, `convertLead` (after Customer Master's own
+    `saveCustomer`: the lead Converted and linked; its opportunities and
+    activities moved to the customer, in one batch), `saveOpportunity`,
+    `setOpportunityStage` (Lost needs a listed reason; Won / Lost close it),
+    `saveActivity`, `closeActivity` (Done needs the outcome; can create the
+    next activity), `reassignCrm`, `getCrmActivitiesDueForUser` (Home).
+- **screens/CRM.html**: the tabs Leads, Opportunities (Board, with drag and
+  drop between stages, and List; total and weighted value), Activities
+  (mine / all for a manager), Setup (a manager's); each record's entry in
+  the entry layout; the Lost, Done and Convert dialogs.
+- **Home** (public/index.html): the block **CRM Activities Due** (the user's
+  own, today or overdue in amber), counted in Tasks, opening the activity.
+- **Menu:** Customer Experience & CRM Solutions → Lead & Opportunity
+  Management → CRM. **Data Reset:** CRM records (transactional) and CRM Setup.
+- **Help:** a CRM area with its page; Getting started (Home tasks), Data
+  Reset and What's new.
+- **Tests:** emulator/crm (6: setup and its defaults; leads and the
+  duplicate warning; visibility, the manager and the Viewer; opportunities
+  through the stages; activities on Home and done with the next; Convert to
+  Customer), ui/crm (6), ui/home (the CRM block). Negative controls, each
+  caught and restored: everyone seeing the company's records (the
+  visibility test fails); no duplicate found (the lead test fails); the
+  board's drop not moving the stage (the UI board test fails).
+- **Deploy:** `crm-c1` (every function: moduleRegistry.js), with screens,
+  then Hosting.

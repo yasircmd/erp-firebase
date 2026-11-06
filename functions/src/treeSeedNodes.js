@@ -154,6 +154,8 @@ const TREE_SEED_NODES = [
   { text: 'Revenue Recognition (IFRS 15 / ASC 606 Compliance)', depth: 3 },
   { text: 'Customer Experience & CRM Solutions', depth: 1 },
   { text: 'Lead & Opportunity Management', depth: 2 },
+  // New development (not in Code.gs): docs/modules/CRM.md.
+  { text: 'CRM: Leads, Opportunities & Activities', depth: 3, moduleId: 'CRM' },
   { text: 'Omnichannel Customer Service & Field Service Management', depth: 2 },
   { text: 'Partner Relationship Management (PRM)', depth: 2 },
 

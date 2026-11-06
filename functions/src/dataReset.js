@@ -25,6 +25,8 @@ const CATEGORIES = {
     detail: 'Every Job Order and its lines. The production posted against them is in Stock Transactions.' },
   approvalRecords: { label: 'Approval Records', group: T, fs: ['approvalInstances'], records: 'approvalInstances',
     detail: 'The Approval Tracker\'s history: every document\'s approvals, pending, approved, rejected or closed. A document waiting for approval when this is cleared can no longer be approved: clear it with its documents.' },
+  crm: { label: 'CRM: Leads, Opportunities & Activities', group: T, fs: ['crmLeads', 'crmOpportunities', 'crmActivities'], records: 'crmLeads',
+    detail: 'Every lead, opportunity and activity of the CRM. The customers made from leads stay in Customers.' },
   eInvoices: { label: 'E-invoices', group: T, rtdb: ['eInvoices'], records: 'rtdb:eInvoices',
     detail: 'The e-invoice (PINT AE) prepared for each invoice and credit note. Their invoices are in Customer Invoices and Stock Transactions.' },
   employeeChanges: { label: 'Employee Changes', group: T, fs: ['employeeChanges'], records: 'employeeChanges',
@@ -83,6 +85,8 @@ const CATEGORIES = {
 
   glRecSetup: { label: 'GL Account Reconciliation Setup', group: S, fs: ['glRecSetup'],
     detail: 'Each company\'s list of accounts reconciled monthly and their methods.' },
+  crmSetup: { label: 'CRM Setup', group: S, fs: ['crmSetup'],
+    detail: 'Each company\'s CRM stages, lost reasons, lead sources and activity types; the defaults apply until it is set again.' },
   creditSetup: { label: 'Credit Control Setup', group: S, fs: ['creditSetup'],
     detail: 'Each company\'s Credit Control Setup; the defaults (check off) apply until it is set again.' },
   budgetSetup: { label: 'Budget Setup', group: S, fs: ['budgetSetup'],

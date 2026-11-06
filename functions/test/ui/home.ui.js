@@ -65,6 +65,7 @@ function stubs() {
         (window.__companies || []).forEach(c => { c.Chosen = arg.companyIds.includes(c.CompanyID); });
         return { companyIds: arg.companyIds };
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
+      case 'getCrmActivitiesDueForUser': return window.__crmDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
       case 'getClearanceTasksForUser': return window.__clearances || [];
@@ -318,6 +319,32 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#home-recurring-due-list > div');
     await page.waitForSelector('#stub-module');
     assert.match(await page.textContent('#stub-module'), /Module RECURRINGJV/);
+    assert.deepEqual(page.__errors, []);
+    await context.close();
+  });
+
+  await check('tasks: CRM activities due, counted, the overdue one flagged, opened on the activity (docs/modules/CRM.md, Q401)', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    page = await context.newPage();
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    await routeCdnStyles(page);
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.addInitScript(() => { window.__crmDue = [
+      { ModuleID: 'CRM', DocumentID: 'A1', Type: 'Call', Subject: 'Send the brochure', Due: '2026-08-01', DueTime: '', Overdue: true },
+      { ModuleID: 'CRM', DocumentID: 'A2', Type: 'Visit', Subject: 'Site visit', Due: '2026-08-03', DueTime: '10:30', Overdue: false }]; });
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#home-crm-due-block:not(.hidden)', { state: 'attached', timeout: 30000 });
+    assert.equal((await page.textContent('#home-tasks-count')).trim(), '(2)');
+    const rows = await page.$$eval('#home-crm-due-list > div', d => d.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+    assert.match(rows[0], /Call Send the brochure Overdue, due 01\/08\/2026/);
+    assert.match(rows[1], /Visit Site visit Due 03\/08\/2026 10:30/);
+    assert.ok(await page.$eval('#home-crm-due-list > div .text-amber-400', e => /Overdue/.test(e.textContent)), 'the overdue one in amber');
+    await page.evaluate(() => toggleHomeTasksSection());
+    await page.click('#home-crm-due-list > div');
+    await page.waitForSelector('#stub-module');
+    assert.match(await page.textContent('#stub-module'), /Module CRM/);
     assert.deepEqual(page.__errors, []);
     await context.close();
   });

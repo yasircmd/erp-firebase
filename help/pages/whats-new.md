@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-04
+reviewed: 2026-11-06
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,15 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 06/11/2026
+
+- **CRM: leads, opportunities and activities.** A new [CRM](crm.html)
+  screen keeps your leads (with a warning when one looks like an existing
+  lead or customer, and **Convert to Customer**), your opportunities on a
+  stage board (drag a card to move it; Won, or Lost with the reason), and
+  your calls, meetings and visits, with those due on your Home tasks.
+  Owners see their own; a CRM Manager sees all and sets the stages.
 
 ## 04/11/2026
 

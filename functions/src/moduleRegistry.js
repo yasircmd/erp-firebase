@@ -152,6 +152,10 @@ const MODULE_REGISTRY = [
   // lifts a credit hold, setup changes each company's setting, override goes
   // ahead where the credit check blocks (step C2).
   { id: 'CREDITCONTROL', label: 'Credit Control', capabilities: ['access', 'write', 'hold', 'setup', 'override'] },
+  // CRM (docs/modules/CRM.md; owner, 2026-11-05): access sees one's own leads,
+  // opportunities and activities; write creates and changes them; manage (the CRM
+  // Manager) sees every record of one's companies, reassigns and changes CRM Setup.
+  { id: 'CRM', label: 'CRM', capabilities: ['access', 'write', 'manage'] },
   // Bank reconciliation (docs/modules/RECONCILIATION.md; owner, 2026-11-01): access
   // reads, prepare pastes the statement, matches and ticks (and posts an entry for
   // a statement line, step R2), reopen reopens a locked month (R2); approving is
@@ -305,6 +309,7 @@ const DEFAULT_PERMISSIONS = {
   TAXREPORTS:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
   BUDGET:             { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
   CREDITCONTROL:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'], hold: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'], override: ['ADMIN', 'FINANCE_MGR'] },
+  CRM:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], manage: ['ADMIN', 'FINANCE_MGR'] },
   BANKREC:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'] },
   GLREC:              { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },

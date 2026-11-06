@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
-reviewed: 2026-11-04
-fingerprint: fd0478ef071c7e4b
+reviewed: 2026-11-06
+fingerprint: f3bf58d44b0b7a42
 ---
 ## The page
 
