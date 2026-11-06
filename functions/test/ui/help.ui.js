@@ -108,7 +108,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await p.getAttribute('nav a.here', 'href'), 'getting-started.html');
     await p.fill('#q', 'corporate id');
     await p.waitForSelector('#results li');
-    assert.deepEqual(await p.$$eval('#results a', as => as.map(a => a.textContent)), ['Getting started', "What's new"]);
+    // What's new is in pages of 30 (UX round 3 item 6): the entry found is on whichever page it has reached.
+    const found = await p.$$eval('#results a', as => as.map(a => a.textContent));
+    assert.equal(found.length, 2, found.join(' | '));
+    assert.equal(found[0], 'Getting started');
+    assert.match(found[1], /^What's new( \(page \d+\))?$/);
     await p.fill('#q', 'reject reason');
     await p.waitForFunction(() => /Approvals/.test((document.querySelector('#results') || {}).textContent || ''));
     await p.fill('#q', 'zzzz nothing');

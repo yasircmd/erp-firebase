@@ -87,5 +87,8 @@ Taken as the plain reading (say if any should differ):
   override removed (lightThemeYellows); 31 entries a page (helpPaged); the
   company filter as before and the Roles tick not marking a change (both UI
   tests fail).
+- **Results:** emulator/support 4/4; unit 232/232; UI ux3Wave1 3/3, support,
+  help 7/7 (its search check takes What's new on any page), home 19/19, smoke
+  123/123, rolesMatrix, singleCompany 58/58, oneTitle, hiddenIcons.
 - **Deploy:** `ux3-wave1` (7 functions of support.js) with --screens, then
   Hosting.
