@@ -5,8 +5,8 @@ order: 4
 modules: [ROLES]
 sources: [functions/src/roles.js, functions/src/entitlements.js, functions/src/favorites.js]
 summary: Define which roles can open, edit, approve, post or report on each module.
-reviewed: 2026-10-24
-fingerprint: 4f67911e8145e8ad
+reviewed: 2026-11-06
+fingerprint: 49d65633917f047c
 ---
 ## What it is for
 
@@ -39,7 +39,7 @@ shows how many defaults the role has.
 
 1. In **Module Permissions**, read across each module/capability row and role column. A checked box grants that capability to that role.
 2. Grant only the actions needed for the role: viewing is different from drafting, submitting/posting, paying, reporting, returning, or viewing sensitive data.
-3. Save the matrix once after reviewing the full set of changes. The system prevents removing the last role's write access to Roles & Permissions or User Management.
+3. Save the matrix once after reviewing the full set of changes. Going back with ticks changed but not saved asks first, so they are not lost by mistake. The system prevents removing the last role's write access to Roles & Permissions or User Management.
 4. Test with a representative user assigned to the role: confirm both allowed actions and actions that should be denied.
 
 Menu visibility is not a permission grant. Configure the navigation separately in [Tree Management](tree-management.html), and assign companies separately in [User Management](user-management.html).

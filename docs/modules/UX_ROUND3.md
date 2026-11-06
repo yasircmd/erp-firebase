@@ -51,3 +51,41 @@ Taken as the plain reading (say if any should differ):
   (periodLock / each module's save) with the cheque and due dates left out.
 - **Wave 3:** item 8, the bank account details, their prints and the two
   switches.
+
+## As built: wave 1 (2026-11-06)
+
+- **Item 1** (support.js): the issue counter `supportCounters/{corporate}`
+  also keeps `Day` (UAE) and `DayCount`, in the same transaction as the
+  number; the 11th new issue of a day is refused ("... sent 10 issues today,
+  the most for a day. Add to an open issue, or send it tomorrow."), taking no
+  number. Replies and files are not counted; another corporate is not.
+- **Item 2** (public/index.html, LIGHT THEME): `text-amber-300`,
+  `text-amber-300/90`, `text-amber-200` and `text-orange-300` darkened, as
+  `text-amber-400` already was. unit/lightThemeYellows checks that every
+  yellow / amber / orange text class a screen uses has its override.
+- **Item 4** (ITEMSUBCAT, through SCREEN_EDITS): a Find box (name, parent
+  category, company).
+- **Item 5** (ITEMMASTER, a hand screen): two faults found. The list was built
+  before the sub-categories had loaded when a new item was opened at once,
+  and never again: it is now rebuilt when they arrive. And a new item has no
+  company until one is chosen further down the form, so a company's
+  sub-categories were not offered: while the item has no company, every
+  company's are offered too, named with their company, and choosing one gives
+  the item that company. (A behaviour change from the port, asked for:
+  recorded in ITEM_SUBCATEGORIES.md.)
+- **Item 6** (tools/help/lib.js): a page's front matter `paged: N` builds it in
+  parts of N "- " entries, each under its date heading, with Newer / Older
+  links; each part is in the search and the sitemap. What's new has
+  `paged: 30` (four pages today).
+- **Item 7** (ROLES, through SCREEN_EDITS): a changed tick sets the screen's
+  `window.hasUnsavedChanges()`, so the shell's Back asks first; saving clears it.
+- **Item 9** (public/index.html): `IDLE_TIMEOUT_MS` 30 minutes; the Help's two
+  mentions changed.
+- **Tests:** emulator/support (the daily limit), ui/ux3Wave1 (items 4, 5, 7),
+  unit idleTimeout, lightThemeYellows, helpPaged. Negative controls, each
+  caught and restored: no daily limit (the support test fails); the amber-200
+  override removed (lightThemeYellows); 31 entries a page (helpPaged); the
+  company filter as before and the Roles tick not marking a change (both UI
+  tests fail).
+- **Deploy:** `ux3-wave1` (7 functions of support.js) with --screens, then
+  Hosting.

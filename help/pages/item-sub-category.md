@@ -5,8 +5,8 @@ order: 3
 modules: [ITEMSUBCAT]
 sources: [functions/src/masterData.js]
 summary: Group items by type or line so stock and reporting match the company’s product structure.
-reviewed: 2026-10-18
-fingerprint: 9ee731488eda1b72
+reviewed: 2026-11-06
+fingerprint: c5600d104744f60c
 ---
 ## What it is for
 
@@ -19,10 +19,10 @@ fingerprint: 9ee731488eda1b72
 
 ## Step by step
 
-1. Open **Item Sub-Category** and review the list by name, parent category, and status.
+1. Open **Item Sub-Category** and review the list by name, parent category, and status. **Find** above the list narrows it by name, parent category or company.
 2. Select **Add Sub-Category**, choose the parent category (one of the five or one of your own) and the company (or *All Companies — shared*), enter a name, and save. From Item Master, **New…** beside Sub-Category opens this form with the item's category and company already chosen; **Back to Item Master** returns (the item is opened again).
 3. To change an existing classification, edit its name, parent category, or status. Reactivate an inactive sub-category if it should be selectable again.
-4. Open Item Master and assign the sub-category to the appropriate items. Item Master offers the sub-categories of the item's parent category that are shared or belong to the item's company; a shared item can use only shared ones.
+4. Open Item Master and assign the sub-category to the appropriate items. Item Master offers the sub-categories of the item's parent category that are shared or belong to the item's company; while the item has no company yet, every company's are offered too, named with their company, and choosing one gives the item that company.
 
 ## What happens in the books
 

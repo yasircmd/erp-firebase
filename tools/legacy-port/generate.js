@@ -1125,7 +1125,26 @@ const SCREEN_EDITS = [
 
   // ---------- Exchange Gain / Loss account per company ----------` },
   { mod: 'CURRENCYCONFIG', from: "    loadFx();\n",
-    to: "    loadFx();\n    initSheet();\n    document.getElementById('cc-sheet-get').addEventListener('click', getSheet);\n    document.getElementById('cc-sheet-apply').addEventListener('click', applySheet);\n" }
+    to: "    loadFx();\n    initSheet();\n    document.getElementById('cc-sheet-get').addEventListener('click', getSheet);\n    document.getElementById('cc-sheet-apply').addEventListener('click', applySheet);\n" },
+  // UX round 3 (owner, 2026-11-06; docs/modules/UX_ROUND3.md).
+  // Item 7: leaving Roles & Permissions with unsaved ticks asks first, through
+  // the shell's leave guard (window.hasUnsavedChanges, as the entry screens).
+  { mod: 'ROLES', from: "  function savePermissions() {\n",
+    to: "  let permDirty = false; // a tick changed and not yet saved (UX round 3 item 7)\n  function savePermissions() {\n" },
+  { mod: 'ROLES', from: "if (result.success) { permissions = rebuilt; }",
+    to: "if (result.success) { permissions = rebuilt; permDirty = false; }" },
+  { mod: 'ROLES', from: "    document.getElementById('perm-save-btn').addEventListener('click', savePermissions);\n",
+    to: "    document.getElementById('perm-save-btn').addEventListener('click', savePermissions);\n    document.getElementById('perm-table-body').addEventListener('change', e => { if (e.target.matches('input[type=\"checkbox\"]')) permDirty = true; });\n    window.hasUnsavedChanges = () => permDirty;\n" },
+  // Item 4: a Find box on the list (name, parent category, company).
+  { mod: 'ITEMSUBCAT', from: "  <div class=\"bg-slate-800 border border-slate-700 rounded-xl overflow-hidden\">\n    <div class=\"overflow-x-auto\">\n      <table class=\"w-full text-left\">",
+    to: "  <div><label for=\"isc-search\" class=\"block text-xs font-medium text-slate-300 mb-1\">Find</label><input id=\"isc-search\" type=\"search\" placeholder=\"Name, parent category or company\" class=\"bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-72 max-w-full\"></div>\n  <div class=\"bg-slate-800 border border-slate-700 rounded-xl overflow-hidden\">\n    <div class=\"overflow-x-auto\">\n      <table class=\"w-full text-left\">" },
+  { mod: 'ITEMSUBCAT', from: "    subCategories.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(s => {",
+    to: "    const find = (document.getElementById('isc-search').value || '').trim().toLowerCase();\n" +
+      "    const shown = subCategories.filter(s => !find || [s.Name, CATEGORY_LABELS[s.ParentCategory] || s.ParentCategory, s.CompanyID ? companyLabel(s.CompanyID) : 'All Companies'].join(' ').toLowerCase().includes(find));\n" +
+      "    if (!shown.length) { tbody.innerHTML = '<tr><td colspan=\"5\" class=\"py-6 text-center text-slate-500\">No sub-category matches.</td></tr>'; return; }\n" +
+      "    shown.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(s => {" },
+  { mod: 'ITEMSUBCAT', from: "      document.getElementById('isc-back-btn').addEventListener('click', () => { const chain = returnChain.slice(); const t = chain.pop(); openModule(t.moduleId, t.params, chain); });\n    }\n",
+    to: "      document.getElementById('isc-back-btn').addEventListener('click', () => { const chain = returnChain.slice(); const t = chain.pop(); openModule(t.moduleId, t.params, chain); });\n    }\n    document.getElementById('isc-search').addEventListener('input', renderTable);\n" },
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-11-06
-fingerprint: fbb30e2c3f52e278
+fingerprint: f74d49999b418313
 ---
 ## Signing in
 
@@ -131,7 +131,7 @@ with its own text; **All pages** jumps to the list of every page, below.
 ## Signing out, and the automatic sign-out
 
 Use **Log Out** in the user menu when you finish, especially on a shared
-computer. After **10 minutes** without activity the ERP warns you, and signs
+computer. After **30 minutes** without activity the ERP warns you, and signs
 you out 30 seconds later unless you select **Stay Signed In**. Anything not
 saved is lost, so save drafts as you go.
 

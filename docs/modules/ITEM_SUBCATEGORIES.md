@@ -40,3 +40,13 @@ this light option (2026-10-14).
 - Tests: `itemSubCategories` suite (4), `itemSubCategories.ui.js` (2); the
   item, masters, import and BOM suites pass; negative controls caught (the
   item's check; Item Master's filter).
+
+## Change: a new item's sub-categories (owner, 2026-11-06)
+
+"In Item master - no Item Sub-Category listing to create a new item"
+(docs/modules/UX_ROUND3.md item 5). While an item has no company yet
+(*All Companies — shared*), Item Master now offers every company's
+sub-categories of its category as well as the shared ones, each named with its
+company; choosing one gives the item that company. With a company chosen, as
+before: the shared ones and that company's. The list is also built again once
+the sub-categories have loaded (a new item opened at once found none).
