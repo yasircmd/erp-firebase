@@ -92,3 +92,48 @@ Taken as the plain reading (say if any should differ):
   123/123, rolesMatrix, singleCompany 58/58, oneTitle, hiddenIcons.
 - **Deploy:** `ux3-wave1` (7 functions of support.js) with --screens, then
   Hosting.
+
+## As built: wave 2, item 3 (2026-11-06)
+
+The owner added, while it was being built: "Payroll should be able to post
+upto next 12 months".
+
+- **The rule** (functions/src/periodLock.js): `latestDate(type)` is the last
+  day of the current month (UAE); for payroll's GL types (Payroll,
+  PayrollPayment, PayrollLoan, PayrollProvision, FinalSettlement) the last day
+  of the month 12 months on. `assertNotPostDated(date, what, type)` refuses a
+  later date, naming the latest allowed.
+- **On post:** `assertOpen` (the period lock) now checks it first, so every
+  place that posts, sends for approval or writes a GL entry does: glWriting
+  (`buildStockGlEntry` passes the entry's type: payroll's 12 months;
+  `assignStockVoucherNumbering`), approvals, journal.js, PDC, Fixed Assets,
+  Opening Balances. A payroll or depreciation reversal moved to an open month
+  is checked too.
+- **On save:** docStore (every transaction store) refuses a document whose own
+  date (`dateField`) is set or changed to after the month: stock documents
+  (TransactionDate), Sales Order (SODate), Customer and Vendor Invoice
+  (InvoiceDate), Purchase Order (PODate), Purchase and Inventory Purchase
+  Requisition (PRDate, IPRDate), PDC (TransactionDate: its cheque dates are
+  free). The ported modules' saves go through these stores, so they are
+  covered too. A document saved with such a date before the rule keeps it
+  through other changes. Also: JV and Cash & Bank drafts (journal.js), the
+  quotation's date (Valid until free), Fixed Assets' posting drafts, a payroll
+  run's month (12 months ahead).
+- **Not checked** (their dates are naturally later): cheque dates, delivery
+  and expected dates, Valid until, due dates, leave and HR requests, Job Order
+  lines.
+- **Help:** Working with screens (Dates and periods), Period Closing,
+  Quotations, Payroll run, What's new; pages whose sources changed confirmed.
+- **Tests:** unit/postDated (the limit, payroll's, the message),
+  emulator/postDated (a JV draft, a Sales Order through the ported save and its
+  store, an old one kept, a quotation, posting a document saved earlier),
+  emulator/pdcMultiCheque (the entry's date checked, cheques months ahead
+  posted). numbering's year-restart check now uses an earlier year (2027 is
+  after this month). unit/periodLockGuard takes the type argument; PAYROLL_TYPES
+  is a frozen list (unit/corporateContext). Negative controls, each caught and
+  restored: the docStore guard off (the Sales Order test fails); the rule off
+  (unit/postDated fails).
+- **Results:** full emulator regression all passed but essPortal "who is away
+  today" (date-dependent, fails on main too); unit 234/234.
+- **Deploy:** `ux3-wave2`, every function (periodLock, glWriting and docStore
+  reach them all): from Cloud Shell, then Hosting. No screens, no rules.

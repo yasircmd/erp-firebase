@@ -5,8 +5,8 @@ order: 8
 modules: [PAYROLL]
 sources: [functions/src/payrollRun.js, functions/src/payrollCalc.js, functions/src/payrollInputs.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/payrollPost.js, functions/src/payrollPayment.js]
 summary: Calculate and post the payroll for all employees in the selected pay cycle.
-reviewed: 2026-10-25
-fingerprint: fee9692d6e11c11b
+reviewed: 2026-11-06
+fingerprint: 9a9e11c87d22cbe6
 ---
 ## What it is for
 
@@ -26,7 +26,7 @@ The screen's list has **Runs** and **Payment** tabs. Within a run, the available
 
 ### Calculate and review
 
-1. In the **Runs** tab, filter by company, month range, and status. Create/open the run for the company and month. A company has one run for a given month.
+1. In the **Runs** tab, filter by company, month range, and status. Create/open the run for the company and month. A company has one run for a given month, for a month up to 12 months ahead.
 2. Calculate the run. Eligible employees are those whose employment overlaps the month. Fixed elements come from the compensation version effective for each date and use the company's daily-rate method for proration.
 3. In **Register**, review the employee-by-element totals and open each payslip to inspect how earnings and deductions were calculated. The calculation considers paid leave rules, unpaid and absent days, duty, late leave adjustments, variable inputs, loan instalments, accrual payouts, and provision movements.
 4. Investigate warnings before submission: missing compensation or IBAN, basic outside the grade band, negative net, or other employee-specific exceptions. Correct source data and recalculate.

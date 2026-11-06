@@ -43,7 +43,7 @@ async function companyName(companyId) {
 // end of the month 12 months on (owner, 2026-11-06: "Payroll should be able to
 // post upto next 12 months"). A PDC's cheque dates and due / expected dates
 // (delivery, Valid until, due dates) are not a transaction's own date.
-const PAYROLL_TYPES = new Set(['Payroll', 'PayrollPayment', 'PayrollLoan', 'PayrollProvision', 'FinalSettlement']);
+const PAYROLL_TYPES = Object.freeze(['Payroll', 'PayrollPayment', 'PayrollLoan', 'PayrollProvision', 'FinalSettlement']);
 const PAYROLL_MONTHS_AHEAD = 12;
 function monthEndFrom(today, months) {
   const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)) - 1 + months;
@@ -52,13 +52,13 @@ function monthEndFrom(today, months) {
 }
 const todayUae = () => require('./recurringSchedule').todayIn('Asia/Dubai');
 // The latest date an entry of this type may carry: yyyy-mm-dd.
-const latestDate = (type, today) => monthEndFrom(today || todayUae(), PAYROLL_TYPES.has(type) ? PAYROLL_MONTHS_AHEAD : 0);
+const latestDate = (type, today) => monthEndFrom(today || todayUae(), PAYROLL_TYPES.includes(type) ? PAYROLL_MONTHS_AHEAD : 0);
 function assertNotPostDated(date, what, type) {
   if (!isDate(date)) return;
   const latest = latestDate(type);
   if (String(date).slice(0, 10) <= latest) return;
   throw new HttpsError('failed-precondition', (what ? what + ': ' : '') + 'the date ' + String(date).slice(0, 10) + ' is after ' + latest +
-    (PAYROLL_TYPES.has(type) ? ' (payroll is entered up to ' + PAYROLL_MONTHS_AHEAD + ' months ahead).' : ', the end of this month: an entry is dated this month or before.'));
+    (PAYROLL_TYPES.includes(type) ? ' (payroll is entered up to ' + PAYROLL_MONTHS_AHEAD + ' months ahead).' : ', the end of this month: an entry is dated this month or before.'));
 }
 
 // Refuses a date in a closed month of the company, or after the month (above).

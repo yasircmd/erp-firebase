@@ -56,6 +56,13 @@ pasted back in, so it keeps the item codes as they are.
 - Dates show as **dd/mm/yyyy** (31/12/2026) and months as **Sep-2026**,
   everywhere: on screen, in print and in what you copy to Excel.
 - To enter a date, use the date field's calendar.
+- **No entry after this month.** A document's own date (a journal, a
+  receipt or payment, an invoice, an order, a stock document and the rest)
+  can be at most the last day of the current month: a later one is refused
+  when you save or post. **Payroll** goes up to 12 months ahead. Dates that
+  are naturally later are free: a post-dated cheque's date, a delivery date,
+  a quotation's Valid until, a due date. For example, on 06/11/2026 an
+  invoice can be dated up to 30/11/2026; a payroll run up to Nov-2027.
 
 ## Drafts, submitting and posting
 

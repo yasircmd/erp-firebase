@@ -5,8 +5,8 @@ order: 14
 modules: [PERIODCLOSE]
 sources: [functions/src/periodClosing.js, functions/src/periodLock.js]
 summary: Check and close each month so nothing more can be posted into it, and close the financial year into Retained Earnings.
-reviewed: 2026-11-02
-fingerprint: 204778bcdbb56b36
+reviewed: 2026-11-06
+fingerprint: 55791bcdc4957301
 ---
 ## What it is for
 
@@ -84,6 +84,13 @@ month of a closed year can't be reopened until its year is.
 Closing a month posts nothing. Closing the year posts the Year-End Closing
 entry. The [P&L](financial-statements.html) leaves it out; the
 [Trial Balance](trial-balance.html) can show the year before it.
+
+## Dates after this month
+
+The other end of the calendar: no document may be dated after the last day
+of the current month (payroll: up to 12 months ahead). A later date is
+refused on save and on post, with the latest date allowed. See
+[Working with screens](working-with-screens.html#dates-and-periods).
 
 ## Payroll and depreciation in a closed month
 

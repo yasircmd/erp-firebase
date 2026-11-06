@@ -9,8 +9,8 @@ test('the latest date: this month\'s end; payroll\'s types 12 months on', () => 
   assert.equal(lock.latestDate('JV', '2026-02-10'), '2026-02-28');
   assert.equal(lock.latestDate('Payroll', '2026-11-06'), '2027-11-30');
   assert.equal(lock.latestDate('PayrollPayment', '2026-12-31'), '2027-12-31');
-  for (const t of ['Payroll', 'PayrollPayment', 'PayrollLoan', 'PayrollProvision', 'FinalSettlement']) assert.ok(lock.PAYROLL_TYPES.has(t), t);
-  assert.ok(!lock.PAYROLL_TYPES.has('FADepreciation'));
+  for (const t of ['Payroll', 'PayrollPayment', 'PayrollLoan', 'PayrollProvision', 'FinalSettlement']) assert.ok(lock.PAYROLL_TYPES.includes(t), t);
+  assert.ok(!lock.PAYROLL_TYPES.includes('FADepreciation'));
 });
 
 test('a date after the limit is refused, saying why; the limit itself and before are not', () => {
