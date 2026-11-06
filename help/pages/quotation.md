@@ -1,5 +1,5 @@
 ---
-fingerprint: 10f1221c4ff40835
+fingerprint: d1f09127abec621c
 reviewed: 2026-11-06
 title: Quotations
 area: crm

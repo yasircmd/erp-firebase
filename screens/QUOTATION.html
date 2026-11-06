@@ -13,7 +13,8 @@
   #qt-print-document table { border-collapse: collapse; width: 100%; }
   #qt-print-document th, #qt-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
   #qt-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  #qt-lines input { background: #0f172a; border: 1px solid #334155; border-radius: 0.375rem; padding: 0.25rem 0.4rem; font-size: 0.8rem; width: 100%; }
+  /* The colours from the classes (bg-slate-900, border-slate-700), which the shell's light theme remaps. */
+  #qt-lines input { border-radius: 0.375rem; padding: 0.25rem 0.4rem; font-size: 0.8rem; width: 100%; }
   #qt-lines input:disabled { border-color: transparent; background: transparent; }
 </style>
 
@@ -216,7 +217,7 @@
     const ed = editable();
     $('qt-lines').innerHTML = lines.map((l, i) => {
       const amount = r2(r2((Number(l.UnitPrice) || 0) * (1 - (Number(l.DiscountPct) || 0) / 100)) * (Number(l.Quantity) || 0));
-      const inp = (k, v, cls, type) => '<input data-k="' + k + '" value="' + esc(v) + '"' + (type ? ' type="' + type + '" step="any"' : '') + ' class="' + (cls || '') + '"' + (ed ? '' : ' disabled') + (k === 'ItemCode' ? ' list="qt-items"' : '') + '>';
+      const inp = (k, v, cls, type) => '<input data-k="' + k + '" value="' + esc(v) + '"' + (type ? ' type="' + type + '" step="any"' : '') + ' class="bg-slate-900 border border-slate-700 ' + (cls || '') + '"' + (ed ? '' : ' disabled') + (k === 'ItemCode' ? ' list="qt-items"' : '') + '>';
       return '<tr data-i="' + i + '"><td class="py-1 px-2 text-xs text-slate-500">' + (i + 1) + '</td><td class="py-1 px-2">' + inp('ItemCode', l.ItemCode) + '</td><td class="py-1 px-2">' + inp('Description', l.Description) +
         '</td><td class="py-1 px-2">' + inp('Quantity', l.Quantity, 'text-right', 'number') + '</td><td class="py-1 px-2">' + inp('UnitPrice', l.UnitPrice, 'text-right', 'number') + '</td><td class="py-1 px-2">' + inp('DiscountPct', l.DiscountPct || 0, 'text-right', 'number') +
         '</td><td class="py-1 px-2 text-right qt-amount">' + fmt(amount) + '</td><td class="py-1 px-2">' + (ed ? '<button class="qt-del text-slate-500 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>';

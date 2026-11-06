@@ -1,6 +1,6 @@
 # CRM: leads, opportunities, activities and quotations
 
-Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); C1 and C2 (quotations) live 2026-11-06; C3 (rep portal) built 2026-11-06.
+Status: **live** (owner, 2026-11-05: "Go on", the design and the defaults as proposed): C1-C4 all live 2026-11-06 (PRs #219-#222). The CRM build is complete.
 
 ## The owner's direction (2026-11-05)
 
@@ -416,3 +416,16 @@ each step; What's new at each release.
 - **Deploy:** `crm-c4` (24 functions: the closure of crm.js and
   masterImport.js; one new callable, getCrmReports), with screens, then
   Hosting (the Help). No rules or index change.
+
+## Fix: the light theme (owner, 2026-11-06)
+
+"In New Quotation, new line inside is black for light theme." The quotation
+line fields and the CRM stage board's columns had their colours fixed in the
+screen's own CSS, which the shell's light theme (public/index.html, LIGHT
+THEME: it remaps the Tailwind classes) cannot reach. They now take the colours
+from the classes (`bg-slate-900 border-slate-700`, `bg-slate-800/40`), as every
+other field does; an overdue activity's date is `text-amber-400`. Tests:
+ui/quotation and ui/crm apply the shell's light theme and check the computed
+colours (negative control: the fixed colours back, both fail). No other screen
+fixes a dark background in its CSS. Deploy: the screens (QUOTATION, CRM)
+release and Hosting (the Help); no function changes.
