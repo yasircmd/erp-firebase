@@ -116,7 +116,7 @@ header .brand{font-weight:700;text-decoration:none;color:var(--text);font-size:1
 .wrap{max-width:1100px;margin:0 auto;display:flex;gap:28px;padding:20px 16px}nav{width:240px;flex:none;font-size:14px}nav h4{margin:14px 0 4px;font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
 nav ul{list-style:none;margin:0;padding:0}nav li a{display:block;padding:3px 0;text-decoration:none;color:var(--text)}nav li a.here{color:var(--accent);font-weight:600}nav .soon{color:var(--muted);font-size:13px}
 main{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px 28px}main h1{margin-top:0;font-size:26px}main h2{margin-top:28px;font-size:20px;border-bottom:1px solid var(--line);padding-bottom:4px}
-.lead{color:var(--muted);font-size:16px}.crumb{font-size:13px;color:var(--muted);margin-bottom:6px}.note{background:var(--note);border-left:4px solid var(--accent);padding:2px 14px;border-radius:6px;margin:14px 0}
+.lead{color:var(--muted);font-size:16px}.crumb{font-size:13px;color:var(--muted);margin-bottom:6px}.pager{font-size:14px;color:var(--muted);margin:10px 0}.note{background:var(--note);border-left:4px solid var(--accent);padding:2px 14px;border-radius:6px;margin:14px 0}
 code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:13px}table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--bg)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}.card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg)}.card h3{margin:0 0 6px;font-size:16px}.card ul{margin:0;padding-left:18px;font-size:14px}
 footer{max-width:1100px;margin:0 auto;padding:4px 16px 30px;font-size:12px;color:var(--muted)}#results{list-style:none;padding:0}#results li{margin:8px 0}#results small{color:var(--muted)}
@@ -158,6 +158,37 @@ function layout({ title, description, body, nav, canonical, crumb }) {
     '<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>\n<script src="help.js"></script>\n</body>\n</html>\n';
 }
 
+// A page in parts (front matter "paged: N"; What's new, owner 2026-11-06,
+// docs/modules/UX_ROUND3.md item 6, Q412): the text before the first "## "
+// heading on every part, then the "- " entries N to a part, newest first,
+// each still under its "## " heading. Returns [{ slug, body }]: the first part
+// keeps the page's own slug, the next ones slug-2, slug-3 ...
+function pagedParts(p) {
+  const size = Number(p.meta.paged) || 0;
+  if (!size) return [{ slug: p.slug, body: p.body }];
+  const lines = p.body.split('\n');
+  const first = lines.findIndex(l => /^## /.test(l));
+  const intro = (first < 0 ? lines : lines.slice(0, first)).join('\n').trimEnd();
+  const entries = []; // { heading, lines }
+  let heading = '';
+  (first < 0 ? [] : lines.slice(first)).forEach(l => {
+    if (/^## /.test(l)) { heading = l; return; }
+    if (/^- /.test(l)) { entries.push({ heading, lines: [l] }); return; }
+    if (entries.length && (/^\s+\S/.test(l))) entries[entries.length - 1].lines.push(l);
+  });
+  const parts = [];
+  for (let i = 0; i < entries.length; i += size) parts.push(entries.slice(i, i + size));
+  if (!parts.length) parts.push([]);
+  const slugOf = k => (k === 0 ? p.slug : p.slug + '-' + (k + 1));
+  return parts.map((list, k) => {
+    let md = intro + '\n', last = null;
+    list.forEach(e => { if (e.heading !== last) { md += '\n' + e.heading + '\n\n'; last = e.heading; } md += e.lines.join('\n') + '\n'; });
+    const pager = '<p class="pager">' + (k > 0 ? '<a href="' + slugOf(k - 1) + '.html">&larr; Newer changes</a> · ' : '') + 'Page ' + (k + 1) + ' of ' + parts.length +
+      (k < parts.length - 1 ? ' · <a href="' + slugOf(k + 1) + '.html">Older changes &rarr;</a>' : '') + '</p>';
+    return { slug: slugOf(k), body: md, pager, part: k + 1, of: parts.length };
+  });
+}
+
 // Every file of the site: { 'public/help/x.html': content, ... }.
 function build() {
   const { site, areas } = areasFile();
@@ -176,10 +207,13 @@ function build() {
   all.forEach(p => {
     const area = areas.find(a => a.id === p.meta.area) || {};
     const covers = p.modules.length ? '<p class="lead">Screen' + (p.modules.length > 1 ? 's' : '') + ': ' + p.modules.map(id => esc(label[id] || id)).join(', ') + '</p>' : '';
-    const body = '<h1>' + esc(p.meta.title) + '</h1>' + (p.meta.summary ? '<p class="lead">' + esc(p.meta.summary) + '</p>' : '') + covers +
-      render(p.body).html + '<p class="crumb">Last reviewed ' + ddmmyyyy(p.meta.reviewed) + '</p>';
-    files[OUT_DIR + '/' + p.slug + '.html'] = layout({ title: p.meta.title + ' — ERP Help', description: p.meta.summary, body, nav: navFor(p.slug),
-      canonical: url(p.slug), crumb: '<a href="index.html">Help</a> › ' + esc(area.title || '') });
+    pagedParts(p).forEach(part => {
+      const title = p.meta.title + (part.part > 1 ? ' (page ' + part.part + ')' : '');
+      const body = '<h1>' + esc(title) + '</h1>' + (p.meta.summary ? '<p class="lead">' + esc(p.meta.summary) + '</p>' : '') + covers + (part.pager || '') +
+        render(part.body).html + (part.pager || '') + '<p class="crumb">Last reviewed ' + ddmmyyyy(p.meta.reviewed) + '</p>';
+      files[OUT_DIR + '/' + part.slug + '.html'] = layout({ title: title + ' — ERP Help', description: p.meta.summary, body, nav: navFor(p.slug),
+        canonical: url(part.slug), crumb: '<a href="index.html">Help</a> › ' + esc(area.title || '') });
+    });
   });
 
   const home = '<h1>ERP Help</h1><p class="lead">How to use the ERP: what each screen is for, how to do the common tasks, and what happens in the books. Free to read, no sign-in needed.</p>' +
@@ -196,13 +230,15 @@ function build() {
   const modules = {};
   all.forEach(p => p.modules.forEach(id => { modules[id] = p.slug; }));
   const text = md => md.replace(/[#>*`|_[\]()-]/g, ' ').replace(/\s+/g, ' ').trim();
-  files[OUT_DIR + '/search.json'] = JSON.stringify({ modules, pages: all.map(p => ({ slug: p.slug, title: p.meta.title, summary: p.meta.summary || '',
-    text: (p.modules.map(id => label[id] || '').join(' ') + ' ' + text(p.body)).slice(0, 100000) })) }) + '\n'; // a page's whole text: What's new outgrew 20000 (2026-11-04)
+  // Each part of a paged page is its own search result (UX round 3 item 6).
+  files[OUT_DIR + '/search.json'] = JSON.stringify({ modules, pages: [].concat(...all.map(p => pagedParts(p).map(part => ({ slug: part.slug,
+    title: p.meta.title + (part.part > 1 ? ' (page ' + part.part + ')' : ''), summary: p.meta.summary || '',
+    text: (p.modules.map(id => label[id] || '').join(' ') + ' ' + text(part.body)).slice(0, 100000) })))) }) + '\n'; // a page's whole text: What's new outgrew 20000 (2026-11-04)
   files[OUT_DIR + '/help.css'] = CSS + '\n';
   files[OUT_DIR + '/help.js'] = JS + '\n' + THEME_JS + '\n' + BACK_JS + '\n';
   files[OUT_DIR + '/sitemap.xml'] = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    ['index'].concat(all.map(p => p.slug)).map(s => {
-      const p = all.find(x => x.slug === s);
+    ['index'].concat(...all.map(p => pagedParts(p).map(x => x.slug))).map(s => {
+      const p = all.find(x => x.slug === s || pagedParts(x).some(y => y.slug === s));
       return '  <url><loc>' + url(s) + '</loc>' + (p ? '<lastmod>' + p.meta.reviewed + '</lastmod>' : '') + '</url>';
     }).join('\n') + '\n</urlset>\n';
   // Listed by search engines (decision 148): help only; the sign-in page and the portal are not for search results.
@@ -219,4 +255,4 @@ function staleOutput() {
   return stale;
 }
 
-module.exports = { REPO, OUT_DIR, pages, parsePage, fingerprint, coveredFiles, check, build, staleOutput, ddmmyyyy };
+module.exports = { REPO, OUT_DIR, pages, parsePage, pagedParts, fingerprint, coveredFiles, check, build, staleOutput, ddmmyyyy };

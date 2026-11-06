@@ -5,6 +5,7 @@
     <button id="isc-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Sub-Category</button>
   </div>
 
+  <div><label for="isc-search" class="block text-xs font-medium text-slate-300 mb-1">Find</label><input id="isc-search" type="search" placeholder="Name, parent category or company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-72 max-w-full"></div>
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -93,7 +94,10 @@
     tbody.innerHTML = '';
     if (!subCategories.length) { tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">No sub-categories configured yet.</td></tr>'; return; }
 
-    subCategories.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(s => {
+    const find = (document.getElementById('isc-search').value || '').trim().toLowerCase();
+    const shown = subCategories.filter(s => !find || [s.Name, CATEGORY_LABELS[s.ParentCategory] || s.ParentCategory, s.CompanyID ? companyLabel(s.CompanyID) : 'All Companies'].join(' ').toLowerCase().includes(find));
+    if (!shown.length) { tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">No sub-category matches.</td></tr>'; return; }
+    shown.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(s => {
       const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
       const actions = canWrite
         ? `<button class="isc-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -194,6 +198,7 @@
       document.getElementById('isc-back-btn').classList.remove('hidden');
       document.getElementById('isc-back-btn').addEventListener('click', () => { const chain = returnChain.slice(); const t = chain.pop(); openModule(t.moduleId, t.params, chain); });
     }
+    document.getElementById('isc-search').addEventListener('input', renderTable);
     rpc.withSuccessHandler(list => {
       companies = list || [];
       document.getElementById('isc-form-company').innerHTML = '<option value="">All Companies — shared</option>' + companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(companyLabel(c.CompanyID)) + '</option>').join('');

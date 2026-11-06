@@ -186,6 +186,7 @@
     });
   }
 
+  let permDirty = false; // a tick changed and not yet saved (UX round 3 item 7)
   function savePermissions() {
     const error = document.getElementById('perm-error');
     error.classList.add('hidden');
@@ -208,7 +209,7 @@
     rpc
       .withSuccessHandler(result => {
         btn.disabled = false; btn.innerHTML = original;
-        if (result.success) { permissions = rebuilt; }
+        if (result.success) { permissions = rebuilt; permDirty = false; }
         else { error.textContent = result.error || 'Unable to save permissions.'; error.classList.remove('hidden'); }
       })
       .withFailureHandler(err => {
@@ -255,6 +256,8 @@
     document.getElementById('role-modal-cancel').addEventListener('click', closeRoleModal);
     document.getElementById('role-form').addEventListener('submit', saveRole);
     document.getElementById('perm-save-btn').addEventListener('click', savePermissions);
+    document.getElementById('perm-table-body').addEventListener('change', e => { if (e.target.matches('input[type="checkbox"]')) permDirty = true; });
+    window.hasUnsavedChanges = () => permDirty;
 
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-user-shield"></i> Roles & Permissions';
     fetchRoles();

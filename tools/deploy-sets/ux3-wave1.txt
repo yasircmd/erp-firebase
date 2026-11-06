@@ -1,0 +1,12 @@
+# UX round 3, wave 1 (owner, 2026-11-06; docs/modules/UX_ROUND3.md): items 1,
+# 2, 4, 5, 6, 7, 9. The functions of support.js (item 1: at most 10 new issues
+# a client corporate a day). Run WITH --screens (ITEMMASTER, ITEMSUBCAT,
+# ROLES), then the "hosting" task (the shell: the 30-minute log-off and the
+# light theme's yellows; the Help with What's new in pages). No rules change.
+addSupportFile
+getSupportIssue
+getSupportIssues
+openSupportFile
+replySupportIssue
+setSupportIssueStatus
+submitSupportIssue

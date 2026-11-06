@@ -176,6 +176,13 @@
     [data-theme="light"] .text-red-300\/80 { color: rgba(185,28,28,0.8); }
     [data-theme="light"] .text-red-400 { color: #dc2626; }
     [data-theme="light"] .text-amber-400 { color: #b45309; }
+    /* The paler yellows too (owner, 2026-11-06: "Yellow color font hard to read
+       in light mode", docs/modules/UX_ROUND3.md item 2): every yellow / amber /
+       orange text a screen uses is darkened here (unit/lightThemeYellows checks). */
+    [data-theme="light"] .text-amber-300 { color: #b45309; }
+    [data-theme="light"] .text-amber-300\/90 { color: rgba(180,83,9,0.9); }
+    [data-theme="light"] .text-amber-200 { color: #92400e; }
+    [data-theme="light"] .text-orange-300 { color: #c2410c; }
 
     /* Accent backgrounds/borders (alert boxes, badges) — subtle tints
        work on either background, left as-is; blue-500/blue-600 and
@@ -1216,7 +1223,7 @@
       // remembered on this device only restores its session.
       listenToAuth();
     });
-    // ---------- AUTO LOG-OFF (10 min idle) ----------
+    // ---------- AUTO LOG-OFF (30 min idle; owner, 2026-11-06, docs/modules/UX_ROUND3.md item 9) ----------
     // Security timeout, not a convenience feature — deliberately does
     // NOT check window.hasUnsavedChanges() the way the manual "Back to
     // Hierarchy" navigation does. The whole point is protecting an
@@ -1224,7 +1231,7 @@
     // unsaved changes" would defeat that if nobody's there to answer it.
     // The 30-second warning countdown is what gives a genuinely-present
     // user the chance to prevent it, not a bypass for an absent one.
-    const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+    const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
     const IDLE_WARNING_LEAD_MS = 30 * 1000;
     let idleTimer = null;
     let idleWarningTimer = null;

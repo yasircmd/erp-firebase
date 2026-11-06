@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
 reviewed: 2026-11-06
-fingerprint: f3bf58d44b0b7a42
+fingerprint: d310b7ae77631442
 ---
 ## The page
 
@@ -194,5 +194,5 @@ it was loading is dropped, and nothing on it is saved unless you saved it.
 
 ## Saving your place
 
-The ERP signs you out after 10 minutes without activity (with a warning).
+The ERP signs you out after 30 minutes without activity (with a warning).
 Save drafts as you go on long entries.

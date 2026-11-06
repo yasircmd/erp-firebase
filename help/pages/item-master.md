@@ -5,8 +5,8 @@ order: 1
 modules: [ITEMMASTER]
 sources: [functions/src/masterData.js, functions/src/itemCategories.js]
 summary: Maintain the master item record used by purchase, stock movement, valuations and stock reports.
-reviewed: 2026-10-26
-fingerprint: 2ea79a4536c7a9bf
+reviewed: 2026-11-06
+fingerprint: 74303e9da70347ee
 ---
 ## What it is for
 
@@ -21,7 +21,7 @@ fingerprint: 2ea79a4536c7a9bf
 ## Step by step
 
 1. Open **Item Master** and choose the company.
-2. Add or edit the item record: code, description, unit and category. The **Sub-Category** list shows the category's shared sub-categories and those of the item's company; **New…** beside it opens Item Sub-Category to add one (save the item first: you come back to Item Master and open it again).
+2. Add or edit the item record: code, description, unit and category. The **Sub-Category** list shows the category's shared sub-categories and those of the item's company (while the item has no company yet, every company's, named with their company: choosing one gives the item that company); **New…** beside it opens Item Sub-Category to add one (save the item first: you come back to Item Master and open it again).
 3. Set the stock and cost details required by the company.
 4. Save the item and check it appears in the stock routines.
 

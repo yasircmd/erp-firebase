@@ -1,12 +1,12 @@
 ---
-fingerprint: 209483aa2b15da59
+fingerprint: 81ba39edad0a9b1b
 title: Support
 area: admin
 order: 13
 modules: [SUPPORT]
 sources: [functions/src/support.js, screens/SUPPORT.html]
 summary: Send an issue to the ERP's support team, with screenshots or files, and follow their answers.
-reviewed: 2026-10-22
+reviewed: 2026-11-06
 ---
 ## What it is for
 
@@ -28,7 +28,8 @@ issue needs: one entry's screenshot, not a whole report.
 3. Say what you did, what you expected and what you saw instead. Attach up
    to 5 files of 10 MB each if they help: screenshots, PDF, Word or Excel.
 4. Select **Send to support** and confirm. The issue gets a number, such
-   as 200-00001.
+   as 200-00001. A company can send at most **10 new issues a day**; for
+   more, add to an open issue (answers and files are not counted).
 5. Open an issue from the list to read the team's answers. **Waiting for
    you** means they need something from you: write your answer (with files
    if needed) and **Send answer**.

@@ -5,6 +5,7 @@ title: What's new
 area: start
 order: 3
 summary: The latest changes to the ERP, newest first, with a link to each screen's page.
+paged: 30
 sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
@@ -12,6 +13,24 @@ screen.
 
 ## 06/11/2026
 
+- **Signed out after 30 minutes.** The ERP now signs you out after 30
+  minutes without activity (it was 10), still warning 30 seconds before. See
+  [Getting started](getting-started.html).
+- **What's new in pages.** This page shows the latest 30 changes; older ones
+  are on the next pages (**Older changes** at the top and bottom).
+- **Light theme: the yellows.** Yellow and amber text (in Support, the
+  e-invoice panel of Customer Invoice and elsewhere) is now a darker amber in
+  the light theme, easy to read on white.
+- **Item Sub-Category: Find.** A Find box over the list looks up a
+  sub-category by name, parent category or company. See
+  [Item Sub-Category](item-sub-category.html).
+- **Item Master: the sub-categories of a new item.** A new item now lists its
+  category's sub-categories at once, a company's too (named with the company;
+  choosing one gives the item that company). See [Item Master](item-master.html).
+- **Roles & Permissions: unsaved ticks.** Going back with permissions changed
+  but not saved asks first. See [Roles & Permissions](roles.html).
+- **Support: 10 new issues a day.** A company can send at most 10 new issues a
+  day; add to an open issue for more. See [Support](support.html).
 - **Light theme: Quotations and the CRM board.** In the light theme, a
   quotation's line fields and the CRM stage board's columns showed dark;
   they now follow the theme. See [Quotations](quotation.html) and

@@ -37,6 +37,7 @@ const STATUSES = ['New', 'In progress', 'Waiting for you', 'Resolved', 'Closed']
 const OPEN = ['New', 'In progress', 'Waiting for you'];
 const FIRM_SETS = ['In progress', 'Waiting for you', 'Resolved', 'Closed'];
 const MAX_FILES = 5;
+const DAILY_LIMIT = 10; // new issues a client corporate a day (Q414)
 // Files go with the message they belong to, sent just after it.
 const FILE_WINDOW_MS = 30 * 60 * 1000;
 
@@ -126,10 +127,16 @@ exports.submitSupportIssue = onCallWithMessages(onCallOptions, async (request) =
   const message = issue.collection('messages').doc();
   const counter = firm.firestore.doc('supportCounters/' + corp);
   let number = '';
+  // At most DAILY_LIMIT new issues a corporate a day, UAE time (owner, 2026-11-06;
+  // docs/modules/UX_ROUND3.md, Q414); replies and files are not counted.
+  const day = require('./recurringSchedule').todayIn('Asia/Dubai');
   await firm.firestore.runTransaction(async tx => {
-    const n = ((await tx.get(counter)).get('next') || 1);
+    const cs = await tx.get(counter);
+    const n = (cs.get('next') || 1);
+    const today = cs.get('Day') === day ? (cs.get('DayCount') || 0) : 0;
+    if (today >= DAILY_LIMIT) throw new HttpsError('resource-exhausted', 'Your company has sent ' + DAILY_LIMIT + ' issues today, the most for a day. Add to an open issue, or send it tomorrow.');
     number = corp + '-' + String(n).padStart(5, '0');
-    tx.set(counter, { next: n + 1 }, { merge: true });
+    tx.set(counter, { next: n + 1, Day: day, DayCount: today + 1 }, { merge: true });
     tx.set(issue, {
       CorporateID: corp, CorporateName: (corporateEntry() || {}).Name || '', Number: number, Type: type, Title: title, Status: 'New',
       Screen: screen ? { id: screen.id, label: screen.label } : null,
@@ -216,4 +223,4 @@ exports.setSupportIssueStatus = onCallWithMessages(onCallOptions, async (request
   return { success: true, Status: d.Status };
 });
 
-module.exports._limits = { MAX_FILES, FILE_WINDOW_MS, TYPES, STATUSES };
+module.exports._limits = { MAX_FILES, FILE_WINDOW_MS, TYPES, STATUSES, DAILY_LIMIT };

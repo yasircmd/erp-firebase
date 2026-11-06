@@ -145,3 +145,16 @@ test('each client sees its own issues; the firm\'s queue has every corporate\'s,
   seen = await cara('getSupportIssue', { IssueID: a.IssueID });
   assert.deepEqual([seen.Status, seen.messages.length], ['Closed', 4]);
 });
+
+test('at most 10 new issues a client corporate a day (UAE time; owner, 2026-11-06, Q414): the 11th refused; another corporate, a reply and the next day not', async () => {
+  const day = require('../../src/recurringSchedule').todayIn('Asia/Dubai');
+  await firestore.doc('supportCounters/200').set({ next: 40, Day: day, DayCount: 9 }, { merge: true });
+  const tenth = await cara('submitSupportIssue', issue({ Title: 'The tenth' }));
+  assert.match(tenth.Number, /^200-00040$/);
+  await assert.rejects(cara('submitSupportIssue', issue({ Title: 'The eleventh' })), /has sent 10 issues today, the most for a day/);
+  assert.equal((await firestore.doc('supportCounters/200').get()).get('next'), 41, 'the refused one takes no number');
+  assert.ok((await dina('submitSupportIssue', issue({ Title: 'Another corporate' }))).Number, 'counted per corporate');
+  assert.ok((await cara('replySupportIssue', { IssueID: tenth.IssueID, Text: 'One more detail.', shareConfirmed: true })), 'replies are not counted');
+  await firestore.doc('supportCounters/200').set({ Day: '2000-01-01', DayCount: 10 }, { merge: true });
+  assert.ok((await cara('submitSupportIssue', issue({ Title: 'Another day' }))).Number, 'a new day starts again');
+});
