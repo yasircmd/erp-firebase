@@ -134,6 +134,8 @@ upto next 12 months".
   restored: the docStore guard off (the Sales Order test fails); the rule off
   (unit/postDated fails).
 - **Results:** full emulator regression all passed but essPortal "who is away
-  today" (date-dependent, fails on main too); unit 234/234.
+  today" (date-dependent, fails on main too); unit 234/234; UI smoke 123/123,
+  quotation 7/7, crmPortal 4/4, createNext 7/7, documentLinks, directSalesInvoice
+  4/4, pdc 10/10, entryLayout 6/6, home 19/19.
 - **Deploy:** `ux3-wave2`, every function (periodLock, glWriting and docStore
   reach them all): from Cloud Shell, then Hosting. No screens, no rules.
