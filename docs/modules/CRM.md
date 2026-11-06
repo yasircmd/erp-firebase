@@ -185,5 +185,10 @@ each step; What's new at each release.
   caught and restored: everyone seeing the company's records (the
   visibility test fails); no duplicate found (the lead test fails); the
   board's drop not moving the stage (the UI board test fails).
+- **Results:** full emulator regression all passed but essPortal "who is
+  away today" (date-dependent, fails on main too); the Data Reset counts
+  updated for the two new categories; unit 224/224; UI crm 6/6, home 19/19,
+  dataReset, rolesMatrix, developer, smoke 123/123, singleCompany 58/58,
+  help, oneTitle.
 - **Deploy:** `crm-c1` (every function: moduleRegistry.js), with screens,
   then Hosting.
