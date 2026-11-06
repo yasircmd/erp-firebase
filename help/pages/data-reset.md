@@ -6,7 +6,7 @@ modules: [DATARESET]
 sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
 summary: Clear test data module by module, or rebuild the stock balances, before going live.
 reviewed: 2026-11-06
-fingerprint: 4a4dee67b147f16f
+fingerprint: 7a9d3c504ebce694
 ---
 ## What it is for
 
@@ -33,7 +33,7 @@ data.
   approval records; e-invoices; employee changes; leave; payroll runs and
   payslips; final settlements; payroll loans; employee requests;
   budgets; bank and GL account reconciliations; CRM leads, opportunities
-  and activities; supporting documents; company documents; period closing; the logs.
+  activities and quotations; supporting documents; company documents; period closing; the logs.
 - **Master data:** items and their categories, sub-categories, units and
   barcodes; the chart of accounts; companies; org units; sales types;
   customer classifications; BOMs; vendors; customers; price lists; the

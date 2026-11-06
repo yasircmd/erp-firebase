@@ -1,0 +1,416 @@
+<!-- Quotation, CRM step C2 (owner, 2026-11-05; docs/modules/CRM.md, Q398-Q400):
+     a customer's or a lead's quotation, its lines priced from the price list
+     with a discount, the tax worked out on Save; Submit (approval where
+     configured), Revise, Print, Create Sales Order. The entry in the entry
+     layout, the print in the shared print style. -->
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    /* Sent outside the organization: no ERP title bar on the print (owner, 2026-10-11). */
+    #app-container > div:first-child { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #qt-print-document table { border-collapse: collapse; width: 100%; }
+  #qt-print-document th, #qt-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #qt-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #qt-lines input { background: #0f172a; border: 1px solid #334155; border-radius: 0.375rem; padding: 0.25rem 0.4rem; font-size: 0.8rem; width: 100%; }
+  #qt-lines input:disabled { border-color: transparent; background: transparent; }
+</style>
+
+<div class="space-y-5 no-print">
+  <div id="qt-list-view" class="space-y-3">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Customer Experience</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-signature text-blue-500"></i> Quotations</h2></div>
+      <div class="flex flex-wrap items-end gap-2">
+        <div><label for="qt-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="qt-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label for="qt-search" class="block text-xs font-medium text-slate-300 mb-1">Find</label><input id="qt-search" type="search" placeholder="Number, customer, lead" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-56"></div>
+        <div><label for="qt-status" class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="qt-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="open">Open</option><option>Draft</option><option value="PendingApproval">Pending approval</option><option>Approved</option><option>Rejected</option><option>Accepted</option><option>Expired</option><option>Revised</option><option value="">All</option></select></div>
+        <button id="qt-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New Quotation</button>
+      </div>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Number</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">Customer / lead</th><th class="py-2 px-3">Valid until</th><th class="py-2 px-3 text-right">Total</th><th class="py-2 px-3">Status</th></tr></thead>
+        <tbody id="qt-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+  </div>
+
+  <div id="qt-entry" class="hidden entry-layout">
+    <div class="entry-sticky bg-slate-900/95">
+      <div class="entry-bar">
+        <button id="qt-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+        <h2 id="qt-title" class="font-bold text-blue-400">New Quotation</h2>
+        <span id="qt-badge"></span>
+        <span id="qt-meta" class="entry-meta"></span>
+        <div class="entry-actions">
+          <button id="qt-print" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+          <button id="qt-revise" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-code-branch"></i> Revise</button>
+          <button id="qt-delete" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete</button>
+          <button id="qt-order" class="hidden px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs"><i class="fa-solid fa-cart-shopping"></i> Create Sales Order</button>
+          <button id="qt-submit" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+          <button id="qt-save" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+      </div>
+      <div class="entry-fields keys">
+        <div class="grow-2"><label for="qt-party" class="block text-xs font-medium text-slate-300 mb-1">Customer or lead</label><select id="qt-party" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <div id="qt-class-wrap" class="hidden"><label for="qt-class" class="block text-xs font-medium text-slate-300 mb-1">Classification (price list)</label><select id="qt-class" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <div class="entry-date"><label for="qt-date" class="block text-xs font-medium text-slate-300 mb-1">Date</label><input id="qt-date" type="date" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="entry-date"><label for="qt-until" class="block text-xs font-medium text-slate-300 mb-1">Valid until</label><input id="qt-until" type="date" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label for="qt-opp" class="block text-xs font-medium text-slate-300 mb-1">Opportunity</label><select id="qt-opp" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      </div>
+    </div>
+    <p id="qt-pricelist" class="text-xs text-slate-400"></p>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-2 w-8">#</th><th class="py-2 px-2 w-40">Item</th><th class="py-2 px-2">Description</th><th class="py-2 px-2 w-24 text-right">Qty</th><th class="py-2 px-2 w-28 text-right">Unit price</th><th class="py-2 px-2 w-20 text-right">Disc %</th><th class="py-2 px-2 w-28 text-right">Amount</th><th class="w-8"></th></tr></thead>
+        <tbody id="qt-lines" class="divide-y divide-slate-800"></tbody></table>
+      <datalist id="qt-items"></datalist>
+    </div>
+    <div class="flex flex-wrap justify-between gap-3">
+      <button id="qt-add-line" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700 self-start"><i class="fa-solid fa-plus"></i> Add line</button>
+      <div class="entry-panel bg-slate-800/40 border border-slate-700 text-sm w-72 ml-auto">
+        <div class="flex justify-between"><span class="text-slate-400">Subtotal</span><span id="qt-subtotal">0.00</span></div>
+        <div id="qt-tax-rows"></div>
+        <div class="flex justify-between font-bold border-t border-slate-700 pt-1"><span>Total</span><span id="qt-total">0.00</span></div>
+        <p id="qt-tax-hint" class="entry-hint text-slate-500"></p>
+      </div>
+    </div>
+    <div class="entry-fields">
+      <div class="span-all"><label for="qt-terms" class="block text-xs font-medium text-slate-300 mb-1">Terms and notes (printed)</label><textarea id="qt-terms" rows="3" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+    <p id="qt-info" class="text-xs text-slate-400"></p>
+  </div>
+
+  <!-- Create Sales Order -->
+  <div id="qt-order-modal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-md space-y-3">
+      <h3 class="font-bold">Create Sales Order</h3>
+      <p class="text-xs text-slate-400">The order is a draft Sales Order with these lines at their net prices; check and confirm it there.</p>
+      <div><label for="qt-so-cc" class="block text-xs font-medium text-slate-300 mb-1">Cost center</label><select id="qt-so-cc" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="qt-so-wh" class="block text-xs font-medium text-slate-300 mb-1">Warehouse (every line)</label><select id="qt-so-wh" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <label id="qt-so-won-wrap" class="hidden flex items-center gap-2 text-sm"><input id="qt-so-won" type="checkbox" checked> Mark the opportunity Won</label>
+      <div class="flex justify-end gap-2"><button id="qt-so-cancel" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg">Cancel</button><button id="qt-so-ok" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg">Create the order</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="qt-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+  <h1 id="qt-print-company-name" class="text-lg font-bold"></h1>
+  <p id="qt-print-company-address" class="text-sm"></p>
+  <p id="qt-print-company-tax" class="text-xs"></p>
+</div>
+<div id="qt-print-document" class="print-only"></div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  const options = (list, sel) => list.map(([v, t]) => '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+  const addDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+  const BADGE = { Draft: 'bg-slate-600/40 text-slate-300', PendingApproval: 'bg-amber-500/20 text-amber-300', Approved: 'bg-blue-500/20 text-blue-300', Rejected: 'bg-red-500/20 text-red-300',
+    Accepted: 'bg-emerald-500/20 text-emerald-300', Revised: 'bg-slate-600/40 text-slate-400', Expired: 'bg-amber-500/20 text-amber-300' };
+  const LABEL = { PendingApproval: 'Pending approval' };
+  const statusOf = q => (q.Expired ? 'Expired' : q.Status);
+  const badge = s => '<span class="text-xs px-2 py-0.5 rounded-full ' + (BADGE[s] || 'bg-slate-700') + '">' + esc(LABEL[s] || s) + '</span>';
+  const numberOf = q => (q.Number || '') + (q.Revision > 1 ? ' Rev ' + q.Revision : '');
+
+  let D = null;          // getQuotations for the chosen company
+  let companies = [], items = [], orgUnits = null;
+  let q = null;          // the quotation open (null: new)
+  let lines = [];        // the lines being edited
+  let priceList = null;
+  let priceListReady = Promise.resolve(); // an item typed while the list loads waits for it
+  let dirty = false;
+  let pending = null;    // what the module was opened with (OpenEntryId, NewFor)
+
+  const customer = id => D.customers.find(c => c.CustomerID === id);
+  const lead = id => D.leads.find(l => l.ID === id);
+  const partyName = x => x.LeadID ? 'Lead: ' + ((lead(x.LeadID) || {}).Name || x.LeadID) : (c => c ? c.Name + (c.Code ? ' (' + c.Code + ')' : '') : x.CustomerID)(customer(x.CustomerID));
+  const editable = () => D.canWrite && (!q || ['Draft', 'Rejected'].includes(q.Status));
+
+  // ---------- list ----------
+  function load() {
+    const companyId = $('qt-company').value;
+    if (!companyId) return Promise.resolve();
+    return call('getQuotations', { companyId }).then(r => {
+      D = r;
+      show('qt-new', D.canWrite);
+      renderList();
+      const p = pending; pending = null;
+      if (p && p.OpenEntryId) { const x = D.quotations.find(y => y.QuotationID === p.OpenEntryId); if (x) openQuote(x); }
+      else if (p && p.NewFor) openQuote(null, p.NewFor);
+    }, e => appAlert(e.message));
+  }
+  function renderList() {
+    const s = $('qt-search').value.trim().toLowerCase(), st = $('qt-status').value;
+    const rows = D.quotations.filter(x => {
+      const status = statusOf(x);
+      if (st === 'open' ? !['Draft', 'PendingApproval', 'Approved', 'Rejected'].includes(status) : st && status !== st) return false;
+      return !s || [numberOf(x), partyName(x)].join(' ').toLowerCase().includes(s);
+    }).sort((a, b) => (b.QuoteDate || '').localeCompare(a.QuoteDate || '') || (b.Number || '').localeCompare(a.Number || '') || (b.Revision || 0) - (a.Revision || 0));
+    $('qt-body').innerHTML = rows.length ? rows.map(x => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(x.QuotationID) + '"><td class="py-2 px-3 text-slate-200 font-mono text-xs">' + esc(numberOf(x)) +
+      '</td><td class="py-2 px-3 text-xs">' + esc(x.QuoteDate) + '</td><td class="py-2 px-3">' + esc(partyName(x)) + '</td><td class="py-2 px-3 text-xs">' + esc(x.ValidUntil) +
+      '</td><td class="py-2 px-3 text-right">' + esc((x.CurrencyID ? x.CurrencyID + ' ' : '') + fmt(x.Total)) + '</td><td class="py-2 px-3">' + badge(statusOf(x)) + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="py-6 text-center text-slate-500">No quotations.</td></tr>';
+  }
+  function back() { show('qt-entry', false); show('qt-list-view', true); q = null; renderList(); }
+
+  // ---------- the entry ----------
+  function partyValue() { return $('qt-party').value; }
+  function fillParty(current) {
+    const list = D.customers.map(c => ['C:' + c.CustomerID, c.Name + (c.Code ? ' (' + c.Code + ')' : '')]).concat(D.leads.map(l => ['L:' + l.ID, 'Lead: ' + l.Name]));
+    if (current && !list.some(p => p[0] === current)) list.unshift([current, q ? partyName(q) : current]);
+    $('qt-party').innerHTML = '<option value="">Choose…</option>' + options(list, current);
+  }
+  function fillOpps(current) {
+    const p = partyValue();
+    const list = D.opportunities.filter(o => (p.startsWith('L:') ? o.LeadID === p.slice(2) : o.CustomerID === p.slice(2))).map(o => [o.ID, o.Title]);
+    if (current && !list.some(o => o[0] === current)) list.push([current, current]);
+    $('qt-opp').innerHTML = '<option value="">None</option>' + options(list, current);
+  }
+  function openQuote(x, preset) {
+    q = x || null;
+    show('qt-list-view', false); show('qt-entry', true); window.scrollTo(0, 0);
+    $('qt-title').textContent = q ? 'Quotation ' + numberOf(q) : 'New Quotation';
+    $('qt-badge').innerHTML = q ? badge(statusOf(q)) : '';
+    $('qt-meta').textContent = q && q.CreatedBy ? 'by ' + q.CreatedBy : '';
+    const p = preset || {};
+    const party = q ? (q.LeadID ? 'L:' + q.LeadID : 'C:' + q.CustomerID) : (p.LeadID ? 'L:' + p.LeadID : p.CustomerID ? 'C:' + p.CustomerID : '');
+    fillParty(party);
+    $('qt-class').innerHTML = options(D.classifications.map(c => [c, c]), q ? q.Classification : D.classifications[0]);
+    fillOpps(q ? q.OpportunityID : p.OpportunityID || '');
+    $('qt-date').value = q ? q.QuoteDate : D.today;
+    $('qt-until').value = q ? q.ValidUntil : addDays(D.today, D.validDays);
+    $('qt-terms').value = q ? q.Terms || '' : '';
+    lines = q ? q.Lines.map(l => Object.assign({}, l)) : [{ ItemCode: '', Description: '', Quantity: 1, UnitPrice: 0, DiscountPct: 0 }];
+    dirty = false;
+    refresh();
+    loadPriceList();
+  }
+  function refresh() {
+    const ed = editable();
+    document.querySelectorAll('.qt-f').forEach(el => { el.disabled = !ed; });
+    $('qt-party').disabled = !ed || Boolean(q); // a saved quotation keeps its customer (revise to change)
+    show('qt-class-wrap', partyValue().startsWith('L:'));
+    show('qt-save', ed); show('qt-add-line', ed);
+    const st = q ? q.Status : '';
+    show('qt-submit', Boolean(q) && D.canWrite && ['Draft', 'Rejected'].includes(st) && !q.Expired);
+    show('qt-revise', Boolean(q) && D.canWrite && (['Approved', 'Rejected'].includes(st) || (st === 'Draft' && q.Expired)));
+    show('qt-order', Boolean(q) && D.canWrite && st === 'Approved' && !q.Expired);
+    show('qt-delete', Boolean(q) && D.canWrite && st === 'Draft' && (q.Revision || 1) === 1);
+    show('qt-print', Boolean(q));
+    const info = [];
+    if (q && q.RejectionReason && st === 'Rejected') info.push('Rejected: ' + q.RejectionReason);
+    if (q && q.SalesOrderID) info.push('Ordered: Sales Order ' + (q.SalesOrderNumber || q.SalesOrderID));
+    if (q && q.Status === 'Revised') info.push('Revised: a later revision replaces this one.');
+    if (q && q.FromLeadID) info.push('Made for a lead, now this customer\'s.');
+    $('qt-info').textContent = info.join(' · ');
+    drawLines();
+  }
+  function drawLines() {
+    const ed = editable();
+    $('qt-lines').innerHTML = lines.map((l, i) => {
+      const amount = r2(r2((Number(l.UnitPrice) || 0) * (1 - (Number(l.DiscountPct) || 0) / 100)) * (Number(l.Quantity) || 0));
+      const inp = (k, v, cls, type) => '<input data-k="' + k + '" value="' + esc(v) + '"' + (type ? ' type="' + type + '" step="any"' : '') + ' class="' + (cls || '') + '"' + (ed ? '' : ' disabled') + (k === 'ItemCode' ? ' list="qt-items"' : '') + '>';
+      return '<tr data-i="' + i + '"><td class="py-1 px-2 text-xs text-slate-500">' + (i + 1) + '</td><td class="py-1 px-2">' + inp('ItemCode', l.ItemCode) + '</td><td class="py-1 px-2">' + inp('Description', l.Description) +
+        '</td><td class="py-1 px-2">' + inp('Quantity', l.Quantity, 'text-right', 'number') + '</td><td class="py-1 px-2">' + inp('UnitPrice', l.UnitPrice, 'text-right', 'number') + '</td><td class="py-1 px-2">' + inp('DiscountPct', l.DiscountPct || 0, 'text-right', 'number') +
+        '</td><td class="py-1 px-2 text-right qt-amount">' + fmt(amount) + '</td><td class="py-1 px-2">' + (ed ? '<button class="qt-del text-slate-500 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>';
+    }).join('');
+    totals();
+  }
+  function totals() {
+    const sub = r2(lines.reduce((s, l) => s + r2(r2((Number(l.UnitPrice) || 0) * (1 - (Number(l.DiscountPct) || 0) / 100)) * (Number(l.Quantity) || 0)), 0));
+    $('qt-subtotal').textContent = fmt(sub);
+    const saved = q && !dirty;
+    $('qt-tax-rows').innerHTML = saved ? (q.TaxSummary || []).filter(x => x.Tax).map(x => '<div class="flex justify-between"><span class="text-slate-400">' + esc(x.TaxCode + ' ' + x.Percent + '%') + '</span><span>' + fmt(x.Tax) + '</span></div>').join('') : '';
+    $('qt-total').textContent = fmt(saved ? q.Total : sub);
+    $('qt-tax-hint').textContent = saved ? '' : 'The tax is worked out when you save.';
+  }
+  function loadPriceList() {
+    const p = partyValue();
+    const companyId = $('qt-company').value;
+    const ask = p.startsWith('C:') ? { companyId, customerId: p.slice(2) } : p.startsWith('L:') ? { companyId, classification: $('qt-class').value } : null;
+    if (!ask) { priceList = null; $('qt-pricelist').textContent = ''; return (priceListReady = Promise.resolve()); }
+    return (priceListReady = call('getQuotationPriceList', ask).then(pl => {
+      priceList = pl;
+      $('qt-pricelist').textContent = pl ? 'Price list: ' + (pl.Name || pl.PriceListID) + (pl.CurrencyID ? ' (' + pl.CurrencyID + ')' : '') : 'No price list for this customer: type the prices.';
+    }, () => { priceList = null; }));
+  }
+  async function listPrice(code) {
+    await priceListReady;
+    if (!priceList) return null;
+    return call('getItemPriceOnPriceList', { priceListId: priceList.PriceListID, itemCode: code, date: $('qt-date').value }).then(p => (p == null ? null : p), () => null);
+  }
+  function readLine(tr) {
+    const l = lines[Number(tr.dataset.i)];
+    tr.querySelectorAll('input[data-k]').forEach(inp => { l[inp.dataset.k] = inp.type === 'number' ? (inp.value === '' ? '' : Number(inp.value)) : inp.value.trim(); });
+    return l;
+  }
+
+  async function save() {
+    const p = partyValue();
+    const data = { QuotationID: q ? q.QuotationID : '', CompanyID: $('qt-company').value, QuoteDate: $('qt-date').value, ValidUntil: $('qt-until').value,
+      OpportunityID: $('qt-opp').value, Terms: $('qt-terms').value, Classification: $('qt-class').value,
+      CustomerID: p.startsWith('C:') ? p.slice(2) : '', LeadID: p.startsWith('L:') ? p.slice(2) : '',
+      Lines: lines.filter(l => l.ItemCode).map(l => ({ ItemCode: l.ItemCode, Description: l.Description, Quantity: l.Quantity, UnitPrice: l.UnitPrice, DiscountPct: l.DiscountPct || 0 })) };
+    try {
+      const r = await call('saveQuotation', { quotation: data });
+      await reopen(r.quotationId);
+    } catch (e) { appAlert(e.message); }
+  }
+  async function reopen(id) {
+    await load();
+    const x = D.quotations.find(y => y.QuotationID === id);
+    if (x) openQuote(x); else back();
+  }
+  async function submit() {
+    if (dirty) { appAlert('Save the quotation first: Submit sends what is saved.'); return; }
+    try {
+      const r = await call('submitQuotation', { quotationId: q.QuotationID });
+      await reopen(q.QuotationID);
+      appAlert(r.status === 'Approved' ? 'Approved: no approval is needed for this quotation.' : 'Sent for approval.');
+    } catch (e) { appAlert(e.message); }
+  }
+  async function revise() {
+    if (!(await appConfirm('Make revision ' + ((q.Revision || 1) + 1) + ' of ' + q.Number + '? This one is kept, marked Revised.'))) return;
+    try { const r = await call('reviseQuotation', { quotationId: q.QuotationID }); await reopen(r.quotationId); } catch (e) { appAlert(e.message); }
+  }
+  async function del() {
+    if (!(await appConfirm('Delete this draft quotation?'))) return;
+    try { await call('deleteQuotationDraft', { quotationId: q.QuotationID }); await load(); back(); } catch (e) { appAlert(e.message); }
+  }
+
+  // ---------- Create Sales Order ----------
+  async function orderStart() {
+    if (q.LeadID) {
+      // Q399: a lead becomes a customer first (CRM → the lead → Convert to Customer).
+      if (await appConfirm('This quotation is for a lead. Convert the lead to a customer first: open it in CRM now?')) openModule('CRM', { OpenLeadId: q.LeadID });
+      return;
+    }
+    try {
+      if (!orgUnits) orgUnits = await call('getActiveOrgUnits', {});
+      const mine = (orgUnits || []).filter(u => !u.CompanyID || u.CompanyID === q.CompanyID);
+      $('qt-so-cc').innerHTML = '<option value="">Choose…</option>' + options(mine.filter(u => u.Type === 'CostCenter').map(u => [u.UnitID, u.Code + ' ' + u.Name]), q.CostCenterID);
+      $('qt-so-wh').innerHTML = '<option value="">Choose…</option>' + options(mine.filter(u => u.Type === 'Warehouse').map(u => [u.UnitID, u.Code + ' ' + u.Name]), '');
+      show('qt-so-won-wrap', Boolean(q.OpportunityID));
+      show('qt-order-modal', true);
+    } catch (e) { appAlert(e.message); }
+  }
+  async function orderOk() {
+    const cc = $('qt-so-cc').value, wh = $('qt-so-wh').value;
+    if (!cc || !wh) { appAlert('Choose the cost center and the warehouse.'); return; }
+    const btn = $('qt-so-ok'); btn.disabled = true;
+    try {
+      const so = await call('saveDraftSalesOrder', { header: { SODate: D.today, CompanyID: q.CompanyID, CustomerID: q.CustomerID, CostCenterID: cc, DivisionID: q.DivisionID || '', BranchID: q.BranchID || '',
+        ProfitCenterID: q.ProfitCenterID || '', Description: 'From quotation ' + numberOf(q),
+        Lines: q.Lines.map(l => ({ ItemCode: l.ItemCode, WarehouseID: l.WarehouseID || wh, OrderedQuantity: l.Quantity, UnitPrice: l.NetPrice })) } });
+      if (!so || !so.soId) throw new Error((so && so.error) || 'The Sales Order was not saved.');
+      await call('markQuotationOrdered', { quotationId: q.QuotationID, soId: so.soId, markWon: $('qt-so-won').checked });
+      show('qt-order-modal', false);
+      openModule('SALESORDER', { OpenEntryId: so.soId });
+    } catch (e) { appAlert(e.message); } finally { btn.disabled = false; }
+  }
+
+  // ---------- print ----------
+  function print() {
+    if (dirty) { appAlert('Save the quotation first: the print shows what is saved.'); return; }
+    const company = companies.find(c => c.CompanyID === q.CompanyID);
+    $('qt-print-company-name').textContent = company ? company.LegalName : '';
+    $('qt-print-company-address').textContent = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean).join(', ') : '';
+    $('qt-print-company-tax').textContent = company ? (company.TaxNumbers || []).filter(t => t.Number).map(t => (t.Type ? t.Type + ': ' : '') + t.Number).join('   |   ') : '';
+    const c = q.CustomerID ? customer(q.CustomerID) : null, l = q.LeadID ? lead(q.LeadID) : null;
+    const to = c ? c.Name : l ? l.Name : '';
+    const address = c ? c.Address : l ? l.Address : '';
+    const draft = !['Approved', 'Accepted'].includes(q.Status);
+    const disc = q.Lines.some(x => Number(x.DiscountPct));
+    const rows = q.Lines.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(x.Description || x.ItemCode) + '</td><td style="text-align:right">' + fmt(x.Quantity) + '</td><td style="text-align:right">' + fmt(x.UnitPrice) + '</td>' +
+      (disc ? '<td style="text-align:right">' + (Number(x.DiscountPct) ? esc(x.DiscountPct) + '%' : '') + '</td>' : '') + '<td style="text-align:right">' + fmt(x.Amount) + '</td></tr>').join('');
+    const cur = q.CurrencyID ? ' (' + esc(q.CurrencyID) + ')' : '';
+    $('qt-print-document').innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; margin-bottom:4px; letter-spacing:1px;">QUOTATION</h2>
+      ${draft ? '<p id="qt-print-draft" style="text-align:center; font-size:12px; font-weight:bold; color:#b91c1c; letter-spacing:2px; margin-bottom:12px;">DRAFT</p>' : '<div style="margin-bottom:12px;"></div>'}
+      <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:11px;">
+        <div>
+          <div style="margin-bottom:4px;"><strong>To:</strong> <span id="qt-print-to">${esc(to)}</span></div>
+          ${l && l.Contact ? '<div style="margin-bottom:4px;">Attention: ' + esc(l.Contact) + '</div>' : ''}
+          <div style="margin-bottom:4px;">Address: ${esc(address) || '—'}</div>
+          ${c && c.TaxNumber ? '<div>Tax Reg. No.: ' + esc(c.TaxNumber) + '</div>' : ''}
+        </div>
+        <div style="text-align:right;">
+          <div style="margin-bottom:4px;">Quotation No: <span id="qt-print-number">${esc(numberOf(q))}</span></div>
+          <div style="margin-bottom:4px;">Date: ${esc(q.QuoteDate)}</div>
+          <div style="margin-bottom:4px;">Valid until: ${esc(q.ValidUntil)}</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price${cur}</th>${disc ? '<th style="text-align:right">Disc.</th>' : ''}<th style="text-align:right">Amount${cur}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+        <table style="width:260px; font-size:11px;"><tr><td>Subtotal</td><td style="text-align:right">${fmt(q.Subtotal)}</td></tr>
+          ${(q.TaxSummary || []).filter(x => x.Tax).map(x => '<tr><td>' + esc(x.TaxCode + ' ' + x.Percent + '%') + (q.TaxAdded ? '' : ' (included)') + '</td><td style="text-align:right">' + fmt(x.Tax) + '</td></tr>').join('')}
+          <tr id="qt-print-total" style="font-weight:bold; border-top:1px solid #333;"><td>Total</td><td style="text-align:right">${fmt(q.Total)}</td></tr>
+        </table>
+      </div>
+      ${q.Terms ? '<div style="margin-top:16px; font-size:11px; white-space:pre-wrap;"><strong>Terms</strong><br>' + esc(q.Terms) + '</div>' : ''}
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a quotation, not an invoice. It posts nothing.</p>
+    `;
+    window.print();
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-file-signature"></i> Quotations';
+    pending = window.__pendingModuleParams; window.__pendingModuleParams = null;
+    $('qt-company').addEventListener('change', () => { back(); load(); });
+    $('qt-search').addEventListener('input', () => D && renderList());
+    $('qt-status').addEventListener('change', () => D && renderList());
+    $('qt-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openQuote(D.quotations.find(x => x.QuotationID === tr.dataset.id)); });
+    $('qt-new').addEventListener('click', () => openQuote(null));
+    $('qt-back').addEventListener('click', back);
+    $('qt-save').addEventListener('click', save);
+    $('qt-submit').addEventListener('click', submit);
+    $('qt-revise').addEventListener('click', revise);
+    $('qt-delete').addEventListener('click', del);
+    $('qt-print').addEventListener('click', print);
+    $('qt-order').addEventListener('click', orderStart);
+    $('qt-so-cancel').addEventListener('click', () => show('qt-order-modal', false));
+    $('qt-so-ok').addEventListener('click', orderOk);
+    $('qt-party').addEventListener('change', () => { dirty = true; fillOpps(''); refresh(); loadPriceList(); });
+    $('qt-class').addEventListener('change', () => { dirty = true; loadPriceList(); });
+    document.querySelectorAll('.qt-f').forEach(el => el.addEventListener('input', () => { if (!dirty) { dirty = true; totals(); } }));
+    $('qt-add-line').addEventListener('click', () => { lines.push({ ItemCode: '', Description: '', Quantity: 1, UnitPrice: 0, DiscountPct: 0 }); dirty = true; drawLines(); });
+    $('qt-lines').addEventListener('click', e => {
+      const b = e.target.closest('.qt-del'); if (!b) return;
+      lines.splice(Number(b.closest('tr').dataset.i), 1); dirty = true; drawLines();
+    });
+    $('qt-lines').addEventListener('input', e => {
+      const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+      const l = readLine(tr); dirty = true;
+      tr.querySelector('.qt-amount').textContent = fmt(r2(r2((Number(l.UnitPrice) || 0) * (1 - (Number(l.DiscountPct) || 0) / 100)) * (Number(l.Quantity) || 0)));
+      totals();
+    });
+    // An item chosen: its name and its price on the price list.
+    $('qt-lines').addEventListener('change', async e => {
+      if (!e.target.matches('input[data-k="ItemCode"]')) return;
+      const tr = e.target.closest('tr[data-i]'), l = readLine(tr);
+      const it = items.find(x => x.ItemCode === l.ItemCode);
+      if (it && !l.Description) l.Description = it.ItemName || '';
+      const price = await listPrice(l.ItemCode);
+      if (price != null) l.UnitPrice = Number(price);
+      drawLines();
+    });
+    Promise.all([call('getActiveCompanies', {}).catch(() => []), call('getSellableItems', {}).catch(() => [])]).then(([list, its]) => {
+      companies = list || []; items = its || [];
+      $('qt-items').innerHTML = items.map(i => '<option value="' + esc(i.ItemCode) + '">' + esc(i.ItemName) + '</option>').join('');
+      $('qt-company').innerHTML = companies.map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      if (pending && pending.CompanyID && companies.some(c => c.CompanyID === pending.CompanyID)) $('qt-company').value = pending.CompanyID;
+      return load();
+    });
+  };
+})();
+</script>

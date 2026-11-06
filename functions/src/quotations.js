@@ -110,12 +110,13 @@ exports.getQuotations = onCallWithMessages(onCallOptions, async (request) => {
     rtdb.ref('customerClassifications').get().then(s => s.val() || {})
   ]);
   const customerList = Object.keys(customers).filter(id => customers[id].Status === 'Active' && (!customers[id].CompanyID || customers[id].CompanyID === companyId))
-    .map(id => ({ CustomerID: id, Name: customers[id].CustomerName, Code: customers[id].CustomerCode || '', Classification: customers[id].Classification || '' }));
+    .map(id => { const c = customers[id]; return { CustomerID: id, Name: c.CustomerName, Code: c.CustomerCode || '', Classification: c.Classification || '',
+      Address: [c.AddressLine1, c.AddressLine2, c.Country].filter(Boolean).join(', '), TaxNumber: c.TaxRegistrationNumber || c.GSTIN || '' }; });
   return {
     canWrite, today, validDays: Number(setup.QuoteValidDays) || 30,
     quotations: list.map(q => Object.assign(q, { Expired: expired(q, today) })),
     customers: customerList,
-    leads: leads.map(l => ({ ID: l.ID, Name: l.Organisation || l.Name })),
+    leads: leads.map(l => ({ ID: l.ID, Name: l.Organisation || l.Name, Contact: l.Organisation ? l.Name || '' : '', Address: [l.Address, l.Country].filter(Boolean).join(', '), Phone: l.Phone || '', Email: l.Email || '' })),
     opportunities: opps.map(o => ({ ID: o.ID, Title: o.Title, LeadID: o.LeadID || '', CustomerID: o.CustomerID || '' })),
     classifications: Object.values(classes).filter(c => c && c.Status === 'Active').map(c => c.Name)
   };
