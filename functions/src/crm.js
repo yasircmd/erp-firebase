@@ -460,7 +460,10 @@ async function portalCrm(user, customers) {
 const PORTAL = ['saveLead', 'disqualifyLead', 'saveOpportunity', 'setOpportunityStage', 'saveActivity', 'closeActivity'];
 const runForRep = (user, name, data) => {
   if (!PORTAL.includes(name)) throw new HttpsError('permission-denied', 'Not from the portal.');
-  return cores[name](user, { data: data || {} });
+  const d = Object.assign({}, data || {});
+  // The rep's company, whatever the phone sends.
+  ['lead', 'opportunity', 'activity'].forEach(k => { if (d[k] && typeof d[k] === 'object') d[k] = Object.assign({}, d[k], { CompanyID: user.portal.companyId }); });
+  return cores[name](user, { data: d });
 };
 
 module.exports.portalUser = portalUser;

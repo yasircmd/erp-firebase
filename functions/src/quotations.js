@@ -322,12 +322,16 @@ async function portalQuotes(user, customers) {
   const companyId = user.portal.companyId;
   const today = todayIn();
   const q = user.portal.manager ? QUOTES().where('CompanyID', '==', companyId) : QUOTES().where('OwnerKey', '==', ownerKeyOf(user));
-  const [list, setup, classes] = await Promise.all([
+  const [list, setup, classes, units] = await Promise.all([
     q.get().then(s => s.docs.map(d => Object.assign({ QuotationID: d.id }, d.data())).filter(x => x.CompanyID === companyId)),
     firestore.collection('crmSetup').doc(companyId).get().then(s => s.exists ? s.data() : {}),
-    rtdb.ref('customerClassifications').get().then(s => s.val() || {})
+    rtdb.ref('customerClassifications').get().then(s => s.val() || {}),
+    rtdb.ref('orgUnits').get().then(s => s.val() || {})
   ]);
   return {
+    // Where an order from a quotation is delivered from (Q406).
+    warehouses: Object.keys(units).filter(id => units[id].Type === 'Warehouse' && units[id].Status === 'Active' && (!units[id].CompanyID || units[id].CompanyID === companyId))
+      .map(id => ({ WarehouseID: id, Code: units[id].Code, Name: units[id].Name })),
     today, validDays: Number(setup.QuoteValidDays) || 30,
     quotations: list.map(x => Object.assign(x, { Expired: expired(x, today) })).sort((a, b) => (b.QuoteDate || '').localeCompare(a.QuoteDate || '') || (b.Revision || 0) - (a.Revision || 0)),
     customers: customers.map(c => ({ CustomerID: c.CustomerID, Name: c.CustomerName, Code: c.CustomerCode || '', Classification: c.Classification || '',
@@ -389,7 +393,10 @@ async function orderForRep(user, me, d) {
 const PORTAL = ['saveQuotation', 'deleteQuotationDraft', 'submitQuotation', 'reviseQuotation'];
 const runForRep = (user, name, data) => {
   if (!PORTAL.includes(name)) throw new HttpsError('permission-denied', 'Not from the portal.');
-  return cores[name](user, { data: data || {} });
+  const d = Object.assign({}, data || {});
+  // The rep's company, whatever the phone sends.
+  ['quotation'].forEach(k => { if (d[k] && typeof d[k] === 'object') d[k] = Object.assign({}, d[k], { CompanyID: user.portal.companyId }); });
+  return cores[name](user, { data: d });
 };
 
 Object.assign(module.exports, { portalQuotes, portalQuoteItems, orderForRep, runForRep });

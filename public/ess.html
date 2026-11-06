@@ -1181,6 +1181,8 @@
       if (sub === 'collect') return salesCollectForm(parts[2]);
       if (sub === 'collections') return salesCollections();
       if (sub === 'receipt') return salesReceipt(decodeURIComponent(parts[2] || ''));
+      // CRM (docs/modules/CRM.md, step C3).
+      if (CRM_PAGES[sub]) return CRM_PAGES[sub](decodeURIComponent(parts[2] || ''));
       page(skeleton());
       api('salesHome', {}).then(r => {
         salesData = r;
@@ -1188,7 +1190,7 @@
         const KIND = { Order: 'Order', Cash: 'Cash receipt', Cheque: 'Cheque' };
         const todays = r.activity.filter(a => a.Date === r.today);
         const b = r.balance || { Cash: 0, Cheques: [], ChequeTotal: 0 };
-        page('<div class="space-y-4">' +
+        page('<div class="space-y-4">' + crmNav('') +
           // What I hold (item 30): the cash not yet with the cashier, the cheques not yet with the office.
           '<a href="#sales/collections" id="sales-holding" class="block">' + card('<div class="flex items-center justify-between gap-2"><div><div class="text-xs text-slate-500 dark:text-slate-400">I hold</div>' +
             '<div class="font-bold"><span id="sales-cash">' + money(b.Cash) + '</span> cash</div>' +
@@ -1390,6 +1392,10 @@
       if (r.Note) { gap(4); put('Note: ' + r.Note, 9); }
       gap(14); put('Received by ' + r.RepName + ', sales rep (' + r.RepCode + ')', 10);
       put('This receipt was given when the ' + (r.Method === 'Cheque' ? 'cheque was' : 'cash was') + ' collected.', 8);
+      return pdfOf(ops, W, H);
+    }
+    // A one-page PDF from its text operations (Helvetica F1, Helvetica-Bold F2).
+    function pdfOf(ops, W, H) {
       const content = ops.join('\n');
       const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
         '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W + ' ' + H + '] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
@@ -1404,6 +1410,329 @@
       for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
       return new Blob([bytes], { type: 'application/pdf' });
     }
+
+    // ---------- CRM in the Sales tab (docs/modules/CRM.md, step C3, Q404-Q406) ----------
+    // The rep's leads, pipeline, activities and quotations, through the ERP's
+    // own rules on the server (essPortal crm, crmRun, quoteRun, quoteItems,
+    // quoteOrder). A rep owns what they add; a sales manager sees the
+    // company's. Prices are the price list's; the rep gives a discount (Q405).
+    // An approved quotation becomes a draft Sales Order for the office (Q406).
+    let crmData = null;
+    const loadCrm = () => api('crm', {}).then(r => (crmData = r));
+    const withCrm = () => (crmData ? Promise.resolve(crmData) : loadCrm());
+    const crmFail = err => page(card(empty('fa-triangle-exclamation', err.message)));
+    function crmNav(on) {
+      const tabs = [['', 'Customers'], ['leads', 'Leads'], ['pipeline', 'Pipeline'], ['activities', 'Activities'], ['quotes', 'Quotes']];
+      return '<div id="crm-nav" class="flex gap-1 overflow-x-auto -mx-1 px-1">' + tabs.map(([k, t]) => '<a href="#sales' + (k ? '/' + k : '') + '" data-crm="' + k + '" class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ' +
+        (k === on ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300') + '">' + t + '</a>').join('') + '</div>';
+    }
+    const sel = (id, list, value, first) => '<select id="' + id + '" class="' + inputCls + '">' + (first ? '<option value="">' + esc(first) + '</option>' : '') +
+      list.map(([v, t]) => '<option value="' + esc(v) + '"' + (v === value ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>';
+    const leadName = l => l ? (l.Organisation || l.Name) + (l.Organisation && l.Name ? ' (' + l.Name + ')' : '') : '';
+    const crmCustomer = id => (crmData.customers.find(c => c.CustomerID === id) || { Name: id }).Name;
+    const crmParty = x => (x.LeadID ? 'Lead: ' + leadName(crmData.leads.find(l => l.ID === x.LeadID) || { Name: x.LeadID }) : crmCustomer(x.CustomerID));
+    const partyOptions = () => crmData.customers.map(c => ['C:' + c.CustomerID, c.Name]).concat(crmData.leads.map(l => ['L:' + l.ID, 'Lead: ' + leadName(l)]));
+    const crmRun = (what, data) => api('crmRun', { what, data });
+    const back = h => { crmData = null; location.hash = h; };
+
+    // Leads
+    function crmLeads() {
+      page(skeleton());
+      loadCrm().then(r => {
+        page('<div class="space-y-3">' + crmNav('leads') + '<a href="#sales/lead/new" id="crm-lead-new" class="block text-center rounded-xl bg-indigo-600 text-white font-semibold py-2.5 text-sm"><i class="fa-solid fa-plus"></i> New lead</a>' +
+          (r.leads.length ? '<div class="space-y-2" id="crm-leads">' + r.leads.map(l => '<a href="#sales/lead/' + esc(l.ID) + '" class="crm-lead block">' + card('<div class="font-semibold text-sm">' + esc(leadName(l)) + '</div>' +
+            '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc([l.Phone, l.Email, l.Source].filter(Boolean).join(' · ')) + '</div>', 'p-3') + '</a>').join('') + '</div>'
+            : card(empty('fa-user-plus', 'No open leads. Add the people and businesses you are talking to.'))) + '</div>');
+      }, crmFail);
+    }
+    function crmLeadForm(id) {
+      page(skeleton());
+      withCrm().then(r => {
+        const l = r.leads.find(x => x.ID === id) || null;
+        const f = (label, key, type) => field(label, '<input id="crm-l-' + key + '" ' + (type ? 'type="' + type + '" ' : '') + 'value="' + esc(l ? l[key] || '' : '') + '" class="' + inputCls + '">');
+        page('<div class="space-y-3">' + card('<h2 class="font-semibold mb-3">' + (l ? esc(leadName(l)) : 'New lead') + '</h2><div class="space-y-3">' +
+          f('Organisation', 'Organisation') + f('Contact name', 'Name') + f('Phone', 'Phone', 'tel') + f('Email', 'Email', 'email') +
+          field('Source', sel('crm-l-Source', r.setup.LeadSources.map(x => [x, x]), l ? l.Source : r.setup.LeadSources[0])) +
+          f('Address', 'Address') + field('Notes', '<textarea id="crm-l-Notes" rows="2" class="' + inputCls + '">' + esc(l ? l.Notes || '' : '') + '</textarea>') +
+          '<button id="crm-l-save" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3">Save</button>' +
+          (l ? '<div class="grid grid-cols-2 gap-2"><a href="#sales/opp/new" id="crm-l-opp" class="text-center rounded-xl border border-slate-300 dark:border-slate-700 py-2 text-sm font-semibold">New opportunity</a>' +
+            '<a href="#sales/quote/new" id="crm-l-quote" class="text-center rounded-xl border border-slate-300 dark:border-slate-700 py-2 text-sm font-semibold">New quote</a></div>' +
+            '<button id="crm-l-disq" class="w-full text-sm text-rose-600 dark:text-rose-400 py-2">Disqualify</button>' : '') + '</div>') + '</div>');
+        if (l) ['crm-l-opp', 'crm-l-quote'].forEach(b => $(b).addEventListener('click', () => { crmPreset = { party: 'L:' + l.ID }; }));
+        const save = force => {
+          const lead = { ID: l ? l.ID : "" };
+          ['Organisation', 'Name', 'Phone', 'Email', 'Source', 'Address', 'Notes'].forEach(k => { lead[k] = $('crm-l-' + k).value; });
+          $('crm-l-save').disabled = true;
+          crmRun('saveLead', { lead, force }).then(async res => {
+            $('crm-l-save').disabled = false;
+            if (res.success === false && res.duplicates) {
+              const list = res.duplicates.map(d => '• ' + d.Kind + ': ' + d.Name + ' (the same ' + d.Match.join(', ') + ')').join('\n');
+              if (await dialog({ title: 'This looks like', message: list + '\n\nSave it anyway?', ok: 'Save anyway' })) save(true);
+              return;
+            }
+            toast('Lead saved.'); back('sales/leads');
+          }, err => { $('crm-l-save').disabled = false; fail(err); });
+        };
+        $('crm-l-save').addEventListener('click', () => save(false));
+        if (l) $('crm-l-disq').addEventListener('click', async () => {
+          const reason = await dialog({ title: 'Disqualify the lead', message: 'Why will it not buy?', input: true, required: true, ok: 'Disqualify', danger: true });
+          if (reason) crmRun('disqualifyLead', { leadId: l.ID, reason }).then(() => { toast('Lead disqualified.'); back('sales/leads'); }, fail);
+        });
+      }, crmFail);
+    }
+
+    // The pipeline: my open opportunities by stage; the stage moved here (Lost asks the reason from the list).
+    let crmPreset = null;
+    function crmPipeline() {
+      page(skeleton());
+      loadCrm().then(r => {
+        const stages = r.setup.AllStages;
+        const total = r.opportunities.reduce((t, o) => t + (Number(o.ExpectedValue) || 0), 0), weighted = r.opportunities.reduce((t, o) => t + (Number(o.ExpectedValue) || 0) * (Number(o.Probability) || 0) / 100, 0);
+        page('<div class="space-y-3">' + crmNav('pipeline') + '<a href="#sales/opp/new" id="crm-opp-new" class="block text-center rounded-xl bg-indigo-600 text-white font-semibold py-2.5 text-sm"><i class="fa-solid fa-plus"></i> New opportunity</a>' +
+          card('<div class="flex justify-between text-sm"><span class="text-slate-500 dark:text-slate-400">' + r.opportunities.length + ' open</span><span id="crm-weighted">Total ' + money(total) + ' · weighted ' + money(weighted) + '</span></div>', 'p-3') +
+          stages.filter(s => s.Name !== 'Won' && s.Name !== 'Lost').map(s => {
+            const mine = r.opportunities.filter(o => o.Stage === s.Name);
+            return mine.length ? '<h3 class="text-xs font-semibold uppercase text-slate-500">' + esc(s.Name) + ' · ' + s.Probability + '%</h3><div class="space-y-2">' + mine.map(o => card(
+              '<div class="flex justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-sm">' + esc(o.Title) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(crmParty(o)) +
+              (o.ExpectedClose ? ' · close ' + esc(showDate(o.ExpectedClose)) : '') + '</div></div><div class="text-sm font-semibold">' + esc(o.Currency || '') + ' ' + money(o.ExpectedValue) + '</div></div>' +
+              '<div class="flex gap-2 mt-2"><select class="crm-stage flex-1 min-w-0 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-2 py-1.5 text-sm" data-id="' + esc(o.ID) + '">' +
+              stages.map(x => '<option' + (x.Name === o.Stage ? ' selected' : '') + '>' + esc(x.Name) + '</option>').join('') + '</select>' +
+              '<a href="#sales/quote/new" class="crm-opp-quote shrink-0 rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm font-semibold" data-id="' + esc(o.ID) + '">Quote</a></div>', 'p-3 crm-opp')).join('') + '</div>' : '';
+          }).join('') + (r.opportunities.length ? '' : card(empty('fa-bullseye', 'No open opportunities.'))) + '</div>');
+        document.querySelectorAll('.crm-opp-quote').forEach(a => a.addEventListener('click', () => {
+          const o = r.opportunities.find(x => x.ID === a.dataset.id);
+          crmPreset = { party: o.LeadID ? 'L:' + o.LeadID : 'C:' + o.CustomerID, opp: o.ID };
+        }));
+        document.querySelectorAll('.crm-stage').forEach(s => s.addEventListener('change', async () => {
+          const o = r.opportunities.find(x => x.ID === s.dataset.id);
+          const data = { opportunityId: o.ID, stage: s.value };
+          if (s.value === 'Lost') {
+            const reasons = r.setup.LostReasons;
+            const reason = await dialog({ title: 'Why was it lost?', message: 'One of: ' + reasons.join(', '), input: true, required: true, value: reasons[0], ok: 'Mark lost', danger: true });
+            if (!reason) { s.value = o.Stage; return; }
+            data.lostReason = reasons.find(x => x.toLowerCase() === reason.toLowerCase()) || reason;
+          }
+          crmRun('setOpportunityStage', data).then(() => { toast(o.Title + ': ' + s.value + '.'); crmPipeline(); }, err => { s.value = o.Stage; fail(err); });
+        }));
+      }, crmFail);
+    }
+    function crmOppForm() {
+      page(skeleton());
+      withCrm().then(r => {
+        const preset = crmPreset || {}; crmPreset = null;
+        page('<div class="space-y-3">' + card('<h2 class="font-semibold mb-3">New opportunity</h2><div class="space-y-3">' +
+          field('Customer or lead', sel('crm-o-party', partyOptions(), preset.party || '', 'Choose…')) +
+          field('Title', '<input id="crm-o-title" class="' + inputCls + '">') +
+          '<div class="grid grid-cols-2 gap-2">' + field('Expected value', '<input id="crm-o-value" inputmode="decimal" class="' + inputCls + '">') + field('Currency', '<input id="crm-o-cur" maxlength="3" class="' + inputCls + '">') + '</div>' +
+          field('Expected close', '<input id="crm-o-close" type="date" class="' + inputCls + '">') +
+          '<button id="crm-o-save" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3">Save</button></div>') + '</div>');
+        $('crm-o-save').addEventListener('click', () => {
+          const p = $('crm-o-party').value;
+          const opportunity = { Title: $('crm-o-title').value, ExpectedValue: $('crm-o-value').value, Currency: $('crm-o-cur').value, ExpectedClose: $('crm-o-close').value };
+          if (p.startsWith('L:')) opportunity.LeadID = p.slice(2); else if (p.startsWith('C:')) opportunity.CustomerID = p.slice(2); else return say('Choose the customer or lead.');
+          crmRun('saveOpportunity', { opportunity }).then(() => { toast('Opportunity saved.'); back('sales/pipeline'); }, fail);
+        });
+      }, crmFail);
+    }
+
+    // Activities: my open ones by due date, overdue in amber; Done asks the outcome and can schedule the next.
+    function crmActivities() {
+      page(skeleton());
+      loadCrm().then(r => {
+        const about = a => (a.About.Kind === 'Customer' ? crmCustomer(a.About.ID) : a.About.Kind === 'Lead' ? 'Lead: ' + leadName(r.leads.find(l => l.ID === a.About.ID) || { Name: '' }) :
+          'Opportunity: ' + ((r.opportunities.find(o => o.ID === a.About.ID) || {}).Title || ''));
+        const list = r.activities.slice().sort((a, b) => (a.Due + (a.DueTime || '')).localeCompare(b.Due + (b.DueTime || '')));
+        page('<div class="space-y-3">' + crmNav('activities') + '<a href="#sales/act/new" id="crm-act-new" class="block text-center rounded-xl bg-indigo-600 text-white font-semibold py-2.5 text-sm"><i class="fa-solid fa-plus"></i> New activity</a>' +
+          (list.length ? '<div class="space-y-2" id="crm-acts">' + list.map(a => card('<div class="flex justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-sm">' + esc(a.Type) + ': ' + esc(a.Subject) + '</div>' +
+            '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(about(a)) + '</div></div><div class="text-xs text-right ' + (a.Due < r.today ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-slate-500') + '">' +
+            esc(showDate(a.Due)) + (a.DueTime ? ' ' + esc(a.DueTime) : '') + (a.Due < r.today ? '<br>overdue' : '') + '</div></div>' +
+            '<button class="crm-act-done w-full mt-2 rounded-xl border border-slate-300 dark:border-slate-700 py-1.5 text-sm font-semibold" data-id="' + esc(a.ID) + '">Done</button>', 'p-3 crm-act')).join('') + '</div>'
+            : card(empty('fa-list-check', 'Nothing to do. Schedule your next call or visit.'))) + '</div>');
+        document.querySelectorAll('.crm-act-done').forEach(b => b.addEventListener('click', async () => {
+          const a = r.activities.find(x => x.ID === b.dataset.id);
+          const outcome = await dialog({ title: a.Subject, message: 'What came of it?', input: true, required: true, ok: 'Done' });
+          if (!outcome) return;
+          const data = { activityId: a.ID, outcome };
+          const nextSubject = await dialog({ title: 'Schedule the next?', message: 'The next ' + a.Type.toLowerCase() + ' in a week. Its subject (Cancel: none):', input: true, value: 'Follow up: ' + a.Subject, ok: 'Schedule' });
+          if (nextSubject) data.next = { Type: a.Type, Subject: nextSubject, Due: addDaysIso(r.today, 7) };
+          crmRun('closeActivity', data).then(() => { toast('Done.'); crmActivities(); }, fail);
+        }));
+      }, crmFail);
+    }
+    const addDaysIso = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+    function crmActForm() {
+      page(skeleton());
+      withCrm().then(r => {
+        const abouts = r.customers.map(c => ['Customer:' + c.CustomerID, c.Name]).concat(r.leads.map(l => ['Lead:' + l.ID, 'Lead: ' + leadName(l)]), r.opportunities.map(o => ['Opportunity:' + o.ID, 'Opportunity: ' + o.Title]));
+        page('<div class="space-y-3">' + card('<h2 class="font-semibold mb-3">New activity</h2><div class="space-y-3">' +
+          field('About', sel('crm-a-about', abouts, '', 'Choose…')) + field('Type', sel('crm-a-type', r.setup.ActivityTypes.map(x => [x, x]), r.setup.ActivityTypes[0])) +
+          field('Subject', '<input id="crm-a-subject" class="' + inputCls + '">') +
+          '<div class="grid grid-cols-2 gap-2">' + field('Due', '<input id="crm-a-due" type="date" value="' + esc(r.today) + '" class="' + inputCls + '">') + field('Time', '<input id="crm-a-time" type="time" class="' + inputCls + '">') + '</div>' +
+          '<button id="crm-a-save" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3">Save</button></div>') + '</div>');
+        $('crm-a-save').addEventListener('click', () => {
+          const [Kind, ID] = $('crm-a-about').value.split(':');
+          if (!ID) return say('Choose what the activity is about.');
+          crmRun('saveActivity', { activity: { About: { Kind, ID }, Type: $('crm-a-type').value, Subject: $('crm-a-subject').value, Due: $('crm-a-due').value, DueTime: $('crm-a-time').value } })
+            .then(() => { toast('Activity saved.'); back('sales/activities'); }, fail);
+        });
+      }, crmFail);
+    }
+
+    // Quotations: mine; a new one at the price list's prices with my discount; submit, revise, order, share the PDF.
+    const Q_LABEL = { PendingApproval: 'Pending approval', Accepted: 'Ordered' };
+    const qStatus = q => (q.Expired ? 'Expired' : q.Status);
+    const qNumber = q => (q.Number || '') + (q.Revision > 1 ? ' Rev ' + q.Revision : '');
+    function crmQuotes() {
+      page(skeleton());
+      loadCrm().then(r => {
+        const open = r.quotations.filter(q => q.Status !== 'Revised');
+        page('<div class="space-y-3">' + crmNav('quotes') + '<a href="#sales/quote/new" id="crm-quote-new" class="block text-center rounded-xl bg-indigo-600 text-white font-semibold py-2.5 text-sm"><i class="fa-solid fa-plus"></i> New quote</a>' +
+          (open.length ? '<div class="space-y-2" id="crm-quotes">' + open.map(q => '<a href="#sales/quote/' + esc(q.QuotationID) + '" class="crm-quote block">' + card('<div class="flex justify-between gap-2 text-sm"><div class="min-w-0"><div class="font-semibold">' + esc(qNumber(q)) + ' · ' + esc(crmParty(q)) + '</div>' +
+            '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(showDate(q.QuoteDate)) + ' · valid until ' + esc(showDate(q.ValidUntil)) + '</div></div><div class="text-right"><div>' + esc(q.CurrencyID || '') + ' ' + money(q.Total) + '</div>' +
+            chip(qStatus(q) === 'Expired' ? 'PendingManager' : qStatus(q), Q_LABEL[qStatus(q)] || qStatus(q)) + '</div></div>', 'p-3') + '</a>').join('') + '</div>'
+            : card(empty('fa-file-signature', 'No quotations yet.'))) + '</div>');
+      }, crmFail);
+    }
+    function crmQuoteForm(id) {
+      page(skeleton());
+      withCrm().then(async r => {
+        const q = id && id !== 'new' ? r.quotations.find(x => x.QuotationID === id) : null;
+        if (id && id !== 'new' && !q) return crmFail(new Error('That quotation is not found.'));
+        if (q && !['Draft', 'Rejected'].includes(q.Status)) return crmQuoteView(r, q);
+        const preset = crmPreset || {}; crmPreset = null;
+        const party = q ? (q.LeadID ? 'L:' + q.LeadID : 'C:' + q.CustomerID) : preset.party || '';
+        const lines = q ? q.Lines.map(l => ({ ItemCode: l.ItemCode, ItemName: l.Description, UnitPrice: l.UnitPrice, Quantity: l.Quantity, DiscountPct: l.DiscountPct || 0 })) : [];
+        let items = { items: [], priceList: null };
+        const draw = () => {
+          const net = l => Math.round(l.UnitPrice * (1 - (Number(l.DiscountPct) || 0) / 100) * 100) / 100;
+          const total = lines.reduce((t, l) => t + net(l) * l.Quantity, 0);
+          page('<div class="space-y-3">' + card('<h2 class="font-semibold mb-3">' + (q ? 'Quote ' + esc(qNumber(q)) : 'New quote') + '</h2><div class="space-y-3">' +
+            field('Customer or lead', q ? '<div class="text-sm font-medium">' + esc(crmParty(q)) + '</div>' : sel('crm-q-party', partyOptions(), party0, 'Choose…')) +
+            (party0.startsWith('L:') && !q ? field('Price list of', sel('crm-q-class', r.classifications.map(c => [c, c]), r.classifications[0])) : '') +
+            '<div class="grid grid-cols-2 gap-2">' + field('Date', '<input id="crm-q-date" type="date" value="' + esc(dateNow) + '" class="' + inputCls + '">') +
+            field('Valid until', '<input id="crm-q-until" type="date" value="' + esc(untilNow) + '" class="' + inputCls + '">') + '</div>' +
+            '<div id="crm-q-pl" class="text-xs text-slate-500">' + (items.priceList ? 'Price list ' + esc(items.priceList.Name) + (items.priceList.CurrencyID ? ' (' + esc(items.priceList.CurrencyID) + ')' : '') : (q ? party : party0) ? 'No price list for this customer: the office prices its quotations.' : '') + '</div></div>') +
+            card('<label class="block text-xs font-medium mb-1">Item</label><select id="crm-q-item" class="' + inputCls + '"><option value="">Choose an item…</option>' +
+              items.items.map(i => '<option value="' + esc(i.ItemCode) + '">' + esc(i.ItemName || i.ItemCode) + ' — ' + money(i.UnitPrice) + '</option>').join('') + '</select>' +
+              '<div class="flex gap-2 mt-2"><input id="crm-q-qty" inputmode="decimal" placeholder="Qty" class="flex-1 min-w-0 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-right">' +
+              '<input id="crm-q-disc" inputmode="decimal" placeholder="Disc %" class="flex-1 min-w-0 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-right">' +
+              '<button id="crm-q-add" class="shrink-0 rounded-xl bg-indigo-600 text-white px-3 text-sm font-semibold">Add</button></div>', 'p-3') +
+            (lines.length ? card('<div id="crm-q-lines" class="space-y-1 text-sm">' + lines.map((l, i) => '<div class="flex justify-between gap-2"><span>' + esc(l.ItemName || l.ItemCode) + ' × ' + l.Quantity + (Number(l.DiscountPct) ? ' <span class="text-xs text-slate-500">−' + esc(l.DiscountPct) + '%</span>' : '') + '</span><span>' +
+              money(net(l) * l.Quantity) + ' <button class="crm-q-del text-rose-500 ml-1" data-i="' + i + '"><i class="fa-solid fa-xmark"></i></button></span></div>').join('') +
+              '<div class="flex justify-between font-semibold border-t border-slate-200 dark:border-slate-800 pt-1"><span>Before tax</span><span id="crm-q-total">' + money(total) + '</span></div></div>', 'p-3') : '') +
+            field('Terms and notes (printed)', '<textarea id="crm-q-terms" rows="2" class="' + inputCls + '">' + esc(q ? q.Terms || '' : '') + '</textarea>') +
+            '<button id="crm-q-save" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3"' + (lines.length ? '' : ' disabled') + '>Save the quote</button>' +
+            (q ? '<div class="grid grid-cols-2 gap-2"><button id="crm-q-submit" class="rounded-xl bg-emerald-600 text-white font-semibold py-2.5 text-sm">Submit</button>' +
+              '<button id="crm-q-share" class="rounded-xl border border-slate-300 dark:border-slate-700 font-semibold py-2.5 text-sm"><i class="fa-solid fa-share-nodes"></i> Share draft</button></div>' : '') +
+            '<p class="text-xs text-slate-500">The price is the price list\'s; you can give a discount. The tax is worked out when you save.</p></div>');
+          // What the rep typed, kept when the form is drawn again.
+          const keep = () => { if ($('crm-q-terms')) { termsNow = $('crm-q-terms').value; dateNow = $('crm-q-date').value; untilNow = $('crm-q-until').value; } };
+          if (!q) $('crm-q-party').addEventListener('change', () => { keep(); party0 = $('crm-q-party').value; reload(); });
+          if ($('crm-q-class')) $('crm-q-class').addEventListener('change', () => { keep(); classNow = $('crm-q-class').value; reload(); });
+          $('crm-q-add').addEventListener('click', () => {
+            const it = items.items.find(i => i.ItemCode === $('crm-q-item').value), qty = Number($('crm-q-qty').value), disc = Number($('crm-q-disc').value) || 0;
+            if (!it) return say('Choose an item.');
+            if (!(qty > 0)) return say('Enter the quantity.');
+            if (!(disc >= 0 && disc <= 100)) return say('The discount is 0 to 100 %.');
+            keep(); lines.push({ ItemCode: it.ItemCode, ItemName: it.ItemName, UnitPrice: it.UnitPrice, Quantity: qty, DiscountPct: disc }); draw();
+          });
+          document.querySelectorAll('.crm-q-del').forEach(b => b.addEventListener('click', () => { keep(); lines.splice(Number(b.dataset.i), 1); draw(); }));
+          if (termsNow != null) $('crm-q-terms').value = termsNow;
+          if (q) {
+            $('crm-q-share').addEventListener('click', () => shareQuote(q));
+            $('crm-q-submit').addEventListener('click', () => crmQuoteSubmit(q.QuotationID)); // what is saved
+          }
+          $('crm-q-save').addEventListener('click', () => {
+            const p = q ? party : $('crm-q-party').value;
+            const quotation = { QuotationID: q ? q.QuotationID : '', QuoteDate: $('crm-q-date').value, ValidUntil: $('crm-q-until').value, OpportunityID: q ? q.OpportunityID || '' : preset.opp || '',
+              CustomerID: p.startsWith('C:') ? p.slice(2) : '', LeadID: p.startsWith('L:') ? p.slice(2) : '', Classification: q ? q.Classification || '' : (classNow || r.classifications[0] || ''), Terms: $('crm-q-terms').value,
+              Lines: lines.map(l => ({ ItemCode: l.ItemCode, Quantity: l.Quantity, DiscountPct: l.DiscountPct })) };
+            $('crm-q-save').disabled = true;
+            api('quoteRun', { what: 'saveQuotation', data: { quotation } }).then(res => { toast('Quote ' + res.number + ' saved.'); crmData = null; location.hash = 'sales/quote/' + res.quotationId; }, err => { $('crm-q-save').disabled = false; fail(err); });
+          });
+        };
+        let party0 = party, classNow = q ? q.Classification : '', termsNow = null;
+        let dateNow = q ? q.QuoteDate : r.today, untilNow = q ? q.ValidUntil : addDaysIso(r.today, r.validDays);
+        const reload = () => {
+          const p = q ? party : party0;
+          const ask = p.startsWith('C:') ? { customerId: p.slice(2) } : p.startsWith('L:') ? { classification: classNow || r.classifications[0] || '' } : null;
+          (ask ? api('quoteItems', Object.assign(ask, { date: dateNow })) : Promise.resolve({ items: [], priceList: null }))
+            .then(x => { items = x; draw(); if ($('crm-q-class') && classNow) $('crm-q-class').value = classNow; }, fail);
+        };
+        draw(); reload();
+      }, crmFail);
+    }
+    function crmQuoteView(r, q) {
+      const st = qStatus(q);
+      page('<div class="space-y-3">' + card('<div class="flex justify-between gap-2"><div><h2 class="font-semibold">Quote <span id="crm-qv-number">' + esc(qNumber(q)) + '</span></h2><div class="text-sm">' + esc(crmParty(q)) + '</div>' +
+        '<div class="text-xs text-slate-500">' + esc(showDate(q.QuoteDate)) + ' · valid until ' + esc(showDate(q.ValidUntil)) + '</div></div><div id="crm-qv-status">' + chip(st === 'Expired' ? 'PendingManager' : st, Q_LABEL[st] || st) + '</div></div>' +
+        (q.RejectionReason && q.Status === 'Rejected' ? '<div class="text-xs text-rose-600 mt-1">' + esc(q.RejectionReason) + '</div>' : '') +
+        '<div class="space-y-1 text-sm mt-3">' + q.Lines.map(l => '<div class="flex justify-between gap-2"><span>' + esc(l.Description || l.ItemCode) + ' × ' + l.Quantity + (Number(l.DiscountPct) ? ' <span class="text-xs text-slate-500">−' + esc(l.DiscountPct) + '%</span>' : '') + '</span><span>' + money(l.Amount) + '</span></div>').join('') +
+        '<div class="flex justify-between border-t border-slate-200 dark:border-slate-800 pt-1"><span>Subtotal</span><span>' + money(q.Subtotal) + '</span></div>' +
+        (q.TaxSummary || []).filter(x => x.Tax).map(x => '<div class="flex justify-between text-slate-500"><span>' + esc(x.TaxCode + ' ' + x.Percent + '%') + '</span><span>' + money(x.Tax) + '</span></div>').join('') +
+        '<div class="flex justify-between font-semibold"><span>Total</span><span id="crm-qv-total">' + esc(q.CurrencyID || '') + ' ' + money(q.Total) + '</span></div></div>', 'p-4') +
+        '<div class="grid grid-cols-2 gap-2"><button id="crm-qv-share" class="rounded-xl bg-indigo-600 text-white font-semibold py-3"><i class="fa-solid fa-share-nodes"></i> Share</button>' +
+        '<button id="crm-qv-pdf" class="rounded-xl border border-slate-300 dark:border-slate-700 font-semibold py-3"><i class="fa-solid fa-file-pdf"></i> Download PDF</button></div>' +
+        (q.Status === 'Approved' && !q.Expired ? card(field('Deliver from', sel('crm-qv-wh', r.warehouses.map(w => [w.WarehouseID, w.Code + ' — ' + w.Name]), (r.warehouses[0] || {}).WarehouseID)) +
+          '<button id="crm-qv-order" class="w-full mt-3 rounded-xl bg-emerald-600 text-white font-semibold py-3"><i class="fa-solid fa-cart-shopping"></i> Customer accepted: send the order</button>', 'p-3') : '') +
+        (['Approved', 'Rejected'].includes(q.Status) || (q.Status === 'Draft' && q.Expired) ? '<button id="crm-qv-revise" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 font-semibold py-2.5 text-sm">Revise</button>' : '') + '</div>');
+      $('crm-qv-share').addEventListener('click', () => shareQuote(q));
+      $('crm-qv-pdf').addEventListener('click', () => downloadBlob(quotePdf(q), qNumber(q) + '.pdf'));
+      if ($('crm-qv-order')) $('crm-qv-order').addEventListener('click', async () => {
+        if (q.LeadID) return say('This quote is for a lead: the office first converts the lead to a customer (CRM → Convert to Customer). Then send the order.');
+        if (!(await dialog({ title: 'Send the order', message: 'A draft Sales Order at this quote\'s prices goes to the office to confirm.', ok: 'Send the order' }))) return;
+        api('quoteOrder', { quotationId: q.QuotationID, warehouseId: $('crm-qv-wh').value }).then(() => { toast('Order sent to the office.'); back('sales/quotes'); }, fail);
+      });
+      if ($('crm-qv-revise')) $('crm-qv-revise').addEventListener('click', () => api('quoteRun', { what: 'reviseQuotation', data: { quotationId: q.QuotationID } })
+        .then(res => { toast('Revision ' + res.revision + ' started.'); crmData = null; location.hash = 'sales/quote/' + res.quotationId; }, fail));
+    }
+    // Submit what is saved: approval where Approval Configuration sets it, else approved at once.
+    function crmQuoteSubmit(id) {
+      api('quoteRun', { what: 'submitQuotation', data: { quotationId: id } }).then(res => {
+        toast(res.status === 'Approved' ? 'Approved: no approval is needed.' : 'Sent for approval.'); crmData = null; crmQuoteForm(id);
+      }, fail);
+    }
+    async function shareQuote(q) {
+      const blob = quotePdf(q), name = qNumber(q) + '.pdf';
+      const file = typeof File === 'function' ? new File([blob], name, { type: 'application/pdf' }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: 'Quotation ' + qNumber(q), text: 'Quotation ' + qNumber(q) + ': ' + (q.CurrencyID || '') + ' ' + money(q.Total) }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      downloadBlob(blob, name);
+    }
+    // The quotation as a one-page PDF (A4), text only, as the receipt is.
+    function quotePdf(q) {
+      const W = 595, H = 842, X = 40;
+      const ops = [];
+      let y = H - 48;
+      const ansi = t => String(t == null ? '' : t).replace(/[–—−]/g, '-').replace(/[‘’]/g, "'").replace(/[^\x20-\x7e\xa0-\xff]/g, '?').replace(/([\\()])/g, '\\$1');
+      const at = (t, size, bold, x) => ops.push('BT /' + (bold ? 'F2' : 'F1') + ' ' + size + ' Tf ' + x + ' ' + y + ' Td (' + ansi(t) + ') Tj ET');
+      const line = (t, size, bold) => { at(t, size || 10, bold, X); y -= (size || 10) + 6; };
+      const right = (t, size, bold, x) => at(t, size, bold, x - String(t).length * size * 0.5);
+      line(me.Company || '', 14, true);
+      y -= 8; line('QUOTATION ' + qNumber(q), 13, true);
+      if (!['Approved', 'Accepted'].includes(q.Status)) line('DRAFT', 11, true);
+      line('Date ' + showDate(q.QuoteDate) + '    Valid until ' + showDate(q.ValidUntil), 10);
+      line('To: ' + crmParty(q).replace(/^Lead: /, ''), 11);
+      y -= 6;
+      at('Item', 9, true, X); right('Qty', 9, true, 360); right('Price', 9, true, 430); right('Disc.', 9, true, 480); right('Amount', 9, true, 555); y -= 15;
+      q.Lines.forEach(l => {
+        at(String(l.Description || l.ItemCode).slice(0, 52), 9, false, X); right(String(l.Quantity), 9, false, 360); right(money(l.UnitPrice), 9, false, 430);
+        right(Number(l.DiscountPct) ? l.DiscountPct + '%' : '', 9, false, 480); right(money(l.Amount), 9, false, 555); y -= 14;
+      });
+      y -= 6; at('Subtotal', 10, false, 400); right(money(q.Subtotal), 10, false, 555); y -= 15;
+      (q.TaxSummary || []).filter(x => x.Tax).forEach(x => { at(x.TaxCode + ' ' + x.Percent + '%', 10, false, 400); right(money(x.Tax), 10, false, 555); y -= 15; });
+      at('Total ' + (q.CurrencyID || ''), 11, true, 400); right(money(q.Total), 11, true, 555); y -= 24;
+      if (q.Terms) { line('Terms', 10, true); String(q.Terms).split(/\n/).forEach(t => line(t.slice(0, 95), 9)); }
+      y -= 10; line('Prepared by ' + (me.FullName || '') + ', sales.', 9);
+      line('This is a quotation, not an invoice.', 8);
+      return pdfOf(ops, W, H);
+    }
+    const CRM_PAGES = {
+      leads: crmLeads, lead: crmLeadForm, pipeline: crmPipeline, opp: crmOppForm, activities: crmActivities, act: crmActForm, quotes: crmQuotes,
+      quote: crmQuoteForm
+    };
 
     function pageMe() {
       const row = (k, v) => v ? '<div class="flex justify-between gap-4 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium text-right">' + esc(v) + '</span></div>' : '';
