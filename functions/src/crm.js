@@ -145,27 +145,41 @@ const historyEntry = (user, what) => ({ At: nowIso(), By: actorOf(user), What: w
 // ---------- duplicates (Q403) ----------
 const nameKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const emailKey = s => String(s || '').trim().toLowerCase();
-// The company's leads and customers that look like this lead: the same phone, email or name.
-async function duplicatesOf(companyId, lead, exceptId) {
+// A matcher for a company's leads and customers (loaded once, for a whole
+// import too, step C4): matches(lead, exceptId) lists those that look like
+// the lead: the same phone, email or name.
+async function duplicateMatcher(companyId) {
   const [leads, customers] = await Promise.all([
     LEADS().where('CompanyID', '==', companyId).get().then(s => s.docs.map(d => Object.assign({ ID: d.id }, d.data()))),
     rtdb.ref('customers').get().then(s => s.val() || {})
   ]);
-  const p = phoneKey(lead.Phone), e = emailKey(lead.Email), n = nameKey(lead.Organisation || lead.Name);
-  const why = r => [p && phoneKey(r.Phone) === p ? 'phone' : '', e && emailKey(r.Email) === e ? 'email' : '',
-    n && [nameKey(r.Organisation), nameKey(r.Name), nameKey(r.CustomerName)].includes(n) ? 'name' : ''].filter(Boolean);
-  const out = [];
-  leads.filter(l => l.ID !== exceptId && l.Status !== 'Disqualified').forEach(l => {
-    const m = why(l);
-    if (m.length) out.push({ Kind: 'Lead', ID: l.ID, Name: l.Organisation || l.Name, Match: m });
-  });
-  Object.entries(customers).forEach(([id, c]) => {
-    if (!c || c.Status === 'Inactive' || (c.CompanyID && c.CompanyID !== companyId)) return;
-    const m = why(c);
-    if (m.length) out.push({ Kind: 'Customer', ID: id, Name: c.CustomerName + (c.CustomerCode ? ' (' + c.CustomerCode + ')' : ''), Match: m });
-  });
-  return out;
+  return (lead, exceptId) => {
+    const p = phoneKey(lead.Phone), e = emailKey(lead.Email), n = nameKey(lead.Organisation || lead.Name);
+    const why = r => [p && phoneKey(r.Phone) === p ? 'phone' : '', e && emailKey(r.Email) === e ? 'email' : '',
+      n && [nameKey(r.Organisation), nameKey(r.Name), nameKey(r.CustomerName)].includes(n) ? 'name' : ''].filter(Boolean);
+    const out = [];
+    leads.filter(l => l.ID !== exceptId && l.Status !== 'Disqualified').forEach(l => {
+      const m = why(l);
+      if (m.length) out.push({ Kind: 'Lead', ID: l.ID, Name: l.Organisation || l.Name, Match: m });
+    });
+    Object.entries(customers).forEach(([id, c]) => {
+      if (!c || c.Status === 'Inactive' || (c.CompanyID && c.CompanyID !== companyId)) return;
+      const m = why(c);
+      if (m.length) out.push({ Kind: 'Customer', ID: id, Name: c.CustomerName + (c.CustomerCode ? ' (' + c.CustomerCode + ')' : ''), Match: m });
+    });
+    return out;
+  };
 }
+// The company's leads and customers that look like this lead.
+async function duplicatesOf(companyId, lead, exceptId) {
+  return (await duplicateMatcher(companyId))(lead, exceptId);
+}
+// Two leads that look alike (rows of one import, step C4): what matches.
+const sameLead = (a, b) => {
+  const p = phoneKey(a.Phone), e = emailKey(a.Email), n = nameKey(a.Organisation || a.Name);
+  return [p && phoneKey(b.Phone) === p ? 'phone' : '', e && emailKey(b.Email) === e ? 'email' : '',
+    n && [nameKey(b.Organisation), nameKey(b.Name)].includes(n) ? 'name' : ''].filter(Boolean);
+};
 
 // ---------- callables ----------
 
@@ -437,6 +451,123 @@ callable('getCrmActivitiesDueForUser', async (user, request) => {
   return out.sort((a, b) => (a.Due + a.DueTime).localeCompare(b.Due + b.DueTime));
 });
 
+// ---------- reports (step C4, Q402, Q407, Q408) ----------
+
+const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
+const dayOf = iso => String(iso || '').slice(0, 10);
+const inPeriod = (day, from, to) => Boolean(day) && (!from || day >= from) && (!to || day <= to);
+const pct = (a, b) => (b ? Math.round(a / b * 1000) / 10 : null);
+
+// The four reports from the records a user may see (pure, for the tests).
+// `rates`: { CODE: rate to base | null when there is none }; a value with
+// no rate is shown in its own currency and left out of the totals (Q407).
+function crmReports(input) {
+  const { leads, opportunities, activities, setup, base, rates, from, to, today } = input;
+  const toBase = (value, cur) => {
+    const c = String(cur || '').toUpperCase() || base;
+    if (c === base) return round2(value);
+    return rates[c] == null ? null : round2(Number(value) * rates[c]);
+  };
+  const missing = new Set();
+  const line = o => {
+    const b = toBase(o.ExpectedValue, o.Currency);
+    if (b === null) missing.add(String(o.Currency).toUpperCase());
+    return { ID: o.ID, Title: o.Title, LeadID: o.LeadID || '', CustomerID: o.CustomerID || '', Stage: o.Stage, Probability: Number(o.Probability) || 0,
+      OwnerKey: o.OwnerKey, ExpectedClose: o.ExpectedClose || '', Currency: String(o.Currency || '').toUpperCase() || base, Value: round2(o.ExpectedValue),
+      BaseValue: b, Weighted: b === null ? null : round2(b * (Number(o.Probability) || 0) / 100), Status: o.Status, LostReason: o.LostReason || '', Closed: dayOf(o.ClosedAt) };
+  };
+  // Adds a line to a group's totals (count; base value and weighted where converted).
+  const group = (map, key, l, extra) => {
+    const g = map.get(key) || Object.assign({ Key: key, Count: 0, Value: 0, Weighted: 0 }, extra || {});
+    g.Count++;
+    if (l.BaseValue !== null) { g.Value = round2(g.Value + l.BaseValue); g.Weighted = round2(g.Weighted + l.Weighted); }
+    map.set(key, g);
+    return g;
+  };
+
+  // Pipeline: the open opportunities, by stage (in the setup's order), owner and expected close month.
+  const open = opportunities.filter(o => o.Status === 'Open').map(line);
+  const byStage = new Map(setup.Stages.map(st => [st.Name, { Key: st.Name, Probability: st.Probability, Count: 0, Value: 0, Weighted: 0 }]));
+  const pOwner = new Map(), pMonth = new Map();
+  open.forEach(l => { group(byStage, l.Stage, l); group(pOwner, l.OwnerKey, l); group(pMonth, l.ExpectedClose.slice(0, 7), l); });
+  const sum = (ls, k) => round2(ls.reduce((a, l) => a + (l[k] === null ? 0 : l[k]), 0));
+  const pipeline = { lines: open, byStage: [...byStage.values()], byOwner: [...pOwner.values()],
+    byMonth: [...pMonth.values()].sort((a, b) => (a.Key || '9999').localeCompare(b.Key || '9999')),
+    total: { Count: open.length, Value: sum(open, 'BaseValue'), Weighted: sum(open, 'Weighted') } };
+
+  // Win / loss: closed in the period, by month, owner and lost reason; the win rate by count.
+  const closed = opportunities.filter(o => (o.Status === 'Won' || o.Status === 'Lost') && inPeriod(dayOf(o.ClosedAt), from, to)).map(line);
+  const wl = () => ({ Won: 0, WonValue: 0, Lost: 0, LostValue: 0 });
+  const addWl = (g, l) => {
+    const v = l.BaseValue === null ? 0 : l.BaseValue;
+    if (l.Status === 'Won') { g.Won++; g.WonValue = round2(g.WonValue + v); } else { g.Lost++; g.LostValue = round2(g.LostValue + v); }
+    g.WinRate = pct(g.Won, g.Won + g.Lost);
+  };
+  const keyed = (map, key) => { if (!map.has(key)) map.set(key, Object.assign({ Key: key }, wl())); return map.get(key); };
+  const wMonth = new Map(), wOwner = new Map(), reasons = new Map();
+  const wTotal = Object.assign({ Key: '' }, wl());
+  closed.forEach(l => {
+    addWl(wTotal, l); addWl(keyed(wMonth, l.Closed.slice(0, 7)), l); addWl(keyed(wOwner, l.OwnerKey), l);
+    if (l.Status === 'Lost') group(reasons, l.LostReason || 'Not given', l);
+  });
+  if (!closed.length) wTotal.WinRate = null;
+  const winLoss = { lines: closed, byMonth: [...wMonth.values()].sort((a, b) => a.Key.localeCompare(b.Key)), byOwner: [...wOwner.values()],
+    byReason: [...reasons.values()].sort((a, b) => b.Count - a.Count), total: wTotal };
+
+  // Activities: by owner and type, done in the period, open now and of those overdue.
+  const aMap = new Map();
+  activities.forEach(a => {
+    const key = a.OwnerKey + '|' + a.Type;
+    const g = aMap.get(key) || { OwnerKey: a.OwnerKey, Type: a.Type, Done: 0, Open: 0, Overdue: 0 };
+    if (a.Status === 'Done' && inPeriod(dayOf(a.DoneAt), from, to)) g.Done++;
+    if (a.Status === 'Open') { g.Open++; if (a.Due < today) g.Overdue++; }
+    if (g.Done || g.Open) aMap.set(key, g);
+  });
+  const aRows = [...aMap.values()].sort((a, b) => a.OwnerKey.localeCompare(b.OwnerKey) || a.Type.localeCompare(b.Type));
+  const activityReport = { rows: aRows, total: aRows.reduce((t, r) => ({ Done: t.Done + r.Done, Open: t.Open + r.Open, Overdue: t.Overdue + r.Overdue }), { Done: 0, Open: 0, Overdue: 0 }) };
+
+  // Lead sources: leads created in the period, how many converted, and the won value of their opportunities.
+  const periodLeads = leads.filter(l => inPeriod(dayOf(l.CreatedAt), from, to));
+  const sourceOf = new Map(periodLeads.map(l => [l.ID, l.Source || 'Not given']));
+  const sMap = new Map();
+  const src = k => { if (!sMap.has(k)) sMap.set(k, { Key: k, Leads: 0, Converted: 0, Won: 0, WonValue: 0 }); return sMap.get(k); };
+  periodLeads.forEach(l => { const g = src(l.Source || 'Not given'); g.Leads++; if (l.Status === 'Converted') g.Converted++; });
+  opportunities.filter(o => o.Status === 'Won').forEach(o => {
+    const k = sourceOf.get(o.LeadID || o.FromLeadID || '');
+    if (!k) return;
+    const l = line(o);
+    const g = src(k); g.Won++; g.WonValue = round2(g.WonValue + (l.BaseValue === null ? 0 : l.BaseValue));
+  });
+  const sRows = [...sMap.values()].map(g => Object.assign(g, { Conversion: pct(g.Converted, g.Leads) })).sort((a, b) => b.Leads - a.Leads || a.Key.localeCompare(b.Key));
+  const sTotal = sRows.reduce((t, r) => ({ Leads: t.Leads + r.Leads, Converted: t.Converted + r.Converted, Won: t.Won + r.Won, WonValue: round2(t.WonValue + r.WonValue) }), { Leads: 0, Converted: 0, Won: 0, WonValue: 0 });
+  sTotal.Conversion = pct(sTotal.Converted, sTotal.Leads);
+
+  return { base, from, to, today, missingRates: [...missing].sort(), pipeline, winLoss, activities: activityReport, sources: { rows: sRows, total: sTotal } };
+}
+
+// CRM → Reports (Q408): what the user may see (a manager: the company's, or one owner's).
+callable('getCrmReports', async (user, request) => {
+  await requireCap(user, 'access');
+  const d = request.data || {};
+  const companyId = text(d.companyId, 80);
+  requireCompany(user, companyId);
+  const from = isDate(d.from) ? d.from : '', to = isDate(d.to) ? d.to : '';
+  if (from && to && from > to) throw new HttpsError('invalid-argument', 'The period ends before it starts.');
+  const today = isDate(d.today) ? d.today : new Date().toISOString().slice(0, 10);
+  const [manager, keys, setup] = await Promise.all([isManager(user), myKeys(user), setupOf(companyId)]);
+  let [leads, opportunities, activities] = await Promise.all(['Lead', 'Opportunity', 'Activity'].map(k => visible(k, companyId, manager, keys)));
+  const owner = manager ? text(d.ownerKey, 120) : '';
+  if (owner) [leads, opportunities, activities] = [leads, opportunities, activities].map(list => list.filter(r => r.OwnerKey === owner));
+  // Q407: the base currency at the latest rate (today's).
+  const fx = require('./exchangeRates');
+  const b = await fx.baseCurrency();
+  const rates = {};
+  for (const code of new Set(opportunities.map(o => String(o.Currency || '').toUpperCase()).filter(c => c && c !== b.Code))) {
+    try { rates[code] = (await fx.rateOn(code, today, b)).Rate; } catch (e) { rates[code] = null; }
+  }
+  return Object.assign(crmReports({ leads, opportunities, activities, setup, base: b.Code, rates, from, to, today }), { manager, ownerKey: owner });
+});
+
 // ---------- the rep portal (step C3; essPortal.js actions) ----------
 
 // The rep as the one acting: `me` is essPortal's signed-in employee, `rep` their salesReps record.
@@ -472,3 +603,15 @@ module.exports.runForRep = runForRep;
 module.exports.DEFAULT_SETUP = DEFAULT_SETUP;
 module.exports.duplicatesOf = duplicatesOf;
 module.exports.myKeys = myKeys;
+module.exports.crmReports = crmReports;
+// Master Import's Leads (step C4, Q409-Q410): the checks, then each row saved as the form saves it.
+module.exports.duplicateMatcher = duplicateMatcher;
+module.exports.sameLead = sameLead;
+module.exports.setupOf = setupOf;
+module.exports.ownersOf = ownersOf;
+module.exports.isManager = isManager;
+module.exports.saveLeadFor = async (user, lead) => {
+  const r = await cores.saveLead(user, { data: { lead, force: true } }); // the matches were shown at the check (Q409)
+  if (!r || !r.success || !r.leadId) throw new Error('The lead could not be saved.');
+  return r.leadId;
+};

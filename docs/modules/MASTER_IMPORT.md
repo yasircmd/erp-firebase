@@ -718,3 +718,12 @@ the reported bug); the tax columns left out of `toData`; the update mode's
 check removed. Import suites 29/29, UI masterImport 5/5, masterImportUpdate
 4/4, itemUserCode 4/4. Deploy set `import-item-fix`, then screens and
 Hosting.
+
+## CRM Leads (2026-11-06, CRM step C4)
+
+A new master, **CRM Leads** (`LEAD`, last in the order, listed only for a
+user with CRM access), and Master Import's first **warnings**: a row that
+matches an existing lead or customer (or a row above it) is shown in amber
+and left out unless **Import matches too** is ticked; it never holds the
+other rows back. Details: [CRM.md](CRM.md#as-built-step-c4-reports-and-lead-import-2026-11-06)
+(decisions Q409-Q410). The other masters are unchanged.

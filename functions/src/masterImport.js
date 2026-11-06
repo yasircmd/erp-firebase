@@ -503,6 +503,27 @@ const MASTERS = {
     sample: ['FG-000001', '6291041500213', ''],
     toData: r => ({ ItemID: r.ItemID, Barcode: r.Barcode, PackQty: r.PackQty })
   },
+  // CRM leads (docs/modules/CRM.md, step C4, Q403, Q409-Q410): a row
+  // matching a lead or customer is a warning, skipped unless Import matches
+  // too is ticked; the Owner is a user ID or a sales rep's employee no.
+  LEAD: {
+    label: 'CRM Leads', module: 'CRM', capability: 'write', nameKey: null, store: { firestore: 'crmLeads' }, optional: true,
+    saveFn: async (ctx, user, data) => ({ id: await require('./crm').saveLeadFor(user, data), code: '' }),
+    note: 'One row per lead. A row whose phone, email or name matches a lead or a customer is listed as a warning and left out, unless you tick Import matches too. The Owner is a user ID or a sales rep\'s employee no.; empty, the lead is yours (only a CRM Manager names someone else).',
+    columns: [
+      C('Company', 'CompanyID', { req: true, type: 'ref', ref: 'company', note: 'Ref Code (e.g. 01) or the company\'s legal name.' }),
+      C('Organisation', 'Organisation', { note: 'The organisation or the contact name is needed.' }),
+      C('Contact Name', 'Name'),
+      C('Phone', 'Phone', { note: 'A phone or an email is needed.' }),
+      C('Email', 'Email', { type: 'email' }),
+      C('Source', 'Source', { note: 'One of the company\'s lead sources in CRM Setup.' }),
+      C('Owner', 'OwnerKey', { note: 'User ID, or a sales rep\'s employee no. Empty: you.' }),
+      C('Country', 'Country'), C('Address', 'Address'), C('Notes', 'Notes')
+    ],
+    sample: ['01', 'Example Trading LLC', 'Sam Lee', '+971 50 000 0000', 'sam@example.com', 'Exhibition', '', 'UAE', 'Dubai', 'Met at the trade fair'],
+    toData: r => ({ CompanyID: r.CompanyID, Organisation: r.Organisation, Name: r.Name, Phone: r.Phone, Email: r.Email, Source: r.Source,
+      OwnerKey: r.OwnerKey || '', Country: r.Country, Address: r.Address, Notes: r.Notes })
+  },
   USER: {
     label: 'Users', module: 'USERMGMT', save: 'saveFirebaseUser', idKey: 'userId', path: 'users', nameKey: 'username', authUser: true,
     note: 'Each user signs in with their email and the temporary password typed on this screen, then changes it (user menu → Change Password).',
@@ -519,7 +540,7 @@ const MASTERS = {
   }
 };
 const ORDER = ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'CURRENCY', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CLASSIFICATION', 'CUSTOMER',
-  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL', 'PROVOPEN', 'BARCODE'];
+  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL', 'PROVOPEN', 'BARCODE', 'LEAD'];
 
 // A master with its columns for now: Employees adds a column per active
 // extra field from HR Setup (key cf_<field id>), compulsory ones required.
@@ -725,7 +746,62 @@ async function checkPaste(user, masterKey, text, opts) {
     resolved.push({ values, data: r });
   });
   if (m.group) groupRules(masterKey, resolved, ex, add);
-  return { headers, rows: body, resolved, issues };
+  const warnings = [];
+  if (masterKey === 'LEAD') await leadRules(user, resolved, ex, add, (row, message) => warnings.push({ row, column: '', message }), opts);
+  return { headers, rows: body, resolved, issues, warnings };
+}
+
+// CRM leads (step C4): what the form checks, the owner (Q410), and the
+// matches (Q409): a warning each, the row left out (skip) unless
+// opts.importMatches. A row matching a row above in the paste counts too.
+async function leadRules(user, resolved, ex, add, warn, opts) {
+  const crm = require('./crm');
+  const manager = await crm.isManager(user);
+  const mine = await require('./crm').myKeys(user);
+  const per = {}; // company -> { setup, owners, matches }
+  const forCompany = async co => {
+    if (!per[co]) {
+      const [setup, owners, matches] = await Promise.all([crm.setupOf(co), crm.ownersOf(co), crm.duplicateMatcher(co)]);
+      per[co] = { setup, owners, matches };
+    }
+    return per[co];
+  };
+  const users = ex.raw.users || {}, emps = ex.raw.employees || {};
+  const ownerKeyOf = raw => {
+    const n = norm(raw);
+    const u = Object.keys(users).filter(uid => norm(users[uid].username) === n || norm(uid) === n);
+    const e = Object.keys(emps).filter(id => norm(emps[id].EmployeeNo) === n);
+    return u.map(x => 'U:' + x).concat(e.map(x => 'E:' + x));
+  };
+  const above = [];
+  for (let i = 0; i < resolved.length; i++) {
+    const rowNo = i + 1;
+    const r = resolved[i].data;
+    if (!r.Name && !r.Organisation) add(rowNo, 'Organisation', 'Give the organisation or the contact name.');
+    if (!r.Phone && !r.Email) add(rowNo, 'Phone', 'Give a phone or an email, so the lead can be reached.');
+    const co = typeof r.CompanyID === 'string' ? r.CompanyID : '';
+    if (!co || !userCanAccessCompany(user.profile, co)) continue; // already an issue
+    const c = await forCompany(co);
+    if (r.Source && !c.setup.LeadSources.includes(r.Source)) {
+      const hit = c.setup.LeadSources.find(x => norm(x) === norm(r.Source));
+      if (hit) r.Source = hit; else add(rowNo, 'Source', '"' + r.Source + '" is not a lead source of this company (CRM Setup): ' + c.setup.LeadSources.join(', ') + '.');
+    }
+    const ownerRaw = r.OwnerKey; // as typed; becomes the owner's key (U:uid / E:employee)
+    r.OwnerKey = '';
+    if (ownerRaw) {
+      const keys = ownerKeyOf(ownerRaw).filter(k => c.owners.some(o => o.Key === k));
+      if (keys.length !== 1) add(rowNo, 'Owner', keys.length ? '"' + ownerRaw + '" matches more than one person.' : '"' + ownerRaw + '" is not a user or sales rep who can hold CRM records in this company.');
+      else if (!mine.includes(keys[0]) && !manager) add(rowNo, 'Owner', 'Only a CRM Manager can give a lead to someone else.');
+      else r.OwnerKey = keys[0];
+    }
+    const found = c.matches(r).map(d => (d.Kind === 'Lead' ? 'lead ' : 'customer ') + d.Name + ' (' + d.Match.join(', ') + ')');
+    above.forEach(a => { if (a.co === co) { const m = crm.sameLead(r, a.r); if (m.length) found.push('row ' + a.row + ' (' + m.join(', ') + ')'); } });
+    above.push({ co, r, row: rowNo });
+    if (found.length) {
+      resolved[i].skip = !opts.importMatches;
+      warn(rowNo, 'Matches ' + found.join('; ') + (resolved[i].skip ? '. Left out.' : '. Imported anyway.'));
+    }
+  }
 }
 
 // The rows of one BOM / price list: in first-appearance order, each
@@ -1047,7 +1123,7 @@ const counterOfCode = code => require('./numbering').counterPathOfCode(code);
 
 // What to save, unit by unit: a row, or the rows of one BOM / price list.
 function unitsOf(m, resolved) {
-  return m.group ? groupsOf(m, resolved).map(g => g.rows) : resolved.map((o, i) => [i]);
+  return m.group ? groupsOf(m, resolved).map(g => g.rows) : resolved.map((o, i) => [i]).filter(([i]) => !resolved[i].skip);
 }
 
 // Puts the ids of records created earlier in this run into a row ({ row }).
@@ -1424,8 +1500,11 @@ exports.getMasterImportSpecs = onCallWithMessages({ region: 'us-central1' }, asy
   const user = await requireUser(request);
   await requireImportAccess(user);
   const masters = await Promise.all(ORDER.map(masterFor));
+  // An optional module's master (CRM Leads) only for a user with access to it.
+  const shown = await Promise.all(masters.map(m => !m.optional || moduleHasCapability(m.module, 'access', user.profile.role)));
   return ORDER.map((k, i) => {
     const m = masters[i];
+    if (!shown[i]) return null;
     return {
       key: k, label: m.label, note: m.note || '', sample: m.sample || [], needsPassword: Boolean(m.authUser),
       columns: m.columns.map(c => ({ header: c.h, required: Boolean(c.req), note: c.note || '',
@@ -1434,7 +1513,7 @@ exports.getMasterImportSpecs = onCallWithMessages({ region: 'us-central1' }, asy
       update: UPDATES[k] ? { key: UPDATES[k].key.h, note: UPDATES[k].note,
         columns: updateColumns(m, UPDATES[k]).map(c => ({ header: c.h, note: c.note || '', values: c.values ? c.values.map(v => v.label) : (c.type === 'yesno' ? ['Yes', 'No'] : []) })) } : null
     };
-  });
+  }).filter(Boolean);
 });
 
 // Checks a paste (nothing is written).
@@ -1446,8 +1525,8 @@ exports.checkMasterImport = onCallWithMessages(onCallOptions, async (request) =>
     const c = await checkUpdate(user, String(d.master || ''), d.text);
     return { headers: c.headers, rows: c.rows, issues: c.issues, changes: c.resolved.map(o => o.changes) };
   }
-  const c = await checkPaste(user, String(d.master || ''), d.text, { tempPassword: d.tempPassword });
-  return { headers: c.headers, rows: c.rows, issues: c.issues };
+  const c = await checkPaste(user, String(d.master || ''), d.text, { tempPassword: d.tempPassword, importMatches: d.importMatches === true });
+  return { headers: c.headers, rows: c.rows, issues: c.issues, warnings: c.warnings, skipped: c.resolved.filter(o => o.skip).length };
 });
 
 // Checks again, then imports, all or nothing.
@@ -1466,7 +1545,7 @@ exports.runMasterImport = onCallWithMessages(onCallOptions, async (request) => {
     if (result.failure) return { success: false, updated: 0, issues: [{ row: result.failure.row, column: '', message: result.failure.message + ' Nothing was changed.' }] };
     return { success: true, rows: c.resolved.length, updated: result.updated };
   }
-  const opts = { tempPassword: String(d.tempPassword || '') };
+  const opts = { tempPassword: String(d.tempPassword || ''), importMatches: d.importMatches === true };
   const c = await checkPaste(user, masterKey, d.text, opts);
   if (c.issues.length) return { success: false, issues: c.issues, created: 0 };
   const result = await importRows(request, user, masterKey, c.resolved, opts);
@@ -1479,7 +1558,7 @@ exports.runMasterImport = onCallWithMessages(onCallOptions, async (request) => {
   if (result.failure) {
     return { success: false, created: 0, issues: [{ row: result.failure.row, column: '', message: result.failure.message + ' Nothing was imported.' }] };
   }
-  return { success: true, rows: c.resolved.length, created: result.created.length, codes: result.created.map(x => x.code).filter(Boolean) };
+  return { success: true, rows: c.resolved.length, created: result.created.length, skipped: c.resolved.filter(o => o.skip).length, codes: result.created.map(x => x.code).filter(Boolean) };
 });
 
 // Copy current records (decision 10): the master's records in the user's

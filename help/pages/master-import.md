@@ -5,8 +5,8 @@ order: 9
 modules: [MASTERIMPORT]
 sources: [functions/src/masterImport.js]
 summary: Add or update ERP masters, employee records, opening balances and item barcodes from an Excel paste.
-reviewed: 2026-11-02
-fingerprint: 6bb872390de374bb
+reviewed: 2026-11-06
+fingerprint: f5cb75eff1cdaff7
 ---
 ## What it is for
 
@@ -22,6 +22,7 @@ In **Add new** mode, the import list follows this order because later records ca
 4. **Fixed assets and inventory:** Fixed Asset Classes; Fixed Asset Master; Bill of Materials; Inventory Valuation List; Price Lists.
 5. **Access and HR:** Users; Employees; Leave Opening Balances; Payroll Provision Opening Balances.
 6. **Item identification:** Item Barcodes.
+7. **CRM:** CRM Leads (shown when you have access to [CRM](crm.html)).
 
 Some imports use more than one row for a logical record: use one row per BOM component and one row per price-list line. Repeat the BOM or price-list details on its rows. A price-list import can add lines to an existing list; a new list also needs its currency and any classification mapping.
 
@@ -65,6 +66,7 @@ This import does **not** load GL opening balances, opening stock or vendor/custo
 - **Leave Opening Balances:** import one row per employee and balance-based leave type. The date is the balance date; entitlement accrues from the following day. Correct an existing opening with an adjustment on the employee's leave card.
 - **Payroll Provision Opening Balances:** import the employee's provision amount through the date shown. This is a balance already represented in the GL, not a new posting; later payroll runs provide only the change.
 - **Tax fields:** Items take a **Tax Code** and **HSN / SAC**, both when adding and when updating, checked as Item Master checks them (a tax code is up to 12 letters, digits or _; an HSN is 4, 6 or 8 digits, a service's SAC 6 digits starting 99); Vendors and Customers a **Tax Registration Type** and **State / Emirate** (a GST state code such as 27, or an emirate code such as DXB), with their **City** and **PIN / Postal Code**. A registered party in India's GSTIN is checked against its state, as in the master screens.
+- **CRM Leads:** one row per lead, with its **Company**, the organisation or the contact name, and a phone or an email, as [New Lead](crm.html#leads) asks. **Source** is one of the company's lead sources in CRM Setup. **Owner** is a user ID or a sales rep's employee no.; left empty, the lead is yours, and only a CRM Manager can name someone else. A row whose phone, email or name matches an existing lead or customer, or a row above it in the paste, is listed under **Warnings** and left out of the import; tick **Import matches too** to import those rows as well (the paste is checked again). Warnings do not hold the import back: the other rows import.
 - **Item Barcodes:** import one row per barcode. A barcode can represent a pack quantity; leave Pack Qty empty for one item unit. Existing barcodes are changed or removed in Item Master.
 
 ## What happens in the books

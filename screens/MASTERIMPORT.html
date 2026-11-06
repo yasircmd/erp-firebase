@@ -58,6 +58,14 @@
     </div>
   </div>
 
+  <div id="mimp-warnings-wrap" class="hidden bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div class="text-sm font-semibold text-amber-300"><i class="fa-solid fa-circle-exclamation"></i> <span id="mimp-warnings-title">Warnings</span></div>
+      <label class="flex items-center gap-2 text-xs text-slate-300"><input id="mimp-import-matches" type="checkbox"> Import matches too</label>
+    </div>
+    <ul id="mimp-warnings" class="text-xs text-amber-200 space-y-1"></ul>
+  </div>
+
   <div id="mimp-issues-wrap" class="hidden bg-red-500/5 border border-red-500/20 rounded-xl p-4">
     <div class="text-sm font-semibold text-red-300 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> <span id="mimp-issues-title">Issues</span></div>
     <ul id="mimp-issues" class="text-xs text-red-200 space-y-1"></ul>
@@ -97,6 +105,7 @@
     const spec = current();
     el('mimp-copy-headers').disabled = el('mimp-copy-sample').disabled = !spec;
     if (!(spec && spec.update)) el('mimp-mode-add').checked = true;
+    el('mimp-import-matches').checked = false;
     el('mimp-mode-wrap').classList.toggle('hidden', !(spec && spec.update));
     const upd = updating();
     el('mimp-copy-records').classList.toggle('hidden', !upd);
@@ -120,8 +129,16 @@
     el('mimp-import').disabled = true;
     el('mimp-preview-wrap').classList.add('hidden');
     el('mimp-issues-wrap').classList.add('hidden');
+    el('mimp-warnings-wrap').classList.add('hidden');
     setStatus('');
   }
+  // Warnings (CRM Leads, Q409): a row matching a lead or customer, left out unless Import matches too is ticked.
+  function renderWarnings(warnings) {
+    el('mimp-warnings-wrap').classList.toggle('hidden', !warnings.length);
+    el('mimp-warnings-title').textContent = warnings.length === 1 ? '1 row matches an existing record' : warnings.length + ' rows match existing records';
+    el('mimp-warnings').innerHTML = warnings.map(w => `<li>Row ${w.row}: ${escapeHtml(w.message)}</li>`).join('');
+  }
+  const skippedText = n => (n ? ', ' + n + (n === 1 ? ' match' : ' matches') + ' left out' : '');
 
   function copy(text, btn) {
     const original = btn.innerHTML;
@@ -164,6 +181,7 @@
         }).join('') + '</tr>';
     }).join('');
     renderIssues(issues);
+    renderWarnings(result.warnings || []);
   }
   function renderIssues(issues) {
     el('mimp-issues-wrap').classList.toggle('hidden', !issues.length);
@@ -196,18 +214,19 @@
         }
         checkedText = text;
         el('mimp-import').disabled = false;
-        setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked, no issues. Ready to import.', 'ok');
+        if (result.skipped && result.skipped === n) { checkedText = null; el('mimp-import').disabled = true; setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked: every row matches an existing record, so nothing would be imported. Tick Import matches too to import them.', 'error'); return; }
+        setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked, no issues' + skippedText(result.skipped) + '. Ready to import.', 'ok');
       })
       .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to check.'); })
-      .checkMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value, mode: updating() ? 'update' : 'add' });
+      .checkMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value, mode: updating() ? 'update' : 'add', importMatches: el('mimp-import-matches').checked });
   }
 
   async function doImport() {
     const spec = current();
     const text = el('mimp-paste').value;
     if (!spec || checkedText === null || text !== checkedText) { appAlert('Check the paste again before importing.'); el('mimp-import').disabled = true; return; }
-    const n = el('mimp-preview-body').rows.length;
     const upd = updating();
+    const n = el('mimp-preview-body').rows.length - (upd ? 0 : (el('mimp-import-matches').checked ? 0 : el('mimp-warnings').children.length));
     if (!(await appConfirm(upd ? 'Update ' + spec.label + ' from ' + n + (n === 1 ? ' row' : ' rows') + '?' : 'Import ' + n + (n === 1 ? ' row' : ' rows') + ' into ' + spec.label + '?'))) return;
     el('mimp-import').disabled = true; el('mimp-check').disabled = true;
     setStatus('Importing...');
@@ -224,13 +243,15 @@
         el('mimp-paste').value = '';
         el('mimp-preview-wrap').classList.add('hidden');
         el('mimp-issues-wrap').classList.add('hidden');
+        el('mimp-warnings-wrap').classList.add('hidden');
         if (upd) { setStatus(result.updated + (result.updated === 1 ? ' record' : ' records') + ' updated in ' + spec.label + '.', 'ok'); return; }
         const codes = result.codes && result.codes.length ? ' Codes given: ' + result.codes[0] + (result.codes.length > 1 ? ' to ' + result.codes[result.codes.length - 1] : '') + '.' : '';
         el('mimp-password').value = '';
-        setStatus(result.rows + (result.rows === 1 ? ' row' : ' rows') + ' imported into ' + spec.label + '.' + codes, 'ok');
+        const made = result.rows - (result.skipped || 0);
+        setStatus(made + (made === 1 ? ' row' : ' rows') + ' imported into ' + spec.label + skippedText(result.skipped) + '.' + codes, 'ok');
       })
       .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to import.'); })
-      .runMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value, mode: upd ? 'update' : 'add' });
+      .runMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value, mode: upd ? 'update' : 'add', importMatches: el('mimp-import-matches').checked });
   }
 
   window.initModule = function () {
@@ -252,6 +273,8 @@
     el('mimp-copy-sample').addEventListener('click', e => { const s = current(); if (s) copy(s.columns.map(c => c.header).join('\t') + '\n' + s.sample.join('\t'), e.currentTarget); });
     el('mimp-paste').addEventListener('input', () => { if (checkedText !== null && el('mimp-paste').value !== checkedText) resetResult(); });
     el('mimp-password').addEventListener('input', () => { if (checkedText !== null) resetResult(); });
+    // Ticking or unticking changes which rows import: check again.
+    el('mimp-import-matches').addEventListener('change', () => { if (el('mimp-paste').value.trim()) check(); });
     el('mimp-check').addEventListener('click', check);
     el('mimp-import').addEventListener('click', doImport);
     el('mimp-clear').addEventListener('click', () => { el('mimp-paste').value = ''; resetResult(); });

@@ -366,7 +366,7 @@ exports.getProjectBudgetReport = require('./src/budget').getProjectBudgetReport;
 // Customer credit control, step C1 (docs/modules/CREDIT_CONTROL.md).
 ['getCreditControl', 'saveCreditLimit', 'setCreditHold', 'saveCreditSetup'].forEach(n => { exports[n] = require('./src/creditControl')[n]; });
 // CRM, step C1 (docs/modules/CRM.md).
-['getCrm', 'saveCrmSetup', 'saveLead', 'disqualifyLead', 'convertLead', 'saveOpportunity', 'setOpportunityStage', 'saveActivity', 'closeActivity', 'reassignCrm', 'getCrmActivitiesDueForUser'].forEach(n => { exports[n] = require('./src/crm')[n]; });
+['getCrm', 'saveCrmSetup', 'saveLead', 'disqualifyLead', 'convertLead', 'saveOpportunity', 'setOpportunityStage', 'saveActivity', 'closeActivity', 'reassignCrm', 'getCrmActivitiesDueForUser', 'getCrmReports'].forEach(n => { exports[n] = require('./src/crm')[n]; });
 // CRM step C2: quotations.
 ['getQuotations', 'getQuotationPriceList', 'saveQuotation', 'deleteQuotationDraft', 'submitQuotation', 'decideQuotationApproval', 'reviseQuotation', 'markQuotationOrdered'].forEach(n => { exports[n] = require('./src/quotations')[n]; });
 // Bank reconciliation, step R1 (docs/modules/RECONCILIATION.md).
