@@ -332,5 +332,10 @@ each step; What's new at each release.
   quote test fails). The UI test also found two real faults, fixed: the
   quote form lost the chosen customer when a line was added, and an order
   from a quote had no warehouse to deliver from.
+- **Results:** full emulator regression all passed but essPortal "who is
+  away today" (date-dependent, fails on main too); unit 224/224; UI crmPortal
+  4/4, salesRepPortal 8/8, essRequests, essClaims, crm 6/6, quotation 6/6,
+  home 19/19, help 7/7, smoke 123/123; essPortal UI 2 failures that fail the
+  same on main (date-dependent: the Team badge).
 - **Deploy:** `crm-c3` (26 functions; no new function, no screens), then
   Hosting.
