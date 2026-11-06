@@ -85,7 +85,7 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="pdc-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
       <div class="grow-2"><label id="pdc-party-label" class="block text-xs font-medium text-slate-300 mb-1">Party</label><select id="pdc-form-party" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select></div>
       <div class="entry-date"><label id="pdc-date-label" class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="pdc-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-      <div id="pdc-bank-wrap" class="hidden grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Bank Account</label><select id="pdc-form-bank" title="our account the cheques are drawn on" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select></div>
+      <div id="pdc-bank-wrap" class="hidden grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Bank Account</label><select id="pdc-form-bank" title="our account the cheques are drawn on" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select><p id="pdc-bank-hint" class="hidden entry-hint text-slate-400"></p></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input type="text" id="pdc-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
     </div>
   </div>
@@ -416,6 +416,7 @@
     bank.innerHTML = '<option value="">' + (setupCompany ? 'Select...' : 'Select a company first') + '</option>';
     setup.bankAccounts.forEach(a => { const o = document.createElement('option'); o.value = a.AccountID; o.textContent = a.AccountCode + ' — ' + a.AccountName; bank.appendChild(o); });
     bank.value = keepBank || '';
+    showPdcBankHint();
 
     const note = document.getElementById('pdc-setup-note');
     const missing = setupCompany && !setup.clearingConfigured;
@@ -959,6 +960,7 @@
     show('pdc-cancel-btn', status === 'Pending' && canPost);
     show('pdc-undo-btn', status === 'Cleared' && canPost);
     show('pdc-print-btn', Boolean(current && current.TransactionNumber));
+    if (current && window.bankDetails) window.bankDetails.load(current.CompanyID); // for the voucher's bank line
     renderCheques();
   }
 
@@ -992,8 +994,18 @@
 
   // A cheque receipt (received) or a cheque voucher (issued): for the whole
   // entry, every cheque in it, under the entry's number.
+  // Our bank account's details (Chart of Accounts → Bank details; UX round 3 item 8): under the
+  // account the cheques are drawn on (issued), and on the voucher: that account, or the account a
+  // received cheque was deposited to.
+  function showPdcBankHint() {
+    const el = document.getElementById('pdc-bank-hint');
+    if (!window.bankDetails || RECEIVED) return;
+    window.bankDetails.hint(document.getElementById('pdc-form-company').value, document.getElementById('pdc-form-bank').value, el);
+  }
+  // Printed on the click (the print styles depend on it): the details were fetched when the entry opened.
   function printVoucher() {
     if (!current) return;
+    const ourBank = window.bankDetails ? window.bankDetails.entryLineNow(current.CompanyID, RECEIVED ? current.DepositAccountID : current.BankAccountID) : '';
     const company = companies.find(c => c.CompanyID === current.CompanyID);
     const group = entryCheques().length ? entryCheques() : [current];
     const many = group.length > 1;
@@ -1019,6 +1031,7 @@
       <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>No: <strong>${escapeHtml(many ? current.EntryNumber : current.TransactionNumber)}</strong></span><span>Date: <strong>${escapeHtml(current.TransactionDate)}</strong></span></div>
       <p style="font-size:11px; margin:4px 0;">${RECEIVED ? 'Received from' : 'Issued to'}: <strong>${escapeHtml(current.PartyName)}</strong></p>
       ${chequeTable}
+      ${ourBank ? '<p class="pdc-print-ourbank" style="font-size:10px; margin:4px 0;">' + (RECEIVED ? 'Deposited to' : 'Drawn on') + ': ' + escapeHtml(ourBank) + '</p>' : ''}
       <p style="font-size:11px; margin: 8px 0;">Description: ${escapeHtml(current.Description)}</p>
       ${rows || advance > 0.005 ? `<table><thead><tr><th>Against</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}${advance > 0.005 ? `<tr><td>On account (advance)</td><td style="text-align:right">${formatMoney(advance)}</td></tr>` : ''}</tbody></table>` : ''}
       <p style="font-size:10px; margin-top:12px;">${RECEIVED ? (many ? 'Subject to realisation of each cheque on or after its date.' : 'Subject to realisation of the cheque on or after its date.') : ''}</p>
@@ -1107,6 +1120,7 @@
     document.getElementById('pdc-approve-btn').addEventListener('click', () => decide('Approved'));
     document.getElementById('pdc-reject-btn').addEventListener('click', () => decide('Rejected'));
     document.getElementById('pdc-print-btn').addEventListener('click', printVoucher);
+    document.getElementById('pdc-form-bank').addEventListener('change', showPdcBankHint);
     document.getElementById('pdc-gl-modal-close').addEventListener('click', closeGlImpact);
     document.getElementById('pdc-gl-modal').addEventListener('click', e => { if (e.target.id === 'pdc-gl-modal') closeGlImpact(); });
 

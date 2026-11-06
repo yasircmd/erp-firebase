@@ -6,7 +6,7 @@ modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
 reviewed: 2026-11-06
-fingerprint: 6b2e8fddcd6ed20a
+fingerprint: 8ef74fec2ecd3754
 ---
 ## What it is for
 
@@ -89,7 +89,7 @@ revenue is the price less that tax.
 
 Posting credits each component to its own output account (Tax
 Configuration), and records the codes as used, so they can no longer be
-removed there. The printed invoice shows each line's rate and tax (with the
+removed there. The printed invoice ends with the company's bank details where they are set to print ([Bank details](chart-of-accounts.html#bank-details)). It shows each line's rate and tax (with the
 HSN / SAC code under GST), a summary by code with each component, and the
 place of supply. A posted invoice keeps the codes and rates it was posted
 with, whatever changes later.

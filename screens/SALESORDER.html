@@ -917,7 +917,11 @@
         btn.disabled = false;
         currentSo.ProformaNumber = r.proformaNumber;
         buildProformaDocument();
-        window.print();
+        // The company's bank details where they are set to print (UX round 3 item 8).
+        (window.bankDetails ? window.bankDetails.printBlock(currentSo.CompanyID) : Promise.resolve('')).then(bank => {
+          if (bank) document.getElementById('so-print-document').insertAdjacentHTML('beforeend', bank);
+          window.print();
+        });
       })
       .withFailureHandler(err => { btn.disabled = false; appAlert(err.message || String(err)); })
       .issueProformaNumber({ soId: currentSo.SOID });

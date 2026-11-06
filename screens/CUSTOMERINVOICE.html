@@ -1639,7 +1639,13 @@
     document.getElementById('cinv-reverse-btn').addEventListener('click', reverseEntry);
     document.getElementById('cinv-approve-btn').addEventListener('click', () => decide('Approved'));
     document.getElementById('cinv-reject-btn').addEventListener('click', () => decide('Rejected'));
-    document.getElementById('cinv-print-btn').addEventListener('click', () => { buildPrintDocumentCINV(); window.print(); });
+    // The company's bank details where they are set to print (Chart of Accounts → Bank details; UX round 3 item 8).
+    document.getElementById('cinv-print-btn').addEventListener('click', async () => {
+      buildPrintDocumentCINV();
+      const bank = window.bankDetails && currentInvoice ? await window.bankDetails.printBlock(currentInvoice.CompanyID) : '';
+      if (bank) document.getElementById('cinv-print-document').insertAdjacentHTML('beforeend', bank);
+      window.print();
+    });
     document.getElementById('cinv-gl-impact-btn').addEventListener('click', openGlImpact);
     document.getElementById('cinv-gl-modal-close').addEventListener('click', closeGlImpact);
     document.getElementById('cinv-gl-modal').addEventListener('click', e => { if (e.target.id === 'cinv-gl-modal') closeGlImpact(); });

@@ -3,10 +3,10 @@ title: Chart of Accounts
 area: finance
 order: 1
 modules: [COA]
-sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js]
+sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js, functions/src/bankDetails.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
-reviewed: 2026-11-02
-fingerprint: cafeb7f838edb570
+reviewed: 2026-11-06
+fingerprint: 91100c90cbb24ade
 ---
 ## What it is for
 
@@ -139,6 +139,26 @@ On a postable account, **Default tax code** (optional) is the
 direct lines on the account take, for example a blocked code on an
 entertainment account. A line may still be given another code with Vendor
 Invoice's change tax code right.
+
+## Bank details
+
+A postable bank account has **Bank details** beside its name. Open it to
+record the bank's name, branch, account holder, account number, IBAN, SWIFT
+/ BIC, currency and a note, and two switches:
+
+- **Print on invoices, proformas and quotations**: the details are printed
+  at the foot of the company's [Customer Invoice](customer-invoice.html),
+  [Proforma Invoice](sales-order.html#proforma-invoice) and
+  [Quotation](quotation.html), so the customer knows where to pay. A
+  company with several banks ticks the ones to print.
+- **Show in Cash & Bank and PDC**: the details appear under the bank
+  account when it is chosen in [Cash & Bank](cash-and-bank.html) and
+  [PDC](post-dated-cheques.html), and on their prints.
+
+A shared bank account (All Companies) counts for every company. The IBAN
+and SWIFT are checked and kept without spaces. For example: *Example
+Bank, Main Street, A/c 1012345678, IBAN AE070331234567890123456, SWIFT
+EXMPAEAD*.
 
 ## Good to know
 

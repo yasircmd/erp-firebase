@@ -6,7 +6,7 @@ modules: [SALESORDER]
 sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js, functions/src/salesOrderClose.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
 reviewed: 2026-11-06
-fingerprint: 6eae931f336dfd2e
+fingerprint: 2fc98efe83b94c06
 ---
 ## What it is for
 
@@ -93,7 +93,8 @@ someone with the right to override may go ahead with a reason.
 
 ## Proforma Invoice
 
-**Proforma Invoice** (at the top of a saved order) prints the order for the
+**Proforma Invoice** (at the top of a saved order) prints, with the company's
+[bank details](chart-of-accounts.html#bank-details) set to print, the order for the
 customer, or saves it as a PDF from the print dialog, for example for an
 advance payment or a letter of credit. It posts nothing and is not a tax
 invoice.

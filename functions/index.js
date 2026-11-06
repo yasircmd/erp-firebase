@@ -366,6 +366,8 @@ exports.getProjectBudgetReport = require('./src/budget').getProjectBudgetReport;
 // Customer credit control, step C1 (docs/modules/CREDIT_CONTROL.md).
 ['getCreditControl', 'saveCreditLimit', 'setCreditHold', 'saveCreditSetup'].forEach(n => { exports[n] = require('./src/creditControl')[n]; });
 // CRM, step C1 (docs/modules/CRM.md).
+// Bank account details (UX round 3 item 8, docs/modules/UX_ROUND3.md).
+['getBankDetails', 'saveBankDetails', 'getBankDetailsForCompany'].forEach(n => { exports[n] = require('./src/bankDetails')[n]; });
 ['getCrm', 'saveCrmSetup', 'saveLead', 'disqualifyLead', 'convertLead', 'saveOpportunity', 'setOpportunityStage', 'saveActivity', 'closeActivity', 'reassignCrm', 'getCrmActivitiesDueForUser', 'getCrmReports'].forEach(n => { exports[n] = require('./src/crm')[n]; });
 // CRM step C2: quotations.
 ['getQuotations', 'getQuotationPriceList', 'saveQuotation', 'deleteQuotationDraft', 'submitQuotation', 'decideQuotationApproval', 'reviseQuotation', 'markQuotationOrdered'].forEach(n => { exports[n] = require('./src/quotations')[n]; });

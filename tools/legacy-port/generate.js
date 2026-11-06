@@ -1135,6 +1135,59 @@ const SCREEN_EDITS = [
     to: "if (result.success) { permissions = rebuilt; permDirty = false; }" },
   { mod: 'ROLES', from: "    document.getElementById('perm-save-btn').addEventListener('click', savePermissions);\n",
     to: "    document.getElementById('perm-save-btn').addEventListener('click', savePermissions);\n    document.getElementById('perm-table-body').addEventListener('change', e => { if (e.target.matches('input[type=\"checkbox\"]')) permDirty = true; });\n    window.hasUnsavedChanges = () => permDirty;\n" },
+  // UX round 3 item 8 (owner, 2026-11-06; Q413): a bank account's details —
+  // the bank, the account number, IBAN, SWIFT — and whether they are printed on
+  // invoices and shown in Cash & Bank / PDC (bankDetails.js).
+  { mod: 'COA', from: "<td class=\"py-3 px-4 text-slate-200\">${escapeHtml(a.AccountName)}${a.Currency ?",
+    to: "<td class=\"py-3 px-4 text-slate-200\">${escapeHtml(a.AccountName)}${a.IsPostable === true && a.CashBank === 'Bank' ? ' <button type=\"button\" class=\"coa-bank ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded border border-slate-600 text-slate-300 hover:text-blue-300\" title=\"The bank\\'s details: printed on invoices, shown in Cash & Bank\"><i class=\"fa-solid fa-building-columns\"></i> Bank details</button>' : ''}${a.Currency ?" },
+  { mod: 'COA', from: "        row.querySelector('.coa-toggle').addEventListener('click', () => toggleStatus(a));\n      }\n",
+    to: "        row.querySelector('.coa-toggle').addEventListener('click', () => toggleStatus(a));\n      }\n      const bankBtn = row.querySelector('.coa-bank');\n      if (bankBtn) bankBtn.addEventListener('click', () => openBankDetails(a));\n" },
+  { mod: 'COA', from: "<div id=\"coa-modal\" class=\"fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50\">",
+    to: "<div id=\"coa-bank-modal\" class=\"fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50\">\n" +
+      "  <div class=\"bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-lg space-y-3\">\n" +
+      "    <div class=\"flex items-center justify-between border-b border-slate-700 pb-3\"><h3 id=\"coa-bank-title\" class=\"text-lg font-bold\">Bank details</h3><button type=\"button\" id=\"coa-bank-close\" class=\"text-slate-400 hover:text-slate-200\"><i class=\"fa-solid fa-xmark text-lg\"></i></button></div>\n" +
+      "    <div class=\"grid grid-cols-2 gap-3\">\n" +
+      "      <div class=\"col-span-2\"><label class=\"block text-xs font-medium text-slate-300 mb-1\">Bank name</label><input id=\"coa-bank-BankName\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">Branch</label><input id=\"coa-bank-Branch\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">Account holder</label><input id=\"coa-bank-AccountHolder\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">Account number</label><input id=\"coa-bank-AccountNumber\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">Currency</label><input id=\"coa-bank-Currency\" maxlength=\"3\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">IBAN</label><input id=\"coa-bank-IBAN\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">SWIFT / BIC</label><input id=\"coa-bank-SWIFT\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <div class=\"col-span-2\"><label class=\"block text-xs font-medium text-slate-300 mb-1\">Notes</label><input id=\"coa-bank-Notes\" class=\"coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"></div>\n" +
+      "      <label class=\"col-span-2 flex items-center gap-2 text-sm\"><input id=\"coa-bank-print\" type=\"checkbox\" class=\"coa-bank-f\"> Print on invoices, proformas and quotations</label>\n" +
+      "      <label class=\"col-span-2 flex items-center gap-2 text-sm\"><input id=\"coa-bank-show\" type=\"checkbox\" class=\"coa-bank-f\"> Show in Cash & Bank and PDC</label>\n" +
+      "    </div>\n" +
+      "    <div class=\"flex justify-end gap-2\"><button type=\"button\" id=\"coa-bank-cancel\" class=\"px-4 py-2 bg-slate-700 rounded-lg text-xs\">Close</button><button type=\"button\" id=\"coa-bank-save\" class=\"px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white\"><i class=\"fa-solid fa-floppy-disk\"></i> Save</button></div>\n" +
+      "  </div>\n</div>\n<div id=\"coa-modal\" class=\"fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50\">" },
+  { mod: 'COA', from: "  window.initModule = function (idToken, writeAllowed) {\n",
+    to: "  // ---------- a bank account's details (UX round 3 item 8) ----------\n" +
+      "  const BANK_FIELDS = ['BankName', 'Branch', 'AccountHolder', 'AccountNumber', 'Currency', 'IBAN', 'SWIFT', 'Notes'];\n" +
+      "  let bankAccountId = '';\n" +
+      "  function openBankDetails(a) {\n" +
+      "    bankAccountId = a.AccountID;\n" +
+      "    document.getElementById('coa-bank-title').textContent = 'Bank details: ' + a.AccountCode + ' ' + a.AccountName;\n" +
+      "    rpc.withSuccessHandler(d => {\n" +
+      "      BANK_FIELDS.forEach(k => { document.getElementById('coa-bank-' + k).value = d[k] || ''; });\n" +
+      "      document.getElementById('coa-bank-print').checked = d.PrintOnInvoices === true;\n" +
+      "      document.getElementById('coa-bank-show').checked = d.ShowInEntries === true;\n" +
+      "      document.querySelectorAll('.coa-bank-f').forEach(el => { el.disabled = !canWrite; });\n" +
+      "      document.getElementById('coa-bank-save').classList.toggle('hidden', !canWrite);\n" +
+      "      document.getElementById('coa-bank-modal').classList.remove('hidden');\n" +
+      "    }).withFailureHandler(err => appAlert(err.message)).getBankDetails({ accountId: a.AccountID });\n" +
+      "  }\n" +
+      "  function saveBankDetails() {\n" +
+      "    const details = { PrintOnInvoices: document.getElementById('coa-bank-print').checked, ShowInEntries: document.getElementById('coa-bank-show').checked };\n" +
+      "    BANK_FIELDS.forEach(k => { details[k] = document.getElementById('coa-bank-' + k).value; });\n" +
+      "    rpc.withSuccessHandler(() => {\n" +
+      "      document.getElementById('coa-bank-modal').classList.add('hidden');\n" +
+      "      if (window.bankDetails) window.bankDetails.forget();\n" +
+      "      appAlert('Bank details saved.');\n" +
+      "    }).withFailureHandler(err => appAlert(err.message)).saveBankDetails({ accountId: bankAccountId, details });\n" +
+      "  }\n\n" +
+      "  window.initModule = function (idToken, writeAllowed) {\n" +
+      "    ['coa-bank-close', 'coa-bank-cancel'].forEach(id => document.getElementById(id).addEventListener('click', () => document.getElementById('coa-bank-modal').classList.add('hidden')));\n" +
+      "    document.getElementById('coa-bank-save').addEventListener('click', saveBankDetails);\n" },
   // Item 4: a Find box on the list (name, parent category, company).
   { mod: 'ITEMSUBCAT', from: "  <div class=\"bg-slate-800 border border-slate-700 rounded-xl overflow-hidden\">\n    <div class=\"overflow-x-auto\">\n      <table class=\"w-full text-left\">",
     to: "  <div><label for=\"isc-search\" class=\"block text-xs font-medium text-slate-300 mb-1\">Find</label><input id=\"isc-search\" type=\"search\" placeholder=\"Name, parent category or company\" class=\"bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-72 max-w-full\"></div>\n  <div class=\"bg-slate-800 border border-slate-700 rounded-xl overflow-hidden\">\n    <div class=\"overflow-x-auto\">\n      <table class=\"w-full text-left\">" },
