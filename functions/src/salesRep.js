@@ -277,7 +277,6 @@ async function placeOrder(me, d) {
   Object.keys(items || {}).forEach(id => { byCode[items[id].ItemCode] = Object.assign({ ItemID: id }, items[id]); });
   const raw = (Array.isArray(d.lines) ? d.lines : []).filter(l => text(l.ItemCode));
   if (!raw.length) bad('Add at least one item.');
-  let total = 0;
   const lines = raw.map((l, i) => {
     const n = 'Line ' + (i + 1) + ': ';
     const it = byCode[text(l.ItemCode)];
@@ -289,16 +288,29 @@ async function placeOrder(me, d) {
     const wh = text(l.WarehouseID, 80) || it.DefaultWarehouseID || '';
     const u = (units || {})[wh];
     if (!u || u.Type !== 'Warehouse' || (u.CompanyID && u.CompanyID !== me.emp.CompanyID)) bad(n + 'choose a warehouse.');
-    const unitPrice = Number(price.UnitPrice) || 0;
-    total += qty * unitPrice;
-    return { LineID: 'SOL-' + randomUUID().split('-')[0].toUpperCase(), ItemCode: it.ItemCode, WarehouseID: wh, OrderedQuantity: qty, EnteredUOMID: it.UOMID || '', UnitPrice: unitPrice, LineTotal: round2(qty * unitPrice) };
+    return { ItemCode: it.ItemCode, WarehouseID: wh, OrderedQuantity: qty, EnteredUOMID: it.UOMID || '', UnitPrice: Number(price.UnitPrice) || 0 };
   });
+  return writeRepOrder(me, customer, priceList, lines, { deliveryDate: d.deliveryDate, note: d.note });
+}
+
+// The draft Sales Order a rep places (placeOrder), or makes from their approved
+// quotation (docs/modules/CRM.md, step C3, Q406): lines { ItemCode, WarehouseID,
+// OrderedQuantity, EnteredUOMID, UnitPrice }, already checked.
+async function writeRepOrder(me, customer, priceList, rawLines, o) {
+  const ccId = me.emp.CostCenterID || '';
+  if (!ccId) throw failed('Your employee record has no cost center: ask HR, then place the order.');
+  let total = 0;
+  const lines = rawLines.map(l => {
+    total += l.OrderedQuantity * l.UnitPrice;
+    return Object.assign({ LineID: 'SOL-' + randomUUID().split('-')[0].toUpperCase() }, l, { LineTotal: round2(l.OrderedQuantity * l.UnitPrice) });
+  });
+  const d = o || {};
   const now = new Date().toISOString(), actor = actorOf(me);
   const id = 'SO-' + randomUUID().split('-')[0].toUpperCase();
   await salesOrders.set(id, {
     CustomerID: customer.CustomerID, CompanyID: me.emp.CompanyID, DivisionID: me.emp.DivisionID || '', BranchID: me.emp.BranchID || '',
     CostCenterID: ccId, ProfitCenterID: '', SODate: today(), RequestedDeliveryDate: text(d.deliveryDate, 10),
-    PriceListID: priceList.PriceListID, CurrencyID: priceList.CurrencyID || '', Description: text(d.note, 200) || 'Order taken by ' + (me.emp.FullName || 'the sales rep'),
+    PriceListID: priceList ? priceList.PriceListID : '', CurrencyID: priceList ? priceList.CurrencyID || '' : '', Description: text(d.note, 200) || 'Order taken by ' + (me.emp.FullName || 'the sales rep'),
     Lines: lines, Total: round2(total), UpdatedAt: now, UpdatedBy: actor,
     SONumber: '', Status: 'Draft', RequestedBy: actor, CreatedAt: now, CreatedBy: actor, SalesRepEmployeeID: me.emp.EmployeeID
   });
@@ -523,4 +535,4 @@ async function myDrafts(me) {
   return out.sort((a, b) => String(b.Date).localeCompare(String(a.Date))).slice(0, 50);
 }
 
-module.exports = Object.assign(exports, { repOf, repParties, salesHome, salesItems, placeOrder, collect, myDrafts, openInvoices, myCollections, myReceipt, receiptView, balanceOf });
+module.exports = Object.assign(exports, { repOf, requireRep, myCustomers, writeRepOrder, repParties, salesHome, salesItems, placeOrder, collect, myDrafts, openInvoices, myCollections, myReceipt, receiptView, balanceOf });

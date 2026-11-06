@@ -47,23 +47,30 @@ const WON = 'Won', LOST = 'Lost';
 
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 200);
 const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
-const actorOf = user => user.profile.username || user.uid;
+// The person acting: an ERP user (requireUser), or a sales rep in the
+// Employee Portal (step C3: { uid, portal: { empId, companyId, manager, actor } },
+// made by portalUser below after essPortal has checked who is signed in).
+const actorOf = user => (user.portal ? user.portal.actor : user.profile.username || user.uid);
 const nowIso = () => new Date().toISOString();
 const failed = message => new HttpsError('failed-precondition', message);
 
 async function requireCap(user, cap) {
+  // A rep may see and change their own records (Q404), never CRM Setup or reassigning.
+  if (user.portal) { if (cap === 'manage') throw new HttpsError('permission-denied', 'Only a CRM Manager can do that.'); return; }
   if (!(await moduleHasCapability(MODULE_ID, cap, user.profile.role))) {
     throw new HttpsError('permission-denied', cap === 'manage' ? 'Only a CRM Manager can do that.' : cap === 'write' ? 'You do not have permission to change CRM records.' : 'You do not have access to CRM.');
   }
 }
 function requireCompany(user, companyId) {
   if (!companyId) throw new HttpsError('invalid-argument', 'Choose a company.');
-  if (!userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  if (user.portal ? companyId !== user.portal.companyId : !userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
 }
-const isManager = user => moduleHasCapability(MODULE_ID, 'manage', user.profile.role);
+// A CRM Manager; in the portal, a rep who is a sales manager (as with customers, decision 230).
+const isManager = async user => (user.portal ? Boolean(user.portal.manager) : moduleHasCapability(MODULE_ID, 'manage', user.profile.role));
 
 // The owner keys that are this user: their own, and the employee linked to them.
 async function myKeys(user) {
+  if (user.portal) return ['E:' + user.portal.empId];
   const emps = await firestore.collection('employees').where('UserUID', '==', user.uid).get();
   return ['U:' + user.uid].concat(emps.docs.map(d => 'E:' + d.id));
 }
@@ -116,11 +123,21 @@ async function editable(user, kind, id) {
 // A new record's owner: oneself, or (a manager) anyone who can own one in the company.
 async function ownerFor(user, companyId, wanted) {
   const keys = await myKeys(user);
+  if (user.portal) return keys[0]; // a rep's records are the rep's
   const key = text(wanted, 120) || keys[0];
   if (keys.includes(key)) return key;
   if (!(await isManager(user))) throw new HttpsError('permission-denied', 'Only a CRM Manager can give a record to someone else.');
   if (!(await ownersOf(companyId)).some(o => o.Key === key)) throw new HttpsError('invalid-argument', 'That owner cannot hold CRM records in this company.');
   return key;
+}
+// In the portal (step C3): a rep's customers are those they serve (decision
+// 230; a sales manager, all), and the leads and opportunities theirs.
+async function requireServed(user, kind, id) {
+  if (!user.portal || user.portal.manager) return;
+  if (kind === 'Customer') {
+    const c = (await rtdb.ref('customers/' + text(id, 80)).get()).val();
+    if (!c || c.SalesRepEmployeeID !== user.portal.empId) throw new HttpsError('permission-denied', 'That customer is not one of yours.');
+  } else await editable(user, kind, id);
 }
 const stamp = (user, extra) => Object.assign({ UpdatedAt: nowIso(), UpdatedBy: actorOf(user) }, extra || {});
 const historyEntry = (user, what) => ({ At: nowIso(), By: actorOf(user), What: what });
@@ -152,10 +169,17 @@ async function duplicatesOf(companyId, lead, exceptId) {
 
 // ---------- callables ----------
 
+// Each callable's work, by name, for the ERP (the callable) and the rep portal
+// (essPortal's CRM actions, step C3) alike.
+const cores = {};
+function callable(name, core) {
+  cores[name] = core;
+  exports[name] = onCallWithMessages(onCallOptions, async (request) => core(await requireUser(request), request));
+}
+
 // Everything the CRM screen shows for a company: the setup, the owners and
 // the user's records (a manager: all the company's).
-exports.getCrm = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('getCrm', async (user, request) => {
   await requireCap(user, 'access');
   const companyId = text(request.data && request.data.companyId, 80);
   requireCompany(user, companyId);
@@ -167,8 +191,7 @@ exports.getCrm = onCallWithMessages(onCallOptions, async (request) => {
   return { manager, canWrite, myKeys: keys, setup: Object.assign({}, setup, { AllStages: stagesOf(setup) }), owners, leads, opportunities, activities, customers: customerList };
 });
 
-exports.saveCrmSetup = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('saveCrmSetup', async (user, request) => {
   await requireCap(user, 'manage');
   const d = request.data || {};
   const companyId = text(d.companyId, 80);
@@ -194,8 +217,7 @@ exports.saveCrmSetup = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 // A lead (new or changed). Matches warn (Q403): { success: false, duplicates } until saved with force.
-exports.saveLead = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('saveLead', async (user, request) => {
   await requireCap(user, 'write');
   const d = request.data || {};
   const l = d.lead || {};
@@ -228,8 +250,7 @@ exports.saveLead = onCallWithMessages(onCallOptions, async (request) => {
   return { success: true, leadId: ref.id };
 });
 
-exports.disqualifyLead = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('disqualifyLead', async (user, request) => {
   await requireCap(user, 'write');
   const d = request.data || {};
   const { ref, rec } = await editable(user, 'Lead', d.leadId);
@@ -243,8 +264,7 @@ exports.disqualifyLead = onCallWithMessages(onCallOptions, async (request) => {
 // Convert to Customer (Q394): the customer is saved first through Customer
 // Master's own save (its rules and right); this links it, and moves the
 // lead's open opportunities, activities and quotations to the customer.
-exports.convertLead = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('convertLead', async (user, request) => {
   await requireCap(user, 'write');
   const d = request.data || {};
   const { ref, rec } = await editable(user, 'Lead', d.leadId);
@@ -270,8 +290,7 @@ exports.convertLead = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 // An opportunity (new or changed), for a lead or a customer.
-exports.saveOpportunity = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('saveOpportunity', async (user, request) => {
   await requireCap(user, 'write');
   const o = (request.data || {}).opportunity || {};
   const id = text(o.ID, 80);
@@ -287,6 +306,7 @@ exports.saveOpportunity = onCallWithMessages(onCallOptions, async (request) => {
   if (!existing) {
     const leadId = text(o.LeadID, 80), customerId = text(o.CustomerID, 80);
     if (!!leadId === !!customerId) throw new HttpsError('invalid-argument', 'Choose a lead or a customer.');
+    await requireServed(user, leadId ? 'Lead' : 'Customer', leadId || customerId);
     if (leadId) {
       const lead = (await LEADS().doc(leadId).get()).data();
       if (!lead || lead.CompanyID !== companyId || lead.Status !== 'Open') throw new HttpsError('invalid-argument', 'Choose an open lead of this company.');
@@ -306,8 +326,7 @@ exports.saveOpportunity = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 // Move an opportunity to a stage (Q397): Lost needs a reason from the list; Won and Lost close it.
-exports.setOpportunityStage = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('setOpportunityStage', async (user, request) => {
   await requireCap(user, 'write');
   const d = request.data || {};
   const { ref, rec } = await editable(user, 'Opportunity', d.opportunityId);
@@ -329,8 +348,7 @@ exports.setOpportunityStage = onCallWithMessages(onCallOptions, async (request) 
 });
 
 // An activity (new or changed) about a lead, an opportunity or a customer (Q401).
-exports.saveActivity = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('saveActivity', async (user, request) => {
   await requireCap(user, 'write');
   const a = (request.data || {}).activity || {};
   const id = text(a.ID, 80);
@@ -349,6 +367,7 @@ exports.saveActivity = onCallWithMessages(onCallOptions, async (request) => {
     return { success: true, activityId: id };
   }
   const about = { Kind: text(a.About && a.About.Kind, 20), ID: text(a.About && a.About.ID, 80) };
+  if (KINDS[about.Kind] || about.Kind === 'Customer') await requireServed(user, about.Kind, about.ID);
   if (about.Kind === 'Customer') {
     const c = (await rtdb.ref('customers/' + about.ID).get()).val();
     if (!c || (c.CompanyID && c.CompanyID !== companyId)) throw new HttpsError('invalid-argument', 'Choose a customer of this company.');
@@ -363,8 +382,7 @@ exports.saveActivity = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 // Done (with the outcome) or cancelled; done can schedule the next (Q401).
-exports.closeActivity = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('closeActivity', async (user, request) => {
   await requireCap(user, 'write');
   const d = request.data || {};
   const { ref, rec } = await editable(user, 'Activity', d.activityId);
@@ -390,8 +408,7 @@ exports.closeActivity = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 // Give a lead, an opportunity or an activity to another owner (a manager, Q396).
-exports.reassignCrm = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('reassignCrm', async (user, request) => {
   await requireCap(user, 'manage');
   const d = request.data || {};
   const kind = text(d.kind, 20);
@@ -406,8 +423,7 @@ exports.reassignCrm = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 // Home (Q401): the user's open activities due today or before, overdue flagged.
-exports.getCrmActivitiesDueForUser = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+callable('getCrmActivitiesDueForUser', async (user, request) => {
   if (!(await moduleHasCapability(MODULE_ID, 'access', user.profile.role))) return [];
   const today = isDate(request.data && request.data.today) ? request.data.today : new Date().toISOString().slice(0, 10);
   const out = [];
@@ -421,6 +437,35 @@ exports.getCrmActivitiesDueForUser = onCallWithMessages(onCallOptions, async (re
   return out.sort((a, b) => (a.Due + a.DueTime).localeCompare(b.Due + b.DueTime));
 });
 
+// ---------- the rep portal (step C3; essPortal.js actions) ----------
+
+// The rep as the one acting: `me` is essPortal's signed-in employee, `rep` their salesReps record.
+function portalUser(me, rep) {
+  const actor = 'Portal: ' + (me.emp.EmployeeNo || me.emp.EmployeeID) + ' ' + (me.emp.FullName || '');
+  // The approvals' submitter: the ERP user when the rep signed in with one (so self-approval
+  // is still seen), else the rep's name.
+  return { uid: me.uid, portal: { empId: me.emp.EmployeeID, companyId: me.emp.CompanyID, manager: Boolean(rep.IsManager), actor,
+    submitter: me.via === 'erp' ? me.uid : actor } };
+}
+// What the portal's CRM pages show: the setup, and the rep's records (a sales manager: the company's).
+async function portalCrm(user, customers) {
+  const companyId = user.portal.companyId;
+  const [setup, keys, manager] = await Promise.all([setupOf(companyId), myKeys(user), isManager(user)]);
+  const [leads, opportunities, activities] = await Promise.all(['Lead', 'Opportunity', 'Activity'].map(k => visible(k, companyId, manager, keys)));
+  return { setup: Object.assign({}, setup, { AllStages: stagesOf(setup) }), myKey: keys[0], manager,
+    leads: leads.filter(l => l.Status === 'Open'), opportunities: opportunities.filter(o => o.Status === 'Open'), activities: activities.filter(a => a.Status === 'Open'),
+    customers: customers.map(c => ({ CustomerID: c.CustomerID, Name: c.CustomerName, Code: c.CustomerCode || '' })) };
+}
+// The cores the portal runs, with the rep as the user (convertLead, setup and reassigning stay in the ERP).
+const PORTAL = ['saveLead', 'disqualifyLead', 'saveOpportunity', 'setOpportunityStage', 'saveActivity', 'closeActivity'];
+const runForRep = (user, name, data) => {
+  if (!PORTAL.includes(name)) throw new HttpsError('permission-denied', 'Not from the portal.');
+  return cores[name](user, { data: data || {} });
+};
+
+module.exports.portalUser = portalUser;
+module.exports.portalCrm = portalCrm;
+module.exports.runForRep = runForRep;
 module.exports.DEFAULT_SETUP = DEFAULT_SETUP;
 module.exports.duplicatesOf = duplicatesOf;
 module.exports.myKeys = myKeys;

@@ -129,6 +129,31 @@ docStore like the other transaction stores), read by equality queries
 - The CRM rights: **CRM** (use) and **CRM Manager** (see all, reassign,
   setup); **Quotation** as its own module for the role matrix.
 
+## Step C3: the rep portal (owner, 2026-11-06)
+
+Two more decisions, asked before building C3:
+
+| # | Decision |
+|---|---|
+| Q405 | **A rep's quotation price:** the price list's price is fixed on the phone; the rep may give a **discount per line**. Approval Configuration's Quotation levels catch large discounts, as in the ERP. |
+| Q406 | **A rep orders from the phone:** an approved quotation becomes a **draft Sales Order** like a portal order today (the quotation's net prices, the rep's cost center); the office confirms it in Sales Order. The quotation becomes Accepted. |
+
+Defaults taken from what is already agreed (say if any should differ):
+
+- A rep owns what they create (`E:<employee>`), and sees their own leads,
+  opportunities, activities and quotations; a rep who is a **sales manager**
+  (Sales reps, IsManager) sees the company's, as with customers (decision
+  230). The office's CRM Manager sees the reps' records as before.
+- A rep quotes their own customers (the customers they serve) and their own
+  leads; the price list is the customer's (or, for a lead, the chosen
+  classification's).
+- Approving stays in the ERP (Home, the approval card): a rep submits.
+- The rest is the ERP's rules, run on the server the same way: the duplicate
+  warning, stages and Lost reasons, Done with the next activity. Convert to
+  Customer stays in the ERP (Customer Master's rules and accounts).
+- The quotation PDF is shared from the phone as a receipt is (the share sheet,
+  or a download).
+
 ## Build plan
 
 Each step its own PR, tested and deployed before the next:
