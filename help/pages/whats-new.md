@@ -12,6 +12,14 @@ screen.
 
 ## 06/11/2026
 
+- **CRM reports and lead import.** CRM has a **Reports** tab: the pipeline
+  by stage, owner and expected close month, win / loss with the win rate
+  and the lost reasons, activities done and overdue, and lead sources with
+  their conversions and won value, all in the base currency, each with
+  **Copy to Excel**. See [CRM](crm.html#reports). Leads can now be imported
+  from Excel in [Master Data Import](master-import.html#special-cases):
+  a row matching an existing lead or customer is shown and left out unless
+  you tick **Import matches too**.
 - **CRM on the sales rep's phone.** In the Employee Portal's Sales tab, a
   rep now keeps their leads, pipeline and activities, and makes quotes at
   the price list's prices with a discount, submits them, shares the PDF

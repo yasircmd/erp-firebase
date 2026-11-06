@@ -154,6 +154,17 @@ Defaults taken from what is already agreed (say if any should differ):
 - The quotation PDF is shared from the phone as a receipt is (the share sheet,
   or a download).
 
+## Step C4: reports and import (owner, 2026-11-06)
+
+Four more decisions, asked before building C4:
+
+| # | Decision |
+|---|---|
+| Q407 | **Currencies in the reports:** the Pipeline and Win / loss totals are in the company's **base currency at the latest rate** in Currency Master; each line still shows its own currency and amount. |
+| Q408 | **Who sees the reports:** a **Reports tab in CRM**, the same visibility as the records: a user sees their own; a CRM Manager sees every owner of their companies, with an owner filter. |
+| Q409 | **Duplicates on import:** the check lists a row matching a lead or customer (phone, email or name) as a **warning**; such rows are skipped unless the user ticks **Import matches too**. |
+| Q410 | **Owner on import:** an optional **Owner** column (a user ID or a sales rep's employee code); empty is the person importing; only a CRM Manager may name someone else. |
+
 ## Build plan
 
 Each step its own PR, tested and deployed before the next:
@@ -339,3 +350,69 @@ each step; What's new at each release.
   same on main (date-dependent: the Team badge).
 - **Deploy:** `crm-c3` (26 functions; no new function, no screens), then
   Hosting.
+
+## As built: step C4, reports and lead import (2026-11-06)
+
+- **Reports (Q402, Q407, Q408).** `getCrmReports` (crm.js) returns the four
+  reports for a company from the records the user may see (`visible`, the
+  same rule as the lists: their own; a CRM Manager the company's, with an
+  owner filter that is ignored for anyone else). The figures are worked out
+  by `crmReports`, a pure function (unit/crmReports):
+  - **Pipeline:** the open opportunities today, by stage (the setup's order,
+    empty stages shown), owner and expected close month (no date last);
+    total and weighted (value × the stage's probability).
+  - **Win / loss:** won or lost with `ClosedAt` in the period, by month and
+    owner, with the win rate by count (won ÷ won + lost); the lost by reason.
+  - **Activities:** by owner and type: done with `DoneAt` in the period,
+    open, and of those overdue (due before today).
+  - **Lead sources:** leads created in the period by source ("Not given"
+    for none), converted, conversion %, and the won value of the
+    opportunities from them (`LeadID`, or `FromLeadID` after Convert).
+  - **Currency (Q407):** each value to the base currency (Currency
+    Configuration's default) at `exchangeRates.rateOn(code, today)`, the
+    latest rate. A currency with no rate is listed (`missingRates`), its
+    lines keep their own currency and amount, and it is left out of the
+    totals; the screen names it above the reports.
+  - The screen: a **Reports** tab in CRM (From / To, the start of the year
+    to today at first; Owner for a manager; Show), nine tables with a total
+    row, each with **Copy to Excel** (the shell's `gridClipboard`).
+- **Lead import (Q403, Q409, Q410).** Master Import's `LEAD` master, "CRM
+  Leads" (last in the order; listed only for a user with CRM access): the
+  columns Company, Organisation, Contact Name, Phone, Email, Source, Owner,
+  Country, Address, Notes. `leadRules` checks what New Lead checks (a name
+  or organisation; a phone or email; the source from the company's CRM
+  Setup, matched ignoring case and written as Setup writes it), and the
+  Owner: a user ID (username) or a sales rep's employee no., one who can own
+  CRM records in the company (`ownersOf`); someone other than oneself only
+  for a CRM Manager. Each row is saved through `saveLead` (crm.js
+  `saveLeadFor`, with `force`: the matches were shown at the check).
+  - **Matches:** a row matching a lead or customer of the company
+    (`duplicateMatcher`, loaded once per company for the whole paste; the
+    same phone / email / name rule as the form), or a row above it in the
+    paste, is a **warning**, not an issue. Without **Import matches too** the
+    row is left out (`skip`), and the result says how many; with it, every
+    row imports. Warnings never hold the import back; the screen's amber
+    list shows them, and ticking or unticking checks the paste again. A
+    paste whose every row would be left out cannot be imported.
+  - Master Import's other masters are unchanged (warnings are LEAD only).
+- **Tests:** emulator crmReports 5/5 (the latest rate, not the older one,
+  and EUR with no rate left out; the other company never; a user's own, the
+  owner filter ignored for them, a manager's filter; the form's checks, the
+  Owner by user ID and employee no. and the manager-only rule; matches left
+  out, in the paste too, then imported with the box; the Viewer refused and
+  CRM Leads not listed without CRM access); unit crmReports 4/4; UI
+  crmReports 4/4. Negative controls, each caught and restored: the rate on
+  an older date (reports test 1 fails); the owner filter for anyone (test
+  2); matches never left out (import test 4); anyone naming another owner
+  (import test 3); the screen not showing the warnings (UI test 4).
+- **Results:** unit 228/228; emulator crm 6/6, crmPortal 5/5, quotations
+  5/5, masterImport 9/9 (its list of masters now ends with CRM Leads),
+  masterImport2 7/7, masterImportItemTax 2/2, masterImportUpdate 5/5,
+  masterImportUpdate2 6/6, essPortal 7/8 ("who is away today",
+  date-dependent, fails on main too); UI crm 6/6, crmPortal 4/4, quotation
+  6/6, masterImport 5/5 (the same list), masterImportUpdate 4/4,
+  masterImportItemCode 2/2, smoke 123/123, oneTitle 9/9, rolesMatrix 2/2,
+  help 7/7.
+- **Deploy:** `crm-c4` (24 functions: the closure of crm.js and
+  masterImport.js; one new callable, getCrmReports), with screens, then
+  Hosting (the Help). No rules or index change.

@@ -18,6 +18,7 @@
         <button class="crm-tab bg-blue-600 text-white text-sm px-3 py-2 rounded-lg" data-tab="leads">Leads</button>
         <button class="crm-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="opps">Opportunities</button>
         <button class="crm-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="acts">Activities</button>
+        <button class="crm-tab bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="reports">Reports</button>
         <button id="crm-tab-setup" class="crm-tab hidden bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" data-tab="setup">Setup</button>
       </div>
     </div>
@@ -161,6 +162,19 @@
     <p id="crm-act-info" class="text-xs text-slate-400"></p>
   </div>
 
+  <!-- ---------- Reports (step C4: Q402, Q407, Q408) ---------- -->
+  <div id="crm-reports-view" class="hidden space-y-5">
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label for="crm-rep-from" class="block text-xs font-medium text-slate-300 mb-1">From</label><input id="crm-rep-from" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label for="crm-rep-to" class="block text-xs font-medium text-slate-300 mb-1">To</label><input id="crm-rep-to" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="crm-rep-owner-wrap" class="hidden"><label for="crm-rep-owner" class="block text-xs font-medium text-slate-300 mb-1">Owner</label><select id="crm-rep-owner" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <button id="crm-rep-run" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-chart-column"></i> Show</button>
+    </div>
+    <p class="text-xs text-slate-400">The period applies to Win / loss (closed in it), Activities (done in it) and Lead sources (leads created in it); the pipeline is the open opportunities today. Values are in the base currency at the latest rate.</p>
+    <p id="crm-rep-missing" class="hidden text-xs text-amber-300"></p>
+    <div id="crm-rep-out" class="space-y-6"></div>
+  </div>
+
   <!-- ---------- Setup (a CRM Manager's) ---------- -->
   <div id="crm-setup-view" class="hidden space-y-4 max-w-3xl">
     <div>
@@ -242,6 +256,7 @@
   let canWrite = true;
   let pendingOpen = null;
   let pendingLead = null;
+  let R = null;        // getCrmReports, as last shown
 
   // ---------- names ----------
   const ownerName = k => { const o = D && D.owners.find(x => x.Key === k); return o ? o.Name : (k || '—'); };
@@ -263,6 +278,70 @@
     $(id).disabled = !D.manager; // a manager gives records to others (Q396)
   }
 
+
+  // ---------- reports (step C4) ----------
+  const pctText = v => (v === null || v === undefined ? '—' : v + ' %');
+  const money = v => (v === null || v === undefined ? '—' : fmt(v));
+  // A report's table: headings, rows of cells (text, or { v, num }), a total row; Copy to Excel copies the same.
+  function table(key, title, heads, rows, total) {
+    const cell = c => (c && typeof c === 'object' ? c : { v: c });
+    const td = (c, strong) => { const x = cell(c); return '<td class="py-1.5 px-3 ' + (x.num ? 'text-right tabular-nums ' : '') + (strong ? 'font-semibold text-slate-100' : 'text-slate-300') + '">' + esc(x.v) + '</td>'; };
+    const th = heads.map(h => '<th class="py-2 px-3 ' + (cell(h).num ? 'text-right' : 'text-left') + '">' + esc(cell(h).v) + '</th>').join('');
+    return '<section class="space-y-2" data-report="' + key + '"><div class="flex items-center justify-between gap-2"><h3 class="font-semibold text-blue-300">' + esc(title) + '</h3>' +
+      '<button class="crm-rep-copy bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg" data-key="' + key + '"><i class="fa-solid fa-copy"></i> Copy to Excel</button></div>' +
+      '<div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-xs text-slate-400 border-b border-slate-700">' + th + '</tr></thead><tbody class="divide-y divide-slate-800">' +
+      (rows.length ? rows.map(r => '<tr>' + r.map(c => td(c)).join('') + '</tr>').join('') : '<tr><td colspan="' + heads.length + '" class="py-4 text-center text-slate-500">Nothing in this report.</td></tr>') +
+      (total && rows.length ? '<tr class="border-t border-slate-600">' + total.map(c => td(c, true)).join('') + '</tr>' : '') + '</tbody></table></div></section>';
+  }
+  const copies = {};
+  function report(key, title, heads, rows, total) {
+    const plain = c => (c && typeof c === 'object' ? c.v : c);
+    copies[key] = { heads: heads.map(plain), rows: rows.concat(total && rows.length ? [total] : []).map(r => r.map(plain)) };
+    return table(key, title, heads, rows, total);
+  }
+  const N = v => ({ v, num: true });
+  const M = v => ({ v: money(v), num: true });
+  function runReports() {
+    const companyId = $('crm-company').value;
+    if (!companyId) return;
+    if (!$('crm-rep-from').value) $('crm-rep-from').value = todayStr().slice(0, 4) + '-01-01';
+    if (!$('crm-rep-to').value) $('crm-rep-to').value = todayStr();
+    $('crm-rep-out').innerHTML = '<p class="text-sm text-slate-400">Loading...</p>';
+    call('getCrmReports', { companyId, from: $('crm-rep-from').value, to: $('crm-rep-to').value, ownerKey: D && D.manager ? $('crm-rep-owner').value : '', today: todayStr() })
+      .then(r => { R = r; renderReports(); }, e => { $('crm-rep-out').innerHTML = ''; appAlert(e.message); });
+  }
+  function renderReports() {
+    const b = R.base || '';
+    const v = b ? ' (' + b + ')' : '';
+    show('crm-rep-missing', R.missingRates.length > 0);
+    $('crm-rep-missing').textContent = R.missingRates.length ? 'No exchange rate for ' + R.missingRates.join(', ') + ': those values are shown in their own currency and left out of the totals (enter a rate in Currency Configuration → Rates).' : '';
+    const P = R.pipeline, W = R.winLoss, A = R.activities, S = R.sources;
+    const html = [
+      report('stage', 'Pipeline by stage', ['Stage', N('Probability'), N('Open'), N('Value' + v), N('Weighted' + v)],
+        P.byStage.map(g => [g.Key, N(g.Probability + ' %'), N(g.Count), M(g.Value), M(g.Weighted)]), ['Total', '', N(P.total.Count), M(P.total.Value), M(P.total.Weighted)]),
+      report('powner', 'Pipeline by owner', ['Owner', N('Open'), N('Value' + v), N('Weighted' + v)],
+        P.byOwner.map(g => [ownerName(g.Key), N(g.Count), M(g.Value), M(g.Weighted)]), ['Total', N(P.total.Count), M(P.total.Value), M(P.total.Weighted)]),
+      report('pmonth', 'Pipeline by expected close', ['Month', N('Open'), N('Value' + v), N('Weighted' + v)],
+        P.byMonth.map(g => [g.Key || 'No date', N(g.Count), M(g.Value), M(g.Weighted)]), ['Total', N(P.total.Count), M(P.total.Value), M(P.total.Weighted)]),
+      report('plines', 'Open opportunities', ['Opportunity', 'Lead or customer', 'Stage', 'Owner', 'Expected close', N('Value'), 'Currency', N('Value' + v), N('Weighted' + v)],
+        P.lines.map(l => [l.Title, partyOf(l), l.Stage, ownerName(l.OwnerKey), l.ExpectedClose, N(fmt(l.Value)), l.Currency, M(l.BaseValue), M(l.Weighted)])),
+      report('wmonth', 'Win / loss by month', ['Month', N('Won'), N('Won value' + v), N('Lost'), N('Lost value' + v), N('Win rate')],
+        W.byMonth.map(g => [g.Key, N(g.Won), M(g.WonValue), N(g.Lost), M(g.LostValue), N(pctText(g.WinRate))]),
+        ['Total', N(W.total.Won), M(W.total.WonValue), N(W.total.Lost), M(W.total.LostValue), N(pctText(W.total.WinRate))]),
+      report('wowner', 'Win / loss by owner', ['Owner', N('Won'), N('Won value' + v), N('Lost'), N('Lost value' + v), N('Win rate')],
+        W.byOwner.map(g => [ownerName(g.Key), N(g.Won), M(g.WonValue), N(g.Lost), M(g.LostValue), N(pctText(g.WinRate))]),
+        ['Total', N(W.total.Won), M(W.total.WonValue), N(W.total.Lost), M(W.total.LostValue), N(pctText(W.total.WinRate))]),
+      report('wreason', 'Lost reasons', ['Reason', N('Lost'), N('Value' + v)], W.byReason.map(g => [g.Key, N(g.Count), M(g.Value)]),
+        ['Total', N(W.total.Lost), M(W.total.LostValue)]),
+      report('acts', 'Activities', ['Owner', 'Type', N('Done in the period'), N('Open'), N('Overdue')],
+        A.rows.map(g => [ownerName(g.OwnerKey), g.Type, N(g.Done), N(g.Open), N(g.Overdue)]), ['Total', '', N(A.total.Done), N(A.total.Open), N(A.total.Overdue)]),
+      report('sources', 'Lead sources', ['Source', N('Leads'), N('Converted'), N('Conversion'), N('Won'), N('Won value' + v)],
+        S.rows.map(g => [g.Key, N(g.Leads), N(g.Converted), N(pctText(g.Conversion)), N(g.Won), M(g.WonValue)]),
+        ['Total', N(S.total.Leads), N(S.total.Converted), N(pctText(S.total.Conversion)), N(S.total.Won), M(S.total.WonValue)])
+    ];
+    $('crm-rep-out').innerHTML = html.join('');
+  }
+
   // ---------- load ----------
   function load() {
     const companyId = $('crm-company').value;
@@ -273,6 +352,10 @@
       document.querySelectorAll('.crm-write').forEach(b => show(b.id, canWrite));
       show('crm-tab-setup', D.manager);
       show('crm-act-mine-wrap', D.manager);
+      show('crm-rep-owner-wrap', D.manager);
+      $('crm-rep-owner').innerHTML = '<option value="">All owners</option>' + options(D.owners.map(o => [o.Key, o.Name]), '');
+      R = null;
+      if (tabNow === 'reports') runReports();
       renderAll();
       if (pendingLead) { const id = pendingLead; pendingLead = null; const l = D.leads.find(x => x.ID === id); if (l) { tab('leads'); openLead(l); } }
       if (pendingOpen) { const id = pendingOpen; pendingOpen = null; const a = D.activities.find(x => x.ID === id); if (a) { tab('acts'); openAct(a); } }
@@ -283,10 +366,11 @@
   function tab(name) {
     tabNow = name;
     document.querySelectorAll('.crm-tab').forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on); b.classList.toggle('bg-slate-700', !on); });
-    ['leads', 'opps', 'acts', 'setup'].forEach(t => show('crm-' + t + '-view', t === name));
+    ['leads', 'opps', 'acts', 'reports', 'setup'].forEach(t => show('crm-' + t + '-view', t === name));
+    if (name === 'reports' && !R) runReports();
     ['crm-lead-entry', 'crm-opp-entry', 'crm-act-entry'].forEach(id => show(id, false));
   }
-  function openEntry(id) { ['leads', 'opps', 'acts', 'setup'].forEach(t => show('crm-' + t + '-view', false)); ['crm-lead-entry', 'crm-opp-entry', 'crm-act-entry'].forEach(x => show(x, x === id)); window.scrollTo(0, 0); }
+  function openEntry(id) { ['leads', 'opps', 'acts', 'reports', 'setup'].forEach(t => show('crm-' + t + '-view', false)); ['crm-lead-entry', 'crm-opp-entry', 'crm-act-entry'].forEach(x => show(x, x === id)); window.scrollTo(0, 0); }
   function back() { tab(tabNow); }
 
   // ---------- leads ----------
@@ -617,6 +701,8 @@
       drawStages();
     });
     $('crm-setup-save').addEventListener('click', saveSetup);
+    $('crm-rep-run').addEventListener('click', runReports);
+    $('crm-rep-out').addEventListener('click', e => { const b = e.target.closest('.crm-rep-copy'); if (b && copies[b.dataset.key]) gridClipboard.copy(copies[b.dataset.key].heads, copies[b.dataset.key].rows, b); });
     call('getActiveCompanies', {}).then(list => {
       $('crm-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
     }, () => {}).then(load);

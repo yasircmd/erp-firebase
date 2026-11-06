@@ -1,0 +1,34 @@
+# CRM, step C4: reports and lead import (owner, 2026-11-06; docs/modules/CRM.md,
+# Q402, Q407-Q410): CRM → Reports (pipeline, win / loss, activities, lead
+# sources; the base currency at the latest rate; a user's own records, a CRM
+# Manager's every owner) and CRM Leads in Master Import (a match warned and
+# left out unless Import matches too; the Owner column).
+# The functions whose code reaches crm.js or masterImport.js (their require
+# closure, lazy requires included). One new callable, getCrmReports (the
+# script adds its public-invoker binding). No moduleRegistry change.
+# Screens changed (CRM, MASTERIMPORT): deploy with --screens. Then the
+# "hosting" task for the Help. No rules or index change.
+checkMasterImport
+checkOpeningBalances
+closeActivity
+convertLead
+disqualifyLead
+essPortal
+findOpeningBatch
+getCrm
+getCrmActivitiesDueForUser
+getCrmReports
+getMasterImportRecords
+getMasterImportSpecs
+getOpeningBalanceSetup
+manageEssAccounts
+postOpeningBalances
+reassignCrm
+reverseOpeningBalanceBatch
+runMasterImport
+saveActivity
+saveCrmSetup
+saveLead
+saveOpeningBalanceSettings
+saveOpportunity
+setOpportunityStage

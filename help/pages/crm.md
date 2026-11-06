@@ -1,5 +1,5 @@
 ---
-fingerprint: 49bb861d8c33be04
+fingerprint: d9d66fda41e7a3c3
 reviewed: 2026-11-06
 title: CRM
 area: crm
@@ -19,7 +19,8 @@ before and after they become customers:
 - an **activity** is a call, meeting, email, visit or task with a due date.
 
 Choose the company at the top. The screen has the tabs **Leads**,
-**Opportunities**, **Activities** and, for a CRM Manager, **Setup**.
+**Opportunities**, **Activities**, **Reports** and, for a CRM Manager,
+**Setup**.
 
 ## Step by step
 
@@ -87,6 +88,44 @@ subject and a due date (and a time if you like).
 - **Done** asks what came of it, and offers to schedule the next one
   (a week later, by default).
 - **Cancel Activity** closes one that will not happen.
+
+## Reports
+
+**Reports** shows four reports for the company. Choose the period with
+**From** and **To** (the start of the year to today, at first) and select
+**Show**.
+
+- **Pipeline:** the opportunities open today, by stage, by owner and by
+  expected close month, each with its total and weighted value, and the
+  list of the open opportunities. The period does not apply.
+- **Win / loss:** the opportunities won or lost in the period, by month and
+  by owner, with the **win rate** (won out of won and lost), and the lost
+  ones by reason.
+- **Activities:** by owner and type, those done in the period, those open
+  and, of those, the overdue ones.
+- **Lead sources:** the leads created in the period, by source, how many
+  became customers (**Conversion**), and the value of their won
+  opportunities.
+
+Values are in the **base currency** (Currency Configuration's default), at
+the latest rate in Currency Configuration → Rates. Each opportunity in the
+list also shows its own currency and value. A currency with no rate is
+named above the reports; its values show in their own currency and are
+left out of the totals until a rate is entered.
+
+You see the reports for the records you own. A CRM Manager sees every
+owner's, and can choose one with **Owner**. **Copy to Excel** on each
+report copies it, with its headings, to paste into a spreadsheet.
+
+Example: an open opportunity of USD 100 at Proposal (50 %), with a rate of
+3.6725, counts as AED 367.25 in the pipeline and AED 183.63 weighted.
+
+## Importing leads
+
+Many leads at once (from a trade fair list, say) go in through
+[Master Data Import](master-import.html#special-cases): choose **CRM Leads**.
+Each row is checked as **New Lead** checks it, and a row that matches a
+lead or a customer is left out unless you tick **Import matches too**.
 
 ## Setup
 
