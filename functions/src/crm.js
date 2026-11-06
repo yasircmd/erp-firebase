@@ -242,7 +242,7 @@ exports.disqualifyLead = onCallWithMessages(onCallOptions, async (request) => {
 
 // Convert to Customer (Q394): the customer is saved first through Customer
 // Master's own save (its rules and right); this links it, and moves the
-// lead's open opportunities and activities to the customer.
+// lead's open opportunities, activities and quotations to the customer.
 exports.convertLead = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'write');
@@ -256,14 +256,17 @@ exports.convertLead = onCallWithMessages(onCallOptions, async (request) => {
   const batch = firestore.batch();
   batch.update(ref, stamp(user, { Status: 'Converted', CustomerID: customerId, ConvertedAt: nowIso(),
     History: (rec.History || []).concat([historyEntry(user, 'Converted to customer ' + (customer.CustomerCode || customerId))]) }));
-  const [opps, acts] = await Promise.all([OPPS().where('LeadID', '==', ref.id).get(), ACTS().where('About.ID', '==', ref.id).get()]);
+  const [opps, acts, quotes] = await Promise.all([OPPS().where('LeadID', '==', ref.id).get(), ACTS().where('About.ID', '==', ref.id).get(),
+    firestore.collection('quotations').where('LeadID', '==', ref.id).get()]);
+  // Its quotations too (step C2, Q399): the customer's from now, the open ones to be ordered.
+  quotes.docs.forEach(q => { if (q.data().CompanyID === rec.CompanyID) batch.update(q.ref, stamp(user, { LeadID: '', CustomerID: customerId, FromLeadID: ref.id })); });
   opps.docs.forEach(o => { if (o.data().CompanyID === rec.CompanyID) batch.update(o.ref, stamp(user, { LeadID: '', CustomerID: customerId, FromLeadID: ref.id })); });
   acts.docs.forEach(a => {
     const x = a.data();
     if (x.CompanyID === rec.CompanyID && x.About && x.About.Kind === 'Lead') batch.update(a.ref, stamp(user, { About: { Kind: 'Customer', ID: customerId }, FromLeadID: ref.id }));
   });
   await batch.commit();
-  return { success: true, moved: { opportunities: opps.size, activities: acts.size } };
+  return { success: true, moved: { opportunities: opps.size, activities: acts.size, quotations: quotes.size } };
 });
 
 // An opportunity (new or changed), for a lead or a customer.

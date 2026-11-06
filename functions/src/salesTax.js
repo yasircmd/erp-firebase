@@ -267,15 +267,12 @@ exports.previewInvoiceTax = onCallWithMessages({ region: 'us-central1' }, async 
 // the order's date, the party's state for GST, a sales price list's prices
 // inclusive where it says so. Posts nothing; the invoice works the tax out.
 // { configured: false } for a company without a Tax Configuration.
-exports.previewOrderTax = onCallWithMessages({ region: 'us-central1' }, async (request) => {
-  const user = await requireUser(request);
-  const d = request.data || {};
+// An order's tax (Sales or Purchase Order, a quotation: docs/modules/TAX_ENGINE.md,
+// part 4; CRM.md, C2): { configured, inclusive, tax } or { configured, problem }.
+// partyId may be empty (a quotation to a lead): the company's own place of supply.
+async function orderTax(d) {
   const purchase = d.kind === 'purchase';
-  const mod = purchase ? 'PURCHASEORDER' : 'SALESORDER';
-  if (!(await moduleHasCapability(mod, 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to that order.');
-  const companyId = text(d.CompanyID, 80);
-  if (!companyId || !userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
-  const config = await taxConfig.configFor(companyId);
+  const config = await taxConfig.configFor(d.CompanyID);
   if (!config) return { configured: false };
   try {
     const [items, party, pl] = await Promise.all([
@@ -297,6 +294,17 @@ exports.previewOrderTax = onCallWithMessages({ region: 'us-central1' }, async (r
   } catch (e) {
     return { configured: true, problem: e.message };
   }
+}
+
+exports.previewOrderTax = onCallWithMessages({ region: 'us-central1' }, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const purchase = d.kind === 'purchase';
+  const mod = purchase ? 'PURCHASEORDER' : 'SALESORDER';
+  if (!(await moduleHasCapability(mod, 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to that order.');
+  const companyId = text(d.CompanyID, 80);
+  if (!companyId || !userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  return orderTax(Object.assign({}, d, { CompanyID: companyId }));
 });
 
-module.exports = Object.assign(exports, { apportion, computeTax, summarize, shareOf, componentGlLines, includedTaxOf, invoiceTax, recordCodeUse });
+module.exports = Object.assign(exports, { orderTax, apportion, computeTax, summarize, shareOf, componentGlLines, includedTaxOf, invoiceTax, recordCodeUse });

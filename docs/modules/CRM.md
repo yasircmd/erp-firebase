@@ -1,6 +1,6 @@
 # CRM: leads, opportunities, activities and quotations
 
-Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); building C1.
+Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); C1 live 2026-11-06, C2 (quotations) built 2026-11-06.
 
 ## The owner's direction (2026-11-05)
 
@@ -191,4 +191,68 @@ each step; What's new at each release.
   dataReset, rolesMatrix, developer, smoke 123/123, singleCompany 58/58,
   help, oneTitle.
 - **Deploy:** `crm-c1` (every function: moduleRegistry.js), with screens,
+  then Hosting.
+
+## As built: step C2, quotations (2026-11-06)
+
+- **functions/src/quotations.js** (Firestore `quotations`, read by company,
+  or by lead on Convert):
+  - **Rights** (moduleRegistry `QUOTATION`): access (the company's
+    quotations, print), write (make, submit, revise, order). Defaults: Admin,
+    Finance Manager and Accountant both, Viewer access. Unlike the CRM
+    records, a quotation has no owner filter: everyone with access sees the
+    company's (a document, like a Sales Order).
+  - `getQuotations` (the list, with Expired worked out against today, and the
+    customers, open leads, open opportunities and classifications),
+    `getQuotationPriceList` (the customer's classification's, or the chosen
+    one for a lead: the company's active price list mapped to it),
+    `saveQuotation` (a draft or a rejected one; the lines priced: net price =
+    unit price less the discount, rounded; the tax by `salesTax.orderTax`,
+    the Sales Order's estimate, now shared; the **QT** number from
+    numbering.js on the first save, under the global lock; format
+    QT-yy-<company code>-000001 like the other document series),
+    `deleteQuotationDraft` (a first draft only), `submitQuotation`
+    (Approval Configuration's **Quotation** type, the amount its total; no
+    levels: Approved at once; an expired one refused), `decideQuotationApproval`
+    (Home and the phone's approval card), `reviseQuotation` (approved,
+    rejected or expired: the next revision, the same number, Rev n+1, dated
+    today with a new Valid until; the earlier one Revised, read-only),
+    `markQuotationOrdered` (after the Sales Order's own save from the screen:
+    the order must be this quotation's company and customer; Accepted and
+    linked; the opportunity Won when asked; a lead's refused until converted).
+  - `crm.convertLead` also moves the lead's quotations to the customer
+    (`FromLeadID` kept), in the same batch.
+- **screens/QUOTATION.html**: the list (open / each status), the entry in the
+  entry layout (customer or lead, classification for a lead, dates,
+  opportunity; lines with the price list's price on choosing the item, the
+  discount and the amount; totals with the tax after Save), Submit, Revise,
+  Delete, Print (the shared print style, sent outside: no ERP title bar),
+  **Create Sales Order** (cost center and warehouse asked; a draft Sales Order
+  through `saveDraftSalesOrder` at the net prices, then opened). A lead's
+  quotation offers to open the lead in CRM to convert it.
+- **CRM screen:** New Quotation on an opportunity and on a lead; CRM opens a
+  lead given `OpenLeadId`.
+- **Approval Configuration:** the Quotation type (off until set); the approval
+  card decides through `decideQuotationApproval`.
+- **Menu:** Sales & Distribution → Pre-Sales Activities → Quotations (the tree's existing
+  node, now the module). **Numbering:** the QT series. **Data Reset:**
+  quotations with the CRM records.
+- **Help:** the Quotations page (CRM area); CRM, Numbering, Data Reset and
+  What's new updated.
+- **Tests:** emulator/quotations (5: number, discount, VAT, price list and
+  the checks; submit without levels and Revise; with levels, Home, the card,
+  reject and resubmit; a lead's quotation through Convert to the order and
+  the opportunity Won; expired), ui/quotation (6). Negative controls, each
+  caught and restored: Create Sales Order at the list price instead of the
+  net (the UI order test fails); the order's customer not checked (the lead
+  test fails); Convert not moving quotations (the lead test fails). The UI
+  test also found a real race, fixed: an item chosen while the price list was
+  still loading got no price; the price now waits for the list.
+- **Results:** full emulator regression all passed but essPortal "who is
+  away today" (date-dependent, fails on main too); unit 224/224; UI quotation
+  6/6, crm 6/6, home 19/19, dataReset, rolesMatrix, developer, smoke 123/123,
+  singleCompany 58/58, help 7/7, oneTitle 9/9, approvalRouting 4/4,
+  entryLayoutWave 39/40 (PDC Issued's header 248 px over its 235 px limit;
+  the same on main, PDC Received too: not this change).
+- **Deploy:** `crm-c2` (every function: moduleRegistry.js), with screens,
   then Hosting.

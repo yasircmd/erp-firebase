@@ -1,5 +1,5 @@
 ---
-fingerprint: 0b932a5e877f5bc6
+fingerprint: fe2114fe6074b5fe
 reviewed: 2026-11-06
 title: CRM
 area: crm
@@ -51,13 +51,14 @@ can still save it.
 
 From a lead:
 
-- **New Opportunity** and **New Activity** start one for this lead.
+- **New Opportunity**, **New Activity** and **New Quotation** start one for
+  this lead.
 - **Disqualify** closes a lead that will not buy; say why.
 - **Convert to Customer** makes it a customer when it buys. The customer
   form is filled from the lead; choose the **Classification** and the
   **Trade Receivables account** (as in Customer Master, with the same
   rules) and select **Save customer and convert**. The lead's open
-  opportunities and activities move to the new customer.
+  opportunities, activities and quotations move to the new customer.
 
 ## Opportunities
 
@@ -69,6 +70,7 @@ and **Expected close** date. It starts at the first stage.
 - **List** shows them as a table.
 - The line above shows the **total** and the **weighted** value (each
   value times its stage's win probability).
+- **New Quotation** makes a [quotation](quotation.html) for it.
 - **Won** closes it as won. **Lost** asks why, from the list of reasons.
   A won or lost opportunity cannot be changed.
 
@@ -90,8 +92,7 @@ A CRM Manager sets, for each company:
 - the **stages**, in order, each with its win probability (**Won** and
   **Lost** always follow);
 - the **lost reasons**, **lead sources** and **activity types**;
-- how many days a **quotation** stays valid (used by Quotations, coming
-  next).
+- how many days a **quotation** stays valid (see [Quotations](quotation.html)).
 
 Until Setup is saved, the defaults apply: New 10 %, Qualified 25 %,
 Proposal 50 %, Negotiation 75 %.

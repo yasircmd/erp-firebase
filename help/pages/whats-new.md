@@ -12,6 +12,12 @@ screen.
 
 ## 06/11/2026
 
+- **Quotations.** A new [Quotations](quotation.html) screen, in CRM, offers
+  prices to a customer or a lead: the price list's prices, a discount and
+  the tax, its own QT number, approval where Approval Configuration sets
+  it, revisions (Rev 2, Rev 3) and a print to send. When the customer
+  accepts, **Create Sales Order** makes the order from it. A CRM
+  opportunity or lead has **New Quotation**.
 - **CRM: leads, opportunities and activities.** A new [CRM](crm.html)
   screen keeps your leads (with a warning when one looks like an existing
   lead or customer, and **Convert to Customer**), your opportunities on a

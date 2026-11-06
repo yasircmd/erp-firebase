@@ -38,6 +38,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'FARETIRE', Label: 'Fixed Asset Retirement' },
   { ModuleID: 'FAAUC', Label: 'Capital Work in Progress' },
   { ModuleID: 'RECURRINGJV', Label: 'Recurring Journal Entries' },
+  { ModuleID: 'QUOTATION', Label: 'Quotation (the amount is its total)' },
   { ModuleID: 'BUDGET', Label: 'Budget (the amount is the year\'s budgeted costs)' },
   { ModuleID: 'BANKREC', Label: 'Bank Reconciliation (the amount is the statement\'s closing balance)' },
   { ModuleID: 'GLREC', Label: 'GL Account Reconciliation (the amount is the account\'s balance)' },
@@ -76,6 +77,7 @@ const APPROVAL_MODULE_STORAGE_ = {
   FAAUC: { type: 'firestore', collection: 'faPostings' },
   RECURRINGJV: { type: 'rtdb', path: 'recurringJournals' },
   BUDGET: { type: 'firestore', collection: 'budgets' },
+  QUOTATION: { type: 'firestore', collection: 'quotations' }, // CRM.md, step C2
   BANKREC: { type: 'firestore', collection: 'bankRecs' }, // docs/modules/RECONCILIATION.md, step R2
   GLREC: { type: 'firestore', collection: 'glRecs' }, // step R3
   CUSTOMERINVOICE: { type: 'rtdb', path: 'customerInvoices' },
