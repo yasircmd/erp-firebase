@@ -12,6 +12,11 @@ screen.
 
 ## 06/11/2026
 
+- **CRM on the sales rep's phone.** In the Employee Portal's Sales tab, a
+  rep now keeps their leads, pipeline and activities, and makes quotes at
+  the price list's prices with a discount, submits them, shares the PDF
+  and, when the customer accepts, sends the order to the office. See
+  [Sales reps in the Employee Portal](sales-rep-portal.html#leads-pipeline-activities-and-quotes).
 - **Quotations.** A new [Quotations](quotation.html) screen, in CRM, offers
   prices to a customer or a lead: the price list's prices, a discount and
   the tax, its own QT number, approval where Approval Configuration sets

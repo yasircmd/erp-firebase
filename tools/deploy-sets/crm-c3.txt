@@ -1,0 +1,39 @@
+# CRM, step C3: the rep portal (owner, 2026-11-06; docs/modules/CRM.md,
+# Q404-Q406): a sales rep's leads, pipeline, activities and quotations in the
+# Employee Portal's Sales tab; a rep's quote at the price list's price with a
+# discount; an approved quote ordered from the phone as a draft Sales Order.
+# The functions whose code reaches crm.js, quotations.js or essPortal.js
+# (their require closure, lazy requires included), and the callables of
+# salesRep.js. salesRep.js's change is a refactor (the portal order's write
+# shared as writeRepOrder, two exports added; placeOrder behaves as before):
+# the functions that reach it only through partyLedger.js run the same
+# behaviour either way, so they are not in this set.
+# No new function; no moduleRegistry change; no screens change (no --screens).
+# Then the "hosting" task: public/ess.html (the portal's CRM pages) and the
+# Help. No rules or index change.
+closeActivity
+convertLead
+decideQuotationApproval
+deleteQuotationDraft
+disqualifyLead
+essPortal
+getCrm
+getCrmActivitiesDueForUser
+getQuotationPriceList
+getQuotations
+manageEssAccounts
+markQuotationOrdered
+reassignCrm
+reviseQuotation
+saveActivity
+saveCrmSetup
+saveLead
+saveOpportunity
+saveQuotation
+setOpportunityStage
+submitQuotation
+cancelRepReceipt
+getRepReceipts
+getSalesReps
+saveSalesRep
+saveSalesRepSettings

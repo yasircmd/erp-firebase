@@ -1,5 +1,5 @@
 ---
-fingerprint: fe2114fe6074b5fe
+fingerprint: 49bb861d8c33be04
 reviewed: 2026-11-06
 title: CRM
 area: crm
@@ -37,7 +37,10 @@ Choose the company at the top. The screen has the tabs **Leads**,
 Each lead, opportunity and activity has an **owner**. You see the ones you
 own. A **CRM Manager** (a right given in Roles) sees every record of their
 companies, can give a record to someone else (change its **Owner**) and
-changes **Setup**. Sales reps can own records too.
+changes **Setup**. Sales reps can own records too: they keep their own
+leads, opportunities and activities from their phone (see
+[Sales reps in the Employee Portal](sales-rep-portal.html#leads-pipeline-activities-and-quotes)).
+A rep's records are the rep's; the CRM Manager sees and reassigns them here.
 
 ## Leads
 

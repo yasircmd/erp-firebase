@@ -362,6 +362,13 @@ async function profileOf(me) {
   };
 }
 
+// A sales rep as the CRM's user (crm.portalUser), with the customers they serve.
+async function crmRep(me) {
+  const S = require('./salesRep');
+  const rep = await S.requireRep(me);
+  return { user: require('./crm').portalUser(me, rep), customers: await S.myCustomers(me, rep) };
+}
+
 const ACTIONS = {
   // Who is signed in; also records the portal sign-in.
   me: { mustChange: true, run: async (me) => {
@@ -442,6 +449,18 @@ const ACTIONS = {
   salesInvoices: { run: (me, d) => require('./salesRep').openInvoices(me, d) },
   salesCollections: { run: (me) => require('./salesRep').myCollections(me) },
   salesReceipt: { run: (me, d) => require('./salesRep').myReceipt(me, d) },
+  // CRM in the portal (docs/modules/CRM.md, step C3, Q404-Q406): the rep's leads,
+  // opportunities, activities and quotations, through the ERP's own rules (crm.js,
+  // quotations.js) with the rep as the one acting.
+  crm: { run: async (me) => {
+    const { user, customers } = await crmRep(me);
+    const [crm, quotes] = await Promise.all([require('./crm').portalCrm(user, customers), require('./quotations').portalQuotes(user, customers)]);
+    return Object.assign(crm, quotes);
+  } },
+  crmRun: { run: async (me, d) => require('./crm').runForRep((await crmRep(me)).user, text(d.what, 40), d.data) },
+  quoteRun: { run: async (me, d) => require('./quotations').runForRep((await crmRep(me)).user, text(d.what, 40), d.data) },
+  quoteItems: { run: async (me, d) => require('./quotations').portalQuoteItems((await crmRep(me)).user, d) },
+  quoteOrder: { run: async (me, d) => require('./quotations').orderForRep((await crmRep(me)).user, me, d) },
   // A leaver's clearance, read only (clearance.js; docs/modules/LEAVER_CLEARANCE.md, Q304).
   myClearance: { run: async (me) => ({ clearance: await require('./clearance').forPortal(me.emp) }) }
 };

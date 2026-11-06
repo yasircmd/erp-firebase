@@ -1,6 +1,6 @@
 # CRM: leads, opportunities, activities and quotations
 
-Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); C1 live 2026-11-06, C2 (quotations) built 2026-11-06.
+Status: **design agreed** (owner, 2026-11-05: "Go on", the design and the defaults as proposed); C1 and C2 (quotations) live 2026-11-06; C3 (rep portal) built 2026-11-06.
 
 ## The owner's direction (2026-11-05)
 
@@ -129,6 +129,31 @@ docStore like the other transaction stores), read by equality queries
 - The CRM rights: **CRM** (use) and **CRM Manager** (see all, reassign,
   setup); **Quotation** as its own module for the role matrix.
 
+## Step C3: the rep portal (owner, 2026-11-06)
+
+Two more decisions, asked before building C3:
+
+| # | Decision |
+|---|---|
+| Q405 | **A rep's quotation price:** the price list's price is fixed on the phone; the rep may give a **discount per line**. Approval Configuration's Quotation levels catch large discounts, as in the ERP. |
+| Q406 | **A rep orders from the phone:** an approved quotation becomes a **draft Sales Order** like a portal order today (the quotation's net prices, the rep's cost center); the office confirms it in Sales Order. The quotation becomes Accepted. |
+
+Defaults taken from what is already agreed (say if any should differ):
+
+- A rep owns what they create (`E:<employee>`), and sees their own leads,
+  opportunities, activities and quotations; a rep who is a **sales manager**
+  (Sales reps, IsManager) sees the company's, as with customers (decision
+  230). The office's CRM Manager sees the reps' records as before.
+- A rep quotes their own customers (the customers they serve) and their own
+  leads; the price list is the customer's (or, for a lead, the chosen
+  classification's).
+- Approving stays in the ERP (Home, the approval card): a rep submits.
+- The rest is the ERP's rules, run on the server the same way: the duplicate
+  warning, stages and Lost reasons, Done with the next activity. Convert to
+  Customer stays in the ERP (Customer Master's rules and accounts).
+- The quotation PDF is shared from the phone as a receipt is (the share sheet,
+  or a download).
+
 ## Build plan
 
 Each step its own PR, tested and deployed before the next:
@@ -256,3 +281,61 @@ each step; What's new at each release.
   the same on main, PDC Received too: not this change).
 - **Deploy:** `crm-c2` (every function: moduleRegistry.js), with screens,
   then Hosting.
+
+## As built: step C3, the rep portal (2026-11-06)
+
+- **The rep as the one acting.** crm.js and quotations.js keep each callable's
+  work as a core taking the person acting (`callable(name, core)`): an ERP
+  user (`requireUser`), or a sales rep through the portal (`crm.portalUser`:
+  `{ uid, portal: { empId, companyId, manager, actor, submitter } }`). With a
+  rep, the same rules run, plus:
+  - owner key `E:<employee>` for what the rep adds (whatever owner is asked);
+    the rep sees their own, a **sales manager** (Sales reps → IsManager) the
+    company's; the company is always the rep's (set on the server);
+  - opportunities, activities and quotes only for the customers the rep
+    serves (`customers.SalesRepEmployeeID`) and their own leads and
+    opportunities;
+  - a quote's price is the price list's on its date, whatever the phone sends;
+    an item not on the list is refused; the discount is the rep's (Q405);
+  - the approval's submitter is the rep's ERP user when they signed in with
+    one (self-approval still seen), else the rep's name;
+  - not from the portal: Convert to Customer, CRM Setup, reassigning, deciding
+    an approval (each refused, "Not from the portal").
+- **essPortal actions:** `crm` (the rep's open leads, opportunities, activities
+  and quotations, the setup, their customers, the warehouses), `crmRun` and
+  `quoteRun` (`{ what, data }`: saveLead, disqualifyLead, saveOpportunity,
+  setOpportunityStage, saveActivity, closeActivity; saveQuotation,
+  submitQuotation, reviseQuotation, deleteQuotationDraft), `quoteItems` (the
+  price list's items at their price), `quoteOrder` (Q406: an approved,
+  unexpired quote for a customer becomes a draft Sales Order through
+  `salesRep.writeRepOrder`, the portal order's own write: the rep's cost
+  center, the chosen warehouse, the quote's net prices; then the quote is
+  Accepted and its opportunity Won).
+- **public/ess.html**, Sales tab: chips Customers / Leads / Pipeline /
+  Activities / Quotes; a lead form (the duplicate warning, Disqualify, New
+  opportunity, New quote); the pipeline by stage (the stage changed on the
+  card, Lost asking the reason); activities by due date (Done with the
+  outcome and the next a week later); quotes (the price list's items, a
+  discount per line, Save, Submit, Share / Download the PDF made on the
+  phone, Revise, the warehouse and Send the order). The receipt's hand-made
+  PDF writer is shared (`pdfOf`).
+- **Help:** Sales reps in the Employee Portal (a section on the CRM pages),
+  CRM, Quotations, What's new.
+- **Tests:** emulator/crmPortal (5: leads, visibility and the duplicate
+  warning; opportunities and activities for the rep's own; the price fixed,
+  the discount the rep's, only their customers; approval in the ERP and the
+  order from the phone; a lead's quote, Revise, a rep no longer a rep);
+  ui/crmPortal (4). unit/approvalCard reads a decide function defined by
+  `callable('name', ...)` too. Negative controls, each caught and restored:
+  the phone's price kept (2 tests fail); every rep seeing the company's
+  records (3 fail); the quote form's redraw resetting the customer (the UI
+  quote test fails). The UI test also found two real faults, fixed: the
+  quote form lost the chosen customer when a line was added, and an order
+  from a quote had no warehouse to deliver from.
+- **Results:** full emulator regression all passed but essPortal "who is
+  away today" (date-dependent, fails on main too); unit 224/224; UI crmPortal
+  4/4, salesRepPortal 8/8, essRequests, essClaims, crm 6/6, quotation 6/6,
+  home 19/19, help 7/7, smoke 123/123; essPortal UI 2 failures that fail the
+  same on main (date-dependent: the Team badge).
+- **Deploy:** `crm-c3` (26 functions; no new function, no screens), then
+  Hosting.
