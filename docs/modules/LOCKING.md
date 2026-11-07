@@ -167,5 +167,45 @@ then, as CLAUDE.md wants.
   - a release that deletes whatever lock is there, as before (tests 3
     and 5 fail).
 - **Results:** the full emulator regression, 803 passed, 0 failed (22 chunks); unit 240/240.
-- **Still to do:** step 2 (the last check at commit), step 3 (long jobs per
-  document), step 4 (measure).
+- **Still to do:** step 2 (the last check at commit), step 4 (measure). Step 3 below.
+
+## As built: step 3, long jobs (2026-11-07)
+
+- **The depreciation run** (fixedAssetsDepreciation.js) takes the lock per
+  step, where it was held for the whole run:
+  - starting or resuming the run;
+  - each chunk of 200 assets;
+  - the GL entry.
+
+  Each chunk checks under its own lock that the run is still Posting and
+  the chunk not yet written. So a second Post of the same run, or a resume,
+  never writes a chunk twice. The GL step returns the posted result if
+  another Post finished it, and refuses a run not fully written. Between
+  steps, other postings go on. The company's other asset postings still
+  wait for the run, because they refuse while `RunInProgress` is set, as
+  before.
+- **The payroll post** (payrollPost.js): the run's context and its
+  journal's lines are worked out before the lock. Under it, the run is
+  checked again (still Approved; `UpdatedAt` and `SubmittedAt` unchanged)
+  and the journal and payslips are written. The payslips stay inside the
+  lock, because Payroll Payment reads them as the posted state.
+- **Opening balances: not split, a deviation from Q424 put to the owner.**
+  An opening batch is checked again under the lock against duplicates and
+  posted whole. Split, a failure would leave a half-posted opening batch,
+  which is harder to reverse. It also runs once per company, at go-live,
+  before users post. Since step 1 the lease keeps it safe however long it
+  takes.
+- **Tests:** emulator/lockLongJobs, a run of 230 assets interrupted after
+  its first chunk. On resume that chunk is skipped, every asset is
+  depreciated once, there is one GL entry, a second Post finds it posted,
+  and a JV posts too. Negative control: without the per-chunk check under
+  the lock, the first 200 assets are depreciated twice (the test fails);
+  restored.
+
+  The emulator serves one function's calls one at a time, so a true race
+  of two Posts, and the payroll post's re-check under the lock, can't be
+  reproduced there. Those checks are in place, but not demonstrated by a
+  failing control.
+- **Results:** emulator payroll (9 suites), fixedAssets, fixedAssetsCwip,
+  lock and lockLongJobs: 71 passed, 0 failed; unit 240/240.
+- **Deploy:** `lock-step3`, 14 functions.

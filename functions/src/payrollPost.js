@@ -113,13 +113,19 @@ async function posterFor(user, run) {
   return { uid: run.SubmittedBy, profile };
 }
 
+// The reads and the journal's lines are worked out before the lock, so the
+// lock is held only for the writes (docs/modules/LOCKING.md, Q424); under
+// it the run is checked again (still approved, unchanged), as before.
 async function postRun(runId, user) {
+  const loadRun = async () => { const snap = await R.RUNS().doc(runId).get(); return Object.assign({ RunID: snap.id }, snap.data()); };
+  const before = await loadRun();
+  if (before.Status !== 'Approved') throw failed('Only an approved run is posted.');
+  const ctx = await postingContext(before);
+  const lines = glLinesFor(before, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts, ctx.provAccount);
   return withGlobalLock(user.uid, async () => {
-    const snap = await R.RUNS().doc(runId).get();
-    const run = Object.assign({ RunID: snap.id }, snap.data());
+    const run = await loadRun();
     if (run.Status !== 'Approved') throw failed('Only an approved run is posted.');
-    const ctx = await postingContext(run);
-    const lines = glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts, ctx.provAccount);
+    if ((run.UpdatedAt || '') !== (before.UpdatedAt || '') || (run.SubmittedAt || '') !== (before.SubmittedAt || '')) throw failed('The run changed while it was being posted: post it again.');
     const gl = await writeStockGlEntry(await posterFor(user, run), VOUCHER_TYPE, calc.monthEnd(run.Month), 'Payroll ' + run.Month, run.RunNumber || '', lines,
       // A run reversed into the first open month (its month closed) is redone there too
       // (docs/modules/PERIOD_CLOSING.md, step 1c, decision 136).

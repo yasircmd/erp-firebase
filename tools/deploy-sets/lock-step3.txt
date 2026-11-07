@@ -1,0 +1,18 @@
+# The posting lock, step 3: long jobs per step (docs/modules/LOCKING.md, Q424;
+# owner, 2026-11-07). The functions whose require closure reaches
+# fixedAssetsDepreciation.js and payrollPost.js. No new function, no screens,
+# no rules. Then nothing else: no Help or shell change.
+decidePayrollApproval
+essPortal
+getFaDepreciationRegister
+getFaRegister
+getFaRuns
+getPayrollGlImpact
+getPayrollPayslips
+manageEssAccounts
+postFaDepreciation
+postPayrollRun
+previewFaDepreciation
+reverseFaDepreciation
+reversePayrollRun
+submitPayrollRun
