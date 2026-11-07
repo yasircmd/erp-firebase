@@ -1878,3 +1878,7 @@ from, and how it was verified. The deploy procedure is in the
   (16:48–19:04 UTC), success. "hosting", run
   [#323](https://github.com/yasircmd/erp-firebase/actions/runs/42404712110)
   (19:08–19:09 UTC), success (What's new). No screens, no rules.
+- **2026-11-07, The posting lock, step 3: long jobs (`lock-step3`, 14
+  functions, PR #236, from `3589789`):** "functions set", run
+  [#324](https://github.com/yasircmd/erp-firebase/actions/runs/42408073145)
+  (19:49–19:54 UTC), success. No screens, no rules, no Hosting.
