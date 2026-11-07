@@ -173,6 +173,10 @@ const MODULE_REGISTRY = [
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
   { id: 'DEVELOPER', label: 'Developer', capabilities: ['access', 'write'], internal: true, homeOnly: true },
+  // Technical Reference (docs/modules/TECH_REFERENCE.md, Q419-Q422): the app's
+  // technical details for the firm's developers, read only. Firm-only and
+  // internal (no public Help page: it maps the system's inside).
+  { id: 'TECHREF', label: 'Technical Reference', capabilities: ['access'], internal: true, homeOnly: true },
   // Support (MULTI_CORPORATE.md, M3; decisions 252-254, 256): a client
   // corporate's Admin sends issues to the firm. clientOnly: never Corporate
   // 100's own (it is the firm), though its tree can hold the item for the
@@ -320,6 +324,7 @@ const DEFAULT_PERMISSIONS = {
   BANKREC:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'] },
   GLREC:              { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
+  TECHREF:            { access: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };
 

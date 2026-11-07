@@ -407,3 +407,5 @@ const support = require('./src/support');
 
 // Correction JV (docs/modules/CORRECTION_JV.md).
 ['getCorrectionJvs', 'getEntryForCorrection', 'getCorrectionJv', 'saveCorrectionJvDraft'].forEach(n => { exports[n] = require('./src/correctionJv')[n]; });
+// Technical Reference (docs/modules/TECH_REFERENCE.md): firm-only, read only.
+['getTechRefPart', 'searchTechRef'].forEach(n => { exports[n] = require('./src/techRef')[n]; });

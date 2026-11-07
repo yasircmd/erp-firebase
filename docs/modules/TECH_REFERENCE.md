@@ -1,6 +1,6 @@
 # Technical Reference: the app's technical details for developers
 
-Status: **design agreed** (owner, 2026-11-07, Q419-Q422); build next, in the four steps below.
+Status: **built** 2026-11-07 (owner's decisions Q419-Q422); deploy set `techref`.
 
 ## The request (owner, 2026-11-07)
 
@@ -109,3 +109,92 @@ A module **Technical Reference** (`TECHREF`), under Developer.
 3. **The screen** (screens/TECHREF.html): search, tabs, cross-links. UI test.
 4. **The Architecture overview** (docs/ARCHITECTURE.md), the Help page,
    What's new, the deploy set, and the PR.
+
+## As built (2026-11-07)
+
+- **The builder** (tools/techref/build.js, tools/techref/markdown.js) reads
+  the repository:
+  - **modules** from moduleRegistry.js, with their rights, firm-only and
+    baseline;
+  - **functions** from index.js, each traced to the file that defines it
+    by the deploy's own lazy-exports map (tools/build-lazy-exports.js);
+  - **files**: every functions/src file, with its header comment, what it
+    requires and what requires it, its functions and its data;
+  - **data**: Firestore collections named literally, through a string
+    constant, or as a store's `collection:`; RTDB paths named in `ref()`;
+    `.indexOn` from database.rules.json; and which paths moved to
+    Firestore (movedPaths.js);
+  - **screens** and the functions each calls;
+  - **tests** and the functions each calls;
+  - **deploy sets**;
+  - **documents**: CLAUDE.md, README, docs/*.md (the new
+    docs/ARCHITECTURE.md first) and docs/modules/*.md, rendered with the
+    Help's converter plus fenced code and `#` titles.
+
+  A module is followed to its own functions (those few screens call), their
+  files, the data those files and their stores touch, the design docs naming
+  it, its Help page, and its tests (those named after it or its files, and
+  those calling the functions only its screen uses).
+- **The release** (tools/screen-release.js): `release` builds the
+  reference in its own process (`--parts`) and writes it beside the screens,
+  as `screenReleases/{id}/techref/{part}`. There is one part per catalogue
+  section, the documents' search text in parts of up to 500 KB, one part per
+  document, and the meta part (counts, issues, the documents' list, the
+  search parts, the commit). It is read back by hash with the screens; a
+  failed part leaves the active release as it was. A rollback shows that
+  release's own reference. A release refuses to go out when the reference
+  has issues.
+- **The check (Q421):** unit/techRef.test.js, a Deploy workflow step ("Check
+  technical reference"). It checks the following, and a release is
+  refused otherwise:
+  - no issues: every function has its file, every module its screen,
+    every screen its module, and the Architecture overview exists;
+  - every function and module is catalogued;
+  - one module is followed through end to end;
+  - the parts are under Firestore's limit.
+- **The server** (functions/src/techRef.js): `getTechRefPart` (meta,
+  `cat_<section>`, `docNNN`, from the active release in the firm's
+  Firestore) and `searchTechRef` (the documents containing every word, with
+  a snippet), each with the TECHREF access right. The module is homeOnly, so
+  every client corporate is refused whatever its roles.
+  unit/corporateContext lists techRef.js among the files that reach the
+  firm's project (the screens release only).
+- **The module:** TECHREF, "Technical Reference": access only, ADMIN by
+  default. It is internal: there is **no public Help page and no What's new
+  entry**, because the Help is public and this maps the system's inside (a
+  change from the plan's step 4, for the reason of Q419). Its tree node is
+  after Developer.
+- **The screen** (screens/TECHREF.html):
+  - the release and commit;
+  - the Overview, with the counts and issues;
+  - tabs for Modules, Functions, Files, Data, Screens, Tests, Deploys and
+    Documents, each list with a filter, each item with its links to the
+    others;
+  - a document's links to another document opening it in place;
+  - a search across the catalogue and the documents.
+- **The Architecture overview** (docs/ARCHITECTURE.md): the pieces, a
+  request end to end, multi-corporate, modules and rights, posting, the
+  legacy port, releases and deploys, testing, and a pointer to the facts
+  learned the hard way.
+- **Tests:**
+  - unit/techRef: 5 tests;
+  - emulator/techRef: 3 tests. The release carries the reference; the
+    firm's admin reads it and searches it; a viewer and a client
+    corporate are refused; a release without it says so. A part name
+    outside the list is refused;
+  - ui/techRef: 2 tests. The overview; a module followed to its function
+    and file; a document and its link; the search; a refused user.
+
+  Negative controls, each caught and restored:
+  - the constant resolution off (unit fails);
+  - the access check off (emulator fails);
+  - the document links not followed (the UI test fails).
+- **Results:**
+  - unit: 240/240;
+  - emulator: techRef, screenRelease, developer, corporates, roles,
+    treeFolders, treeMgmt, onboarding, all passing;
+  - UI: techRef 2/2, smoke 123/123, developer 9/9, rolesMatrix 2/2,
+    home 19/19.
+- **Deploy:** `techref`, every function (moduleRegistry.js), with
+  --screens. The release builds and carries the reference, then Hosting
+  (the styles). No rules change.

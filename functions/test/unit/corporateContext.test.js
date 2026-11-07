@@ -49,7 +49,8 @@ test('only tests and tools work outside a request', () => {
 test('the firm\'s own project is reached only for the directory and the screens release', () => {
   const users = files.filter(p => rel(p) !== 'firebaseAdmin.js' && /\bfirm\b[\s\S]{0,80}require\('\.\.?\/firebaseAdmin'\)|firebaseAdmin\.firm\b/.test(read(p))).map(rel).sort();
   // fxSheet.js: the firm's exchange-rates sheet link only (FX_SHEET.md, Q330); the rates it applies are the corporate's.
-  assert.deepEqual(users, ['corporates.js', 'developer.js', 'fxSheet.js', 'getModuleFragment.js', 'support.js']);
+  // techRef.js: the Technical Reference inside the screens release (TECH_REFERENCE.md), firm-only.
+  assert.deepEqual(users, ['corporates.js', 'developer.js', 'fxSheet.js', 'getModuleFragment.js', 'support.js', 'techRef.js']);
 });
 
 test('no module keeps data between requests, except these', () => {
