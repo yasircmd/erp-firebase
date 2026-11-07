@@ -164,7 +164,7 @@ async function unfinishedDocuments(companyId, from, to) {
   jvSnap.docs.forEach(d => {
     const e = d.data();
     if (!inRange(e.JVDate)) return;
-    const mod = e.VoucherType === 'JV' ? 'JV' : (e.VoucherType === 'RecurringJV' ? 'RECURRINGJV' : 'CBT');
+    const mod = e.VoucherType === 'JV' ? 'JV' : (e.VoucherType === 'RecurringJV' ? 'RECURRINGJV' : (e.VoucherType === 'CJV' ? 'CJV' : 'CBT'));
     rows.push(docRow(mod, e.VoucherType || 'JV', e.JVNumber, e.JVDate, e.Status));
   });
   faSnap.docs.forEach(d => {

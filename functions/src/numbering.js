@@ -47,7 +47,9 @@ const OTHER_DOCUMENTS = [
   // Printed from a Sales Order, posting nothing (docs/modules/UX_ROUND2.md item 22).
   ['PI', 'Proforma Invoice'],
   // A CRM quotation, posting nothing (docs/modules/CRM.md, step C2).
-  ['QT', 'Quotation']
+  ['QT', 'Quotation'],
+  // Correction JV (docs/modules/CORRECTION_JV.md).
+  ['CJV', 'Correction JV']
 ];
 // Numbered from stock/counters/voucher like the stock documents, though not
 // in their map.

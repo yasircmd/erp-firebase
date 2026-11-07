@@ -234,6 +234,10 @@ async function journalListPage_(where, assignedCompanies, page, spec, voucherTyp
 // Who saves a draft: the signed-in ERP user with the module's draft right.
 // (A sales rep's cash collection was a draft saved here for the rep until
 // items 30-31; it now posts as the rep's receipt, salesRep.js.)
+// A Correction JV is numbered in its own CJV series (CORRECTION_JV.md);
+// every other entry as the port numbers it.
+const prefixForEntry_ = record => (record.VoucherType === 'CJV' ? 'CJV' : voucherPrefixForEntry_(record));
+
 async function draftUser_(idToken, moduleId) {
   const user = await requireUser_(idToken);
   await requireDraftAccess_(idToken, user, moduleId);
@@ -401,6 +405,7 @@ async function postJournalEntry(idToken, jvId) {
     // Requisition and Inventory Purchase Requisition.
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected entries can be posted.');
     await assertPeriodOpen(existing.CompanyID, existing.JVDate); // docs/modules/PERIOD_CLOSING.md, step 1b
+    if (existing.VoucherType === 'CJV') await require('./correctionJv').assertPostable(existing, jvId); // CORRECTION_JV.md
 
     const coaData = await getCoaData_(idToken);
     const normalized = validateAndNormalizeLines_(existing.Lines, coaData, existing.CompanyID);
@@ -419,7 +424,7 @@ async function postJournalEntry(idToken, jvId) {
     normalized.totalDebit = party.totalDebit; normalized.totalCredit = party.totalCredit;
 
     const year = (new Date(existing.JVDate)).getFullYear() || new Date().getFullYear();
-    const prefix = voucherPrefixForEntry_(existing);
+    const prefix = prefixForEntry_(existing);
     // Voucher numbering deliberately stays in RTDB even though the
     // document itself now lives in Firestore — it's just a small,
     // atomically-incrementing counter, shared identically by every
@@ -505,6 +510,7 @@ async function decideJournalEntryApproval(idToken, jvId, levelNumber, decision, 
       if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
       if (decision === 'Approved' && existing.Status === 'PendingApproval') {
         await assertPeriodOpen(existing.CompanyID, existing.JVDate); // its month closed meanwhile: the approver rejects it
+        if (existing.VoucherType === 'CJV') await require('./correctionJv').assertPostable(existing, jvId); // CORRECTION_JV.md
         await assertNoFaControlledAccounts(existing.Lines);
         await resolvePartyLines(existing.Lines, existing.CompanyID);
       }
@@ -545,6 +551,7 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     await requirePostAccess_(idToken, user, moduleIdForEntry_(existing));
     if (existing.Status !== 'Posted') throw new Error('Only posted entries can be reversed.');
     if (existing.ReversedByJV) throw new Error('This entry has already been reversed.');
+    await require('./correctionJv').assertNoOpenCorrection(jvId); // a corrected entry: its CJV first (CORRECTION_JV.md, Q418)
     // Reversing releases this entry's allocations (it stops being live);
     // refused while something else has settled one of its New Refs.
     await assertEntryReversible(jvId, existing);
@@ -563,7 +570,7 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
     const year = (new Date(date)).getFullYear() || new Date().getFullYear();
-    const prefix = voucherPrefixForEntry_(existing);
+    const prefix = prefixForEntry_(existing);
     const jvNumber = await generateVoucherNumber_(idToken, prefix, year, existing.CompanyID);
     const transactionRef = await generateGlTransactionRef_(idToken);
     const newId = 'JVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
@@ -817,3 +824,8 @@ exports.saveAndPostCbt = (request, cbtData) => run(request, async (ctx) => {
   const posted = await postJournalEntry(ctx, saved.jvId);
   return Object.assign({ jvId: saved.jvId }, posted);
 });
+
+// For Correction JV (docs/modules/CORRECTION_JV.md): a CJV draft saved
+// through the same code as a JV's, under the CJV module's draft right.
+exports.saveCorrectionRecord = (request, a) => run(request, (ctx) =>
+  saveJournalRecord_(ctx, 'CJV', a.jvId || '', a.date, a.description, a.reference || '', a.lines, a.dimensions, a.extraFields));

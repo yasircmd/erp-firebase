@@ -11,6 +11,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'INVENTORYPURCHASEREQUISITION', Label: 'Inventory Purchase Requisition' },
   { ModuleID: 'JOBORDERREQUEST', Label: 'Job Order Request' },
   { ModuleID: 'JV', Label: 'Journal Entry (JV)' },
+  { ModuleID: 'CJV', Label: 'Correction JV (CJV)' }, // CORRECTION_JV.md
   // CBT is four transactions, each with its own approvers (owner, 2026-09-29;
   // docs/modules/APPROVAL_ROUTING.md). The approval still belongs to CBT;
   // these are the Approval Configuration entries its voucher types use.
@@ -57,6 +58,7 @@ const APPROVAL_GATEABLE_MODULES = [
 // are in Firestore (stockStore.js), and the readers route by it.
 const APPROVAL_MODULE_STORAGE_ = {
   JV: { type: 'firestore', collection: FIRESTORE_JOURNAL_ENTRIES_COLLECTION },
+  CJV: { type: 'firestore', collection: FIRESTORE_JOURNAL_ENTRIES_COLLECTION }, // CORRECTION_JV.md
   CBT: { type: 'firestore', collection: FIRESTORE_JOURNAL_ENTRIES_COLLECTION },
   GRN: { type: 'rtdb', path: 'stock/transactions' },
   MATERIALISSUE: { type: 'rtdb', path: 'stock/transactions' },

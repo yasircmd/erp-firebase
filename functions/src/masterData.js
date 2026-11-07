@@ -212,6 +212,7 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
 
 // Ported from moduleIdForEntry_.
 function moduleIdForEntry(record) {
+  if (record.VoucherType === 'CJV') return 'CJV'; // Correction JV (CORRECTION_JV.md)
   if (record.VoucherType && CBT_VOUCHER_TYPES.includes(record.VoucherType)) return 'CBT';
   if (record.VoucherType && STOCK_VOUCHER_TYPE_TO_MODULE[record.VoucherType]) return STOCK_VOUCHER_TYPE_TO_MODULE[record.VoucherType];
   return 'JV';

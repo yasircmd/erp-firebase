@@ -16,6 +16,7 @@ const DECIDE = {
   PURCHASEREQUISITION: { fn: 'decidePurchaseRequisitionApproval', id: 'prId' },
   INVENTORYPURCHASEREQUISITION: { fn: 'decideInventoryPurchaseRequisitionApproval', id: 'iprId' },
   JV: { fn: 'decideJournalEntryApproval', id: 'jvId' },
+  CJV: { fn: 'decideJournalEntryApproval', id: 'jvId' }, // CORRECTION_JV.md
   CBT: { fn: 'decideJournalEntryApproval', id: 'jvId' },
   GRN: { fn: 'decideGrnApproval', id: 'grnId' },
   MATERIALISSUE: { fn: 'decideMaterialIssueApproval', id: 'miId' },

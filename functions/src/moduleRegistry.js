@@ -9,6 +9,8 @@ const MODULE_REGISTRY = [
   { id: 'COA', label: 'Chart of Accounts', capabilities: ['access', 'write'] },
   { id: 'JV', label: 'Journal Entry Processing (JV)', capabilities: ['access', 'draft', 'post', 'rematch'] }, // rematch: UX_TIER3.md G
   { id: 'CBT', label: 'Cash and Bank Transactions (CBT)', capabilities: ['access', 'draft', 'post', 'rematch'] },
+  // Correction JV: reclassify a posted entry (CORRECTION_JV.md, 2026-11-07).
+  { id: 'CJV', label: 'Correction JV (CJV)', capabilities: ['access', 'draft', 'post'] },
   { id: 'TREEMGMT', label: 'Module Tree & Navigation', capabilities: ['access', 'write'] },
   { id: 'ROLES', label: 'Roles & Permissions', capabilities: ['access', 'write'] },
   { id: 'COMPANYMASTER', label: 'Company Master Data', capabilities: ['access', 'write', 'shareholders'] }, // shareholders: UX_TIER3.md F
@@ -183,6 +185,7 @@ const DEFAULT_PERMISSIONS = {
   COA:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   JV:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'], rematch: ['ADMIN', 'FINANCE_MGR'] },
   CBT:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'], rematch: ['ADMIN', 'FINANCE_MGR'] },
+  CJV:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   TREEMGMT: { access: ['ADMIN'], write: ['ADMIN'] },
   ROLES:    { access: ['ADMIN'], write: ['ADMIN'] },
   COMPANYMASTER:  { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN'], shareholders: ['ADMIN'] },
