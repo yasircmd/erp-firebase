@@ -1872,3 +1872,9 @@ from, and how it was verified. The deploy procedure is in the
   [#321](https://github.com/yasircmd/erp-firebase/actions/runs/42382391544)
   (14:36–14:37 UTC), success (the release carries the reference; Hosting
   with it). No functions, no rules.
+- **2026-11-07, The posting lock, step 1: the lease (`lock-lease`, every
+  function, PR #234, from `cd2c7e9`):** every function, run
+  [#322](https://github.com/yasircmd/erp-firebase/actions/runs/42393140412)
+  (16:48–19:04 UTC), success. "hosting", run
+  [#323](https://github.com/yasircmd/erp-firebase/actions/runs/42404712110)
+  (19:08–19:09 UTC), success (What's new). No screens, no rules.
