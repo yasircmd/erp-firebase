@@ -16,7 +16,7 @@
 const { onCallWithMessages } = require('./callable');
 const {
   run, firestoreGet_, firestoreSet_, firestoreUpdate_, firestoreDelete_, firestoreQuery_,
-  firestoreCount_, requireUser_, LockService, Utilities
+  firestoreCount_, requireUser_, LockService, Utilities, toFs
 } = require('./legacy/runtime');
 const L = require('./legacy/codegs');
 const { moduleHasCapability } = require('./auth');
@@ -237,6 +237,9 @@ async function journalListPage_(where, assignedCompanies, page, spec, voucherTyp
 // A Correction JV is numbered in its own CJV series (CORRECTION_JV.md);
 // every other entry as the port numbers it.
 const prefixForEntry_ = record => (record.VoucherType === 'CJV' ? 'CJV' : voucherPrefixForEntry_(record));
+
+// A posted entry written as firestoreSet_ writes it, checked against the lock.
+const fencedSet_ = (jvId, record) => require('./lock').commitFenced([['set', [firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(String(jvId)), toFs(record)]]]);
 
 async function draftUser_(idToken, moduleId) {
   const user = await requireUser_(idToken);
@@ -485,7 +488,8 @@ async function postJournalEntry(idToken, jvId) {
       record.PostedBy = actor;
     }
 
-    await firestoreSet_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, jvId, record);
+    // Checked against the lock as it is written (lock.js commitFenced, LOCKING.md step 2).
+    await fencedSet_(jvId, record);
     return { success: true, jvNumber: jvNumber, transactionRef: transactionRef, status: record.Status };
   } catch (err) {
     return { success: false, error: err.message };
@@ -590,8 +594,11 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
       PartyKeys: existing.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: []
     };
 
-    await firestoreSet_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, newId, reversalRecord);
-    await firestoreUpdate_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, jvId, { ReversedByJV: newId });
+    // The reversal and its original's mark together, checked against the lock (LOCKING.md step 2).
+    await require('./lock').commitFenced([
+      ['set', [firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(newId), toFs(reversalRecord)]],
+      ['set', [firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(jvId), { ReversedByJV: newId }, { merge: true }]]
+    ]);
 
     return { success: true, jvId: newId, jvNumber: jvNumber, transactionRef: transactionRef };
   } catch (err) {

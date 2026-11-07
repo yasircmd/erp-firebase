@@ -209,3 +209,54 @@ then, as CLAUDE.md wants.
 - **Results:** emulator payroll (9 suites), fixedAssets, fixedAssetsCwip,
   lock and lockLongJobs: 71 passed, 0 failed; unit 240/240.
 - **Deploy:** `lock-step3`, 14 functions.
+
+## As built: step 2, the last check at commit (2026-11-07)
+
+The owner agreed (2026-11-07) that opening balances stay posted whole,
+because they are mostly used once.
+
+- **lock.js:**
+  - the lock a request holds is kept with the request: `withGlobalLock`'s
+    in its own AsyncLocalStorage, and the ported code's LockService in
+    legacy/runtime.js (`currentLockHeld`);
+  - `commitFenced(ops)` commits a posting's writes in one transaction that
+    first reads the lock and checks its token is still the request's;
+  - if the token isn't the request's (the lease was lost: the function
+    froze past the stale time and another posting took the lock), nothing
+    is written and the user is told: "This posting took too long and was
+    stopped before it was saved, so nothing was posted: please post it
+    again.";
+  - outside a held lock, a plain batch as before;
+  - `recorder()` collects the writes first, so a transaction retry replays
+    them without running the posting's own code again.
+- **Where it applies:**
+  - `stockPosting.postStock`: every stock and document posting, the
+    ported ones included;
+  - `glWriting.writeStockGlEntry`: payroll, fixed assets, recurring
+    journals and the other single-entry postings;
+  - journal.js: JV and Cash & Bank post, and reverse. The reversal and its
+    original's mark are now in one commit, where they were two writes.
+- **Not covered:** the depreciation run's asset chunks (each under its own
+  lock and re-checked there, step 3), payroll's payslip updates after its
+  journal, and RTDB side effects after a posting (PO and SO quantities).
+  These follow a posting that was itself checked.
+- **Tests:** emulator/lockFence, 4 tests:
+  - the holder commits, and outside a lock a plain batch commits;
+  - a holder whose lease was lost writes nothing (all or nothing), is told
+    to post again, and the new holder keeps the lock;
+  - postStock posts nothing on a lost lease;
+  - the ported code's LockService is checked against its own lock.
+
+  Negative controls, each caught and restored:
+  - no token check (tests 2-4 fail);
+  - postStock on a plain batch (test 3 fails).
+
+  Guards that follow the new shape: unit/periodLockGuard (postStock builds
+  the checked entry before `commitFenced`) and unit/corporateContext
+  (`heldStore`, per request). Help: Journal Entries' two messages.
+- **Results:** the full emulator regression, 807 passed, 1 failed. The
+  failure is quotations' Revise test: it reckons the new Valid until from
+  UTC's today while the server uses UAE time, so it fails after 20:00 UTC.
+  It fails the same on main, and is unrelated. Unit 240/240.
+- **Deploy:** `lock-step2`, every function, all at once, then Hosting
+  (Help).

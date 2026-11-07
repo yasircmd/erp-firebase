@@ -246,7 +246,15 @@ const seq = {
   }
 };
 
+// The lock the ported code's LockService holds for this request (lock.js's
+// last check at commit, docs/modules/LOCKING.md step 2).
+function currentLockHeld() {
+  const ctx = als.getStore();
+  return (ctx && ctx.lockDepth > 0 && ctx.lockHeld) || null;
+}
+
 module.exports = {
+  currentLockHeld, toFs,
   run, firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, firestoreAdd_, firestoreDelete_,
   firestoreQuery_, firestoreCount_, requireUser_, firebaseAuthRequest_, LockService, Utilities, seq
 };

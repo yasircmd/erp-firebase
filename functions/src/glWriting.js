@@ -197,7 +197,8 @@ function carryPartyFields(rawLines, normalizedLines) {
 // lock (see lock.js) — same contract as the original.
 async function writeStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields) {
   const built = await buildStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields);
-  await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId).set(built.record);
+  // Checked against the lock as it is written (lock.js commitFenced, LOCKING.md step 2).
+  await require('./lock').commitFenced([['set', [firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId), built.record]]]);
   return { jvId: built.jvId, jvNumber: built.jvNumber, transactionRef: built.transactionRef, jvDate: built.record.JVDate, adjustedFrom: built.record.AdjustedFromDate || '' };
 }
 

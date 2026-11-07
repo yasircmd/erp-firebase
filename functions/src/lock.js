@@ -1,4 +1,5 @@
 const { randomUUID } = require('crypto');
+const { AsyncLocalStorage } = require('async_hooks');
 const { firestore } = require('./firebaseAdmin');
 const perf = require('./perf'); // the call's lock wait and held time (docs/modules/PERFORMANCE.md, P1)
 
@@ -29,6 +30,10 @@ const LOCK_TIMEOUT_MS = 20000; // the wait (Q426; it was 10 s, as lock.waitLock(
 const LOCK_STALE_MS = 30000;   // not renewed for this long: abandoned
 const LOCK_RENEW_MS = 10000;   // the holder renews this often
 const BUSY_MESSAGE = 'The system is busy posting; please try again in a moment.';
+const LOST_MESSAGE = 'This posting took too long and was stopped before it was saved, so nothing was posted: please post it again.';
+// The lock held by the current request, for the last check at commit
+// (Q423, step 3 of the lease): per request, never shared.
+const heldStore = new AsyncLocalStorage();
 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 const lastSeen = d => (d && (d.renewedAt || d.lockedAt)) || 0;
@@ -102,10 +107,48 @@ async function releaseGlobalLock(held) {
 async function withGlobalLock(actor, fn, opts) {
   const held = await acquireGlobalLock(actor, opts);
   try {
-    return await fn(held);
+    return await heldStore.run(held, () => fn(held));
   } finally {
     await releaseGlobalLock(held);
   }
 }
 
-module.exports = { acquireGlobalLock, releaseGlobalLock, withGlobalLock, LOCK_DOC_PATH, LOCK_TIMEOUT_MS, LOCK_STALE_MS, LOCK_RENEW_MS, BUSY_MESSAGE };
+// The lock the current request holds: withGlobalLock's, or the ported
+// code's LockService (legacy/runtime.js keeps it with the request).
+function currentHeld() {
+  return heldStore.getStore() || require('./legacy/runtime').currentLockHeld();
+}
+
+// A posting's writes, recorded ({ set, update, delete } as on a batch), to
+// commit with commitFenced.
+function recorder() {
+  const w = { ops: [] };
+  ['set', 'update', 'delete'].forEach(m => { w[m] = (...a) => { w.ops.push([m, a]); return w; }; });
+  return w;
+}
+
+// THE LAST CHECK AT COMMIT (docs/modules/LOCKING.md, step 2; Q423): a
+// posting's writes commit in one transaction that first reads the lock and
+// checks it is still this request's (its token). A holder whose lease was
+// lost meanwhile (its function frozen past the stale time, another posting
+// now holding the lock) writes nothing and is told to post again, instead of
+// posting alongside the new holder. Outside a held lock, a plain batch as
+// before. All or nothing either way; at most 500 writes, as a batch.
+async function commitFenced(ops) {
+  const held = currentHeld();
+  if (!held) {
+    const batch = firestore.batch();
+    ops.forEach(([m, a]) => batch[m](...a));
+    await batch.commit();
+    return;
+  }
+  const lockRef = firestore.doc(LOCK_DOC_PATH);
+  await firestore.runTransaction(async (tx) => {
+    const snap = await tx.get(lockRef);
+    if (!snap.exists || snap.get('token') !== held.token) { held.lost = true; throw new Error(LOST_MESSAGE); }
+    ops.forEach(([m, a]) => tx[m](...a));
+  });
+}
+
+module.exports = { acquireGlobalLock, releaseGlobalLock, withGlobalLock, currentHeld, recorder, commitFenced,
+  LOCK_DOC_PATH, LOCK_TIMEOUT_MS, LOCK_STALE_MS, LOCK_RENEW_MS, BUSY_MESSAGE, LOST_MESSAGE };
