@@ -1835,3 +1835,16 @@ from, and how it was verified. The deploy procedure is in the
   (17:09–19:30 UTC), success. "hosting", run
   [#312](https://github.com/yasircmd/erp-firebase/actions/runs/42281894846)
   (19:41–19:43 UTC), success. No screens, no rules change.
+- **2026-11-07, UX round 3 wave 3, bank account details (`ux3-wave3`, 7
+  functions, PR #226, from `c3fe8f3`):** "functions set, then screens", run
+  [#313](https://github.com/yasircmd/erp-firebase/actions/runs/42336423419)
+  (03:59–04:03 UTC), success. "hosting", run
+  [#314](https://github.com/yasircmd/erp-firebase/actions/runs/42336941482)
+  (04:06–04:07 UTC), success. No rules change.
+- **2026-11-07, Sales Return on a closed project: refused (PR #228, from
+  `8b99115`):** "hosting", run
+  [#315](https://github.com/yasircmd/erp-firebase/actions/runs/42339381004)
+  (04:39–04:40 UTC), success: the Sales Return Help page. Its What's new
+  entry was missed; added in PR #229 (from `c7131fa`), "hosting", run
+  [#316](https://github.com/yasircmd/erp-firebase/actions/runs/42340334420)
+  (04:52–04:53 UTC), success. No functions, screens or rules.
