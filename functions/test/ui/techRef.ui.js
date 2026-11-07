@@ -55,6 +55,32 @@ const T = { timeout: 30000 };
     await page.close();
   });
 
+  await check('lists in pages of 25, Next / Previous; the tabs readable in the light theme', async () => {
+    const page = await open('u-admin');
+    await page.waitForFunction(() => /commit/.test(document.getElementById('tr-release').textContent), null, T);
+    await page.click('.tr-tab[data-tab="functions"]');
+    await page.waitForFunction(() => document.querySelectorAll('#tr-list [data-key]').length === 25, null, T);
+    assert.match(await page.textContent('#tr-page'), /^1–25 of \d{3}$/);
+    assert.ok(await page.isDisabled('#tr-prev'));
+    await page.click('#tr-next');
+    assert.match(await page.textContent('#tr-page'), /^26–50 of /);
+    await page.click('#tr-prev');
+    assert.match(await page.textContent('#tr-page'), /^1–25 of /);
+    await page.fill('#tr-filter', 'saveCorrectionJvDraft');
+    assert.equal(await page.$$eval('#tr-list [data-key]', x => x.length), 1);
+    assert.ok(await page.isHidden('#tr-pager'), 'one page: no pager');
+    // Light theme: the active tab's text dark on a light background (it was light blue on white).
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+    const [fg, bg] = await page.$eval('.tr-tab.active', b => { const c = getComputedStyle(b); return [c.color, c.backgroundColor]; });
+    // A see-through background is seen over the white page: blend it before measuring.
+    const over = rgb => { const v = rgb.match(/[\d.]+/g).map(Number); const a = v.length > 3 ? v[3] : 1; return 'rgb(' + v.slice(0, 3).map(c => Math.round(c * a + 255 * (1 - a))).join(',') + ')'; };
+    const lum = rgb => { const [r, g, b] = over(rgb).match(/\d+/g).map(Number).map(v => v / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const ratio = (Math.max(lum(fg), lum(bg)) + 0.05) / (Math.min(lum(fg), lum(bg)) + 0.05);
+    assert.ok(ratio >= 4.5, 'contrast ' + ratio.toFixed(2) + ' (' + fg + ' on ' + bg + ')');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await check('a user without the right is refused', async () => {
     const page = await open('u-viewer', true);
     assert.match(await page.textContent('#module-container'), /do not have access/);

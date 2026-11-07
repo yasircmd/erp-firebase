@@ -15,6 +15,13 @@
   #tr-doc code { font-size: 0.78rem; } #tr-doc a, .tr-link { color: #60a5fa; cursor: pointer; }
   .tr-tab.active { background: rgba(59,130,246,0.25); color: #bfdbfe; }
   .tr-chip { display: inline-block; font-size: 0.7rem; padding: 0 0.4rem; border-radius: 9999px; margin: 1px; border: 1px solid rgba(148,163,184,0.35); }
+  /* The light theme (the shell's LIGHT THEME block remaps the Tailwind classes; these are this screen's own). */
+  [data-theme="light"] .tr-tab { color: #334155; border-color: #cbd5e1; background: #ffffff; }
+  [data-theme="light"] .tr-tab.active { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; font-weight: 600; }
+  [data-theme="light"] #tr-doc pre { background: #f1f5f9; color: #0f172a; }
+  [data-theme="light"] #tr-doc a, [data-theme="light"] .tr-link { color: #1d4ed8; }
+  [data-theme="light"] .tr-chip { border-color: #cbd5e1; }
+  [data-theme="light"] #tr-doc th, [data-theme="light"] #tr-doc td { border-color: #cbd5e1; }
 </style>
 
 <div class="space-y-4">
@@ -41,6 +48,11 @@
     <div class="lg:col-span-2 space-y-2">
       <input id="tr-filter" type="search" placeholder="Filter this list" aria-label="Filter this list" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm">
       <div id="tr-list" class="bg-slate-800/40 border border-slate-700 rounded-xl max-h-[70vh] overflow-y-auto text-sm divide-y divide-slate-800"></div>
+      <div id="tr-pager" class="hidden flex items-center justify-between text-xs text-slate-400">
+        <button id="tr-prev" class="px-3 py-1 rounded border border-slate-700 hover:bg-slate-800/60 disabled:opacity-40">‹ Previous</button>
+        <span id="tr-page"></span>
+        <button id="tr-next" class="px-3 py-1 rounded border border-slate-700 hover:bg-slate-800/60 disabled:opacity-40">Next ›</button>
+      </div>
     </div>
     <div id="tr-detail" class="lg:col-span-3 bg-slate-800/40 border border-slate-700 rounded-xl p-4 max-h-[78vh] overflow-y-auto text-sm"></div>
   </div>
@@ -65,6 +77,9 @@
   let meta = null;
   const cat = {};      // section -> rows
   let tab = 'overview';
+  const PAGE = 25;       // lines a page (owner, 2026-11-07)
+  let page = 0;          // the list's page
+  let listRows = [];     // the list as filtered, for the pager
   let currentDoc = '';  // the document open, for its relative links
 
   async function section(name) {
@@ -81,17 +96,25 @@
     tab = name;
     document.querySelectorAll('.tr-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     show('tr-filter', name !== 'overview');
-    if (name === 'overview') { $('tr-list').innerHTML = ''; overview(); return; }
+    if (name === 'overview') { $('tr-list').innerHTML = ''; show('tr-pager', false); overview(); return; }
     const rows = await section(name);
     drawList(rows);
     const pick = key ? rows.find(r => r[SECTIONS[name].key] === key) : null;
     if (pick) detail(name, pick); else $('tr-detail').innerHTML = '<p class="text-slate-500">Choose an item.</p>';
   }
   const show = (id, on) => $(id).classList.toggle('hidden', !on);
-  function drawList(rows) {
+  // The list in pages of PAGE (owner, 2026-11-07): Previous / Next under it.
+  function drawList(rows, keepPage) {
     const s = SECTIONS[tab], f = $('tr-filter').value.trim().toLowerCase();
-    const shown = rows.filter(r => !f || s.text(r).toLowerCase().includes(f));
-    $('tr-list').innerHTML = shown.slice(0, 800).map(r => '<div class="px-3 py-1.5 hover:bg-slate-800/60 cursor-pointer" data-key="' + esc(r[s.key]) + '"><div class="font-mono text-xs text-slate-200">' + esc(s.label(r)) + '</div>' +
+    listRows = rows.filter(r => !f || s.text(r).toLowerCase().includes(f));
+    const pages = Math.max(1, Math.ceil(listRows.length / PAGE));
+    if (!keepPage) page = 0;
+    page = Math.min(page, pages - 1);
+    show('tr-pager', listRows.length > PAGE);
+    $('tr-page').textContent = (listRows.length ? page * PAGE + 1 : 0) + '–' + Math.min((page + 1) * PAGE, listRows.length) + ' of ' + listRows.length;
+    $('tr-prev').disabled = page === 0; $('tr-next').disabled = page >= pages - 1;
+    const shown = listRows.slice(page * PAGE, (page + 1) * PAGE);
+    $('tr-list').innerHTML = shown.map(r => '<div class="px-3 py-1.5 hover:bg-slate-800/60 cursor-pointer" data-key="' + esc(r[s.key]) + '"><div class="font-mono text-xs text-slate-200">' + esc(s.label(r)) + '</div>' +
       (s.sub ? '<div class="text-xs text-slate-500 truncate">' + esc(s.sub(r)) + '</div>' : '') + '</div>').join('') || '<p class="p-3 text-slate-500">Nothing matches.</p>';
   }
   function overview() {
@@ -147,15 +170,24 @@
     const out = [];
     for (const name of ['modules', 'functions', 'files', 'data', 'screens', 'tests']) {
       const rows = await section(name);
-      rows.filter(r => { const t = SECTIONS[name].text(r).toLowerCase(); return words.every(w => t.includes(w)); }).slice(0, 25)
+      rows.filter(r => { const t = SECTIONS[name].text(r).toLowerCase(); return words.every(w => t.includes(w)); }).slice(0, 100)
         .forEach(r => out.push([name, r[SECTIONS[name].key], SECTIONS[name].label(r)]));
     }
     const docs = await call('searchTechRef', { q }).catch(() => ({ hits: [] }));
-    $('tr-list').innerHTML = '';
-    $('tr-detail').innerHTML = '<h3 class="font-semibold mb-2">Results for “' + esc(q) + '”</h3>' +
-      (out.length ? '<ul class="space-y-1">' + out.map(([n, k, l]) => '<li><span class="tr-chip">' + esc(n) + '</span> ' + link(n, k, l) + '</li>').join('') + '</ul>' : '<p class="text-slate-500">Nothing in the catalogue.</p>') +
-      '<h3 class="font-semibold mt-3 mb-1">In the documents</h3>' + (docs.hits.length ? '<ul class="space-y-2">' + docs.hits.map(h => '<li>' + link('documents', h.id, h.title) +
-        '<div class="text-xs text-slate-400">…' + esc(h.snippet) + '…</div></li>').join('') + '</ul>' : '<p class="text-slate-500">No document has every word.</p>');
+    $('tr-list').innerHTML = ''; show('tr-pager', false);
+    results = { q, out, hits: docs.hits, page: 0, docPage: 0 };
+    drawResults();
+  }
+  // The results, each list in pages of PAGE.
+  let results = null;
+  const pagerHtml = (n, at, kind) => (n > PAGE ? '<div class="flex items-center gap-3 text-xs text-slate-400 mt-1"><button class="tr-rpage px-2 py-0.5 rounded border border-slate-700" data-kind="' + kind + '" data-step="-1"' + (at === 0 ? ' disabled' : '') + '>‹ Previous</button>' +
+    '<span>' + (at * PAGE + 1) + '–' + Math.min((at + 1) * PAGE, n) + ' of ' + n + '</span><button class="tr-rpage px-2 py-0.5 rounded border border-slate-700" data-kind="' + kind + '" data-step="1"' + ((at + 1) * PAGE >= n ? ' disabled' : '') + '>Next ›</button></div>' : '');
+  function drawResults() {
+    const r = results;
+    $('tr-detail').innerHTML = '<h3 class="font-semibold mb-2">Results for “' + esc(r.q) + '”</h3>' +
+      (r.out.length ? '<ul class="space-y-1">' + r.out.slice(r.page * PAGE, (r.page + 1) * PAGE).map(([n, k, l]) => '<li><span class="tr-chip">' + esc(n) + '</span> ' + link(n, k, l) + '</li>').join('') + '</ul>' + pagerHtml(r.out.length, r.page, 'out') : '<p class="text-slate-500">Nothing in the catalogue.</p>') +
+      '<h3 class="font-semibold mt-3 mb-1">In the documents</h3>' + (r.hits.length ? '<ul class="space-y-2">' + r.hits.slice(r.docPage * PAGE, (r.docPage + 1) * PAGE).map(h => '<li>' + link('documents', h.id, h.title) +
+        '<div class="text-xs text-slate-400">…' + esc(h.snippet) + '…</div></li>').join('') + '</ul>' + pagerHtml(r.hits.length, r.docPage, 'docs') : '<p class="text-slate-500">No document has every word.</p>');
   }
 
   window.initModule = function () {
@@ -163,7 +195,12 @@
     $('tr-tabs').addEventListener('click', e => { const b = e.target.closest('.tr-tab'); if (b) { $('tr-filter').value = ''; showTab(b.dataset.tab); } });
     $('tr-filter').addEventListener('input', () => cat[tab] || tab === 'documents' ? section(tab).then(drawList) : null);
     $('tr-list').addEventListener('click', e => { const r = e.target.closest('[data-key]'); if (!r) return; section(tab).then(rows => detail(tab, rows.find(x => x[SECTIONS[tab].key] === r.dataset.key))); });
+    const rowsOf = () => (tab === 'documents' ? meta.documents : cat[tab] || []);
+    $('tr-prev').addEventListener('click', () => { page--; drawList(rowsOf(), true); });
+    $('tr-next').addEventListener('click', () => { page++; drawList(rowsOf(), true); });
     $('tr-detail').addEventListener('click', e => {
+      const rp = e.target.closest('.tr-rpage');
+      if (rp && results) { const k = rp.dataset.kind === 'out' ? 'page' : 'docPage'; results[k] += Number(rp.dataset.step); drawResults(); return; }
       const go = e.target.closest('[data-go]');
       if (go) { e.preventDefault(); $('tr-filter').value = ''; showTab(go.dataset.go, go.dataset.key); return; }
       const t = e.target.closest('[data-tab-go]');

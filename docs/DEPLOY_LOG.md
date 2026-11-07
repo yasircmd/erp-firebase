@@ -1858,3 +1858,12 @@ from, and how it was verified. The deploy procedure is in the
   (09:08–09:09 UTC), success. No rules change. To do in the app: link
   "Correction JV (CJV)" in Tree Management where the tree has none; provide
   CJV to the client corporates' groups (Developer screen).
+- **2026-11-07, Technical Reference (`techref`, every function, PR #232,
+  from `f7c3cae`):** every function with `--screens`, run
+  [#319](https://github.com/yasircmd/erp-firebase/actions/runs/42363622625)
+  (10:21–12:36 UTC), success: the release carries the Technical Reference.
+  "hosting", run
+  [#320](https://github.com/yasircmd/erp-firebase/actions/runs/42373404383)
+  (12:38–12:39 UTC), success. No rules change. The owner found the tabs
+  unreadable in the light theme and asked for pages of 25 lines: fixed in
+  the next change (`techref-fixes`).
