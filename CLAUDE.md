@@ -68,9 +68,13 @@ preserved quirks). Read it when touching a ported module.
   corporate's data. unit/corporateContext checks all of this. Which
   modules a corporate has is entitlements.js (M2): check a module through
   `moduleHasCapability`, which refuses one the corporate does not have.
-- **The global lock** (lock.js) is deliberately whole-system, not
-  per-item, matching the original LockService. Don't "improve" this
-  without discussing it first.
+- **The global lock** (lock.js) is deliberately whole-system (one per
+  corporate), not per-item, matching the original LockService. Don't
+  "improve" this without discussing it first. Since 2026-11-07 it is a lease
+  (docs/modules/LOCKING.md, Q423-Q426): the holder renews it every 10 s and
+  it is taken over only after 30 s without a renewal; a release frees only
+  its own lock (its token); a waiter gives up after 20 s with "The system is
+  busy posting". Hold it per document, never for a whole long job.
 - **Help follows every change** (owner, 2026-10-12). The public Help is
   built from help/pages/*.md into public/help/. A change to a module's
   screen, or to a file its page names, means updating that page (or

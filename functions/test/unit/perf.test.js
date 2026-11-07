@@ -66,7 +66,7 @@ test('every callable is timed, and the lock reports to it', () => {
   const src = f => fs.readFileSync(path.join(__dirname, '../../src', f), 'utf8');
   assert.match(src('callable.js'), /return onCall\(options, \(request\) => perf\.timed\(async \(\) => \{\n\s+const corporate = await resolveCorporate\(request\);\n\s+perf\.setCorporate/);
   const lock = src('lock.js');
-  assert.match(lock, /if \(acquired\) \{ perf\.lockAcquired\(Date\.now\(\) - started, tries\); return; \}/);
-  assert.match(lock, /perf\.lockTimedOut\(Date\.now\(\) - started, tries\);\n\s+throw new Error\('Could not acquire lock/);
-  assert.match(lock, /async function releaseGlobalLock\(\) \{\n\s+perf\.lockReleased\(\);/);
+  assert.match(lock, /if \(acquired\) \{\n\s+perf\.lockAcquired\(Date\.now\(\) - started, tries\);/);
+  assert.match(lock, /perf\.lockTimedOut\(Date\.now\(\) - started, tries\);\n\s+throw new Error\(BUSY_MESSAGE\)/);
+  assert.match(lock, /async function releaseGlobalLock\(held\) \{\n\s+perf\.lockReleased\(\);/);
 });

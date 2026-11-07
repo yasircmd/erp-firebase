@@ -1867,3 +1867,8 @@ from, and how it was verified. The deploy procedure is in the
   (12:38–12:39 UTC), success. No rules change. The owner found the tabs
   unreadable in the light theme and asked for pages of 25 lines: fixed in
   the next change (`techref-fixes`).
+- **2026-11-07, Technical Reference: light theme and pages of 25 (PR #233,
+  from `8fa9334`):** "screens only", run
+  [#321](https://github.com/yasircmd/erp-firebase/actions/runs/42382391544)
+  (14:36–14:37 UTC), success (the release carries the reference; Hosting
+  with it). No functions, no rules.
