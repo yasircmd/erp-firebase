@@ -13,6 +13,11 @@ screen.
 
 ## 07/11/2026
 
+- **Correction JV (CJV).** Move a posted entry's lines to the right account,
+  cost centre, profit centre or project, a line split if needed, by a new
+  CJV entry; the entry itself is not changed. Customers' and vendors' lines
+  are not corrected (fix a wrong party with a JV). See
+  [Correction JV](correction-jv.html).
 - **Sales Return on a closed project.** A return whose invoice's project has
   since been closed is refused when you post it; reopen the project to post
   it. Reversing a posted return is still allowed. See

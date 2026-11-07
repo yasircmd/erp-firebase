@@ -404,3 +404,6 @@ const developer = require('./src/developer');
 const support = require('./src/support');
 ['getSupportIssues', 'getSupportIssue', 'submitSupportIssue', 'replySupportIssue', 'addSupportFile',
   'openSupportFile', 'setSupportIssueStatus'].forEach(name => { exports[name] = support[name]; });
+
+// Correction JV (docs/modules/CORRECTION_JV.md).
+['getCorrectionJvs', 'getEntryForCorrection', 'getCorrectionJv', 'saveCorrectionJvDraft'].forEach(n => { exports[n] = require('./src/correctionJv')[n]; });

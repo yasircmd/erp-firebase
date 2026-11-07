@@ -238,6 +238,9 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   // A closed project takes no new postings; a reversal still posts (PROJECTS_DIMENSIONS.md):
   // a JV's (ReversalOfJV) or a document's (ReversalOfDocument: Delivery Note, invoices).
   if (!extraFields.ReversalOfJV && !extraFields.ReversalOfDocument) await require('./projects').assertProjects(normalized.lines, dim.CompanyID);
+  // A corrected entry is reversed only after its Correction JV (CORRECTION_JV.md, Q418).
+  if (extraFields.ReversalOfJV) await require('./correctionJv').assertNoOpenCorrection(extraFields.ReversalOfJV);
+  if (extraFields.ReversalOfDocument) await require('./correctionJv').assertDocumentNotCorrected(extraFields.ReversalOfDocument);
   const totalDebit = normalized.totalDebit;
   const totalCredit = normalized.totalCredit;
   if (Math.round((totalDebit - totalCredit) * 100) !== 0) {
