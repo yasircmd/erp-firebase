@@ -254,7 +254,9 @@ Live 2026-11-03 (PR #211; runs #281 functions and screens, #282 Hosting).
   org units load after the company is set; it measured too early once).
 - **Deploy:** `projects-step2` (452: glWriting.js reaches most functions),
   with screens, then Hosting.
-- **For the owner:** a Sales Return is a new posting, so a return against
-  an invoice whose project has since been closed is refused until the
-  project is reopened (as any new posting on it). Say if returns should
-  post on a closed project, as reversals do.
+- **A Sales Return on a closed project: refused** (owner, 2026-11-07). A
+  return is a new posting, so one against an invoice whose project has since
+  been closed is refused until the project is reopened, as any new posting
+  on it; a posted return's reversal posts on a closed project (it is marked
+  `ReversalOfJV`). No code change: emulator/projectsSales checks both
+  (negative control: the project check off in glWriting, the test fails).
