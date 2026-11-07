@@ -5,8 +5,8 @@ order: 4
 modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
-reviewed: 2026-11-06
-fingerprint: 5c023c1eadd299fa
+reviewed: 2026-11-07
+fingerprint: 820a78a24c24102a
 ---
 ## What it is for
 
@@ -71,6 +71,12 @@ Approval, where set up, is by the approvers in Approval Configuration.
 
 ## Questions and mistakes
 
+- **Posted to the wrong account, cost centre, profit centre or project?**
+  Use a [Correction JV](correction-jv.html): it moves the lines by a new
+  CJV entry and leaves this one as posted. A line on the **wrong party** is
+  corrected here: credit the wrong party, debit the right one.
+- **"This entry was corrected by CJV-…: reverse the correction first"**:
+  reverse that Correction JV, then this entry.
 - **"…is closed for …"**: the entry date is in a closed month. Use a date
   in an open month, or ask for the month to be reopened
   ([Period Closing](period-closing.html)).

@@ -108,6 +108,8 @@ async function originalFor(user, originalId) {
   if (o.Status !== 'Posted') throw new HttpsError('failed-precondition', o.JVNumber + ' is not posted: only a posted entry is corrected.');
   if (o.ReversedByJV) throw new HttpsError('failed-precondition', o.JVNumber + ' has been reversed.');
   if (o.ReversalOfJV) throw new HttpsError('failed-precondition', o.JVNumber + ' is a reversal: correct the entry it reverses, or post a JV.');
+  // The year-end close is worked out by Period Closing and undone by reopening the year, not reversed.
+  if (o.VoucherType === 'YearEndClose') throw new HttpsError('failed-precondition', o.JVNumber + ' is the year-end close: reopen the year in Period Closing instead.');
   return o;
 }
 

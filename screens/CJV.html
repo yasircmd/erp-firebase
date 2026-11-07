@@ -1,0 +1,298 @@
+<!-- Correction JV (owner, 2026-11-07; docs/modules/CORRECTION_JV.md,
+     Q415-Q418): a posted entry, found by its voucher number, its lines given
+     a new account, cost centre, profit centre or project (a line split if
+     wanted); Save, Post (approval where configured), Reverse, Print. The
+     original is never changed: the CJV takes the old coding out and puts the
+     new in. Party, control and fixed-asset lines are shown, not corrected. -->
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #cjv-print-document table { border-collapse: collapse; width: 100%; }
+  #cjv-print-document th, #cjv-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #cjv-lines select, #cjv-lines input { border-radius: 0.375rem; padding: 0.2rem 0.35rem; font-size: 0.75rem; width: 100%; }
+</style>
+
+<div class="space-y-5 no-print">
+  <div id="cjv-list-view" class="space-y-3">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">General Ledger</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-arrow-right-arrow-left text-blue-500"></i> Correction JV</h2>
+        <p class="text-xs text-slate-400 mt-1">Reclassify a posted entry: a new CJV moves its lines to another account, cost centre, profit centre or project. The entry itself is not changed.</p></div>
+      <div class="flex flex-wrap items-end gap-2">
+        <div><label for="cjv-search" class="block text-xs font-medium text-slate-300 mb-1">Find</label><input id="cjv-search" type="search" placeholder="CJV or entry number" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-56"></div>
+        <div><label for="cjv-status" class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="cjv-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="">All</option><option>Draft</option><option value="PendingApproval">Pending approval</option><option>Posted</option><option>Rejected</option><option value="Reversed">Reversed</option></select></div>
+        <button id="cjv-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New Correction</button>
+      </div>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Number</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">Corrects</th><th class="py-2 px-3">Description</th><th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3">Status</th></tr></thead>
+        <tbody id="cjv-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+  </div>
+
+  <div id="cjv-entry" class="hidden entry-layout">
+    <div class="entry-sticky bg-slate-900/95">
+      <div class="entry-bar">
+        <button id="cjv-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+        <h2 id="cjv-title" class="font-bold text-blue-400">New Correction</h2>
+        <span id="cjv-badge"></span>
+        <span id="cjv-meta" class="entry-meta"></span>
+        <div class="entry-actions">
+          <button id="cjv-print" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+          <button id="cjv-reverse" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reverse</button>
+          <button id="cjv-delete" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete</button>
+          <button id="cjv-save" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+          <button id="cjv-post" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-check"></i> Post</button>
+        </div>
+      </div>
+      <div class="entry-fields keys">
+        <div><label for="cjv-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="cjv-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <div><label for="cjv-number" class="block text-xs font-medium text-slate-300 mb-1">Entry to correct (voucher number)</label>
+          <div class="flex gap-1"><input id="cjv-number" placeholder="e.g. JV-01-2026-000012" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"><button id="cjv-find" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 rounded border border-slate-700">Find</button></div></div>
+        <div class="entry-date"><label for="cjv-date" class="block text-xs font-medium text-slate-300 mb-1">Date</label><input id="cjv-date" type="date" class="cjv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="grow-2"><label for="cjv-desc" class="block text-xs font-medium text-slate-300 mb-1">Description</label><input id="cjv-desc" class="cjv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+    </div>
+    <div id="cjv-original" class="hidden space-y-2 mt-3">
+      <p id="cjv-original-head" class="text-sm text-slate-300"></p>
+      <p class="text-xs text-slate-400">Tick a line to correct it. Give its new coding; <b>Split</b> spreads its amount over several codings, which must total the line. A customer's or vendor's line is not corrected: fix a wrong party with a JV.</p>
+      <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+        <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+          <th class="py-2 px-2 w-8"></th><th class="py-2 px-2">#</th><th class="py-2 px-2">Account</th><th class="py-2 px-2">Cost centre</th><th class="py-2 px-2">Profit centre</th><th class="py-2 px-2">Project</th><th class="py-2 px-2 text-right">Debit</th><th class="py-2 px-2 text-right">Credit</th><th class="py-2 px-2 w-16"></th></tr></thead>
+          <tbody id="cjv-lines" class="divide-y divide-slate-800"></tbody></table>
+      </div>
+      <datalist id="cjv-accounts"></datalist>
+    </div>
+  </div>
+</div>
+<div id="cjv-print-document" class="print-only"></div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  const BADGE = { Draft: 'bg-slate-600/40 text-slate-300', PendingApproval: 'bg-amber-500/20 text-amber-300', Posted: 'bg-emerald-500/20 text-emerald-300', Rejected: 'bg-red-500/20 text-red-300', Reversed: 'bg-slate-600/40 text-slate-400' };
+  const LABEL = { PendingApproval: 'Pending approval' };
+  const statusOf = c => (c.ReversedByJV ? 'Reversed' : (c.ReversalOfJV ? 'Reversal' : c.Status));
+  const badge = s => '<span class="text-xs px-2 py-0.5 rounded-full ' + (BADGE[s] || 'bg-slate-700') + '">' + esc(LABEL[s] || s) + '</span>';
+  const today = () => window.isoLocalDateTime ? window.isoLocalDateTime(new Date()).slice(0, 10) : new Date().toISOString().slice(0, 10);
+
+  let L = null;           // getCorrectionJvs
+  let companies = [], accounts = [], orgUnits = [];
+  let cjv = null;         // the CJV open (null: new)
+  let original = null;    // getEntryForCorrection of its original
+  let picks = {};         // LineIndex -> [parts]
+  let dirty = false;
+  let pending = null;
+
+  const editable = () => L && L.canDraft && (!cjv || ['Draft', 'Rejected'].includes(cjv.Status));
+  window.hasUnsavedChanges = () => dirty && editable();
+
+  // ---------- list ----------
+  function load() {
+    return call('getCorrectionJvs', {}).then(r => {
+      L = r; show('cjv-new', L.canDraft); renderList();
+      const p = pending; pending = null;
+      if (p && p.OpenEntryId) openCjv(p.OpenEntryId);
+      else if (p && p.CorrectEntryId) newCjv(p.CorrectEntryId);
+    }, e => appAlert(e.message));
+  }
+  function renderList() {
+    const s = $('cjv-search').value.trim().toLowerCase(), st = $('cjv-status').value;
+    const rows = L.rows.filter(c => (!st || statusOf(c) === st) && (!s || [c.JVNumber, c.CorrectionOfNumber, c.Description].join(' ').toLowerCase().includes(s)));
+    $('cjv-body').innerHTML = rows.length ? rows.map(c => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(c._id) + '"><td class="py-2 px-3 font-mono text-xs text-slate-200">' + esc(c.JVNumber || '(draft)') +
+      '</td><td class="py-2 px-3 text-xs">' + esc(c.JVDate) + '</td><td class="py-2 px-3 font-mono text-xs">' + esc(c.CorrectionOfNumber) + '</td><td class="py-2 px-3">' + esc(c.Description) +
+      '</td><td class="py-2 px-3 text-right">' + fmt(c.TotalDebit) + '</td><td class="py-2 px-3">' + badge(statusOf(c)) + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="py-6 text-center text-slate-500">No corrections.</td></tr>';
+  }
+  async function back() {
+    if (window.hasUnsavedChanges() && !(await appConfirm('Leave without saving this correction?'))) return;
+    dirty = false; cjv = null; original = null; show('cjv-entry', false); show('cjv-list-view', true); renderList();
+  }
+
+  // ---------- the entry ----------
+  function head() {
+    const s = cjv ? statusOf(cjv) : '';
+    $('cjv-title').textContent = cjv ? (cjv.JVNumber || 'Draft correction') : 'New Correction';
+    $('cjv-badge').innerHTML = cjv ? badge(s) : '';
+    $('cjv-meta').textContent = cjv && cjv.ReversedByJV ? 'Reversed' : '';
+    const ed = editable();
+    ['cjv-company', 'cjv-number', 'cjv-find'].forEach(id => { $(id).disabled = !!cjv; });
+    ['cjv-date', 'cjv-desc'].forEach(id => { $(id).disabled = !ed; });
+    show('cjv-save', ed && !!original); show('cjv-post', ed && !!original && L.canPost);
+    show('cjv-delete', !!cjv && cjv.Status === 'Draft' && L.canDraft);
+    show('cjv-reverse', !!cjv && cjv.Status === 'Posted' && !cjv.ReversedByJV && !cjv.ReversalOfJV && L.canPost);
+    show('cjv-print', !!cjv && cjv.Status === 'Posted');
+  }
+  function enter() { show('cjv-list-view', false); show('cjv-entry', true); }
+  async function newCjv(originalId) {
+    cjv = null; original = null; picks = {}; dirty = false;
+    $('cjv-number').value = ''; $('cjv-date').value = ''; $('cjv-desc').value = '';
+    show('cjv-original', false); enter(); head();
+    if (originalId) await findOriginal({ jvId: originalId });
+  }
+  async function openCjv(id) {
+    try {
+      const r = await call('getCorrectionJv', { cjvId: id });
+      cjv = r.cjv; dirty = false;
+      picks = {};
+      (cjv.Corrections || []).forEach(k => { picks[k.LineIndex] = k.Parts.map(p => Object.assign({}, p)); });
+      $('cjv-company').value = cjv.CompanyID; $('cjv-number').value = cjv.CorrectionOfNumber || '';
+      $('cjv-date').value = cjv.JVDate || ''; $('cjv-desc').value = cjv.Description || '';
+      enter();
+      original = await call('getEntryForCorrection', { jvId: cjv.CorrectionOfJV, exceptCjvId: cjv._id }).catch(e => { appAlert(e.message); return null; });
+      draw(); head();
+    } catch (e) { appAlert(e.message); }
+  }
+  async function findOriginal(by) {
+    try {
+      original = await call('getEntryForCorrection', by || { companyId: $('cjv-company').value, voucherNumber: $('cjv-number').value.trim() });
+      picks = {};
+      $('cjv-company').value = original.entry.CompanyID; $('cjv-number').value = original.entry.JVNumber;
+      if (!$('cjv-date').value) $('cjv-date').value = original.entry.JVDate; // the original's date by default (Q416)
+      if (!$('cjv-desc').value) $('cjv-desc').value = 'Correction of ' + original.entry.JVNumber;
+      draw(); head();
+    } catch (e) { appAlert(e.message); }
+  }
+
+  const unitsOf = type => orgUnits.filter(u => u.Type === type && (!u.CompanyID || !original || u.CompanyID === original.entry.CompanyID));
+  const unitName = id => { const u = orgUnits.find(x => x.UnitID === id); return u ? u.Code + ' — ' + u.Name : (id || ''); };
+  const unitOptions = (type, sel) => '<option value="">—</option>' + unitsOf(type).map(u => '<option value="' + esc(u.UnitID) + '"' + (u.UnitID === sel ? ' selected' : '') + '>' + esc(u.Code + ' — ' + u.Name) + '</option>').join('');
+  const amountOf = l => r2(l.Debit || l.Credit);
+
+  function draw() {
+    show('cjv-original', !!original);
+    if (!original) return;
+    const o = original.entry;
+    $('cjv-original-head').innerHTML = '<b class="font-mono">' + esc(o.JVNumber) + '</b> · ' + esc(o.JVDate) + ' · ' + esc(o.Description || '') + ' <span class="text-slate-500">(' + esc(o.VoucherType) + ')</span>';
+    $('cjv-accounts').innerHTML = accounts.filter(a => a.IsPostable === true && a.Status === 'Active' && (!a.CompanyID || a.CompanyID === o.CompanyID))
+      .map(a => '<option value="' + esc(a.AccountCode) + '">' + esc(a.AccountName) + '</option>').join('');
+    const ed = editable();
+    $('cjv-lines').innerHTML = original.lines.map(l => {
+      const parts = picks[l.LineIndex];
+      const on = !!parts;
+      const row = '<tr data-line="' + l.LineIndex + '" class="' + (on ? 'bg-blue-500/5' : '') + '"><td class="py-1.5 px-2">' +
+        (l.Correctable || on ? '<input type="checkbox" class="cjv-pick" ' + (on ? 'checked' : '') + (ed ? '' : ' disabled') + ' aria-label="Correct line ' + (l.LineIndex + 1) + '">' : '<i class="fa-solid fa-lock text-slate-500" title="' + esc(l.Why) + '"></i>') +
+        '</td><td class="py-1.5 px-2 text-xs">' + (l.LineIndex + 1) + '</td><td class="py-1.5 px-2"><span class="font-mono text-xs">' + esc(l.AccountCode) + '</span> ' + esc(l.AccountName) +
+        (l.PartyName ? ' <span class="text-xs text-slate-400">· ' + esc(l.PartyName) + '</span>' : '') + '<div class="text-xs text-slate-500">' + esc(l.Description) + (l.Why ? ' — ' + esc(l.Why) : '') + '</div></td>' +
+        '<td class="py-1.5 px-2 text-xs">' + esc(unitName(l.CostCenterID)) + '</td><td class="py-1.5 px-2 text-xs">' + esc(unitName(l.ProfitCenterID)) + '</td><td class="py-1.5 px-2 text-xs">' + esc(unitName(l.ProjectID)) +
+        '</td><td class="py-1.5 px-2 text-right">' + (l.Debit ? fmt(l.Debit) : '') + '</td><td class="py-1.5 px-2 text-right">' + (l.Credit ? fmt(l.Credit) : '') + '</td><td></td></tr>';
+      if (!on) return row;
+      const total = r2(parts.reduce((s, p) => s + (Number(p.Amount) || 0), 0));
+      const rows = parts.map((p, i) => '<tr data-line="' + l.LineIndex + '" data-part="' + i + '" class="cjv-part bg-blue-500/5"><td></td><td class="py-1 px-2 text-xs text-blue-300">→</td>' +
+        '<td class="py-1 px-2"><input list="cjv-accounts" data-k="AccountCode" value="' + esc(p.AccountCode) + '"' + (ed && !l.AccountFixed ? '' : ' disabled') + ' class="bg-slate-900 border border-slate-700 font-mono" aria-label="New account"></td>' +
+        '<td class="py-1 px-2"><select data-k="CostCenterID"' + (ed ? '' : ' disabled') + ' class="bg-slate-900 border border-slate-700" aria-label="New cost centre">' + unitOptions('CostCenter', p.CostCenterID) + '</select></td>' +
+        '<td class="py-1 px-2"><select data-k="ProfitCenterID"' + (ed ? '' : ' disabled') + ' class="bg-slate-900 border border-slate-700" aria-label="New profit centre">' + unitOptions('ProfitCenter', p.ProfitCenterID) + '</select></td>' +
+        '<td class="py-1 px-2"><select data-k="ProjectID"' + (ed ? '' : ' disabled') + ' class="bg-slate-900 border border-slate-700" aria-label="New project">' + unitOptions('Project', p.ProjectID) + '</select></td>' +
+        '<td class="py-1 px-2" colspan="2"><input type="number" step="0.01" data-k="Amount" value="' + esc(p.Amount) + '"' + (ed ? '' : ' disabled') + ' class="bg-slate-900 border border-slate-700 text-right" aria-label="Amount"></td>' +
+        '<td class="py-1 px-2 whitespace-nowrap">' + (ed && parts.length > 1 ? '<button class="cjv-unsplit text-red-400 text-xs" title="Remove this part"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>').join('');
+      const foot = '<tr data-line="' + l.LineIndex + '" class="bg-blue-500/5"><td></td><td></td><td colspan="5" class="py-1 px-2 text-xs">' +
+        (ed ? '<button class="cjv-split text-blue-300 hover:text-blue-200"><i class="fa-solid fa-code-branch"></i> Split</button> · ' : '') +
+        '<span class="cjv-total ' + (Math.abs(total - amountOf(l)) > 0.005 ? 'text-red-400' : 'text-slate-400') + '">Parts ' + fmt(total) + ' of ' + fmt(amountOf(l)) + '</span></td><td colspan="2"></td></tr>';
+      return row + rows + foot;
+    }).join('');
+  }
+  function lineOf(i) { return original.lines.find(l => l.LineIndex === i); }
+
+  function corrections() {
+    return Object.keys(picks).map(Number).sort((a, b) => a - b).map(i => ({ LineIndex: i, Parts: picks[i].map(p => ({ AccountCode: p.AccountCode, CostCenterID: p.CostCenterID || '', ProfitCenterID: p.ProfitCenterID || '', ProjectID: p.ProjectID || '', Amount: r2(p.Amount) })) }));
+  }
+  async function save(quiet) {
+    if (!original) return null;
+    if (!Object.keys(picks).length) { appAlert('Tick at least one line to correct.'); return null; }
+    try {
+      const r = await call('saveCorrectionJvDraft', { cjvId: cjv ? cjv._id : '', originalId: original.entry._id, date: $('cjv-date').value, description: $('cjv-desc').value, corrections: corrections() });
+      dirty = false;
+      const c = await call('getCorrectionJv', { cjvId: r.cjvId });
+      cjv = c.cjv; head();
+      if (!quiet) appAlert('Correction saved.');
+      load();
+      return cjv;
+    } catch (e) { appAlert(e.message); return null; }
+  }
+  async function post() {
+    const saved = await save(true);
+    if (!saved) return;
+    const r = await call('postJournalEntry', { jvId: saved._id }).catch(e => ({ success: false, error: e.message }));
+    if (!r.success) { appAlert(r.error); return; }
+    appAlert(r.status === 'PendingApproval' ? 'Sent for approval as ' + r.jvNumber + '.' : 'Posted as ' + r.jvNumber + '.');
+    await load(); openCjv(saved._id);
+  }
+  async function del() {
+    if (!(await appConfirm('Delete this draft correction?'))) return;
+    const r = await call('deleteJournalDraft', { jvId: cjv._id }).catch(e => ({ success: false, error: e.message }));
+    if (r && r.success === false) { appAlert(r.error); return; }
+    dirty = false; await load(); back();
+  }
+  async function reverse() {
+    const date = await appPrompt('Reverse ' + cjv.JVNumber + ': the old coding of ' + cjv.CorrectionOfNumber + ' comes back. Reversal date (yyyy-mm-dd):', today());
+    if (date == null) return;
+    const r = await call('reverseJournalEntry', { jvId: cjv._id, reversalDate: date }).catch(e => ({ success: false, error: e.message }));
+    if (!r.success) { appAlert(r.error); return; }
+    appAlert('Reversed by ' + r.jvNumber + '.');
+    await load(); openCjv(cjv._id);
+  }
+  function print() {
+    const co = companies.find(c => c.CompanyID === cjv.CompanyID) || {};
+    const rows = (cjv.Lines || []).map((l, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(l.AccountCode + ' ' + (l.AccountName || '')) + '</td><td>' + esc(l.Description) + '</td><td>' + esc(unitName(l.CostCenterID)) +
+      '</td><td>' + esc(unitName(l.ProfitCenterID)) + '</td><td>' + esc(unitName(l.ProjectID)) + '</td><td style="text-align:right">' + (l.Debit ? fmt(l.Debit) : '') + '</td><td style="text-align:right">' + (l.Credit ? fmt(l.Credit) : '') + '</td></tr>').join('');
+    $('cjv-print-document').innerHTML = '<h1 style="font-size:16px;font-weight:bold;">' + esc(co.LegalName || '') + '</h1><h2 style="font-size:14px;margin:6px 0;">Correction JV ' + esc(cjv.JVNumber) + '</h2>' +
+      '<p style="font-size:11px;">Date: ' + esc(cjv.JVDate) + ' · Corrects: ' + esc(cjv.CorrectionOfNumber) + ' · ' + esc(cjv.Description) + '</p>' +
+      '<table><thead><tr><th>#</th><th>Account</th><th>Description</th><th>Cost centre</th><th>Profit centre</th><th>Project</th><th>Debit</th><th>Credit</th></tr></thead><tbody>' + rows +
+      '<tr style="font-weight:bold"><td colspan="6">Total</td><td style="text-align:right">' + fmt(cjv.TotalDebit) + '</td><td style="text-align:right">' + fmt(cjv.TotalCredit) + '</td></tr></tbody></table>';
+    window.print();
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i> Correction JV';
+    pending = window.__pendingModuleParams; window.__pendingModuleParams = null;
+    $('cjv-search').addEventListener('input', () => L && renderList());
+    $('cjv-status').addEventListener('change', () => L && renderList());
+    $('cjv-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openCjv(tr.dataset.id); });
+    $('cjv-new').addEventListener('click', () => newCjv());
+    $('cjv-back').addEventListener('click', back);
+    $('cjv-find').addEventListener('click', () => findOriginal());
+    $('cjv-number').addEventListener('keydown', e => { if (e.key === 'Enter') findOriginal(); });
+    $('cjv-save').addEventListener('click', () => save());
+    $('cjv-post').addEventListener('click', post);
+    $('cjv-delete').addEventListener('click', del);
+    $('cjv-reverse').addEventListener('click', reverse);
+    $('cjv-print').addEventListener('click', print);
+    document.querySelectorAll('.cjv-f').forEach(el => el.addEventListener('input', () => { dirty = true; }));
+    $('cjv-lines').addEventListener('change', e => {
+      const tr = e.target.closest('tr[data-line]'); if (!tr) return;
+      const i = Number(tr.dataset.line);
+      if (e.target.matches('.cjv-pick')) {
+        const l = lineOf(i);
+        if (e.target.checked) picks[i] = [{ AccountCode: l.AccountCode, CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID, ProjectID: l.ProjectID, Amount: amountOf(l) }];
+        else delete picks[i];
+        dirty = true; draw(); return;
+      }
+      const k = e.target.dataset.k;
+      if (k && tr.dataset.part != null) { picks[i][Number(tr.dataset.part)][k] = k === 'Amount' ? r2(e.target.value) : e.target.value; dirty = true; draw(); }
+    });
+    $('cjv-lines').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-line]'); if (!tr) return;
+      const i = Number(tr.dataset.line);
+      if (e.target.closest('.cjv-split')) {
+        const l = lineOf(i), parts = picks[i];
+        const left = r2(amountOf(l) - parts.reduce((s, p) => s + (Number(p.Amount) || 0), 0));
+        parts.push({ AccountCode: l.AccountCode, CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID, ProjectID: l.ProjectID, Amount: left > 0 ? left : 0 });
+        dirty = true; draw();
+      } else if (e.target.closest('.cjv-unsplit')) { picks[i].splice(Number(tr.dataset.part), 1); dirty = true; draw(); }
+    });
+    Promise.all([call('getActiveCompanies', {}).catch(() => []), call('getChartOfAccounts', {}).catch(() => []), call('getActiveOrgUnits', {}).catch(() => [])]).then(([cos, acs, units]) => {
+      companies = cos || []; accounts = acs || []; orgUnits = units || [];
+      $('cjv-company').innerHTML = companies.map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      return load();
+    });
+  };
+})();
+</script>

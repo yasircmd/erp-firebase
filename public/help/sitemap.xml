@@ -11,8 +11,9 @@
   <url><loc>https://erp1-8f4cd.web.app/help/chart-of-accounts.html</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/currencies.html</loc><lastmod>2026-10-30</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/opening-balances.html</loc><lastmod>2026-10-17</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/journal-entries.html</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/cash-and-bank.html</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/journal-entries.html</loc><lastmod>2026-11-07</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/correction-jv.html</loc><lastmod>2026-11-07</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/cash-and-bank.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/bank-reconciliation.html</loc><lastmod>2026-11-01</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/gl-account-reconciliation.html</loc><lastmod>2026-11-02</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/payments-and-allocation.html</loc><lastmod>2026-10-26</lastmod></url>
@@ -24,7 +25,7 @@
   <url><loc>https://erp1-8f4cd.web.app/help/trial-balance.html</loc><lastmod>2026-10-16</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/financial-statements.html</loc><lastmod>2026-10-16</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/project-report.html</loc><lastmod>2026-11-04</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/period-closing.html</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/period-closing.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/tax-configuration.html</loc><lastmod>2026-10-30</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/tax-reports.html</loc><lastmod>2026-10-30</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/budget.html</loc><lastmod>2026-11-03</lastmod></url>
@@ -36,9 +37,9 @@
   <url><loc>https://erp1-8f4cd.web.app/help/goods-receipt-note.html</loc><lastmod>2026-11-03</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/vendor-invoice.html</loc><lastmod>2026-11-03</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/purchase-return.html</loc><lastmod>2026-11-03</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/item-master.html</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/item-master.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/uom.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/item-sub-category.html</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/item-sub-category.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/material-issue.html</loc><lastmod>2026-11-03</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/warehouse-movement.html</loc><lastmod>2026-11-03</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/stock-adjustment.html</loc><lastmod>2026-11-03</lastmod></url>
@@ -52,7 +53,7 @@
   <url><loc>https://erp1-8f4cd.web.app/help/reorder.html</loc><lastmod>2026-10-30</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/customer-master.html</loc><lastmod>2026-10-26</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/sales-invoice-setup.html</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/price-listing.html</loc><lastmod>2026-10-26</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/price-listing.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/sales-order.html</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/delivery-note.html</loc><lastmod>2026-11-03</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/customer-invoice.html</loc><lastmod>2026-11-06</lastmod></url>
@@ -85,7 +86,7 @@
   <url><loc>https://erp1-8f4cd.web.app/help/fixed-asset-register.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/fixed-asset-retirement.html</loc><lastmod>2026-11-03</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/job-order-request.html</loc><lastmod>2026-10-30</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/bill-of-materials.html</loc><lastmod>2026-10-18</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/bill-of-materials.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/production.html</loc><lastmod>2026-11-03</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/production-consumption.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/material-variance.html</loc><lastmod>2026-10-30</lastmod></url>
@@ -94,9 +95,9 @@
   <url><loc>https://erp1-8f4cd.web.app/help/user-management.html</loc><lastmod>2026-10-24</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/roles.html</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/tree-management.html</loc><lastmod>2026-10-23</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/approval-configuration.html</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/approval-configuration.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/approval-tracker.html</loc><lastmod>2026-10-24</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/numbering.html</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/numbering.html</loc><lastmod>2026-11-07</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/master-import.html</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/document-storage.html</loc><lastmod>2026-11-02</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/company-documents.html</loc><lastmod>2026-11-02</lastmod></url>

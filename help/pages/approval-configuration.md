@@ -5,8 +5,8 @@ order: 6
 modules: [APPROVALCONFIG]
 sources: [functions/src/approvals.js, functions/src/followUps.js, functions/src/approvalRegistry.js]
 summary: Set the approval rules by module, level and company so documents flow to the right approvers.
-reviewed: 2026-11-06
-fingerprint: 71dcc1348c9071cf
+reviewed: 2026-11-07
+fingerprint: 65176655a92e587d
 ---
 ## What it is for
 

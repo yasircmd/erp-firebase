@@ -1,6 +1,6 @@
 # Correction JV: reclassify a posted entry (CJV)
 
-Status: **decisions made** (owner, 2026-11-07, Q415-Q418); building.
+Status: **built** 2026-11-07 (owner's decisions Q415-Q418); deploy set `cjv`.
 
 ## The request (owner, 2026-11-07)
 
@@ -111,3 +111,69 @@ line corrected again by correcting the CJV.
 2. Screen `screens/CJV.html`: list, entry layout, the original's lines with
    the new coding beside each, print. UI test.
 3. Help page (in Accounting), What's new, docs, deploy set, PR.
+
+## As built (2026-11-07)
+
+- **Server** (functions/src/correctionJv.js): `getCorrectionJvs` (the CJVs
+  of the user's companies), `getEntryForCorrection` (a posted entry by its
+  voucher number in a company, or by id: each line with whether and how it
+  can be corrected), `getCorrectionJv`, `saveCorrectionJvDraft`. A CJV is a
+  journal entry with VoucherType `CJV`; its draft is saved through
+  journal.js's own save (`saveCorrectionRecord`), and deleting, posting
+  (with approval), approving and reversing are JV's own functions
+  (`deleteJournalDraft`, `postJournalEntry`, `decideJournalEntryApproval`,
+  `reverseJournalEntry`), with the CJV module's rights (masterData's
+  `moduleIdForEntry` gives `CJV`) and the CJV number series.
+- **The checks:** the original posted, not reversed, not a reversal, not the
+  year-end close; a party line, a control-account line or a fixed-asset line
+  is not corrected; an inventory or tax line keeps its account; no line moves
+  to a control, inventory, tax or fixed-asset account; the parts total the
+  line; something changes; a line already corrected by a live CJV (posted or
+  awaiting approval, not reversed) is not corrected again. Under the global
+  lock on post and on the last approval, journal.js calls
+  `assertPostable` (the original still posted, its lines not corrected
+  meanwhile). The new coding is checked as any posting (the account's
+  dimension rules, a closed project, the period lock, nothing after this
+  month). A foreign-currency line keeps its currency and rate, its foreign
+  amount split with the parts.
+- **The reversal guard (Q418):** `assertNoOpenCorrection` in
+  `reverseJournalEntry` (JV, Cash & Bank, CJV of a CJV) and in glWriting's
+  `buildStockGlEntry` for every module's reversal: `ReversalOfJV` (its
+  original entry) and `ReversalOfDocument` (the entries whose
+  SourceTransactionID is the document: Delivery Note, Customer and Vendor
+  Invoice).
+- **Registries:** module CJV (access, draft, post; ADMIN, FINANCE_MGR,
+  ACCOUNTANT draft, ADMIN and FINANCE_MGR post), Approval Configuration's
+  "Correction JV (CJV)", the approval card, the numbering series CJV, the
+  tree node after JV, Period Closing's checklist. Not in the baseline
+  (moduleBaseline.js is frozen): off for client corporates until the firm
+  provides it.
+- **Screen** (screens/CJV.html): the list (find, status), New Correction
+  (company, voucher number, Find), the original's lines with a tick each (a
+  lock and the reason on those not corrected), the new coding beside each
+  ticked line, Split, the parts' total against the line; Save, Post, Delete,
+  Reverse, Print; opened from the GL Report by its entry (OpenEntryId), or
+  to correct one (CorrectEntryId).
+- **Help:** Correction JV (Finance), Journal Entries (wrong coding, wrong
+  party, the reversal message), Numbering (the CJV series), What's new;
+  pages whose sources changed confirmed.
+- **Tests:** emulator/correctionJv (4: a line split and posted, the
+  original untouched, the CJV number, the line not corrected twice; the
+  checks: parts total, a change, a party line, inventory, moving to
+  inventory or a control account, rights, another company; a corrected JV
+  reversed only after its CJV, the CJV reversed like a JV; a Delivery
+  Note's entry corrected, its reversal refused until the CJV is reversed),
+  ui/correctionJv (find, the vendor's line locked, split, post, print,
+  reverse). Negative controls, each caught and restored: the two reversal
+  guards off (journal.js and glWriting: tests 3 and 4 fail); the
+  already-corrected check off (test 1 fails); the screen's split not
+  taking what is left (the UI test fails). unit/corporateContext caught a
+  module-scope Set (now a frozen list).
+- **Results:** the full emulator regression, 795 passed, 0 failed (22
+  chunks); unit 235/235; UI correctionJv 1/1, home 19/19, smoke 123/123,
+  rematch 4/4, periodClosing 6/6, approvalRouting 4/4, approvalDelegation
+  4/4, cbtFundTransfer, cbtPrintTitle 2/2.
+- **Deploy:** `cjv`, every function (moduleRegistry.js, journal.js and
+  glWriting.js), from Cloud Shell, with --screens (CJV), then Hosting. No
+  rules change. Then: the tree node in Tree Management if missing; provide
+  CJV to the client corporates' groups.
