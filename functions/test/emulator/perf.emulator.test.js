@@ -33,7 +33,7 @@ test('two postings at once: the second waits for the first; the held time; a tim
   assert.ok(second.ms >= second.lockWaitMs + 40, 'its time includes the wait');
 
   await firestore.doc(lock.LOCK_DOC_PATH).set({ lockedAt: Date.now(), lockedBy: 'a long posting' });
-  const [late] = await logged(() => assert.rejects(posting('late', 0), /Could not acquire lock/));
+  const [late] = await logged(() => assert.rejects(posting('late', 0), /busy posting/));
   assert.deepEqual([late.ok, late.lockTimeout, late.locks], [false, true, 0]);
   assert.ok(late.lockWaitMs >= lock.LOCK_TIMEOUT_MS - 50, 'waited ' + late.lockWaitMs);
   await firestore.doc(lock.LOCK_DOC_PATH).delete();

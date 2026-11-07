@@ -1,41 +1,60 @@
+const { randomUUID } = require('crypto');
 const { firestore } = require('./firebaseAdmin');
 const perf = require('./perf'); // the call's lock wait and held time (docs/modules/PERFORMANCE.md, P1)
 
 // Replaces LockService.getScriptLock() — GAS's own script-wide mutex,
 // used throughout Code.gs to serialize every commit-posting function
-// against every other one (JV, Stock Adjustment, Vendor Invoice, all
-// of them share this single lock today — see the grep this file's
-// own commit message/PR, if any, cites). Kept GLOBAL here too,
-// deliberately: this migration's job is to reproduce today's actual
-// behavior faithfully, not to introduce finer-grained (per-item,
-// per-module) locking as a bonus while also changing everything else.
-// That's a legitimate future optimization, but bundling it into an
-// already high-stakes migration is its own risk, worth taking on
-// separately once this simpler, faithful port is proven stable.
+// against every other one. Kept GLOBAL (one per corporate: the lock
+// document is in the corporate's own Firestore), deliberately: finer
+// locking is decided from the logged lock waits (docs/modules/LOCKING.md,
+// Q425), not here.
 //
-// Firestore transactions are what make this safe under real
-// concurrency — a transaction's own read-then-write is atomic against
-// every other transaction touching the same document, which is
-// exactly the guarantee a mutex needs. Two Cloud Function instances
-// racing to acquire the lock will have exactly one succeed and one
-// retry, never both believing they hold it.
+// Firestore transactions make it a mutex: a transaction's read-then-write
+// is atomic against every other transaction on the same document, so two
+// instances racing for the lock can never both believe they hold it.
+//
+// A LEASE (docs/modules/LOCKING.md, Q423; owner, 2026-11-07). Each holder
+// writes its own token and renews the lock every LOCK_RENEW_MS while its
+// work runs. A lock is taken over only when it hasn't been renewed for
+// LOCK_STALE_MS: its holder crashed or its function was stopped (a Cloud
+// Function has no GAS-style auto-release). Before this, a holder never
+// renewed, so a posting longer than 30 s could be overtaken while still
+// running; and its release deleted the lock whoever held it, freeing the
+// next holder's too. Now a release deletes only its own lock, in a
+// transaction.
+//
+//   system/globalLock { lockedAt, renewedAt, lockedBy, token }
 const LOCK_DOC_PATH = 'system/globalLock';
-const LOCK_TIMEOUT_MS = 10000; // mirrors lock.waitLock(10000) exactly
-// A Cloud Function that crashes or times out mid-commit, still
-// holding the lock, has no equivalent of GAS's own script-execution-
-// ending auto-release — a Firestore lock document has no such
-// guarantee. Without a staleness fallback, one crashed function would
-// permanently deadlock every future commit, forever, since nothing
-// would ever delete that lock document again. A lock older than this
-// is presumed abandoned and can be taken over.
-const LOCK_STALE_MS = 30000;
+const LOCK_TIMEOUT_MS = 20000; // the wait (Q426; it was 10 s, as lock.waitLock(10000))
+const LOCK_STALE_MS = 30000;   // not renewed for this long: abandoned
+const LOCK_RENEW_MS = 10000;   // the holder renews this often
+const BUSY_MESSAGE = 'The system is busy posting; please try again in a moment.';
 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+const lastSeen = d => (d && (d.renewedAt || d.lockedAt)) || 0;
 
-async function acquireGlobalLock(actor) {
+// A held lock: { token, lost, stop() }. The renewal stops on release, or
+// when the lock turns out not to be ours any more (lost = true).
+function startRenewal(lockRef, held, renewMs) {
+  const timer = setInterval(() => {
+    firestore.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (!snap.exists || snap.get('token') !== held.token) { held.lost = true; return; }
+      tx.update(lockRef, { renewedAt: Date.now() });
+    }).catch(() => { /* a missed renewal is retried on the next tick; 3 missed in a row lose the lease */ })
+      .then(() => { if (held.lost) clearInterval(timer); });
+  }, renewMs);
+  if (timer.unref) timer.unref();
+  held.stop = () => clearInterval(timer);
+}
+
+// opts (the tests): { timeoutMs, staleMs, renewMs }.
+async function acquireGlobalLock(actor, opts) {
+  const o = Object.assign({ timeoutMs: LOCK_TIMEOUT_MS, staleMs: LOCK_STALE_MS, renewMs: LOCK_RENEW_MS }, opts || {});
   const lockRef = firestore.doc(LOCK_DOC_PATH);
   const started = Date.now();
-  const deadline = started + LOCK_TIMEOUT_MS;
+  const deadline = started + o.timeoutMs;
+  const token = randomUUID();
   let tries = 0;
 
   while (Date.now() < deadline) {
@@ -43,49 +62,50 @@ async function acquireGlobalLock(actor) {
     const acquired = await firestore.runTransaction(async (tx) => {
       const snap = await tx.get(lockRef);
       const now = Date.now();
-      if (snap.exists) {
-        const data = snap.data();
-        const lockedAt = data && data.lockedAt || 0;
-        if (now - lockedAt < LOCK_STALE_MS) {
-          return false; // still genuinely held, and not stale
-        }
-        // Stale — treat as abandoned, take over below.
-      }
-      tx.set(lockRef, { lockedAt: now, lockedBy: actor || 'unknown' });
+      // Held, and renewed lately: genuinely in use. Not renewed for staleMs: abandoned, taken over.
+      if (snap.exists && now - lastSeen(snap.data()) < o.staleMs) return false;
+      tx.set(lockRef, { lockedAt: now, renewedAt: now, lockedBy: actor || 'unknown', token });
       return true;
     });
-    if (acquired) { perf.lockAcquired(Date.now() - started, tries); return; }
+    if (acquired) {
+      perf.lockAcquired(Date.now() - started, tries);
+      const held = { token, lost: false, stop: () => {} };
+      startRenewal(lockRef, held, o.renewMs);
+      return held;
+    }
     // Jittered retry — a fixed delay would have every waiting caller
     // retry in lockstep, repeatedly colliding with each other on the
     // very next attempt too.
     await sleep(120 + Math.random() * 120);
   }
   perf.lockTimedOut(Date.now() - started, tries);
-  throw new Error('Could not acquire lock — please try again.');
+  throw new Error(BUSY_MESSAGE);
 }
 
-async function releaseGlobalLock() {
+// Releases the lock `held` (from acquireGlobalLock), and only if it is
+// still that holder's: a lock taken over meanwhile is the new holder's.
+async function releaseGlobalLock(held) {
   perf.lockReleased();
-  await firestore.doc(LOCK_DOC_PATH).delete();
+  if (!held) return;
+  held.stop();
+  const lockRef = firestore.doc(LOCK_DOC_PATH);
+  await firestore.runTransaction(async (tx) => {
+    const snap = await tx.get(lockRef);
+    if (snap.exists && snap.get('token') === held.token) tx.delete(lockRef);
+  });
 }
 
-// The preferred way to use this lock — acquire, run fn, release,
-// release happening even if fn throws. Every existing GAS-era
-// try { ... } finally { lock.releaseLock(); } block ported to Cloud
-// Functions should become withGlobalLock(actor, async () => { ... }),
-// not manual acquire/release calls: a forgotten release() (a real risk
-// with 15+ commit functions eventually needing this) leaks the lock
-// for the full LOCK_STALE_MS on every single failure, not just
-// unhandled ones — this wrapper makes that mistake structurally
-// impossible rather than relying on every future port remembering the
-// same finally block.
-async function withGlobalLock(actor, fn) {
-  await acquireGlobalLock(actor);
+// The preferred way to use this lock — acquire, run fn, release, the
+// release happening even if fn throws. Every posting goes through this
+// (or the LockService shim in legacy/runtime.js, which uses the same two
+// functions).
+async function withGlobalLock(actor, fn, opts) {
+  const held = await acquireGlobalLock(actor, opts);
   try {
-    return await fn();
+    return await fn(held);
   } finally {
-    await releaseGlobalLock();
+    await releaseGlobalLock(held);
   }
 }
 
-module.exports = { acquireGlobalLock, releaseGlobalLock, withGlobalLock, LOCK_DOC_PATH, LOCK_TIMEOUT_MS, LOCK_STALE_MS };
+module.exports = { acquireGlobalLock, releaseGlobalLock, withGlobalLock, LOCK_DOC_PATH, LOCK_TIMEOUT_MS, LOCK_STALE_MS, LOCK_RENEW_MS, BUSY_MESSAGE };

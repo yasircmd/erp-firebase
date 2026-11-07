@@ -195,11 +195,13 @@ async function firebaseAuthRequest_(endpoint, payload) {
 const LockService = {
   getScriptLock() {
     return {
+      // The held lock (its token, lock.js) is kept with the request, or with
+      // this lock object outside one, so the release frees only its own.
       async waitLock() {
         const ctx = als.getStore();
         if (ctx && ctx.lockDepth > 0) { ctx.lockDepth++; return; }
-        await acquireGlobalLock(ctx && ctx.request && ctx.request.auth ? ctx.request.auth.uid : 'legacy');
-        if (ctx) ctx.lockDepth = 1;
+        const held = await acquireGlobalLock(ctx && ctx.request && ctx.request.auth ? ctx.request.auth.uid : 'legacy');
+        if (ctx) { ctx.lockDepth = 1; ctx.lockHeld = held; } else this.held = held;
       },
       async tryLock() {
         try { await this.waitLock(); return true; } catch (e) { return false; }
@@ -211,7 +213,9 @@ const LockService = {
           ctx.lockDepth--;
           if (ctx.lockDepth > 0) return;
         }
-        await releaseGlobalLock();
+        const held = ctx ? ctx.lockHeld : this.held;
+        if (ctx) ctx.lockHeld = null; else this.held = null;
+        await releaseGlobalLock(held);
       },
       hasLock() { const ctx = als.getStore(); return Boolean(ctx && ctx.lockDepth > 0); }
     };

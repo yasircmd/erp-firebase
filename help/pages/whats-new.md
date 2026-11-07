@@ -13,6 +13,10 @@ screen.
 
 ## 07/11/2026
 
+- **Postings when the system is busy.** A posting now waits up to 20
+  seconds (it was 10) for another one to finish, then says "The system is
+  busy posting; please try again in a moment." A long posting can no longer
+  be overtaken by another while it is still running.
 - **Correction JV (CJV).** Move a posted entry's lines to the right account,
   cost centre, profit centre or project, a line split if needed, by a new
   CJV entry; the entry itself is not changed. Customers' and vendors' lines

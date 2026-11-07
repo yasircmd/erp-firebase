@@ -134,3 +134,38 @@ then, as CLAUDE.md wants.
 3. **Long jobs per document** (Q424): opening balances, the depreciation
    run and the payroll post, each resumable.
 4. **Measure** (Q425): read the logged lock waits; decide on per company.
+
+## As built: step 1, the lease (2026-11-07)
+
+- **lock.js:**
+  - `acquireGlobalLock` writes `{ lockedAt, renewedAt, lockedBy, token }`
+    (a new UUID per acquire) and returns the held lock;
+  - the holder renews `renewedAt` every 10 s in a transaction. It stops
+    on release, or when the lock turns out to be someone else's;
+  - a lock is taken over only when `renewedAt` (or, for a lock written
+    before this, `lockedAt`) is 30 s old;
+  - `releaseGlobalLock(held)` deletes the lock in a transaction, only if
+    its token is still the holder's;
+  - the wait is 20 s, then "The system is busy posting; please try again
+    in a moment." (`BUSY_MESSAGE`);
+  - `withGlobalLock` is unchanged for its callers.
+- **legacy/runtime.js** (the ported code's LockService shim, hand-written,
+  not generated): it keeps the held lock with the request (or with the lock
+  object outside one) and releases only that. It stays re-entrant as
+  before.
+- **Tests:** emulator/lock, 5 tests with short timings:
+  - a holder working past the stale time keeps the lock while it renews,
+    and the next waits;
+  - a dead holder is taken over;
+  - a late release leaves the next holder's lock, and a third still waits;
+  - the 20 s wait and the message;
+  - the shim releases only its own.
+
+  unit/perf and emulator/perf follow the new shape and message.
+  Negative controls, each caught and restored:
+  - no renewal (test 1 fails);
+  - a release that deletes whatever lock is there, as before (tests 3
+    and 5 fail).
+- **Results:** the full emulator regression, 803 passed, 0 failed (22 chunks); unit 240/240.
+- **Still to do:** step 2 (the last check at commit), step 3 (long jobs per
+  document), step 4 (measure).
