@@ -21,6 +21,7 @@
 <ol><li>Open <strong>Sales Return / Credit Note</strong> and choose the company.</li><li>Select the customer and the original invoice or delivery line.</li><li>Enter the return quantity and the reason for the return.</li><li>Post the return. The stock ledger and receivable balance update accordingly.</li><li>Review the resulting credit note and any variance entries created.</li></ol>
 <h2 id="project">Project</h2>
 <p>A return takes its invoice's project, as it takes its other dimensions: choosing the invoice shows it (<strong>Project</strong>, <em>from the invoice</em>), and every line the return posts carries it.</p>
+<p>If that project has since been closed, the return is refused when you post it: reopen the project in <a href="org-units.html">Organisation Units</a> to post the return, then close it again. Reversing a return already posted is allowed on a closed project.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>The return reduces the customer receivable and may re-enter stock. It can also trigger a sales return variance if the value differs from the original invoice.</p>
 <p>For a customer in a foreign currency, the credit note is in its currency at the <strong>invoice's</strong> rate, not the rate on the return date, so it takes back exactly what the invoice booked; the stock comes back at its cost in the default currency.</p>
@@ -30,7 +31,7 @@
 <h2 id="rights">Rights</h2>
 <p>Users need access and post rights; some companies require approval on returns as part of control.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If the return is not allowed, the original invoice or delivery may already have been reversed or closed.</li><li>If the value is not expected, check whether the return is using the original sale price or a revised cost basis.</li></ul><p class="crumb">Last reviewed 06/11/2026</p></main>
+<ul><li>If the return is not allowed, the original invoice or delivery may already have been reversed or closed.</li><li>If the value is not expected, check whether the return is using the original sale price or a revised cost basis.</li></ul><p class="crumb">Last reviewed 07/11/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

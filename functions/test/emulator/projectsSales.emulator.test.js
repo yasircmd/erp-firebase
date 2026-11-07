@@ -5,7 +5,8 @@
 // invoice's project; the Delivery Note an invoice makes for its items takes
 // the invoice's; the order lines offered to an invoice carry their order's
 // project; and a reversal posts even after its project is closed (Delivery
-// Note, Customer and Vendor Invoice: decision 221).
+// Note, Customer and Vendor Invoice: decision 221; a Sales Return's too). A
+// new Sales Return on a closed project is refused (owner, 2026-11-07).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { app, firestore, call, reset, baseFixture, val, rtdb } = require('./_helpers');
@@ -88,6 +89,26 @@ test('Customer Invoice: a direct line\'s own project, the rest the invoice\'s; r
   ok(await call('u-admin', 'requestReverseCustomerInvoice', { invoiceId: inv.invoiceId, reversalDate: D }));
   const mirror = await val('customerInvoices/' + (await val('customerInvoices/' + inv.invoiceId)).ReversedByInvoiceID);
   assert.deepEqual(await projectsOf(mirror.LinkedJVID), [P.a, P.b]);
+  await reopen(P.a);
+});
+
+test('a Sales Return on a closed project is refused until it is reopened (owner, 2026-11-07); its reversal posts after closing', async () => {
+  await reset(fixture());
+  const o = await order(P.a, 10);
+  const d = ok(await dnDraft(o, 4, P.a));
+  ok(await call('u-admin', 'postDeliveryNote', { dnId: d.dnId }));
+  const inv = ok(await call('u-admin', 'saveCustomerInvoiceDraft', { invoiceData: { InvoiceDate: D, Description: 'Stage 1', CompanyID: 'C1', CustomerID: 'CU1', CostCenterID: 'CC1', ProjectID: P.a,
+    SourceDeliveryNotes: [{ DeliveryNoteID: d.dnId, SalesTypeID: 'ST1' }], Discount: 0, TaxPercent: 0 } }));
+  ok(await call('u-admin', 'postCustomerInvoice', { invoiceId: inv.invoiceId }));
+  const r = ok(await call('u-admin', 'saveSalesReturnDraft', { TransactionDate: D, Description: 'Returned', CompanyID: 'C1', CustomerID: 'CU1', SourceInvoiceID: inv.invoiceId,
+    Lines: [{ SourceDNID: d.dnId, SourceDNLineNo: 1, Quantity: 1, WarehouseID: 'WH1' }] }));
+  await close(P.a);
+  assert.match(await err(call('u-admin', 'postSalesReturn', { returnId: r.returnId })), /P-100|Tower A|closed/i, 'a new posting on the closed project');
+  assert.equal((await val('stock/transactions/' + r.returnId)).Status, 'Draft', 'still a draft');
+  await reopen(P.a);
+  ok(await call('u-admin', 'postSalesReturn', { returnId: r.returnId }));
+  await close(P.a);
+  ok(await call('u-admin', 'reverseSalesReturn', { returnId: r.returnId, reversalDate: D }));
   await reopen(P.a);
 });
 
