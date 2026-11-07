@@ -6,7 +6,7 @@ modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
 reviewed: 2026-11-07
-fingerprint: 820a78a24c24102a
+fingerprint: 903fc4de40b6be78
 ---
 ## What it is for
 
@@ -71,6 +71,11 @@ Approval, where set up, is by the approvers in Approval Configuration.
 
 ## Questions and mistakes
 
+- **"The system is busy posting; please try again in a moment."**: another
+  posting held the system for more than 20 seconds. Post again.
+- **"This posting took too long and was stopped before it was saved"**:
+  nothing was posted (rare: the posting stalled and another one went
+  first). Post it again.
 - **Posted to the wrong account, cost centre, profit centre or project?**
   Use a [Correction JV](correction-jv.html): it moves the lines by a new
   CJV entry and leaves this one as posted. A line on the **wrong party** is

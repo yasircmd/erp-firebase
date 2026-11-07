@@ -118,7 +118,7 @@ test('the stock ledger moves only after the lock was checked', () => {
   // moves the ledger is committed; a posting without an entry (Warehouse
   // Movement) is numbered, and so checked, before it calls postStock.
   const post = body('stockPosting.js', 'postStock');
-  assert.ok(post.indexOf('buildStockGlEntry(') >= 0 && post.indexOf('buildStockGlEntry(') < post.indexOf('batch.commit()'), 'postStock builds the checked entry before it commits');
+  assert.ok(post.indexOf('buildStockGlEntry(') >= 0 && post.indexOf('buildStockGlEntry(') < post.indexOf('commitFenced(batch.ops)'), 'postStock builds the checked entry before it commits');
   for (const f of files) {
     for (const fn of read(f).split(/\n(?=(?:async )?function |exports\.\w+ = )/)) {
       const at = fn.indexOf('postStock(user, null');

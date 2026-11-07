@@ -63,6 +63,7 @@ test('no module keeps data between requests, except these', () => {
     'budgetConsent.js': ['store'], // per request (the budget consent, docs/modules/BUDGET.md B3)
     'developer.js': ['HOME_ONLY'], // static: the registry's Corporate-100-only modules
     'legacy/runtime.js': ['als'], // per request
+    'lock.js': ['heldStore'], // per request: the lock the request holds (LOCKING.md step 2)
     'perf.js': ['store', 'served'] // per request; the instance's own count of calls (PERFORMANCE.md P1)
   };
   const found = {};

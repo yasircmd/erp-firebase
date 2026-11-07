@@ -70,7 +70,8 @@ async function postStock(user, gl, ledgerUpdates, documents, also) {
   const writes = builts.length + Object.keys(docs).length + Object.keys(balances).length;
   if (writes > MAX_WRITES) throw new Error('This posting moves too many stock balances at once (' + writes + ' writes; at most ' + MAX_WRITES + '). Split it into smaller documents.');
 
-  const batch = firestore.batch();
+  // Recorded, then committed in one go, checked against the lock (lock.js commitFenced).
+  const batch = require('./lock').recorder();
   builts.forEach(b => batch.set(firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(b.jvId), b.record));
   await stockStore.setLedgerEntries(balances, batch);
   for (const id of Object.keys(docs)) await stockStore.setTx(id, docs[id], batch);
@@ -80,7 +81,7 @@ async function postStock(user, gl, ledgerUpdates, documents, also) {
     await also(counted, glResult, now);
     if (writes + more > MAX_WRITES) throw new Error('This posting moves too many stock balances at once (' + (writes + more) + ' writes; at most ' + MAX_WRITES + '). Split it into smaller documents.');
   }
-  await batch.commit();
+  await require('./lock').commitFenced(batch.ops);
   return glResult;
 }
 
