@@ -1841,3 +1841,10 @@ from, and how it was verified. The deploy procedure is in the
   (03:59–04:03 UTC), success. "hosting", run
   [#314](https://github.com/yasircmd/erp-firebase/actions/runs/42336941482)
   (04:06–04:07 UTC), success. No rules change.
+- **2026-11-07, Sales Return on a closed project: refused (PR #228, from
+  `8b99115`):** "hosting", run
+  [#315](https://github.com/yasircmd/erp-firebase/actions/runs/42339381004)
+  (04:39–04:40 UTC), success: the Sales Return Help page. Its What's new
+  entry was missed; added in PR #229 (from `c7131fa`), "hosting", run
+  [#316](https://github.com/yasircmd/erp-firebase/actions/runs/42340334420)
+  (04:52–04:53 UTC), success. No functions, screens or rules.
