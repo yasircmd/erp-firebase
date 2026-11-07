@@ -5,8 +5,8 @@ order: 8
 modules: [PDCRECEIVED, PDCISSUED]
 sources: [functions/src/pdc.js]
 summary: Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.
-reviewed: 2026-11-03
-fingerprint: 39ad7cb74055c032
+reviewed: 2026-11-06
+fingerprint: 112a7c0cd805e4b5
 ---
 ## What it is for
 
@@ -88,6 +88,13 @@ Bank charges for a bounced cheque are entered separately (a JV or CBT).
 
 
 From an invoice's **Linked documents**, **Create next** opens a new one here already started for the invoice's open amount. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+
+### Our bank's details
+
+In PDC Issued, the bank account the cheques are drawn on shows its details
+under it, and the voucher prints them (**Drawn on**); a received cheque's
+receipt prints the account it was deposited to, once cleared. Set them in
+Chart of Accounts → [Bank details](chart-of-accounts.html#bank-details).
 
 ## What happens in the books
 

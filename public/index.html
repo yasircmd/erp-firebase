@@ -3115,6 +3115,61 @@
       return { mount: mount, partyDocs: partyDocs };
     })();
     // ---------- END SUPPORTING DOCUMENTS ----------
+
+    // ---------- BANK DETAILS ----------
+    // A bank account's details (owner, 2026-11-06; docs/modules/UX_ROUND3.md
+    // item 8, Q413), kept in Chart of Accounts → Bank details:
+    //   bankDetails.load(companyId)   → { print: [...], entries: { AccountID: {...} } } (cached)
+    //   bankDetails.hint(companyId, accountId, el)  fills el with the account's details,
+    //       where its "Show in Cash & Bank / PDC" is ticked (else empties it)
+    //   bankDetails.entryLine(companyId, accountId) → that text, for a print
+    //   bankDetails.printBlock(companyId) → the HTML of the company's bank details
+    //       for an invoice / proforma / quotation print ('' if none is set to print)
+    //   bankDetails.forget()  after a change in Chart of Accounts
+    window.bankDetails = (function () {
+      let cache = {}, loaded = {};
+      const empty = { print: [], entries: {} };
+      const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const load = companyId => {
+        if (!companyId) return Promise.resolve(empty);
+        if (!cache[companyId]) cache[companyId] = new Promise(ok => rpc.withSuccessHandler(r => ok(r || empty)).withFailureHandler(() => ok(empty)).getBankDetailsForCompany({ companyId }))
+          .then(r => { loaded[companyId] = r; return r; });
+        return cache[companyId];
+      };
+      const line = d => [d.BankName, d.Branch, d.AccountNumber ? 'A/c ' + d.AccountNumber : '', d.IBAN ? 'IBAN ' + d.IBAN : '', d.SWIFT ? 'SWIFT ' + d.SWIFT : ''].filter(Boolean).join(' · ');
+      return {
+        load, line,
+        forget() { cache = {}; loaded = {}; },
+        // At once, from what load() has already fetched ('' until then): for a print that runs on the click.
+        entryLineNow(companyId, accountId) {
+          const e = (loaded[companyId] || empty).entries;
+          const d = accountId ? e[accountId] || Object.values(e).find(x => x.AccountCode === accountId) : null;
+          return d ? line(d) : '';
+        },
+        // By the account's ID or its code (Cash & Bank keeps the code).
+        async entryLine(companyId, accountId) {
+          if (!accountId) return '';
+          const e = (await load(companyId)).entries;
+          const d = e[accountId] || Object.values(e).find(x => x.AccountCode === accountId);
+          return d ? line(d) : '';
+        },
+        async hint(companyId, accountId, el) {
+          if (!el) return;
+          const t = await this.entryLine(companyId, accountId);
+          el.textContent = t;
+          el.classList.toggle('hidden', !t);
+        },
+        async printBlock(companyId) {
+          const list = (await load(companyId)).print;
+          if (!list.length) return '';
+          return '<div class="bank-details-print" style="margin-top:14px; font-size:10px;"><strong>Bank details</strong>' + list.map(d =>
+            '<div style="margin-top:3px;">' + esc([d.AccountHolder ? 'Account name: ' + d.AccountHolder : '', d.BankName, d.Branch].filter(Boolean).join(', ')) +
+            (d.AccountNumber ? '<br>Account no.: ' + esc(d.AccountNumber) : '') + (d.IBAN ? '<br>IBAN: ' + esc(d.IBAN) : '') + (d.SWIFT ? '<br>SWIFT / BIC: ' + esc(d.SWIFT) : '') +
+            (d.Currency ? ' (' + esc(d.Currency) + ')' : '') + '</div>').join('') + '</div>';
+        }
+      };
+    })();
+    // ---------- END BANK DETAILS ----------
     // ---------- DOCUMENT LINKS ----------
     // Next steps and linked documents (owner, 2026-10-24; docs/modules/
     // LINKED_FLOWS.md, decisions Q287-Q289), on every screen of the sales

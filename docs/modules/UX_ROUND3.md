@@ -1,7 +1,6 @@
 # UX round 3: the owner's issues and suggestions (2026-11-06)
 
-Status: **decisions made** (owner, 2026-11-06, Q411-Q414); building in three
-waves.
+Status: **built** (owner's decisions 2026-11-06, Q411-Q414), in three waves.
 
 ## The owner's list (2026-11-06)
 
@@ -139,3 +138,45 @@ upto next 12 months".
   4/4, pdc 10/10, entryLayout 6/6, home 19/19.
 - **Deploy:** `ux3-wave2`, every function (periodLock, glWriting and docStore
   reach them all): from Cloud Shell, then Hosting. No screens, no rules.
+
+## As built: wave 3, item 8 (2026-11-06)
+
+- **The details** (functions/src/bankDetails.js, Firestore
+  `bankDetails/{AccountID}`): bank name, branch, account holder, account
+  number, IBAN, SWIFT / BIC, currency, notes, and the two switches, "Print on
+  invoices" (off by default) and "Show in Cash & Bank / PDC" (on by default).
+  Only a postable account under a Bank heading has them. `getBankDetails` needs
+  Chart of Accounts access, `saveBankDetails` its write right (and the
+  account's company); the IBAN (two letters, two digits, 10-30 more) and the
+  SWIFT (8 or 11) are checked and kept without spaces, upper-cased; a switch on
+  needs at least the bank's name, the account number or the IBAN.
+  `getBankDetailsForCompany` (any user of the company) gives the accounts its
+  invoices print and those shown in entries; a shared account counts for every
+  company; an inactive account is left out.
+- **Chart of Accounts** (through SCREEN_EDITS): a "Bank details" button beside
+  each postable bank account opens the form with the two ticks.
+- **Shown:** Cash & Bank, under the bank account chosen (and on its print, a
+  "Bank:" line); PDC, under the bank of a cheque issued, and on both vouchers'
+  prints ("Deposited to" / "Drawn on"). The shell's BANK DETAILS block
+  (`window.bankDetails`) loads a company's details once and keeps them until a
+  save in the Chart of Accounts; the PDC print reads them already loaded, so it
+  stays one synchronous print.
+- **Printed:** Customer Invoice, Proforma (Sales Order) and Quotation append a
+  "Bank details" block with every account of the company set to print, in
+  account-code order; none set, nothing printed.
+- **Data Reset:** cleared with "Numbering & Settings".
+- **Help:** Chart of Accounts (Bank details), Cash & Bank, Post-dated cheques,
+  Customer Invoice, Sales Order, Quotations, Data Reset, What's new; pages
+  whose sources changed confirmed.
+- **Tests:** emulator/bankDetails (access, validation, the switches, the
+  company's lists: its own and shared accounts, not another company's), ui/bankDetails (the Chart of
+  Accounts form, Cash & Bank's hint and print, a quotation's print block),
+  unit/bankDetailsPrints (each print and screen wired). Negative controls, each
+  caught and restored: the quotation's block removed; Cash & Bank's hint
+  blanked. The dataResetCoverage check required the new collection's category.
+- **Results:** emulator bankDetails, dataReset, dataResetAll, pdc 24/24; unit
+  235/235; UI bankDetails 3/3, pdc 10/10, quotation 7/7, coaTree 4/4,
+  coaNumbering 3/3, cbtFundTransfer, cbtPrintTitle, multiCurrency 12/12,
+  salesTax 3/3, dataReset, home 19/19, smoke 123/123.
+- **Deploy:** `ux3-wave3` (3 new functions and the 4 of Data Reset) with
+  --screens, then Hosting. No rules change.

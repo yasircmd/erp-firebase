@@ -90,7 +90,7 @@
     </div>
     <div class="entry-fields keys">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="cbt-form-company" title="Choose a Company first — the Ledger Account and opposite accounts below are filtered to what that company can use." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
-      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1" id="cbt-ledger-label">Ledger Account</label><select id="cbt-form-ledger" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select transaction type first...</option></select></div>
+      <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1" id="cbt-ledger-label">Ledger Account</label><select id="cbt-form-ledger" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select transaction type first...</option></select><p id="cbt-bank-hint" class="hidden entry-hint text-slate-400"></p></div>
       <div class="entry-date"><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="cbt-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input type="text" id="cbt-form-reference" placeholder="e.g. Receipt #, Cheque #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
     </div>
@@ -1109,6 +1109,7 @@
 
     selectType(currentType);
     document.getElementById('cbt-form-ledger').value = currentEntry.SelectedAccountCode || '';
+    showBankHint();
     rebuildOppositeDatalist();
     renderGrid();
     party.load(currentEntry.CompanyID || '', () => renderGrid());
@@ -1166,6 +1167,7 @@
       showEntryView();
       selectType(currentType);
       document.getElementById('cbt-form-ledger').value = source.SelectedAccountCode || '';
+      showBankHint();
       rebuildOppositeDatalist();
       renderGrid();
       party.load(source.CompanyID || '', () => renderGrid());
@@ -1195,6 +1197,14 @@
   // separate Debit/Credit columns — so both the Transaction Type and
   // the Ledger Account are shown prominently, and the grid uses one
   // Amount column, not two.
+  // The ledger account's bank details (Chart of Accounts → Bank details), on the screen and the print.
+  let cbtBankLine = '';
+  function showBankHint() {
+    const co = document.getElementById('cbt-form-company').value, code = document.getElementById('cbt-form-ledger').value;
+    const el = document.getElementById('cbt-bank-hint');
+    if (!window.bankDetails) return;
+    window.bankDetails.entryLine(co, code).then(t => { cbtBankLine = t; el.textContent = t; el.classList.toggle('hidden', !t); });
+  }
   function buildPrintDocument() {
     const container = document.getElementById('cbt-print-document');
     if (!container) return;
@@ -1266,6 +1276,7 @@
         <span>Ledger Account: <strong>${escapeHtml(ledgerLabel)}</strong></span>
         <span>Reference: ${escapeHtml(reference) || '—'}</span>
       </div>
+      ${cbtBankLine ? '<div class="cbt-print-bank" style="font-size:10px; margin-bottom:4px;">Bank: ' + escapeHtml(cbtBankLine) + '</div>' : ''}
       ${partyHead}
       <p style="font-size:11px; margin: 8px 0 12px;">Description: ${escapeHtml(description)}</p>
       <table>
@@ -1294,6 +1305,7 @@
     const readOnly = currentEntry && !editableStatus;
     const isNew = !currentEntry;
     updatePrintHeader();
+    showBankHint();
 
     document.getElementById('cbt-entry-title').textContent = isNew
       ? 'New Transaction'
@@ -1715,6 +1727,8 @@
       btn.addEventListener('click', () => { isDirty = true; selectType(btn.getAttribute('data-type')); });
     });
     document.getElementById('cbt-form-ledger').addEventListener('change', rebuildOppositeDatalist);
+    // The bank's details under a bank account, when shown (UX round 3 item 8).
+    ['cbt-form-ledger', 'cbt-form-company'].forEach(id => document.getElementById(id).addEventListener('change', showBankHint));
     document.getElementById('cbt-form-ledger').addEventListener('change', () => { delete document.getElementById('cbt-fx-rate').dataset.touched; loadFxRate(); renderGrid(); });
     document.getElementById('cbt-form-date').addEventListener('change', () => { if (!document.getElementById('cbt-fx-rate').dataset.touched) loadFxRate(); });
     document.getElementById('cbt-fx-rate').addEventListener('input', e => { e.target.dataset.touched = '1'; showFx(); });

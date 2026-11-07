@@ -13,6 +13,11 @@ screen.
 
 ## 06/11/2026
 
+- **Bank details on a bank account.** In the Chart of Accounts, a bank
+  account's **Bank details** keep its bank, account number, IBAN and SWIFT.
+  Tick **Print on invoices** to print them on invoices, proformas and
+  quotations, and **Show in Cash & Bank and PDC** to see them there and on
+  their prints. See [Chart of Accounts](chart-of-accounts.html#bank-details).
 - **No entry after this month.** A document can be dated at most the last day
   of the current month (on save and on post); payroll up to 12 months
   ahead. A post-dated cheque's date, delivery dates, Valid until and due

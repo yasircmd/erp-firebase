@@ -6,7 +6,7 @@ modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
 reviewed: 2026-11-06
-fingerprint: e4e7c755d302cab4
+fingerprint: 8545dd58628de75e
 ---
 ## What it is for
 
@@ -91,6 +91,13 @@ From an invoice's **Linked documents**, **Create next** opens a new one here alr
 > Bank charges and interest that first appear on the bank's statement can
 > be posted from [Bank Reconciliation](bank-reconciliation.html) instead:
 > a Bank Payment or Receipt made from the statement line, matched at once.
+
+### The bank's details
+
+When the Ledger Account is a bank account with its details set to show
+(Chart of Accounts → [Bank details](chart-of-accounts.html#bank-details)),
+they appear under it and on the print (**Bank:** name, account number,
+IBAN, SWIFT).
 
 ## What happens in the books
 

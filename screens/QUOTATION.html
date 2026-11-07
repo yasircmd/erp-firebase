@@ -318,7 +318,7 @@
   }
 
   // ---------- print ----------
-  function print() {
+  async function print() {
     if (dirty) { appAlert('Save the quotation first: the print shows what is saved.'); return; }
     const company = companies.find(c => c.CompanyID === q.CompanyID);
     $('qt-print-company-name').textContent = company ? company.LegalName : '';
@@ -361,6 +361,9 @@
       ${q.Terms ? '<div style="margin-top:16px; font-size:11px; white-space:pre-wrap;"><strong>Terms</strong><br>' + esc(q.Terms) + '</div>' : ''}
       <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a quotation, not an invoice. It posts nothing.</p>
     `;
+    // The company's bank details where they are set to print (Chart of Accounts → Bank details; UX round 3 item 8).
+    const bank = window.bankDetails ? await window.bankDetails.printBlock(q.CompanyID) : '';
+    if (bank) $('qt-print-document').insertAdjacentHTML('beforeend', bank);
     window.print();
   }
 

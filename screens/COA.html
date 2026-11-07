@@ -65,6 +65,24 @@
   </div>
 </div>
 
+<div id="coa-bank-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-lg space-y-3">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="coa-bank-title" class="text-lg font-bold">Bank details</h3><button type="button" id="coa-bank-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Bank name</label><input id="coa-bank-BankName" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><input id="coa-bank-Branch" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Account holder</label><input id="coa-bank-AccountHolder" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Account number</label><input id="coa-bank-AccountNumber" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input id="coa-bank-Currency" maxlength="3" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">IBAN</label><input id="coa-bank-IBAN" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">SWIFT / BIC</label><input id="coa-bank-SWIFT" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Notes</label><input id="coa-bank-Notes" class="coa-bank-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <label class="col-span-2 flex items-center gap-2 text-sm"><input id="coa-bank-print" type="checkbox" class="coa-bank-f"> Print on invoices, proformas and quotations</label>
+      <label class="col-span-2 flex items-center gap-2 text-sm"><input id="coa-bank-show" type="checkbox" class="coa-bank-f"> Show in Cash & Bank and PDC</label>
+    </div>
+    <div class="flex justify-end gap-2"><button type="button" id="coa-bank-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Close</button><button type="button" id="coa-bank-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+  </div>
+</div>
 <div id="coa-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
   <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between border-b border-slate-700 pb-3">
@@ -240,7 +258,7 @@
         : '<span class="text-slate-500">All Companies</span>';
       row.innerHTML = `
         <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(a.AccountCode)}</td>
-        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.Currency ? ' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">' + escapeHtml(a.Currency) + '</span>' : ''}${a.OwnCashBank ? ' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">' + escapeHtml(a.OwnCashBank) + '</span>' : ''}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.IsPostable === true && a.CashBank === 'Bank' ? ' <button type="button" class="coa-bank ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded border border-slate-600 text-slate-300 hover:text-blue-300" title="The bank\'s details: printed on invoices, shown in Cash & Bank"><i class="fa-solid fa-building-columns"></i> Bank details</button>' : ''}${a.Currency ? ' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">' + escapeHtml(a.Currency) + '</span>' : ''}${a.OwnCashBank ? ' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">' + escapeHtml(a.OwnCashBank) + '</span>' : ''}</td>
         <td class="py-3 px-4 text-xs">${escapeHtml(a.AccountType)}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(a.AccountSubType || '—')}</td>
         <td class="py-3 px-4 text-xs">${escapeHtml(a.NormalBalance)}</td>
@@ -255,6 +273,8 @@
         if (rn) rn.addEventListener('click', () => renumber(a));
         row.querySelector('.coa-toggle').addEventListener('click', () => toggleStatus(a));
       }
+      const bankBtn = row.querySelector('.coa-bank');
+      if (bankBtn) bankBtn.addEventListener('click', () => openBankDetails(a));
       tbody.appendChild(row);
     });
   }
@@ -529,7 +549,34 @@
   }
 
   // Single entry point called by Index.html after this fragment is injected.
+  // ---------- a bank account's details (UX round 3 item 8) ----------
+  const BANK_FIELDS = ['BankName', 'Branch', 'AccountHolder', 'AccountNumber', 'Currency', 'IBAN', 'SWIFT', 'Notes'];
+  let bankAccountId = '';
+  function openBankDetails(a) {
+    bankAccountId = a.AccountID;
+    document.getElementById('coa-bank-title').textContent = 'Bank details: ' + a.AccountCode + ' ' + a.AccountName;
+    rpc.withSuccessHandler(d => {
+      BANK_FIELDS.forEach(k => { document.getElementById('coa-bank-' + k).value = d[k] || ''; });
+      document.getElementById('coa-bank-print').checked = d.PrintOnInvoices === true;
+      document.getElementById('coa-bank-show').checked = d.ShowInEntries === true;
+      document.querySelectorAll('.coa-bank-f').forEach(el => { el.disabled = !canWrite; });
+      document.getElementById('coa-bank-save').classList.toggle('hidden', !canWrite);
+      document.getElementById('coa-bank-modal').classList.remove('hidden');
+    }).withFailureHandler(err => appAlert(err.message)).getBankDetails({ accountId: a.AccountID });
+  }
+  function saveBankDetails() {
+    const details = { PrintOnInvoices: document.getElementById('coa-bank-print').checked, ShowInEntries: document.getElementById('coa-bank-show').checked };
+    BANK_FIELDS.forEach(k => { details[k] = document.getElementById('coa-bank-' + k).value; });
+    rpc.withSuccessHandler(() => {
+      document.getElementById('coa-bank-modal').classList.add('hidden');
+      if (window.bankDetails) window.bankDetails.forget();
+      appAlert('Bank details saved.');
+    }).withFailureHandler(err => appAlert(err.message)).saveBankDetails({ accountId: bankAccountId, details });
+  }
+
   window.initModule = function (idToken, writeAllowed) {
+    ['coa-bank-close', 'coa-bank-cancel'].forEach(id => document.getElementById(id).addEventListener('click', () => document.getElementById('coa-bank-modal').classList.add('hidden')));
+    document.getElementById('coa-bank-save').addEventListener('click', saveBankDetails);
     token = idToken;
     canWrite = Boolean(writeAllowed);
 

@@ -1,0 +1,16 @@
+# UX round 3, wave 3: bank account details (owner, 2026-11-06;
+# docs/modules/UX_ROUND3.md item 8, Q413). The three new functions of
+# bankDetails.js (deploy-functions.sh grants their public invoker), and the
+# four Data Reset functions (dataReset.js: the bank details are cleared with
+# "Numbering & Settings"; the legacy port's other functions only reach its
+# helpers, as in budget-b2). Run WITH --screens (COA, CBT, PDCRECEIVED,
+# PDCISSUED, CUSTOMERINVOICE, SALESORDER, QUOTATION), then the "hosting"
+# task (the shell's BANK DETAILS block; the Help). No rules change: the
+# details are in Firestore, read with equality queries (no RTDB index).
+getBankDetails
+saveBankDetails
+getBankDetailsForCompany
+clearDataCategories
+clearSelectedRecords
+getCategoryRecords
+getDataResetCounts

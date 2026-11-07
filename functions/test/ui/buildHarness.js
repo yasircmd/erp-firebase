@@ -26,6 +26,8 @@ const lpStart = find(/---------- LIST PAGING ----------/);
 const lpEnd = find(/---------- END LIST PAGING ----------/);
 const sdStart = find(/---------- SUPPORTING DOCUMENTS ----------/);
 const sdEnd = find(/---------- END SUPPORTING DOCUMENTS ----------/);
+const bdStart = find(/---------- BANK DETAILS ----------/);
+const bdEnd = find(/---------- END BANK DETAILS ----------/);
 const dlStart = find(/---------- DOCUMENT LINKS ----------/);
 const dlEnd = find(/---------- END DOCUMENT LINKS ----------/);
 const psStart = find(/---------- PRINT STYLE ----------/);
@@ -37,7 +39,7 @@ const elCssEnd = find(/---------- END ENTRY LAYOUT CSS ----------/);
 const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
 const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
-    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !icStart || !icEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !dlStart || !dlEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
+    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !icStart || !icEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !dlStart || !dlEnd || !bdStart || !bdEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 ${require('./_cdnStyles').harnessHead()}
@@ -88,6 +90,7 @@ ${slice(icStart, icEnd)}
 ${slice(lpStart, lpEnd)}
 ${slice(dlStart, dlEnd)}
 ${slice(sdStart, sdEnd)}
+${slice(bdStart, bdEnd)}
 ${slice(pkStart, pkEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.

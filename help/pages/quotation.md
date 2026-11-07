@@ -1,5 +1,5 @@
 ---
-fingerprint: 91b9af5aea2603f8
+fingerprint: aa9ca8d64d4e7ce0
 reviewed: 2026-11-06
 title: Quotations
 area: crm
@@ -32,7 +32,9 @@ another **Status** to see the rest.
    quotation gets its number and the tax is worked out.
 5. Select **Submit**. Where Approval Configuration has levels for
    Quotation, it waits for approval; otherwise it is **Approved** at once.
-6. **Print** it (or save it as a PDF) and send it to the customer.
+6. **Print** it (or save it as a PDF) and send it to the customer. It ends
+   with the company's [bank details](chart-of-accounts.html#bank-details) set
+   to print.
 7. When the customer accepts, select **Create Sales Order**.
 
 ## Prices, discount and tax
