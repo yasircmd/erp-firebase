@@ -1,0 +1,183 @@
+<!-- Technical Reference (owner, 2026-11-07; docs/modules/TECH_REFERENCE.md,
+     Q419-Q422): the app's technical details for the firm's developers, read
+     only, from the active screens release (built from the same commit by
+     tools/techref/build.js). Tabs: Overview, Modules, Functions, Files,
+     Data, Screens, Tests, Deploys, Documents; every item links to the
+     others; a search across the catalogue and the documents. Firm-only. -->
+<style>
+  #tr-doc h2 { font-size: 1.15rem; font-weight: 700; margin: 1.2rem 0 0.5rem; }
+  #tr-doc h3 { font-size: 1rem; font-weight: 600; margin: 1rem 0 0.4rem; }
+  #tr-doc p, #tr-doc li { font-size: 0.85rem; line-height: 1.5; margin: 0.35rem 0; }
+  #tr-doc ul { list-style: disc; padding-left: 1.4rem; } #tr-doc ol { list-style: decimal; padding-left: 1.4rem; }
+  #tr-doc table { border-collapse: collapse; margin: 0.6rem 0; font-size: 0.8rem; }
+  #tr-doc th, #tr-doc td { border: 1px solid rgba(148,163,184,0.35); padding: 4px 6px; vertical-align: top; }
+  #tr-doc pre { background: rgba(15,23,42,0.6); padding: 0.6rem; border-radius: 0.4rem; overflow-x: auto; font-size: 0.75rem; }
+  #tr-doc code { font-size: 0.78rem; } #tr-doc a, .tr-link { color: #60a5fa; cursor: pointer; }
+  .tr-tab.active { background: rgba(59,130,246,0.25); color: #bfdbfe; }
+  .tr-chip { display: inline-block; font-size: 0.7rem; padding: 0 0.4rem; border-radius: 9999px; margin: 1px; border: 1px solid rgba(148,163,184,0.35); }
+</style>
+
+<div class="space-y-4">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-slate-800 pb-3">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Developer</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-book text-blue-500"></i> Technical Reference</h2>
+      <p id="tr-release" class="text-xs text-slate-400 mt-1"></p></div>
+    <div class="flex gap-2 items-end">
+      <div><label for="tr-search" class="block text-xs font-medium text-slate-300 mb-1">Search everything</label>
+        <input id="tr-search" type="search" placeholder="A function, file, collection, word…" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-72"></div>
+    </div>
+  </div>
+  <div id="tr-tabs" class="flex flex-wrap gap-1">
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="overview">Overview</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="modules">Modules</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="functions">Functions</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="files">Files</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="data">Data</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="screens">Screens</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="tests">Tests</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="deploySets">Deploys</button>
+    <button class="tr-tab text-xs px-3 py-1.5 rounded border border-slate-700" data-tab="documents">Documents</button>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+    <div class="lg:col-span-2 space-y-2">
+      <input id="tr-filter" type="search" placeholder="Filter this list" aria-label="Filter this list" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm">
+      <div id="tr-list" class="bg-slate-800/40 border border-slate-700 rounded-xl max-h-[70vh] overflow-y-auto text-sm divide-y divide-slate-800"></div>
+    </div>
+    <div id="tr-detail" class="lg:col-span-3 bg-slate-800/40 border border-slate-700 rounded-xl p-4 max-h-[78vh] overflow-y-auto text-sm"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // A section's key field and its label in the list.
+  const SECTIONS = {
+    modules: { key: 'id', label: x => x.id + ' — ' + x.label, text: x => [x.id, x.label, x.screen].join(' ') },
+    functions: { key: 'name', label: x => x.name, sub: x => x.file, text: x => [x.name, x.file].join(' ') },
+    files: { key: 'file', label: x => x.file.replace(/^functions\/src\//, ''), sub: x => (x.header || '').split('\n')[0], text: x => [x.file, x.header].join(' ') },
+    data: { key: 'key', label: x => x.key, sub: x => x.files.length + ' files', text: x => x.key },
+    screens: { key: 'id', label: x => x.id, sub: x => (x.generated ? 'generated' : 'hand-written'), text: x => [x.id, x.header].join(' ') },
+    tests: { key: 'id', label: x => x.id, sub: x => (x.header || '').split('\n')[0], text: x => [x.id, x.header].join(' ') },
+    deploySets: { key: 'id', label: x => x.id, sub: x => x.count + ' functions', text: x => [x.id, x.about].join(' ') },
+    documents: { key: 'id', label: x => x.title, sub: x => x.id, text: x => [x.id, x.title].join(' ') }
+  };
+  let meta = null;
+  const cat = {};      // section -> rows
+  let tab = 'overview';
+  let currentDoc = '';  // the document open, for its relative links
+
+  async function section(name) {
+    if (name === 'documents') return meta.documents;
+    if (!cat[name]) cat[name] = (await call('getTechRefPart', { part: 'cat_' + name })).data;
+    return cat[name];
+  }
+  const link = (tabName, key, text) => '<span class="tr-link" data-go="' + esc(tabName) + '" data-key="' + esc(key) + '">' + esc(text || key) + '</span>';
+  const chips = (tabName, keys) => (keys && keys.length ? keys.map(k => '<span class="tr-chip">' + link(tabName, k) + '</span>').join(' ') : '<span class="text-slate-500">—</span>');
+  const row = (label, html) => '<tr><td class="py-1 pr-3 text-xs text-slate-400 align-top whitespace-nowrap">' + esc(label) + '</td><td class="py-1">' + html + '</td></tr>';
+  const pre = t => (t ? '<pre class="whitespace-pre-wrap text-xs text-slate-300 bg-slate-900/60 rounded p-2 mb-2">' + esc(t) + '</pre>' : '');
+
+  async function showTab(name, key) {
+    tab = name;
+    document.querySelectorAll('.tr-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    show('tr-filter', name !== 'overview');
+    if (name === 'overview') { $('tr-list').innerHTML = ''; overview(); return; }
+    const rows = await section(name);
+    drawList(rows);
+    const pick = key ? rows.find(r => r[SECTIONS[name].key] === key) : null;
+    if (pick) detail(name, pick); else $('tr-detail').innerHTML = '<p class="text-slate-500">Choose an item.</p>';
+  }
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  function drawList(rows) {
+    const s = SECTIONS[tab], f = $('tr-filter').value.trim().toLowerCase();
+    const shown = rows.filter(r => !f || s.text(r).toLowerCase().includes(f));
+    $('tr-list').innerHTML = shown.slice(0, 800).map(r => '<div class="px-3 py-1.5 hover:bg-slate-800/60 cursor-pointer" data-key="' + esc(r[s.key]) + '"><div class="font-mono text-xs text-slate-200">' + esc(s.label(r)) + '</div>' +
+      (s.sub ? '<div class="text-xs text-slate-500 truncate">' + esc(s.sub(r)) + '</div>' : '') + '</div>').join('') || '<p class="p-3 text-slate-500">Nothing matches.</p>';
+  }
+  function overview() {
+    const c = meta.counts;
+    $('tr-detail').innerHTML = '<h3 class="font-semibold mb-2">This release</h3><table>' + Object.keys(c).map(k => row(k, '<span class="tr-link" data-tab-go="' + esc(k) + '">' + c[k] + '</span>')).join('') + '</table>' +
+      (meta.issues && meta.issues.length ? '<h3 class="font-semibold mt-3 text-red-300">Issues</h3><ul class="list-disc pl-5">' + meta.issues.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul>' : '') +
+      '<p class="mt-3 text-xs text-slate-400">Start with ' + link('documents', 'docs/ARCHITECTURE.md', 'the Architecture overview') + ', then follow a module. Read only: nothing here changes the app.</p>';
+  }
+  async function detail(name, x) {
+    const d = $('tr-detail');
+    if (name === 'modules') d.innerHTML = '<h3 class="font-semibold text-base mb-2">' + esc(x.id) + ' — ' + esc(x.label) + '</h3><table>' +
+      row('Rights', esc(x.capabilities.join(', ')) + '<div class="text-xs text-slate-400">' + Object.entries(x.defaults).map(([k, v]) => esc(k) + ': ' + esc(v.join(', '))).join(' · ') + '</div>') +
+      row('Where', [x.firmOnly ? 'firm only' : '', x.clientOnly ? 'client corporates only' : '', x.baseline ? 'in the baseline' : 'provided to corporates by group', x.internal ? 'no Help page' : ''].filter(Boolean).join(' · ')) +
+      row('Screen', x.screen ? link('screens', x.id, x.screen) + (x.screenGenerated ? ' (generated: change it through SCREEN_EDITS)' : '') : '—') +
+      row('Its functions', chips('functions', x.ownFunctions)) + row('Also calls', chips('functions', x.functions.filter(f => !x.ownFunctions.includes(f)))) +
+      row('Files', chips('files', x.files)) + row('Data', chips('data', x.data)) + row('Design docs', chips('documents', x.docs)) +
+      row('Help', x.help.length ? x.help.map(h => '<a href="/help/' + esc(h) + '.html" target="_blank" rel="noopener">' + esc(h) + '</a>').join(', ') : '—') + row('Tests', chips('tests', x.tests)) + '</table>';
+    else if (name === 'functions') d.innerHTML = '<h3 class="font-semibold font-mono mb-2">' + esc(x.name) + '</h3><table>' + row('Defined in', link('files', x.file) + (x.exportedAs !== x.name ? ' as ' + esc(x.exportedAs) : '')) +
+      row('Screens', chips('screens', x.screens)) + row('Tests', chips('tests', x.tests)) + '</table>';
+    else if (name === 'files') d.innerHTML = '<h3 class="font-semibold font-mono mb-2">' + esc(x.file) + '</h3>' + pre(x.header) + '<table>' + row('Lines', String(x.lines) + (x.generated ? ' (generated from Code.gs: never edit by hand)' : '')) +
+      row('Functions', chips('functions', x.functions)) + row('Requires', chips('files', x.requires)) + row('Required by', chips('files', x.requiredBy)) +
+      row('Data', chips('data', x.data.firestore.map(c => 'firestore:' + c).concat(x.data.rtdb.map(c => 'rtdb:' + c)))) + '</table>';
+    else if (name === 'data') d.innerHTML = '<h3 class="font-semibold font-mono mb-2">' + esc(x.key) + '</h3><table>' + row('Kind', x.kind === 'rtdb' ? 'Realtime Database path' : 'Firestore collection') +
+      (x.indexOn.length ? row('.indexOn', esc(x.indexOn.join(', '))) : '') + (x.movedToFirestore ? row('Moved', 'to Firestore: reach it through its store or movedPaths.js') : '') + row('Named in', chips('files', x.files)) + '</table>';
+    else if (name === 'screens') d.innerHTML = '<h3 class="font-semibold mb-2">' + esc(x.file) + '</h3>' + pre(x.header) + '<table>' + row('Module', link('modules', x.id)) + row('Made', x.generated ? 'generated from the port (SCREEN_EDITS in tools/legacy-port/generate.js)' : 'hand-written') +
+      row('Calls', chips('functions', x.functions)) + '</table>';
+    else if (name === 'tests') d.innerHTML = '<h3 class="font-semibold font-mono mb-2">' + esc(x.file) + '</h3>' + pre(x.header) + '<table>' + row('Cases', String(x.cases)) + row('Calls', chips('functions', x.functions)) + '</table>';
+    else if (name === 'deploySets') d.innerHTML = '<h3 class="font-semibold font-mono mb-2">tools/deploy-sets/' + esc(x.id) + '.txt</h3><p class="text-xs text-slate-300">' + esc(x.about) + '</p><p class="text-xs text-slate-400 mt-1">' + x.count + ' functions.</p>';
+    else if (name === 'documents') {
+      d.innerHTML = '<p class="text-slate-500">Loading…</p>';
+      const doc = (await call('getTechRefPart', { part: x.part })).data;
+      currentDoc = doc.id;
+      d.innerHTML = '<div class="text-xs text-slate-500 mb-2 font-mono">' + esc(doc.id) + '</div><div id="tr-doc">' + doc.html + '</div>';
+    }
+  }
+  // A document's link to another document opens it here; an anchor scrolls.
+  function docLink(a) {
+    const href = a.getAttribute('href') || '';
+    if (/^https?:/.test(href)) return false;
+    const base = currentDoc.split('/').slice(0, -1);
+    const [file, hash] = href.split('#');
+    if (!file) { const t = document.getElementById(hash); if (t) t.scrollIntoView(); return true; }
+    const parts = base.concat(file.split('/'));
+    const norm = [];
+    parts.forEach(p => { if (p === '..') norm.pop(); else if (p && p !== '.') norm.push(p); });
+    const id = norm.join('/');
+    if (meta.documents.some(x => x.id === id)) { showTab('documents', id); return true; }
+    return false;
+  }
+  async function search(q) {
+    if (!q.trim()) return showTab(tab);
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const out = [];
+    for (const name of ['modules', 'functions', 'files', 'data', 'screens', 'tests']) {
+      const rows = await section(name);
+      rows.filter(r => { const t = SECTIONS[name].text(r).toLowerCase(); return words.every(w => t.includes(w)); }).slice(0, 25)
+        .forEach(r => out.push([name, r[SECTIONS[name].key], SECTIONS[name].label(r)]));
+    }
+    const docs = await call('searchTechRef', { q }).catch(() => ({ hits: [] }));
+    $('tr-list').innerHTML = '';
+    $('tr-detail').innerHTML = '<h3 class="font-semibold mb-2">Results for “' + esc(q) + '”</h3>' +
+      (out.length ? '<ul class="space-y-1">' + out.map(([n, k, l]) => '<li><span class="tr-chip">' + esc(n) + '</span> ' + link(n, k, l) + '</li>').join('') + '</ul>' : '<p class="text-slate-500">Nothing in the catalogue.</p>') +
+      '<h3 class="font-semibold mt-3 mb-1">In the documents</h3>' + (docs.hits.length ? '<ul class="space-y-2">' + docs.hits.map(h => '<li>' + link('documents', h.id, h.title) +
+        '<div class="text-xs text-slate-400">…' + esc(h.snippet) + '…</div></li>').join('') + '</ul>' : '<p class="text-slate-500">No document has every word.</p>');
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-book"></i> Technical Reference';
+    $('tr-tabs').addEventListener('click', e => { const b = e.target.closest('.tr-tab'); if (b) { $('tr-filter').value = ''; showTab(b.dataset.tab); } });
+    $('tr-filter').addEventListener('input', () => cat[tab] || tab === 'documents' ? section(tab).then(drawList) : null);
+    $('tr-list').addEventListener('click', e => { const r = e.target.closest('[data-key]'); if (!r) return; section(tab).then(rows => detail(tab, rows.find(x => x[SECTIONS[tab].key] === r.dataset.key))); });
+    $('tr-detail').addEventListener('click', e => {
+      const go = e.target.closest('[data-go]');
+      if (go) { e.preventDefault(); $('tr-filter').value = ''; showTab(go.dataset.go, go.dataset.key); return; }
+      const t = e.target.closest('[data-tab-go]');
+      if (t && SECTIONS[t.dataset.tabGo]) { showTab(t.dataset.tabGo); return; }
+      const a = e.target.closest('#tr-doc a');
+      if (a && docLink(a)) e.preventDefault();
+    });
+    let timer = null;
+    $('tr-search').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => search($('tr-search').value), 350); });
+    call('getTechRefPart', { part: 'meta' }).then(r => {
+      meta = r.data;
+      $('tr-release').textContent = 'Release ' + r.release + (meta.commit ? ' · commit ' + meta.commit : '') + ' · built ' + String(meta.builtAt).slice(0, 10);
+      showTab('overview');
+    }, e => { $('tr-detail').innerHTML = '<p class="text-red-300">' + esc(e.message) + '</p>'; });
+  };
+})();
+</script>

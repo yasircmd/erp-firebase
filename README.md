@@ -20,6 +20,7 @@ screen release to 61 (see [docs/DEPLOY_LOG.md](docs/DEPLOY_LOG.md)).
 | File | What it's for |
 |---|---|
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Start here for new work.** Modules in development, their status, and open follow-ups |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the pieces fit: a request end to end, multi-corporate, posting, releases. The Technical Reference screen (TECHREF, Corporate 100) shows it beside the catalogue generated from the code |
 | [docs/modules/](docs/modules/) | One design doc per new module, agreed before coding starts |
 | [docs/DEPLOY_LOG.md](docs/DEPLOY_LOG.md) | Every production deploy |
 | [docs/MIGRATION.md](docs/MIGRATION.md) | Frozen record of the Apps Script migration: deviations from Code.gs, preserved quirks, generator internals |
@@ -85,6 +86,7 @@ tools/
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
   (.github/workflows/deploy.yml — runs the deploy scripts from GitHub Actions, manual only)
   help/                         — build.js (public/help from help/pages), stamp.js (a page reviewed against its code), lib.js (the checks)
+  techref/                      — build.js: the Technical Reference from the code and docs, released with the screens (docs/modules/TECH_REFERENCE.md)
   build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
   build-pdc-screens.js          — writes PDCISSUED.html from PDCRECEIVED.html (edit only the received one)
   release-screens.sh            — releases screens/ to production (list, rollback, compare)

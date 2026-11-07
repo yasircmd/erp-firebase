@@ -5,6 +5,9 @@
 //
 //   screenReleases/{releaseId}               { commit, createdAt, createdBy, count }
 //   screenReleases/{releaseId}/screens/{ID}  { html, sha256 }
+//   screenReleases/{releaseId}/techref/{part} { json, sha256 }  the Technical
+//     Reference built from the same commit (docs/modules/TECH_REFERENCE.md):
+//     every release carries its own, so a rollback shows the matching one
 //   system/screens                           { activeRelease }
 //
 // The logic takes a Firestore instance, so the emulator tests call it
@@ -73,7 +76,7 @@ async function activeRelease(db) {
 // only moves after every screen has been read back with a matching hash,
 // so a failed or partial write leaves users on the previous release.
 // hooks.afterWrite(releaseRef) exists for the tests.
-async function releaseScreens(db, { screens, registryIds, commit, createdBy = '', now = new Date(), keep = KEEP, hooks = {}, log = () => {}, timeoutMs = VERIFY_TIMEOUT_MS }) {
+async function releaseScreens(db, { screens, registryIds, commit, createdBy = '', now = new Date(), keep = KEEP, hooks = {}, log = () => {}, timeoutMs = VERIFY_TIMEOUT_MS, techref = null }) {
   const opts = { timeoutMs, log };
   checkScreens(screens, registryIds);
   const id = releaseIdFor(commit, now);
@@ -86,6 +89,14 @@ async function releaseScreens(db, { screens, registryIds, commit, createdBy = ''
     await batch.commit();
     log('written ' + Math.min(i + 20, ids.length) + '/' + ids.length);
   }
+  // The Technical Reference's parts, written and read back the same way.
+  const parts = techref ? Object.keys(techref).sort() : [];
+  for (let i = 0; i < parts.length; i += 10) {
+    const batch = db.batch();
+    parts.slice(i, i + 10).forEach(k => batch.set(ref.collection('techref').doc(k), { json: techref[k], sha256: sha256(techref[k]) }));
+    await batch.commit();
+  }
+  if (parts.length) log('technical reference: ' + parts.length + ' parts written');
   if (hooks.afterWrite) await hooks.afterWrite(ref);
   // Read back in small groups, each retried: one query for every screen
   // (~2 MB) stalled past Firestore's 5-minute deadline on a slow Cloud
@@ -102,10 +113,15 @@ async function releaseScreens(db, { screens, registryIds, commit, createdBy = ''
     const d = stored[s];
     return !d || d.get('sha256') !== sha256(screens[s]) || sha256(d.get('html')) !== sha256(screens[s]);
   });
+  for (let i = 0; i < parts.length; i += VERIFY_CHUNK) {
+    const refs = parts.slice(i, i + VERIFY_CHUNK).map(k => ref.collection('techref').doc(k));
+    const docs = await withRetry(() => db.getAll(...refs), 'technical reference ' + (i + 1) + '–' + (i + refs.length), opts);
+    docs.forEach((d, j) => { const k = parts[i + j]; if (!d.exists || d.get('sha256') !== sha256(techref[k]) || sha256(d.get('json')) !== sha256(techref[k])) bad.push('techref/' + k); });
+  }
   if (storedIds.length !== ids.length || bad.length) {
     throw new Error('Release ' + id + ' failed verification (' + (bad.join(', ') || 'unexpected screens') + '); the active release is unchanged.');
   }
-  await ref.set({ commit, createdAt: now.toISOString(), createdBy, count: ids.length });
+  await ref.set({ commit, createdAt: now.toISOString(), createdBy, count: ids.length, techrefParts: parts.length });
   await db.doc(POINTER).set({ activeRelease: id });
   await prune(db, keep);
   return id;
@@ -185,7 +201,16 @@ if (require.main === module) {
     console.log('Target: ' + (emulator ? 'EMULATOR ' + emulator : 'PRODUCTION') + ' Firestore, project ' + project);
     if (cmd === 'release') {
       const { MODULE_REGISTRY } = require('../functions/src/moduleRegistry');
+      // The Technical Reference, built from this same commit (TECH_REFERENCE.md, Q421).
+      // Built in its own process: it loads index.js, which must not share this one's Admin SDK app.
+      const os = require('os');
+      const partsFile = path.join(os.tmpdir(), 'techref-' + process.pid + '.json');
+      try { execSync('node ' + JSON.stringify(path.join(__dirname, 'techref', 'build.js')) + ' --parts ' + JSON.stringify(partsFile) + ' --commit ' + git('rev-parse --short HEAD'), { stdio: 'inherit' }); }
+      catch (e) { throw new Error('Screens not released: the Technical Reference did not build (node tools/techref/build.js).'); }
+      const techref = JSON.parse(fs.readFileSync(partsFile, 'utf8'));
+      fs.unlinkSync(partsFile);
       const id = await releaseScreens(db, {
+        techref,
         screens: loadScreens(), registryIds: MODULE_REGISTRY.map(m => m.id),
         commit: git('rev-parse --short HEAD'), createdBy: git('config user.name'),
         log: m => console.log('  ' + m)
