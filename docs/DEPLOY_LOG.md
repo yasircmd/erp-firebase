@@ -1835,3 +1835,9 @@ from, and how it was verified. The deploy procedure is in the
   (17:09–19:30 UTC), success. "hosting", run
   [#312](https://github.com/yasircmd/erp-firebase/actions/runs/42281894846)
   (19:41–19:43 UTC), success. No screens, no rules change.
+- **2026-11-07, UX round 3 wave 3, bank account details (`ux3-wave3`, 7
+  functions, PR #226, from `c3fe8f3`):** "functions set, then screens", run
+  [#313](https://github.com/yasircmd/erp-firebase/actions/runs/42336423419)
+  (03:59–04:03 UTC), success. "hosting", run
+  [#314](https://github.com/yasircmd/erp-firebase/actions/runs/42336941482)
+  (04:06–04:07 UTC), success. No rules change.
