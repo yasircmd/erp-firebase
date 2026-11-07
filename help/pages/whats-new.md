@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-06
+reviewed: 2026-11-07
 title: What's new
 area: start
 order: 3
@@ -10,6 +10,13 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 07/11/2026
+
+- **Sales Return on a closed project.** A return whose invoice's project has
+  since been closed is refused when you post it; reopen the project to post
+  it. Reversing a posted return is still allowed. See
+  [Sales Return](sales-return.html#project).
 
 ## 06/11/2026
 
