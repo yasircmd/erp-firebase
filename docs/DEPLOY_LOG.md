@@ -1848,3 +1848,13 @@ from, and how it was verified. The deploy procedure is in the
   entry was missed; added in PR #229 (from `c7131fa`), "hosting", run
   [#316](https://github.com/yasircmd/erp-firebase/actions/runs/42340334420)
   (04:52–04:53 UTC), success. No functions, screens or rules.
+- **2026-11-07, Correction JV (`cjv`, every function, PR #230, from
+  `f1af534`):** every function with `--screens`, run
+  [#317](https://github.com/yasircmd/erp-firebase/actions/runs/42347673809)
+  (06:35–08:50 UTC), success: `SUMMARY: functions deployed: 669 …; access
+  granted: 669; screens released: yes` (the screens' styles and Hosting
+  redeployed with the release). "hosting", run
+  [#318](https://github.com/yasircmd/erp-firebase/actions/runs/42358437559)
+  (09:08–09:09 UTC), success. No rules change. To do in the app: link
+  "Correction JV (CJV)" in Tree Management where the tree has none; provide
+  CJV to the client corporates' groups (Developer screen).

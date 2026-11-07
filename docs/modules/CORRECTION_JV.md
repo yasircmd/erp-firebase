@@ -1,6 +1,6 @@
 # Correction JV: reclassify a posted entry (CJV)
 
-Status: **built** 2026-11-07 (owner's decisions Q415-Q418); deploy set `cjv`.
+Status: **live** 2026-11-07 (owner's decisions Q415-Q418; PR #230, runs #317-#318).
 
 ## The request (owner, 2026-11-07)
 
