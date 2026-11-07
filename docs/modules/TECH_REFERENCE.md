@@ -1,6 +1,6 @@
 # Technical Reference: the app's technical details for developers
 
-Status: **built** 2026-11-07 (owner's decisions Q419-Q422); deploy set `techref`.
+Status: **live** 2026-11-07 (owner's decisions Q419-Q422; PR #232, runs #319-#320); then the light theme and pages of 25 (below).
 
 ## The request (owner, 2026-11-07)
 
@@ -198,3 +198,26 @@ A module **Technical Reference** (`TECHREF`), under Developer.
 - **Deploy:** `techref`, every function (moduleRegistry.js), with
   --screens. The release builds and carries the reference, then Hosting
   (the styles). No rules change.
+
+## Change 2026-11-07: the light theme, pages of 25 (owner)
+
+"In light mode the Tab is not readable, also make next pages if more than
+25 lines."
+
+- **Light theme:** the screen's own styles (not Tailwind classes, so the
+  shell's LIGHT THEME block didn't reach them) get light-theme rules:
+  - the tabs, and the active one dark blue on light blue, where it was
+    light blue on light blue (contrast 1.06);
+  - the links, the chips, the documents' code blocks and tables.
+- **Pages of 25:** every list (Modules, Functions, Files, Data, Screens,
+  Tests, Deploys, Documents), its filter included, shows 25 lines a page,
+  with Previous / Next and "1–25 of N" under it. There is no pager on one
+  page. The search's results, catalogue and documents, are paged the same
+  way; the catalogue keeps up to 100 per section, where it kept 25.
+- **Tests:** ui/techRef gains "lists in pages of 25, Next / Previous; the
+  tabs readable in the light theme". It checks the pager and the active
+  tab's contrast (at least 4.5, its see-through background blended over the
+  page). Negative controls, each caught and restored:
+  - no light-theme tab rules (contrast 1.06);
+  - pages of 800.
+- **Deploy:** "screens only" (TECHREF.html), then Hosting with the release.
