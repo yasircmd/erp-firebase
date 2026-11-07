@@ -5,8 +5,8 @@ order: 5
 modules: [FADEPRUN]
 sources: [functions/src/fixedAssetsDepreciation.js]
 summary: Calculate and post the monthly depreciation for the active fixed asset register.
-reviewed: 2026-10-12
-fingerprint: f637072b0ebd4d56
+reviewed: 2026-11-07
+fingerprint: 2bb7e5215a721258
 ---
 ## What it is for
 

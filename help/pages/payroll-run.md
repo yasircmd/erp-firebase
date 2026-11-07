@@ -5,8 +5,8 @@ order: 8
 modules: [PAYROLL]
 sources: [functions/src/payrollRun.js, functions/src/payrollCalc.js, functions/src/payrollInputs.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/payrollPost.js, functions/src/payrollPayment.js]
 summary: Calculate and post the payroll for all employees in the selected pay cycle.
-reviewed: 2026-11-06
-fingerprint: 9a9e11c87d22cbe6
+reviewed: 2026-11-07
+fingerprint: 8b8e4f1ed7b0b5f9
 ---
 ## What it is for
 

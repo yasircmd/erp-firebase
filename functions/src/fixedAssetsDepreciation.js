@@ -122,7 +122,11 @@ exports.postFaDepreciation = onCallWithMessages(onCallOptions, async (request) =
   const user = await requireUser(request);
   await C.requireCap('FADEPRUN', 'post', user.profile.role);
   const { companyId, period } = periodArgs(user, request.data || {});
-  return withGlobalLock(user.uid, async () => {
+  // The lock per step, not for the whole run (docs/modules/LOCKING.md, Q424):
+  // starting (or resuming) the run, each chunk of assets, then the GL entry.
+  // Between them other postings go on; the company's other asset postings
+  // wait for the run (RunInProgress), as they did.
+  const started = await withGlobalLock(user.uid, async () => {
     const pref = firestore.collection(COL.periods).doc(periodId(companyId, period));
     let pdoc = await C.getDoc(COL.periods, pref.id);
     // A period reversed into the first open month (its month closed) is redone
@@ -155,8 +159,9 @@ exports.postFaDepreciation = onCallWithMessages(onCallOptions, async (request) =
       batch.set(firestore.collection(COL.runState).doc(companyId), { CompanyID: companyId, RunInProgress: runId }, { merge: true });
       await batch.commit();
     }
-    return finishRun(user, run, pref);
+    return { run, pref };
   });
+  return finishRun(user, started.run, started.pref);
 });
 
 async function finishRun(user, run, pref) {
@@ -165,27 +170,39 @@ async function finishRun(user, run, pref) {
   const date = E.lastDay(run.Period);
   const chunks = [];
   for (let i = 0; i < run.Lines.length; i += CHUNK) chunks.push(run.Lines.slice(i, i + CHUNK));
-  const done = new Set(run.ChunksDone || []);
   for (const [k, chunk] of chunks.entries()) {
-    if (done.has(k)) continue;
-    const batch = firestore.batch();
-    chunk.forEach(l => {
-      batch.set(firestore.collection(COL.txns).doc(run._id + '_' + l.AssetID), {
-        AssetID: l.AssetID, AssetNumber: l.AssetNumber, CompanyID: run.CompanyID, Area: AREA, Type: 'Depreciation',
-        Date: date, Period: run.Period, CostDelta: 0, AccDepDelta: l.Amount, Current: l.Current, CatchUp: l.CatchUp, CatchUpFrom: l.CatchUpFrom,
-        RunID: run._id, PrevLastDepPeriod: l.PrevLastDepPeriod, ReversedByTxnID: '', CreatedAt: now, CreatedBy: actor
+    // Each chunk under its own lock, checked again there: a second Post of the
+    // same run (resuming it) never writes a chunk twice.
+    await withGlobalLock(user.uid, async () => {
+      const fresh = await C.getDoc(COL.runs, run._id);
+      if (!fresh || fresh.Status !== 'Posting' || (fresh.ChunksDone || []).includes(k)) return;
+      const batch = firestore.batch();
+      chunk.forEach(l => {
+        batch.set(firestore.collection(COL.txns).doc(run._id + '_' + l.AssetID), {
+          AssetID: l.AssetID, AssetNumber: l.AssetNumber, CompanyID: run.CompanyID, Area: AREA, Type: 'Depreciation',
+          Date: date, Period: run.Period, CostDelta: 0, AccDepDelta: l.Amount, Current: l.Current, CatchUp: l.CatchUp, CatchUpFrom: l.CatchUpFrom,
+          RunID: run._id, PrevLastDepPeriod: l.PrevLastDepPeriod, ReversedByTxnID: '', CreatedAt: now, CreatedBy: actor
+        });
+        const upd = {
+          [`Areas.${AREA}.AccDep`]: FieldValue.increment(l.Amount), [`Areas.${AREA}.AccDepScheduled`]: FieldValue.increment(l.Amount),
+          [`Areas.${AREA}.LastDepPeriod`]: run.Period, UpdatedAt: now, UpdatedBy: actor
+        };
+        if (l.FullyDepreciated) { upd.Status = 'FullyDepreciated'; upd[`Areas.${AREA}.FullyDepreciatedAt`] = date; }
+        batch.update(firestore.collection(COL.assets).doc(l.AssetID), upd);
       });
-      const upd = {
-        [`Areas.${AREA}.AccDep`]: FieldValue.increment(l.Amount), [`Areas.${AREA}.AccDepScheduled`]: FieldValue.increment(l.Amount),
-        [`Areas.${AREA}.LastDepPeriod`]: run.Period, UpdatedAt: now, UpdatedBy: actor
-      };
-      if (l.FullyDepreciated) { upd.Status = 'FullyDepreciated'; upd[`Areas.${AREA}.FullyDepreciatedAt`] = date; }
-      batch.update(firestore.collection(COL.assets).doc(l.AssetID), upd);
+      batch.update(firestore.collection(COL.runs).doc(run._id), { ChunksDone: FieldValue.arrayUnion(k) });
+      await batch.commit();
     });
-    batch.update(firestore.collection(COL.runs).doc(run._id), { ChunksDone: FieldValue.arrayUnion(k) });
-    await batch.commit();
   }
+  return withGlobalLock(user.uid, () => postRunEntry(user, run, pref, now, actor, date));
+}
 
+// The run's GL entry and its end, under the lock; already posted (a second
+// Post finished it meanwhile): its result.
+async function postRunEntry(user, run, pref, now, actor, date) {
+  const fresh = await C.getDoc(COL.runs, run._id);
+  if (fresh && fresh.Status === 'Posted') return { success: true, runId: run._id, jvNumber: fresh.JVNumber, assets: run.Lines.length, total: run.Total };
+  if (!fresh || (fresh.ChunksDone || []).length < Math.ceil(run.Lines.length / CHUNK)) throw new Error('The run was not fully written: post its period again to finish it.');
   // The GL entry: expense by account, cost and profit center; accumulated
   // depreciation by account and profit center.
   const chart = await C.coa();
