@@ -164,3 +164,60 @@ Five phases, each its own PR and deploy:
    grouping, totals), saved as "My reports" and usable as dashboard tiles.
 5. **Help** (a new MIS area and pages), What's new, docs, and the last
    deploys.
+
+## As built: phase 1, the engine (2026-11-08)
+
+The Sales Rep field (the rest of phase 1) follows as phase 1c, its own PR:
+it changes ported screens (Sales Order, Customer Invoice, Retail Sale).
+
+- **functions/src/misCalc.js**, the pure core (unit/misCalc.test.js):
+  periods and the four comparisons (`prevMonth`, `lastYear`, `ytd` from
+  the financial year's first month, `budget`); `variance` (the change,
+  the % — none when the comparison is 0 — and whether it is good: more
+  sales up, fewer expenses down); GL buckets by account and month from
+  posted entries; the P&L and Balance Sheet groups by account type
+  (postable accounts only; equity includes the profit not yet closed, so
+  the check is 0); nine ratios from the ratio map; stock cover (days of
+  cover = on hand ÷ the daily quantity moved: fast under 30 days, slow
+  over 90, non-moving with stock and no movement).
+- **functions/src/misData.js**, the readers, each an equality / range
+  query: the company's posted journal entries by date (the Budget's
+  index); the approved, current budget as GL buckets (natural sign turned
+  to debit − credit); the parties' control accounts and items' inventory
+  accounts (the ratio map's seed); the financial year's start (Period
+  Closing's setting); stock on hand (the company's items); the quantity
+  moved (Out lines of deliveries, invoices, retail sales, issues and
+  production, less sales and retail returns; moves, adjustments and
+  counts are not movement); sales by customer (posted invoices before
+  tax, in base, less sales returns). Reversed documents and their
+  reversals are left out.
+- **functions/src/mis.js**, the module `MIS` (rights access, design,
+  publish): `getMisCatalogue`, `runMisReport({ type, companyId, month,
+  mode, top })`, `getMisSetup`, `saveMisSetup`. Report types: kpis,
+  profitLoss, balanceSheet (no budget comparison), cashFlow (direct: each
+  cash movement classed by its other side — operating, investing in fixed
+  assets, financing in equity and loans), ratios, bankBalances, expenses,
+  trend (12 months), receivables and payables (Aging's figures: top
+  parties and the age buckets), salesByCustomer, stockInHand (by
+  category, no comparison), stockCover. Every row: `{ key, label, level,
+  current, compare, abs, pct, good }`.
+- **The MIS setup** in Firestore `misSetup/{companyId}`: the ratio map
+  (seeded from the chart until saved; only asset accounts on the asset
+  side, liabilities on the other) and the stock-cover thresholds (fast
+  under slow, 1-365 days). Saving needs the publish right. Data Reset
+  clears it with "Numbering & Settings".
+- **screens/MIS.html**, a plain first screen: report, company, month,
+  comparison, Show; the table with the change and % coloured by whether
+  it is good; the trend and stock cover in their own columns. The
+  dashboard, charts and saved reports are phases 2 and 3.
+- Tree: "MIS Reports" after Period-End Closing & Financial Statements.
+  Help: a new area "Management reports (MIS)", unwritten until phase 5;
+  a What's new entry.
+- Tests: unit/misCalc (6), emulator/mis (every report type against real
+  postings, the budget comparison, the setup's checks, access by company
+  and right), ui/mis.ui.js (3). Negative controls caught: the unclosed
+  profit dropped from equity; the variance sense flipped; the budget's
+  natural sign not turned; the saved thresholds ignored; the good / bad
+  colours swapped.
+- Deploy set `mis-phase1`: every function (moduleRegistry.js), with
+  --screens, then Hosting. No rules change.

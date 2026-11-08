@@ -17,6 +17,8 @@ const TREE_SEED_NODES = [
   // New development (not in Code.gs): docs/modules/RECURRING_JOURNAL.md.
   { text: 'Recurring Journal Entries', depth: 3, moduleId: 'RECURRINGJV' },
   { text: 'Period-End Closing & Financial Statements', depth: 3 },
+  // New development (not in Code.gs): docs/modules/MIS.md.
+  { text: 'MIS Reports', depth: 3, moduleId: 'MIS' },
   // New development (not in Code.gs): docs/modules/PERIOD_CLOSING.md.
   { text: 'Period Closing', depth: 3, moduleId: 'PERIODCLOSE' },
   // New development (not in Code.gs): docs/modules/RECONCILIATION.md, step R3.

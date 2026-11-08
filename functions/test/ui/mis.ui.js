@@ -1,0 +1,99 @@
+// MIS Reports, phase 1 (docs/modules/MIS.md) in the browser, on the
+// emulators: the catalogue in the report list, the P&L against the previous
+// month with its change and % coloured by whether it is good, the 12-month
+// trend with its months shown as Mon-yyyy, a refusal shown in-app. Seeds its
+// own data (it WIPES the emulator database, like the suites):
+//   node functions/test/ui/mis.ui.js
+const http = require('http');
+const fs = require('fs');
+const assert = require('assert/strict');
+const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
+const { app, call, reset, baseFixture } = require('../emulator/_helpers');
+
+const results = [];
+function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300) + ' @ ' + String(e.stack).split('\n').find(l => /mis.ui/.test(l))]); }); }
+const ok = r => { if (r.success === false) throw new Error(r.error); return r; };
+const NOW = new Date();
+const M0 = NOW.toISOString().slice(0, 7);
+const M1 = new Date(Date.UTC(NOW.getUTCFullYear(), NOW.getUTCMonth() - 1, 15)).toISOString().slice(0, 7);
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const shown = m => MON[Number(m.slice(5, 7)) - 1] + '-' + m.slice(0, 4);
+async function jv(date, lines) {
+  const s = ok(await call('u-admin', 'saveJournalDraft', { jvData: { JVDate: date, Description: 'MIS UI', CompanyID: 'C1', Lines: lines.map(([a, d, c]) => ({ AccountCode: a, Debit: d, Credit: c, Description: 'x', CostCenterID: 'CC1' })) } }));
+  ok(await call('u-admin', 'postJournalEntry', { jvId: s.jvId }));
+}
+
+(async () => {
+  const f = baseFixture();
+  f.coa['A-RENT'] = { AccountCode: '6000', AccountName: 'Rent', AccountType: 'Expense', Status: 'Active', IsPostable: true };
+  await reset(f);
+  await jv(M1 + '-05', [['1000', 2000, 0], ['4000', 0, 2000]]);
+  await jv(M1 + '-06', [['6000', 500, 0], ['1000', 0, 500]]);
+  await jv(M0 + '-01', [['1000', 3000, 0], ['4000', 0, 3000]]);
+  await jv(M0 + '-01', [['6000', 400, 0], ['1000', 0, 400]]);
+
+  const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
+  const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8220);
+  const browser = await chromium.launch();
+  const context = await browser.newContext();
+  const T = { timeout: 30000 };
+  async function open(uid) {
+    const page = await context.newPage();
+    page.__errors = []; page.__dialogs = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
+    await page.goto('http://127.0.0.1:8220/?module=MIS&uid=' + uid);
+    await page.waitForFunction(() => window.__moduleReady === true, null, T);
+    await page.waitForSelector('#mis-body tr[data-key]', T);
+    return page;
+  }
+  const cells = async (p, key) => (await p.locator('#mis-body tr[data-key="' + key + '"] td').allInnerTexts()).map(t => t.trim());
+  const show = async (p, type, mode) => {
+    await p.selectOption('#mis-type', type); if (mode) await p.selectOption('#mis-mode', mode);
+    const before = await p.textContent('#mis-period');
+    await p.click('#mis-run');
+    await p.waitForFunction(b => document.getElementById('mis-period').textContent !== b || !/Working/.test(document.getElementById('mis-body').textContent), before, T);
+    await p.waitForFunction(() => !/Working/.test(document.getElementById('mis-body').textContent), null, T);
+  };
+
+  await check('the catalogue; the P&L against last month, the change and % coloured by whether it is good', async () => {
+    const p = await open('u-admin');
+    const types = await p.locator('#mis-type option').evaluateAll(o => o.map(x => x.value));
+    ['kpis', 'profitLoss', 'balanceSheet', 'cashFlow', 'ratios', 'trend', 'stockCover'].forEach(t => assert.ok(types.includes(t), t));
+    await show(p, 'profitLoss', 'prevMonth');
+    assert.deepEqual(await cells(p, 'revenue'), ['Revenue', '3,000.00', '2,000.00', '1,000.00', '+50.0%']);
+    assert.match(await p.locator('#mis-body tr[data-key="revenue"] td').nth(3).getAttribute('class'), /emerald/);
+    assert.deepEqual((await cells(p, 'expenses')).slice(1), ['400.00', '500.00', '-100.00', '-20.0%']);
+    assert.match(await p.locator('#mis-body tr[data-key="expenses"] td').nth(3).getAttribute('class'), /emerald/, 'expenses down is good');
+    assert.match(await p.textContent('#mis-period'), new RegExp(shown(M0)), 'the period shown as Mon-yyyy');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('the trend: 12 months shown as Mon-yyyy, the last two with their revenue', async () => {
+    const p = await open('u-admin');
+    await show(p, 'trend');
+    const rows = await p.locator('#mis-body tr').evaluateAll(r => r.map(x => [...x.cells].map(c => c.innerText.trim())));
+    assert.equal(rows.length, 12);
+    assert.deepEqual(rows.slice(-2).map(r => [r[0], r[1]]), [[shown(M1), '2,000.00'], [shown(M0), '3,000.00']]);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('a refusal is shown in-app: the Balance Sheet has no budget to compare with', async () => {
+    const p = await open('u-admin');
+    await p.selectOption('#mis-type', 'balanceSheet'); await p.selectOption('#mis-mode', 'budget');
+    await p.click('#mis-run');
+    for (let i = 0; i < 100 && !p.__dialogs.length; i++) await p.waitForTimeout(100);
+    assert.match(p.__dialogs.join(' | '), /not a budget/);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await browser.close(); server.close(); await app.delete();
+  results.forEach(r => console.log(r.join('  ')));
+  const failed = results.filter(r => r[0] === 'FAIL').length;
+  console.log((results.length - failed) + '/' + results.length + ' passed');
+  process.exitCode = failed ? 1 : 0;
+})();

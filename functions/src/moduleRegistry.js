@@ -172,6 +172,10 @@ const MODULE_REGISTRY = [
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
+  // MIS: management reports, dashboard, report builder (docs/modules/MIS.md, Q427-Q434):
+  // access sees them, design saves one's own reports and dashboard, publish
+  // sets a role's default dashboard and the MIS setup (ratio map, stock cover).
+  { id: 'MIS', label: 'MIS Reports', capabilities: ['access', 'design', 'publish'] },
   { id: 'DEVELOPER', label: 'Developer', capabilities: ['access', 'write'], internal: true, homeOnly: true },
   // Technical Reference (docs/modules/TECH_REFERENCE.md, Q419-Q422): the app's
   // technical details for the firm's developers, read only. Firm-only and
@@ -323,6 +327,7 @@ const DEFAULT_PERMISSIONS = {
   QUOTATION:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
   BANKREC:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'] },
   GLREC:              { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], prepare: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], reopen: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN', 'FINANCE_MGR'] },
+  MIS:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], design: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], publish: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   TECHREF:            { access: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }

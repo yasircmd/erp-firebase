@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-07
+reviewed: 2026-11-08
 title: What's new
 area: start
 order: 3
@@ -10,6 +10,16 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 08/11/2026
+
+- **MIS Reports, the first part.** Under Financial Accounting, **MIS
+  Reports** shows the key figures, Profit and Loss, Balance Sheet, Cash Flow,
+  ratios, bank and cash, expenses, receivables, payables, sales by customer,
+  stock in hand and fast, slow and non-moving stock, each compared with the
+  previous month, the same month last year, the year to date or the budget,
+  with the change and its %. The dashboard, charts and your own saved reports
+  follow.
 
 ## 07/11/2026
 
