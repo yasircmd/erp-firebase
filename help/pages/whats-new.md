@@ -13,6 +13,14 @@ screen.
 
 ## 08/11/2026
 
+- **MIS Reports: Build a report.** Choose **Build a report…** to make your
+  own report from sales lines, purchase lines, GL lines or stock movements:
+  over 1 to 24 months, with filters, grouped by one or two fields with
+  totals (total, count, average, lowest, highest), as a pivot (rows ×
+  columns) or as a list; click a column to sort. Save it in My reports,
+  share it, and show it on the MIS Dashboard as a chart or a top list. Each
+  data set needs its own module's access too (for example Customer Invoice
+  for sales lines).
 - **MIS Reports: charts and My reports.** Each report shows a chart above
   its table (bars, a line, or none); **Copy** takes the table for Excel and
   **Print** prints it; on a phone each line is a card. **Save as…** keeps a

@@ -39,6 +39,28 @@
     <button id="mis-share" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-share-nodes"></i> Share</button>
     <button id="mis-delete" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs px-3 py-1.5 rounded">Delete</button>
   </div>
+  <!-- The report builder (phase 4, Q446-Q449): a data set's lines, filtered, grouped (one or two fields) with totals, pivoted, or listed. -->
+  <div id="mis-builder" class="hidden no-print bg-slate-800/40 border border-slate-700 rounded-xl p-3 space-y-3">
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="mb-dataset" class="block text-xs font-medium text-slate-300 mb-1">Data set</label><select id="mb-dataset" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+      <div><label for="mb-months" class="block text-xs font-medium text-slate-300 mb-1">Months, ending the month</label><input id="mb-months" type="number" min="1" max="24" value="1" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <div><label for="mb-view" class="block text-xs font-medium text-slate-300 mb-1">Show</label><select id="mb-view" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="group">Grouped with totals</option><option value="pivot">Pivot (rows × columns)</option><option value="list">A list of lines</option></select></div>
+    </div>
+    <div id="mb-group" class="flex flex-wrap items-end gap-2">
+      <div><label for="mb-by1" class="block text-xs font-medium text-slate-300 mb-1">Group by</label><select id="mb-by1" class="mb-field bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+      <div><label for="mb-by2" class="block text-xs font-medium text-slate-300 mb-1">then by</label><select id="mb-by2" class="mb-field mb-optional bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+      <div><label for="mb-m1" class="block text-xs font-medium text-slate-300 mb-1">Total</label><span class="flex gap-1"><select id="mb-a1" class="mb-agg bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select><select id="mb-m1" class="mb-num bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></span></div>
+      <div><label for="mb-m2" class="block text-xs font-medium text-slate-300 mb-1">and</label><span class="flex gap-1"><select id="mb-a2" class="mb-agg mb-optional-agg bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select><select id="mb-m2" class="mb-num mb-optional bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></span></div>
+    </div>
+    <div id="mb-pivot" class="hidden flex flex-wrap items-end gap-2">
+      <div><label for="mb-prows" class="block text-xs font-medium text-slate-300 mb-1">Rows</label><select id="mb-prows" class="mb-field bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+      <div><label for="mb-pcols" class="block text-xs font-medium text-slate-300 mb-1">Columns</label><select id="mb-pcols" class="mb-field bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+      <div><label for="mb-pm" class="block text-xs font-medium text-slate-300 mb-1">Figure</label><span class="flex gap-1"><select id="mb-pa" class="mb-agg bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select><select id="mb-pm" class="mb-num bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></span></div>
+    </div>
+    <div id="mb-list" class="hidden"><div class="block text-xs font-medium text-slate-300 mb-1">Columns</div><div id="mb-cols" class="flex flex-wrap gap-3 text-sm"></div></div>
+    <div><div class="block text-xs font-medium text-slate-300 mb-1">Filters</div><div id="mb-filters" class="space-y-1"></div>
+      <button id="mb-add-filter" class="mt-1 text-xs text-blue-400 hover:text-blue-300"><i class="fa-solid fa-plus"></i> Add a filter</button></div>
+  </div>
   <div id="mis-save-panel" class="hidden no-print bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-wrap items-end gap-2">
     <div><label for="mis-save-name" class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="mis-save-name" maxlength="60" class="w-56 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
     <div><label for="mis-save-period" class="block text-xs font-medium text-slate-300 mb-1">Opens on</label><select id="mis-save-period" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="latest">The latest month</option><option value="fixed">This month, kept</option></select></div>
@@ -114,6 +136,11 @@
   }
   async function run() {
     $('mis-body').innerHTML = '<tr><td class="py-6 px-3 text-slate-500">Working…</td></tr>';
+    if (building()) {
+      try { await loadBuilder(); drawBuilt(await call('runMisBuilder', Object.assign(builderSpec(), { companyId: $('mis-company').value, month: $('mis-month').value }))); }
+      catch (e) { $('mis-body').innerHTML = ''; $('mis-chart-box').classList.add('hidden'); appAlert(e.message); }
+      return;
+    }
     try { draw(await call('runMisReport', { type: $('mis-type').value, companyId: $('mis-company').value, month: $('mis-month').value, mode: $('mis-mode').value })); }
     catch (e) { $('mis-body').innerHTML = ''; $('mis-chart-box').classList.add('hidden'); appAlert(e.message); }
   }
@@ -153,14 +180,23 @@
     open = S.mine.concat(S.shared).find(r => r.id === id) || null;
     buttons();
     if (!open) return;
-    $('mis-type').value = open.type;
+    $('mis-type').value = open.type === 'builder' ? '__builder' : open.type;
+    typeChanged();
+    if (open.type === 'builder' && open.builder) { loadBuilder().then(() => { setSpec(open.builder); run(); }); }
     if ([...$('mis-company').options].some(o => o.value === open.companyId)) $('mis-company').value = open.companyId;
     $('mis-mode').value = open.mode;
     $('mis-chart').value = open.chart;
     $('mis-month').value = open.period.kind === 'fixed' ? open.period.month : thisMonth();
-    run();
+    if (open.type !== 'builder') run();
   }
-  const current = () => ({ type: $('mis-type').value, companyId: $('mis-company').value, mode: $('mis-mode').value, chart: $('mis-chart').value });
+  // The builder's panel and the comparison (a catalogue report's) follow the choice.
+  function typeChanged() {
+    $('mis-builder').classList.toggle('hidden', !building());
+    $('mis-mode').disabled = building();
+    if (building()) loadBuilder().catch(e => appAlert(e.message));
+  }
+  const current = () => Object.assign({ type: building() ? 'builder' : $('mis-type').value, companyId: $('mis-company').value, mode: $('mis-mode').value, chart: $('mis-chart').value },
+    building() ? { builder: builderSpec() } : {});
   async function saveChanges() {
     if (!open) return;
     try { await call('saveMisReport', Object.assign({ id: open.id, name: open.name, period: open.period.kind === 'fixed' ? { kind: 'fixed', month: $('mis-month').value } : { kind: 'latest' } }, current())); appAlert('Saved.'); await loadSaved(open.id); }
@@ -188,6 +224,84 @@
     catch (e) { appAlert(e.message); }
   }
 
+  // ---------- the report builder (phase 4, Q446-Q449) ----------
+  let B = null, bsort = null;
+  const building = () => $('mis-type').value === '__builder';
+  const AGG = { sum: 'Total of', count: 'Count of lines', avg: 'Average', min: 'Lowest', max: 'Highest' };
+  const OP = { eq: 'is', ne: 'is not', contains: 'contains', gt: 'after / over', lt: 'before / under', between: 'between' };
+  const dsNow = () => (B && B.datasets.find(d => d.id === $('mb-dataset').value)) || null;
+  const opts = (fs, optional) => (optional ? '<option value="">—</option>' : '') + fs.map(f => '<option value="' + esc(f.key) + '">' + esc(f.label) + '</option>').join('');
+  function fields() {
+    const ds = dsNow(); if (!ds) return;
+    const all = ds.fields, nums = all.filter(f => f.type === 'number');
+    document.querySelectorAll('#mis-builder .mb-field').forEach(el => { const was = el.value; el.innerHTML = opts(all, el.classList.contains('mb-optional')); if ([...el.options].some(o => o.value === was)) el.value = was; });
+    document.querySelectorAll('#mis-builder .mb-num').forEach(el => { const was = el.value; el.innerHTML = opts(nums, el.classList.contains('mb-optional')); if ([...el.options].some(o => o.value === was)) el.value = was; });
+    document.querySelectorAll('#mis-builder .mb-agg').forEach(el => { const was = el.value; el.innerHTML = B.aggs.map(a => '<option value="' + a + '">' + esc(AGG[a]) + '</option>').join(''); el.value = was || 'sum'; });
+    $('mb-cols').innerHTML = all.map(f => '<label class="flex items-center gap-1"><input type="checkbox" class="mb-col" value="' + esc(f.key) + '"> ' + esc(f.label) + '</label>').join('');
+    document.querySelectorAll('.mb-filter-field').forEach(el => { const was = el.value; el.innerHTML = opts(all); if ([...el.options].some(o => o.value === was)) el.value = was; });
+  }
+  function view() { const v = $('mb-view').value; $('mb-group').classList.toggle('hidden', v !== 'group'); $('mb-pivot').classList.toggle('hidden', v !== 'pivot'); $('mb-list').classList.toggle('hidden', v !== 'list'); }
+  function addFilter(f) {
+    const ds = dsNow(); if (!ds) return;
+    const row = document.createElement('div');
+    row.className = 'mb-filter flex flex-wrap items-center gap-1';
+    row.innerHTML = '<select class="mb-filter-field bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm">' + opts(ds.fields) + '</select><select class="mb-filter-op bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm">' + B.ops.map(o => '<option value="' + o + '">' + esc(OP[o]) + '</option>').join('') +
+      '</select><input class="mb-filter-value w-36 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><input class="mb-filter-to hidden w-36 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" placeholder="to"><button class="mb-filter-remove text-slate-500 hover:text-red-400" title="Remove the filter"><i class="fa-solid fa-xmark"></i></button>';
+    const op = row.querySelector('.mb-filter-op');
+    op.addEventListener('change', () => row.querySelector('.mb-filter-to').classList.toggle('hidden', op.value !== 'between'));
+    row.querySelector('.mb-filter-remove').addEventListener('click', () => row.remove());
+    $('mb-filters').appendChild(row);
+    if (f) { row.querySelector('.mb-filter-field').value = f.field; op.value = f.op; row.querySelector('.mb-filter-value').value = f.value || ''; row.querySelector('.mb-filter-to').value = f.to || ''; op.dispatchEvent(new Event('change')); }
+  }
+  function spec() {
+    const v = $('mb-view').value;
+    const filters = [...document.querySelectorAll('.mb-filter')].map(r => ({ field: r.querySelector('.mb-filter-field').value, op: r.querySelector('.mb-filter-op').value, value: r.querySelector('.mb-filter-value').value, to: r.querySelector('.mb-filter-to').value }))
+      .filter(f => f.value !== '' || f.to !== '');
+    const m = (a, f) => ($(a).value === 'count' ? { agg: 'count' } : { agg: $(a).value, field: $(f).value });
+    const out = { view: v, filters, limit: 500 };
+    if (v === 'group') { out.groupBy = [$('mb-by1').value, $('mb-by2').value].filter(Boolean); out.measures = [m('mb-a1', 'mb-m1')].concat($('mb-m2').value ? [m('mb-a2', 'mb-m2')] : []); }
+    if (v === 'pivot') out.pivot = { rows: $('mb-prows').value, cols: $('mb-pcols').value, measure: m('mb-pa', 'mb-pm') };
+    if (v === 'list') out.columns = [...document.querySelectorAll('.mb-col')].filter(x => x.checked).map(x => x.value);
+    if (bsort) out.sort = bsort;
+    return out;
+  }
+  function setSpec(b) {
+    $('mb-dataset').value = b.dataset; $('mb-months').value = b.months; fields();
+    const s = b.spec; $('mb-view').value = s.view; view();
+    if (s.view === 'group') { $('mb-by1').value = s.groupBy[0]; $('mb-by2').value = s.groupBy[1] || ''; [['mb-a1', 'mb-m1'], ['mb-a2', 'mb-m2']].forEach(([a, f], i) => { const x = s.measures[i]; $(a).value = x ? x.agg : 'sum'; $(f).value = x && x.field ? x.field : ''; }); }
+    if (s.view === 'pivot') { $('mb-prows').value = s.pivot.rows; $('mb-pcols').value = s.pivot.cols; $('mb-pa').value = s.pivot.measure.agg; $('mb-pm').value = s.pivot.measure.field || ''; }
+    if (s.view === 'list') document.querySelectorAll('.mb-col').forEach(x => { x.checked = s.columns.includes(x.value); });
+    $('mb-filters').innerHTML = ''; (s.filters || []).forEach(addFilter);
+    bsort = s.sort || null;
+  }
+  const builderSpec = () => ({ dataset: $('mb-dataset').value, months: Number($('mb-months').value) || 1, spec: spec() });
+  function drawBuilt(r) {
+    last = r;
+    $('mis-period').textContent = r.title + ': ' + r.period + ' · ' + r.lines + ' lines' + (r.truncated ? ' · showing the first ' + r.rows.length : '') + (r.colsTruncated ? ' · the 24 busiest columns' : '');
+    $('mis-notes').textContent = 'Amounts in the base currency, before tax, after each document\'s discount.' + (r.linesTruncated ? ' Too many lines: shorten the months or add a filter.' : '');
+    $('mis-extra').innerHTML = '';
+    cols = r.columns.map(c => c.label);
+    const isNum = i => r.columns[i].type === 'number';
+    const cell = (v, i) => (isNum(i) ? (v == null ? '—' : fmt(v)) : esc(v));
+    $('mis-head').innerHTML = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700">' + r.columns.map((c, i) => '<th class="py-2 px-3 cursor-pointer mb-sort' + (isNum(i) ? ' text-right' : '') + '" data-i="' + i + '" title="Sort">' + esc(c.label) +
+      (bsort && bsort.by === i ? (bsort.dir === 'asc' ? ' ▲' : ' ▼') : '') + '</th>').join('') + '</tr>';
+    document.querySelectorAll('.mb-sort').forEach(th => th.addEventListener('click', () => { const i = Number(th.dataset.i); bsort = { by: i, dir: bsort && bsort.by === i && bsort.dir === 'desc' ? 'asc' : 'desc' }; run(); }));
+    $('mis-body').innerHTML = r.rows.map(row => '<tr>' + row.map((v, i) => td(i, cell(v, i))).join('') + '</tr>').join('') +
+      (r.totals ? '<tr class="font-semibold border-t border-slate-600">' + r.totals.map((v, i) => td(i, cell(v, i))).join('') + '</tr>' : '') ||
+      '<tr><td class="py-6 text-center text-slate-500">Nothing matches.</td></tr>';
+    copyRows = r.rows.concat(r.totals ? [r.totals] : []);
+    // The chart: the first grouping by its first total (a pivot: its rows by their totals).
+    const rows = r.view === 'list' ? [] : r.rows.map(x => ({ key: String(x[0]), label: r.view === 'group' && r.columns[1].type !== 'number' ? x[0] + ' · ' + x[1] : String(x[0]),
+      current: x[r.view === 'group' ? r.columns.findIndex(c => c.type === 'number') : x.length - 1] }));
+    drawChart({ type: 'builder', rows });
+  }
+  async function loadBuilder() {
+    if (B) return;
+    B = await call('getMisDatasets', {});
+    $('mb-dataset').innerHTML = B.datasets.map(d => '<option value="' + esc(d.id) + '">' + esc(d.title) + '</option>').join('');
+    fields(); view();
+  }
+
   window.initModule = function () {
     $('app-title').innerHTML = '<i class="fa-solid fa-chart-line"></i> MIS Reports';
     $('mis-month').value = thisMonth();
@@ -204,9 +318,14 @@
     $('mis-share-ok').addEventListener('click', shareSave);
     $('mis-share-cancel').addEventListener('click', () => $('mis-share-panel').classList.add('hidden'));
     $('mis-delete').addEventListener('click', remove);
+    $('mis-type').addEventListener('change', typeChanged);
+    $('mb-dataset').addEventListener('change', () => { fields(); $('mb-filters').innerHTML = ''; bsort = null; });
+    $('mb-view').addEventListener('change', () => { view(); bsort = null; });
+    $('mb-add-filter').addEventListener('click', () => addFilter());
     Promise.all([call('getMisCatalogue', {}), call('getActiveCompanies', {}).catch(() => []), call('getMyMisReports', {}).catch(() => S)]).then(([cat, cos, saved]) => {
       C = cat; S = saved;
-      $('mis-type').innerHTML = cat.catalogue.map(c => '<option value="' + esc(c.type) + '">' + esc(c.group + ' · ' + c.title) + '</option>').join('');
+      $('mis-type').innerHTML = cat.catalogue.map(c => '<option value="' + esc(c.type) + '">' + esc(c.group + ' · ' + c.title) + '</option>').join('') +
+        '<option value="__builder">Build a report…</option>';
       $('mis-mode').innerHTML = cat.modes.map(m => '<option value="' + esc(m.mode) + '">' + esc(m.label) + '</option>').join('');
       $('mis-company').innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
       fillSaved(''); buttons();

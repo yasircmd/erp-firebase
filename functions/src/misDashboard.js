@@ -50,8 +50,11 @@ function cleanTile(t, i) {
   if (!t || typeof t !== 'object') bad(at + 'not a tile.');
   const kind = text(t.kind, 10);
   if (!KINDS.includes(kind)) bad(at + 'choose a key figure, chart, top list or gauge.');
-  const type = text(t.type, 40);
-  if (!CATALOGUE.some(c => c.type === type)) bad(at + 'unknown report.');
+  const type = text(t.type, 70);
+  // A catalogue report, or a saved builder report (phase 4, Q449) for a chart or top list.
+  const saved = /^saved:[A-Za-z0-9]{1,60}$/.test(type);
+  if (saved && kind !== 'chart' && kind !== 'top') bad(at + 'a built report shows as a chart or a top list.');
+  if (!saved && !CATALOGUE.some(c => c.type === type)) bad(at + 'unknown report.');
   const mode = MODES.includes(t.mode) ? t.mode : 'prevMonth';
   const out = { id: text(t.id, 20) || ('t' + (i + 1)), kind, type, mode, title: text(t.title, 60) };
   if (kind === 'kpi' || kind === 'gauge') {
