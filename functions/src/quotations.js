@@ -195,6 +195,11 @@ callable('saveQuotation', async (user, request) => {
     const o = (await firestore.collection('crmOpportunities').doc(opportunityId).get()).data();
     if (!o || o.CompanyID !== companyId || (customerId ? o.CustomerID !== customerId : o.LeadID !== leadId)) throw new HttpsError('invalid-argument', 'That opportunity is not this customer\'s or lead\'s.');
   }
+  // The rep (MIS.md, Q435-Q437): the portal's rep is the rep; in the office
+  // the customer's by default, changeable while a draft.
+  let rep;
+  try { rep = user.portal ? user.portal.empId : await require('./docRep').documentRep(d.SalesRepEmployeeID, companyId, { customerId, existing }); }
+  catch (e) { throw new HttpsError('invalid-argument', e.message); }
   const priceList = await priceListFor(companyId, classification);
   const p = await priced(companyId, customerId, priceList, quoteDate, d.Lines, Boolean(user.portal));
   const fields = {
@@ -202,6 +207,7 @@ callable('saveQuotation', async (user, request) => {
     PriceListID: priceList ? priceList.PriceListID : '', CurrencyID: priceList ? priceList.CurrencyID || '' : '',
     QuoteDate: quoteDate, ValidUntil: validUntil, DivisionID: text(d.DivisionID, 80), BranchID: text(d.BranchID, 80),
     CostCenterID: text(d.CostCenterID, 80), ProfitCenterID: text(d.ProfitCenterID, 80), Terms: text(d.Terms, 4000),
+    SalesRepEmployeeID: rep,
     Lines: p.lines, Subtotal: p.Subtotal, TaxAmount: p.TaxAmount, TaxAdded: p.TaxAdded, TaxSummary: p.TaxSummary, Total: p.Total,
     UpdatedAt: nowIso(), UpdatedBy: actorOf(user)
   };

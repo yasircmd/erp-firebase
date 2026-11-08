@@ -5,8 +5,8 @@ order: 7
 modules: [SALESRETURN]
 sources: [functions/src/salesReturn.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
-reviewed: 2026-11-07
-fingerprint: b395d884e0730b0f
+reviewed: 2026-11-08
+fingerprint: a62d82a37322be64
 ---
 ## What it is for
 
@@ -35,6 +35,11 @@ line the return posts carries it.
 If that project has since been closed, the return is refused when you post
 it: reopen the project in [Organisation Units](org-units.html) to post the return, then close it
 again. Reversing a return already posted is allowed on a closed project.
+
+## Sales rep
+
+A return takes its invoice's **Sales Rep**: in MIS Reports → **Sales by
+rep**, it comes off that rep's sales.
 
 ## What happens in the books
 

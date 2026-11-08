@@ -133,6 +133,10 @@ in particular, shows the absolute and % variation.
 | Q431 | Fast / slow moving | **By days of stock cover:** stock on hand ÷ average daily sales (or issues) over a period. Under 30 days is fast, over 90 days is slow, and stock with no movement is non-moving. The thresholds can be changed per company. |
 | Q432 | Ratios | **A ratio map from the chart's groups**, seeded and editable by Finance. The starting set: current, quick, gross and net margin, debtor, creditor and stock days, debt-to-equity, return on assets. |
 | Q433 | A rep's sales | **The rep named on each document:** a Sales Rep field on Customer Invoice, Sales Order and Retail Sale, carried from the order to its invoice. A rep's sales are their invoices less returns. This is a behaviour change to ported screens, recorded in each module's doc. |
+| Q435 | (owner, 2026-11-08, revising Q433) Where a customer's rep is set | **In the Customer master only:** a Sales Rep field on the customer. Sales Invoice Configuration's Sales reps tab keeps each rep's own setup (code, manager, active) and shows the rep's customers read-only. |
+| Q436 | The rep on a document | **Defaults from the customer and can be changed until the document is posted or confirmed;** after that it is fixed like every other field, so a reported month's figures don't move. |
+| Q437 | Which documents carry it | **Quotation, Sales Order, Customer Invoice and Retail Sale.** It passes along the chain: quotation → order → delivery note → invoice → sales return keep the earlier document's rep. A Retail Sale has no customer default (one walk-in customer): the cashier picks the rep or leaves it blank. |
+| Q438 | The customer's rep changed | **Documents already made keep their rep;** only new documents take the new one. |
 
 Taken as the plain reading (say if any should differ): **Q434**, scheduled or
 emailed reports, is not in the first release.
@@ -164,6 +168,69 @@ Five phases, each its own PR and deploy:
    grouping, totals), saved as "My reports" and usable as dashboard tiles.
 5. **Help** (a new MIS area and pages), What's new, docs, and the last
    deploys.
+
+## Phase 1c: the sales rep (decisions Q435-Q438, 2026-11-08)
+
+- **Customer master:** a Sales Rep field (the company's active reps), saved
+  as the existing `customers/{id}.SalesRepEmployeeID`, so the Employee
+  Portal's "my customers" keeps working unchanged. The Sales reps tab in
+  Sales Invoice Configuration stops assigning customers (`saveSalesRep`
+  no longer takes a customer list) and shows each rep's customers
+  read-only.
+- **Documents:** `SalesRepEmployeeID` on Quotation, Sales Order, Delivery
+  Note, Customer Invoice, Sales Return and Retail Sale. A new document
+  takes the customer's rep; a document made from another takes that
+  document's rep (quotation → order → delivery → invoice → return).
+  Editable while a draft; the save refuses a rep who is not an active rep
+  of the document's company; posting or confirming fixes it. A rep's own
+  portal orders and quotations keep the rep who made them.
+- **Reports:** MIS "Sales by rep" (invoices and retail sales less their
+  returns, by the document's rep, with the four comparisons). Documents
+  made before this have no rep; they show as "No rep".
+- Behaviour changes to ported modules (Customer Master, Sales Order,
+  Delivery Note, Customer Invoice), recorded in their docs.
+
+## As built: phase 1c, the sales rep (2026-11-08)
+
+Decisions Q435-Q438 (above), built as designed:
+
+- **docRep.js** (new): `checkRep` ('' or an active rep of the company: a
+  customer of every company takes any active rep), `documentRep(given,
+  companyId, { customerId, existing, source })` (a value sent is checked;
+  none sent takes the draft's own rep, else the source document's, else the
+  customer's, a default no longer valid dropped), `sourceRep`,
+  `invoiceRepSource`, `customerRepField` (only when sent: an import leaves
+  the rep), and the callable `getSalesRepChoices({ companyId, customerId })`
+  (the company's active reps by name; the customer's rep).
+- **Ported modules (patches `sales-rep (…)` in tools/legacy-port/patches.js,
+  behaviour changes recorded here):** Customer Master's save
+  (`SalesRepEmployeeID`, checked); Sales Order save (new and draft edit);
+  Delivery Note save (its first order's rep); Customer Invoice save (its
+  first Delivery Note's or order line's rep); the Delivery Notes offered to
+  an invoice carry their rep. Customer Master's screen through SCREEN_EDITS.
+- **Hand-written:** Quotation (quotations.js; the portal's rep is the rep),
+  Sales Return (the invoice's rep), Retail Sale and its return
+  (retailSales.js), the order lines offered to an invoice
+  (invoiceStock.js), `saveSalesRep` no longer assigns customers
+  (salesRep.js); screens SALESORDER, DELIVERYNOTE, CUSTOMERINVOICE,
+  QUOTATION, RETAILSALES, SALESINVOICESETUP (the rep's customers read-only).
+- **The shell:** `salesRepPicker.fill / forCustomer` (public/index.html,
+  SALES REP block; the UI harness slices it).
+- **MIS:** report type `salesByRep` (misData.salesByRep: invoices and retail
+  sales before tax, less sales and retail returns, by each document's rep;
+  "No rep" for documents without one).
+- **Fixed in phase 1:** `runMisReport` turned "no row limit sent" into a
+  limit of 1 (`Math.max(1, 0)`), so Expenses, Receivables, Payables and
+  Sales by customer showed only their first row (their totals were right).
+  Now 0 means each report's own default.
+- Tests: emulator `salesRepDocs` (2: the chain, the checks, the report; the
+  tab), `retailSales` (+1), `salesRep` and `repCollections` (set the rep in
+  Customer Master now); UI `salesRepDocs` (2), `salesRepPortal` (the Customer
+  Master field). Negative controls caught: another company's rep accepted;
+  the draft's own rep ignored; returns added to a rep's sales, not taken
+  off; the order's customer default removed (UI).
+- Deploy set `mis-rep`: every function (the legacy port is regenerated:
+  moduleRegistry-like reach), --screens, then Hosting (the shell, Help).
 
 ## As built: phase 1, the engine (2026-11-08)
 

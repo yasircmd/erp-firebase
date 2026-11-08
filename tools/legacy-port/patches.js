@@ -6,6 +6,7 @@
 // docs/MIGRATION.md under "Deviations from Code.gs". Entries marked
 // NEW DEVELOPMENT (after the migration) are features, not fixes; each is
 // recorded in its module's design doc under docs/modules/.
+const WHY = 'NEW DEVELOPMENT (owner, 2026-11-08; docs/modules/MIS.md, phase 1c, Q435-Q438): ';
 module.exports = [
   {
     id: 'stock-ledger-report-transfers-and-multiline',
@@ -3812,5 +3813,77 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     why: 'As above.',
     find: `Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId });`,
     replace: `Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId, ProjectID: entry.projectId || '' }); // [NEW DEVELOPMENT projects-docs]`
+  }
+  ,
+  // ---- The sales rep (docs/modules/MIS.md, phase 1c; owner, 2026-11-08, Q435-Q438) ----
+  {
+    id: 'sales-rep (customer)',
+    why: WHY + "a customer's sales rep is set in the Customer Master (an active rep of its company). Only when the screen sends it: an import leaves it as it is.",
+    find: `      CompanyID: companyId, Notes: String(customerData.Notes || '').trim(),`,
+    replace: `      CompanyID: companyId, Notes: String(customerData.Notes || '').trim(),
+      ...customerRepField_(idToken, customerData, companyId), // [NEW DEVELOPMENT sales-rep] SalesRepEmployeeID`
+  },
+  {
+    id: 'sales-rep (sales order, edit)',
+    why: WHY + "a Sales Order's rep: the customer's by default, changeable while a draft (an active rep of the company).",
+    find: `      if (existing.Status !== 'Draft') throw new Error('Only a Draft Sales Order can be edited.');
+      firebaseDbRequest_('salesOrders/' + soId, 'patch', fields, idToken);`,
+    replace: `      if (existing.Status !== 'Draft') throw new Error('Only a Draft Sales Order can be edited.');
+      fields.SalesRepEmployeeID = documentRep_(idToken, header.SalesRepEmployeeID, companyId, { customerId: customerId, existing: existing }); // [NEW DEVELOPMENT sales-rep]
+      firebaseDbRequest_('salesOrders/' + soId, 'patch', fields, idToken);`
+  },
+  {
+    id: 'sales-rep (sales order, new)',
+    why: 'As above.',
+    find: `    const newId = 'SO-' + Utilities.getUuid().split('-')[0].toUpperCase();`,
+    replace: `    fields.SalesRepEmployeeID = documentRep_(idToken, header.SalesRepEmployeeID, companyId, { customerId: customerId }); // [NEW DEVELOPMENT sales-rep]
+    const newId = 'SO-' + Utilities.getUuid().split('-')[0].toUpperCase();`
+  },
+  {
+    id: 'sales-rep (delivery note)',
+    why: WHY + "a Delivery Note's rep: its Sales Order's by default (else the customer's), changeable while a draft.",
+    find: `      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a draft or rejected Delivery Note can be edited.');
+      firebaseDbRequest_('stock/transactions/' + dnId, 'patch', fields, idToken);`,
+    replace: `      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a draft or rejected Delivery Note can be edited.');
+      fields.SalesRepEmployeeID = documentRep_(idToken, dnData.SalesRepEmployeeID, companyId, { customerId: customerId, existing: existing, source: { soId: (lines.find(l => l.SourceSOID) || {}).SourceSOID } }); // [NEW DEVELOPMENT sales-rep]
+      firebaseDbRequest_('stock/transactions/' + dnId, 'patch', fields, idToken);`
+  },
+  {
+    id: 'sales-rep (delivery note, new)',
+    why: 'As above.',
+    find: `    const newId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    firebaseDbRequest_('stock/transactions/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
+    return { success: true, dnId: newId };`,
+    replace: `    fields.SalesRepEmployeeID = documentRep_(idToken, dnData.SalesRepEmployeeID, companyId, { customerId: customerId, source: { soId: (lines.find(l => l.SourceSOID) || {}).SourceSOID } }); // [NEW DEVELOPMENT sales-rep]
+    const newId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    firebaseDbRequest_('stock/transactions/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
+    return { success: true, dnId: newId };`
+  },
+  {
+    id: 'sales-rep (customer invoice)',
+    why: WHY + "an invoice's rep: its Delivery Note's or Sales Order's by default (else the customer's), changeable while a draft or rejected.",
+    find: `      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be edited.');
+      firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', fields, idToken);`,
+    replace: `      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be edited.');
+      fields.SalesRepEmployeeID = documentRep_(idToken, invoiceData.SalesRepEmployeeID, companyId, { customerId: customerId, existing: existing, source: invoiceRepSource_(sourceDeliveryNotes, itemLines) }); // [NEW DEVELOPMENT sales-rep]
+      firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', fields, idToken);`
+  },
+  {
+    id: 'sales-rep (customer invoice, new)',
+    why: 'As above.',
+    find: `    const newId = 'CINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    firebaseDbRequest_('customerInvoices/' + newId, 'put',`,
+    replace: `    fields.SalesRepEmployeeID = documentRep_(idToken, invoiceData.SalesRepEmployeeID, companyId, { customerId: customerId, source: invoiceRepSource_(sourceDeliveryNotes, itemLines) }); // [NEW DEVELOPMENT sales-rep]
+    const newId = 'CINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    firebaseDbRequest_('customerInvoices/' + newId, 'put',`
+  }
+  ,
+  {
+    id: 'sales-rep (invoice: the delivery notes offered)',
+    why: WHY + "the Delivery Notes offered to an invoice carry their rep, so the invoice screen takes it (the first one picked).",
+    find: `      DeliveryNoteID: dn.DeliveryNoteID, DeliveryNoteNumber: dn.TransactionNumber, TransactionDate: dn.TransactionDate,
+      Description: dn.Description,`,
+    replace: `      DeliveryNoteID: dn.DeliveryNoteID, DeliveryNoteNumber: dn.TransactionNumber, TransactionDate: dn.TransactionDate,
+      Description: dn.Description, SalesRepEmployeeID: dn.SalesRepEmployeeID, // [NEW DEVELOPMENT sales-rep] (undefined on older ones)`
   }
 ];

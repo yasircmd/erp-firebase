@@ -46,6 +46,11 @@
           <select id="rs-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
           <p id="rs-customer-none" class="hidden text-xs text-amber-300 mt-1">No customer found. <button id="rs-customer-new" class="hidden underline text-blue-400 hover:text-blue-300">New customer with this mobile</button></p>
         </div>
+        <!-- The sales rep (docs/modules/MIS.md, Q437): chosen, or none; a named customer's own rep by default. -->
+        <div>
+          <label for="rs-rep" class="block text-xs font-medium text-slate-300 mb-1">Sales Rep</label>
+          <select id="rs-rep" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">— No rep —</option></select>
+        </div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Sales Type</label>
           <select id="rs-salestype" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
@@ -238,6 +243,7 @@
   function loadCompany() {
     const companyId = $('rs-company').value;
     if (!companyId) return Promise.resolve();
+    salesRepPicker.fill($('rs-rep'), companyId, '');
     return call('getRetailSalesSetup', { companyId }).then(s => {
       setup = s;
       $('rs-returns-tab').classList.toggle('hidden', !s.canReturn);
@@ -406,7 +412,7 @@
   function confirmSale() {
     $('rs-confirm').disabled = true;
     call('confirmRetailSale', {
-      CompanyID: $('rs-company').value, SaleDate: $('rs-date').value, CustomerID: $('rs-customer').value, SalesTypeID: $('rs-salestype').value,
+      CompanyID: $('rs-company').value, SaleDate: $('rs-date').value, CustomerID: $('rs-customer').value, SalesTypeID: $('rs-salestype').value, SalesRepEmployeeID: $('rs-rep').value,
       WarehouseID: $('rs-warehouse').value, BillToName: $('rs-billto-name').value, BillToAddress: $('rs-billto-address').value, BillToTaxNumber: $('rs-billto-tax').value,
       Lines: lines.map(l => ({ ItemID: l.ItemID, Quantity: Number(l.Quantity), UnitPrice: Number(l.UnitPrice), Discount: Number(l.Discount) || 0 })),
       Payments: payments.map(p => ({ MethodID: p.MethodID, Amount: Number(p.Amount) || 0, Reference: p.Reference }))
@@ -767,6 +773,7 @@
     $('rs-warehouse').addEventListener('change', () => loadCounter(true));
     $('rs-date').addEventListener('change', () => loadCounter(true));
     $('rs-customer').addEventListener('change', fillBillTo);
+    $('rs-customer').addEventListener('change', () => { if (counter && $('rs-customer').value !== counter.settings.RetailCustomerID) salesRepPicker.forCustomer($('rs-rep'), $('rs-company').value, $('rs-customer').value); }); // a named customer's rep; the walk-in keeps the cashier's choice
     $('rs-customer-find').addEventListener('input', findCustomer);
     $('rs-customer-new').addEventListener('click', newCustomer);
     $('rs-add').addEventListener('click', addItem);

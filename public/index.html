@@ -3170,6 +3170,37 @@
       };
     })();
     // ---------- END BANK DETAILS ----------
+    // ---------- SALES REP ----------
+    // The rep picker of the sales documents (owner, 2026-11-08; docs/modules/
+    // MIS.md, phase 1c, Q435-Q438): Quotation, Sales Order, Delivery Note,
+    // Customer Invoice, Retail Sale, and the Customer Master's field.
+    //   salesRepPicker.fill(select, companyId, value) → Promise: "No rep" and the
+    //       company's active reps; a saved rep no longer among them stays shown
+    //   salesRepPicker.forCustomer(select, companyId, customerId) → Promise: the
+    //       picker set to the customer's rep (a new document's default)
+    //   salesRepPicker.forget()  after a change in the Sales reps tab
+    window.salesRepPicker = (function () {
+      let cache = {};
+      const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const ask = data => new Promise(ok => rpc.withSuccessHandler(r => ok(r || { reps: [] })).withFailureHandler(() => ok({ reps: [] })).getSalesRepChoices(data));
+      const load = co => cache[co || ''] || (cache[co || ''] = ask({ companyId: co || '' }).then(r => r.reps || []));
+      async function fill(sel, co, value) {
+        if (!sel) return;
+        const want = value == null ? sel.value : String(value);
+        const reps = await load(co);
+        const opts = reps.map(r => '<option value="' + esc(r.EmployeeID) + '">' + esc(r.Name + (r.RepCode ? ' (' + r.RepCode + ')' : '')) + '</option>');
+        if (want && !reps.some(r => r.EmployeeID === want)) opts.unshift('<option value="' + esc(want) + '">' + esc(want) + ' (no longer a rep)</option>');
+        sel.innerHTML = '<option value="">— No rep —</option>' + opts.join('');
+        sel.value = want || '';
+      }
+      async function forCustomer(sel, co, customerId) {
+        if (!sel) return;
+        const r = customerId ? await ask({ companyId: co || '', customerId }) : { customerRep: '' };
+        await fill(sel, co, r.customerRep || '');
+      }
+      return { fill, forCustomer, forget: () => { cache = {}; } };
+    })();
+    // ---------- END SALES REP ----------
     // ---------- DOCUMENT LINKS ----------
     // Next steps and linked documents (owner, 2026-10-24; docs/modules/
     // LINKED_FLOWS.md, decisions Q287-Q289), on every screen of the sales

@@ -37,6 +37,7 @@ const CATALOGUE = Object.freeze([
   { type: 'receivables', title: 'Accounts receivable', group: 'Parties', chart: 'pie' },
   { type: 'payables', title: 'Accounts payable', group: 'Parties', chart: 'pie' },
   { type: 'salesByCustomer', title: 'Sales by customer', group: 'Sales', chart: 'bar' },
+  { type: 'salesByRep', title: 'Sales by rep', group: 'Sales', chart: 'bar' },
   { type: 'stockInHand', title: 'Stock in hand', group: 'Stock', chart: 'pie' },
   { type: 'stockCover', title: 'Fast, slow and non-moving stock', group: 'Stock', chart: 'pie' }
 ]);
@@ -158,6 +159,16 @@ async function build(type, ctx) {
     const tot = k => M.round2(rows.reduce((s, r) => s + r[k], 0));
     return { rows: rows.slice(0, ctx.top || 20).concat([row('total', 'Total', tot('current'), tot('compare'), 'up', 1)]) };
   }
+  if (type === 'salesByRep') {
+    if (per.compare.budget) throw new HttpsError('failed-precondition', 'Sales by rep compares with another period, not a budget.');
+    const [c, p] = await Promise.all([D.salesByRep(companyId, per.current.months), D.salesByRep(companyId, per.compare.months)]);
+    const ids = [...new Set(Object.keys(c).concat(Object.keys(p)))];
+    const reps = await require('./salesRep').repParties(ids.filter(Boolean));
+    const rows = ids.map(id => row(id || 'none', id ? ((reps[id] || {}).RepName || id) : 'No rep', c[id] || 0, p[id] || 0, 'up')).sort((a, z) => z.current - a.current);
+    const tot = k => M.round2(rows.reduce((s, r) => s + r[k], 0));
+    return { rows: rows.slice(0, ctx.top || 20).concat([row('total', 'Total', tot('current'), tot('compare'), 'up', 1)]),
+      notes: ['Each document\'s own rep: invoices and retail sales before tax, less their returns. Documents made before the rep field have none.'] };
+  }
   if (type === 'stockInHand') {
     const [onHand, items] = await Promise.all([D.stockOnHand(companyId), D.val('items')]);
     const by = {};
@@ -220,7 +231,8 @@ exports.runMisReport = onCallWithMessages(onCallOptions, async (request) => {
   let per;
   try { per = M.periods(month, text(d.mode, 20) || 'prevMonth', await D.fyStartMonth(companyId)); } catch (e) { throw new HttpsError('invalid-argument', e.message); }
   const coa = await D.val('coa');
-  const out = await build(type, { companyId, coa, per, top: Math.min(200, Math.max(1, Number(d.top) || 0)) || 0 });
+  // top: the rows asked for; 0 is each report's own default (not 1, as before 2026-11-08).
+  const out = await build(type, { companyId, coa, per, top: Number(d.top) >= 1 ? Math.min(200, Math.floor(Number(d.top))) : 0 });
   return Object.assign({ type, title: def.title, chart: def.chart, mode: per.mode, modeLabel: MODE_LABEL[per.mode],
     period: { current: per.current.label, compare: per.compare.label } }, out);
 });

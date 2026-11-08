@@ -577,3 +577,9 @@ table; 58 mm narrower; opening a sale doesn't print).
 
 **Deploy:** `tools/deploy-sets/retail-receipts.txt` with `--screens`
 (RETAILSALES). No Hosting change.
+
+## Change: The sales rep (owner, 2026-11-08; [MIS.md](MIS.md#as-built-phase-1c-the-sales-rep-2026-11-08), Q435-Q438)
+
+A sale has `SalesRepEmployeeID`: chosen at the counter (**Sales Rep**), or
+none; a named customer's own rep when none is sent; the Retail Customer has
+none. Checked: an active rep of the company. A return takes the sale's rep.

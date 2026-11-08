@@ -429,3 +429,9 @@ ui/quotation and ui/crm apply the shell's light theme and check the computed
 colours (negative control: the fixed colours back, both fail). No other screen
 fixes a dark background in its CSS. Deploy: the screens (QUOTATION, CRM)
 release and Hosting (the Help); no function changes.
+
+## Change: The sales rep (owner, 2026-11-08; [MIS.md](MIS.md#as-built-phase-1c-the-sales-rep-2026-11-08), Q435-Q438)
+
+A quotation has `SalesRepEmployeeID`: the customer's rep by default in the
+office (changeable while a draft, checked), the rep themselves from the
+portal; **Create Sales Order** passes it to the order.

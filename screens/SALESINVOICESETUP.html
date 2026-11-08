@@ -61,7 +61,7 @@
         <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-sr-manager"> Sales manager (sees all customers)</label>
         <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-sr-active" checked> Active</label>
       </div>
-      <input id="sis-sr-search" placeholder="Search customers" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm">
+      <p class="text-xs text-slate-500">Their customers: a customer's rep is set in Customer Master (Sales Rep).</p>
       <div id="sis-sr-customers" class="max-h-56 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-1 text-sm"></div>
       <div class="flex gap-2"><button id="sis-sr-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button><button id="sis-sr-cancel" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded">Cancel</button></div>
     </div>
@@ -452,7 +452,7 @@
   function wireSalesReps() {
     const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
     const $ = id => document.getElementById(id);
-    let data = null, chosen = new Set();
+    let data = null;
     call('getActiveCompanies', {}).then(list => {
       (list || []).forEach(c => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName; $('sis-sr-company').appendChild(o); });
       if ($('sis-sr-company').options.length === 2) { $('sis-sr-company').selectedIndex = 1; load(); }
@@ -513,25 +513,19 @@
       $('sis-sr-employee').disabled = Boolean(id);
       $('sis-sr-code').value = r.RepCode || '';
       $('sis-sr-manager').checked = Boolean(r.IsManager); $('sis-sr-active').checked = r.Active !== false;
-      chosen = new Set(r.Customers);
-      $('sis-sr-search').value = '';
-      customers();
+      customers(r);
       $('sis-sr-form').classList.remove('hidden');
     }
-    function customers() {
-      const q = $('sis-sr-search').value.trim().toLowerCase(), me = $('sis-sr-employee').value;
-      $('sis-sr-customers').innerHTML = data.customers.filter(c => !q || (c.Code + ' ' + c.Name).toLowerCase().includes(q)).map(c => {
-        const other = c.SalesRepEmployeeID && c.SalesRepEmployeeID !== me ? data.reps.find(x => x.EmployeeID === c.SalesRepEmployeeID) : null;
-        return '<label class="flex items-center gap-2"><input type="checkbox" class="sis-sr-cust" value="' + escapeHtml(c.CustomerID) + '"' + (chosen.has(c.CustomerID) ? ' checked' : '') + '> ' + escapeHtml(c.Code + ' ' + c.Name) +
-          (other ? ' <span class="text-xs text-amber-300">(now ' + escapeHtml(other.Employee ? other.Employee.FullName : '') + '\'s)</span>' : '') + '</label>';
-      }).join('');
-      document.querySelectorAll('.sis-sr-cust').forEach(x => x.addEventListener('change', () => { if (x.checked) chosen.add(x.value); else chosen.delete(x.value); }));
+    // The rep's customers, read-only: set in Customer Master (MIS.md, Q435).
+    function customers(r) {
+      const mine = data.customers.filter(c => (r.Customers || []).includes(c.CustomerID));
+      $('sis-sr-customers').innerHTML = mine.map(c => '<div class="sis-sr-cust">' + escapeHtml(c.Code + ' ' + c.Name) + '</div>').join('') ||
+        '<div class="text-slate-500">' + (r.EmployeeID ? 'No customers yet.' : 'None until a customer names this rep in Customer Master.') + '</div>';
     }
     $('sis-sr-company').addEventListener('change', load);
     $('sis-sr-add').addEventListener('click', () => edit(''));
     $('sis-sr-cancel').addEventListener('click', () => $('sis-sr-form').classList.add('hidden'));
     $('sis-sr-rc-close').addEventListener('click', () => $('sis-sr-receipts').classList.add('hidden'));
-    $('sis-sr-search').addEventListener('input', customers);
     $('sis-sr-clearing-save').addEventListener('click', () => {
       if (!$('sis-sr-clearing').value) { appAlert('Choose the Rep Cash Clearing account.'); return; }
       call('saveSalesRepSettings', { companyId: $('sis-sr-company').value, clearingAccountId: $('sis-sr-clearing').value }).then(() => { appAlert('Saved.'); load(); }, err => appAlert(err.message || 'Unable to save.'));
@@ -539,7 +533,7 @@
     $('sis-sr-save').addEventListener('click', () => {
       if (!$('sis-sr-employee').value) { appAlert('Choose the employee.'); return; }
       call('saveSalesRep', { companyId: $('sis-sr-company').value, employeeId: $('sis-sr-employee').value, repCode: $('sis-sr-code').value.trim(),
-        isManager: $('sis-sr-manager').checked, active: $('sis-sr-active').checked, customerIds: [...chosen] }).then(load, err => appAlert(err.message || 'Unable to save.'));
+        isManager: $('sis-sr-manager').checked, active: $('sis-sr-active').checked }).then(load, err => appAlert(err.message || 'Unable to save.'));
     });
   }
 

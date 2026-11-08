@@ -1,6 +1,6 @@
 ---
-fingerprint: aa9ca8d64d4e7ce0
-reviewed: 2026-11-06
+fingerprint: 31f2e00f56c40e8f
+reviewed: 2026-11-08
 title: Quotations
 area: crm
 order: 2
@@ -36,6 +36,13 @@ another **Status** to see the rest.
    with the company's [bank details](chart-of-accounts.html#bank-details) set
    to print.
 7. When the customer accepts, select **Create Sales Order**.
+
+## Sales rep
+
+The quotation has a **Sales Rep** field. It takes the customer's rep when you choose the customer (a lead has none until you choose one), and **Create Sales Order** passes it on to the order. A quotation made by a rep from their phone is theirs. You can change
+it, or choose **No rep**, while the quotation is a draft; once it is submitted it
+stays as it is. Only the company's active sales reps are offered. MIS Reports
+→ **Sales by rep** counts each document's own rep.
 
 ## Prices, discount and tax
 

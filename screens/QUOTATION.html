@@ -59,6 +59,8 @@
         <div class="entry-date"><label for="qt-date" class="block text-xs font-medium text-slate-300 mb-1">Date</label><input id="qt-date" type="date" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
         <div class="entry-date"><label for="qt-until" class="block text-xs font-medium text-slate-300 mb-1">Valid until</label><input id="qt-until" type="date" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
         <div><label for="qt-opp" class="block text-xs font-medium text-slate-300 mb-1">Opportunity</label><select id="qt-opp" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <!-- The sales rep (docs/modules/MIS.md, Q435-Q437): the customer's by default; passed on to the Sales Order. -->
+        <div><label for="qt-rep" class="block text-xs font-medium text-slate-300 mb-1">Sales Rep</label><select id="qt-rep" class="qt-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">— No rep —</option></select></div>
       </div>
     </div>
     <p id="qt-pricelist" class="text-xs text-slate-400"></p>
@@ -188,6 +190,8 @@
     $('qt-date').value = q ? q.QuoteDate : D.today;
     $('qt-until').value = q ? q.ValidUntil : addDays(D.today, D.validDays);
     $('qt-terms').value = q ? q.Terms || '' : '';
+    if (q) salesRepPicker.fill($('qt-rep'), $('qt-company').value, q.SalesRepEmployeeID || '');
+    else salesRepPicker.forCustomer($('qt-rep'), $('qt-company').value, party.startsWith('C:') ? party.slice(2) : '');
     lines = q ? q.Lines.map(l => Object.assign({}, l)) : [{ ItemCode: '', Description: '', Quantity: 1, UnitPrice: 0, DiscountPct: 0 }];
     dirty = false;
     refresh();
@@ -256,7 +260,7 @@
   async function save() {
     const p = partyValue();
     const data = { QuotationID: q ? q.QuotationID : '', CompanyID: $('qt-company').value, QuoteDate: $('qt-date').value, ValidUntil: $('qt-until').value,
-      OpportunityID: $('qt-opp').value, Terms: $('qt-terms').value, Classification: $('qt-class').value,
+      OpportunityID: $('qt-opp').value, Terms: $('qt-terms').value, Classification: $('qt-class').value, SalesRepEmployeeID: $('qt-rep').value,
       CustomerID: p.startsWith('C:') ? p.slice(2) : '', LeadID: p.startsWith('L:') ? p.slice(2) : '',
       Lines: lines.filter(l => l.ItemCode).map(l => ({ ItemCode: l.ItemCode, Description: l.Description, Quantity: l.Quantity, UnitPrice: l.UnitPrice, DiscountPct: l.DiscountPct || 0 })) };
     try {
@@ -308,7 +312,7 @@
     const btn = $('qt-so-ok'); btn.disabled = true;
     try {
       const so = await call('saveDraftSalesOrder', { header: { SODate: D.today, CompanyID: q.CompanyID, CustomerID: q.CustomerID, CostCenterID: cc, DivisionID: q.DivisionID || '', BranchID: q.BranchID || '',
-        ProfitCenterID: q.ProfitCenterID || '', Description: 'From quotation ' + numberOf(q),
+        ProfitCenterID: q.ProfitCenterID || '', Description: 'From quotation ' + numberOf(q), SalesRepEmployeeID: q.SalesRepEmployeeID, // its rep (MIS.md, Q437); none sent for an older quotation: the customer's
         Lines: q.Lines.map(l => ({ ItemCode: l.ItemCode, WarehouseID: l.WarehouseID || wh, OrderedQuantity: l.Quantity, UnitPrice: l.NetPrice })) } });
       if (!so || !so.soId) throw new Error((so && so.error) || 'The Sales Order was not saved.');
       await call('markQuotationOrdered', { quotationId: q.QuotationID, soId: so.soId, markWon: $('qt-so-won').checked });
@@ -384,7 +388,8 @@
     $('qt-order').addEventListener('click', orderStart);
     $('qt-so-cancel').addEventListener('click', () => show('qt-order-modal', false));
     $('qt-so-ok').addEventListener('click', orderOk);
-    $('qt-party').addEventListener('change', () => { dirty = true; fillOpps(''); refresh(); loadPriceList(); });
+    $('qt-party').addEventListener('change', () => { dirty = true; fillOpps(''); refresh(); loadPriceList(); const p = partyValue(); salesRepPicker.forCustomer($('qt-rep'), $('qt-company').value, p.startsWith('C:') ? p.slice(2) : ''); });
+    $('qt-rep').addEventListener('change', () => { dirty = true; });
     $('qt-class').addEventListener('change', () => { dirty = true; loadPriceList(); });
     document.querySelectorAll('.qt-f').forEach(el => el.addEventListener('input', () => { if (!dirty) { dirty = true; totals(); } }));
     $('qt-add-line').addEventListener('click', () => { lines.push({ ItemCode: '', Description: '', Quantity: 1, UnitPrice: 0, DiscountPct: 0 }); dirty = true; drawLines(); });

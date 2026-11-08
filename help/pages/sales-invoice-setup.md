@@ -5,8 +5,8 @@ order: 2
 modules: [SALESINVOICESETUP]
 sources: [functions/src/retailSales.js, functions/src/invoiceStock.js, functions/src/eInvoicing.js, functions/src/eInvoiceDocument.js, functions/src/eInvoiceIndia.js, functions/src/salesRep.js]
 summary: Set the default rules and accounts used when customer sales are invoiced and posted.
-reviewed: 2026-11-06
-fingerprint: ca872651061afe30
+reviewed: 2026-11-08
+fingerprint: e148f848951453c4
 ---
 ## What it is for
 
@@ -76,10 +76,12 @@ Under **Sales reps**, choose the company.
   before the reps collect cash. It can't change while a rep still holds
   cash on it.
 - **Add a sales rep**: the employee, their **code** (letters and digits,
-  e.g. AK; the employee number if left blank), whether they are a **Sales
-  manager** (sees every customer), and their customers (each customer has
-  one rep). The code is in their receipt numbers, RC-AK-000001, and stays
-  theirs: no other rep can take it.
+  e.g. AK; the employee number if left blank) and whether they are a **Sales
+  manager** (sees every customer). The code is in their receipt numbers,
+  RC-AK-000001, and stays theirs: no other rep can take it.
+- **Their customers** are shown under the rep, read-only. A customer's rep
+  is set in [Customer Master](customer-master.html#sales-rep) (**Sales
+  Rep**); each customer has one rep.
 
 The rep then works from the Employee Portal: see
 [Sales reps in the Employee Portal](sales-rep-portal.html). Their orders

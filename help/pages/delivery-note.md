@@ -5,8 +5,8 @@ order: 5
 modules: [DELIVERYNOTE]
 sources: [functions/src/stockMovement.js]
 summary: Deliver the ordered goods and record the stock movement out of the warehouse to the customer.
-reviewed: 2026-11-03
-fingerprint: 3e5b488361a5c1bb
+reviewed: 2026-11-08
+fingerprint: 553df8ccaffc1a36
 ---
 ## What it is for
 
@@ -38,6 +38,13 @@ after Profit Center. Ticking a Sales Order's line fills it in with the
 order's project when it has none yet; you can change it. Every line the
 Delivery Note posts (stock and cost of sales) carries it, and its reversal
 too, even after the project is closed.
+
+## Sales rep
+
+The Delivery Note has a **Sales Rep** field. It takes the rep of the first Sales Order you pick lines from, else the customer's; the invoice made from it takes it in turn. You can change
+it, or choose **No rep**, while the Delivery Note is a draft; once it is posted it
+stays as it is. Only the company's active sales reps are offered. MIS Reports
+→ **Sales by rep** counts each document's own rep.
 
 ## What happens in the books
 

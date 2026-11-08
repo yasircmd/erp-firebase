@@ -13,6 +13,17 @@ screen.
 
 ## 08/11/2026
 
+- **A customer's sales rep is set in Customer Master.** Customer Master has
+  a **Sales Rep** field; the Sales reps tab in Sales Invoice Configuration
+  now lists each rep's customers instead of choosing them. Quotations, Sales
+  Orders, Delivery Notes, Customer Invoices and Retail Sales have a **Sales
+  Rep** field too: the customer's rep (or the order's, along the chain) by
+  default, changeable while a draft. A Sales Return takes its invoice's rep.
+  See [Customer Master](customer-master.html#sales-rep) and
+  [Sales Order](sales-order.html#sales-rep).
+- **MIS Reports: Sales by rep**, each document's own rep, invoices and
+  retail sales less their returns. And Expenses, Receivables, Payables and
+  Sales by customer now show every line, not only the first.
 - **MIS Reports, the first part.** Under Financial Accounting, **MIS
   Reports** shows the key figures, Profit and Loss, Balance Sheet, Cash Flow,
   ratios, bank and cash, expenses, receivables, payables, sales by customer,

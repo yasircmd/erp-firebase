@@ -125,3 +125,11 @@ uses, so every rule (prices, stock reservation, approvals) still applies.
 - Online only (233). No visit notes (236).
 
 **Tests:** emulator `salesRep` (5); UI `salesRepPortal` (4). Negative control: a rep allowed every customer — 4 tests fail.
+
+## Change: The sales rep (owner, 2026-11-08; [MIS.md](MIS.md#as-built-phase-1c-the-sales-rep-2026-11-08), Q435-Q438)
+
+A customer's rep is now set in Customer Master (`customers/{id}.SalesRepEmployeeID`,
+the same field, so the portal's "my customers" is unchanged). The Sales reps
+tab no longer assigns customers: `saveSalesRep` ignores a customer list and
+the tab shows each rep's customers read-only. The rep's own portal orders and
+quotations keep the rep who made them.

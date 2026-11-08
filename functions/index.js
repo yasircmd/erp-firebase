@@ -382,6 +382,7 @@ exports.getProjectBudgetReport = require('./src/budget').getProjectBudgetReport;
 ['previewVendorInvoiceTax'].forEach(n => { exports[n] = require('./src/purchaseTax')[n]; }); // part 3
 // Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).
 ['getSalesReps', 'saveSalesRep', 'saveSalesRepSettings', 'getRepReceipts', 'cancelRepReceipt'].forEach(n => { exports[n] = require('./src/salesRep')[n]; });
+exports.getSalesRepChoices = require('./src/docRep').getSalesRepChoices; // the rep pickers (MIS.md, phase 1c)
 // The office takes a sales rep's cheques (docs/modules/REP_COLLECTIONS.md, Q294).
 exports.receivePdcsFromRep = require('./src/pdc').receivePdcsFromRep;
 exports.getExchangeRateOn = require('./src/exchangeRates').getExchangeRateOn;

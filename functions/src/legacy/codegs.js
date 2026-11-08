@@ -17,6 +17,7 @@ const __creditCheck = require('../creditCheck');
 const __customerPhone = require('../customerPhone');
 const __dataReset = require('../dataReset');
 const __dimensionRules = require('../dimensionRules');
+const __docRep = require('../docRep');
 const __docStore = require('../docStore');
 const __eInvoicing = require('../eInvoicing');
 const __entitlements = require('../entitlements');
@@ -71,6 +72,9 @@ const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
 const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
 const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
 const linesWithProject_ = (...a) => __projects.linesWithProject(...a);
+const documentRep_ = (idToken, ...a) => __docRep.documentRep(...a);
+const customerRepField_ = (idToken, ...a) => __docRep.customerRepField(...a);
+const invoiceRepSource_ = (...a) => __docRep.invoiceRepSource(...a);
 const documentProject_ = (idToken, ...a) => __projects.documentProject(...a);
 const recordEInvoice_ = (idToken, ...a) => __eInvoicing.recordEInvoice(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
@@ -4108,7 +4112,7 @@ async function getEligibleDeliveryNotesForInvoice(idToken, companyId, customerId
     .filter(dn => dn.TransactionType === 'DeliveryNote' && dn.Status === 'Posted' && dn.CompanyID === companyId && dn.CustomerID === customerId && !dn.MatchedToInvoiceID && !dn.ReversedByDeliveryNoteID && !dn.ReversalOfDeliveryNoteID)
     .map(dn => ({
       DeliveryNoteID: dn.DeliveryNoteID, DeliveryNoteNumber: dn.TransactionNumber, TransactionDate: dn.TransactionDate,
-      Description: dn.Description,
+      Description: dn.Description, SalesRepEmployeeID: dn.SalesRepEmployeeID, // [NEW DEVELOPMENT sales-rep] (undefined on older ones)
       Amount: (dn.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0), 0)
     }));
 }
@@ -4326,10 +4330,12 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       const existing = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
       if (!existing) throw new Error('Customer Invoice not found.');
       if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be edited.');
+      fields.SalesRepEmployeeID = await documentRep_(idToken, invoiceData.SalesRepEmployeeID, companyId, { customerId: customerId, existing: existing, source: invoiceRepSource_(sourceDeliveryNotes, itemLines) }); // [NEW DEVELOPMENT sales-rep]
       await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', fields, idToken);
       return { success: true, invoiceId: invoiceId };
     }
 
+    fields.SalesRepEmployeeID = await documentRep_(idToken, invoiceData.SalesRepEmployeeID, companyId, { customerId: customerId, source: invoiceRepSource_(sourceDeliveryNotes, itemLines) }); // [NEW DEVELOPMENT sales-rep]
     const newId = 'CINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
     await firebaseDbRequest_('customerInvoices/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
     return { success: true, invoiceId: newId };
@@ -5005,10 +5011,12 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
       const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
       if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
       if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a draft or rejected Delivery Note can be edited.');
+      fields.SalesRepEmployeeID = await documentRep_(idToken, dnData.SalesRepEmployeeID, companyId, { customerId: customerId, existing: existing, source: { soId: (lines.find(l => l.SourceSOID) || {}).SourceSOID } }); // [NEW DEVELOPMENT sales-rep]
       await firebaseDbRequest_('stock/transactions/' + dnId, 'patch', fields, idToken);
       return { success: true, dnId: dnId };
     }
 
+    fields.SalesRepEmployeeID = await documentRep_(idToken, dnData.SalesRepEmployeeID, companyId, { customerId: customerId, source: { soId: (lines.find(l => l.SourceSOID) || {}).SourceSOID } }); // [NEW DEVELOPMENT sales-rep]
     const newId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
     await firebaseDbRequest_('stock/transactions/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
     return { success: true, dnId: newId };
@@ -7050,6 +7058,7 @@ async function saveCustomer(idToken, customerData) {
       BankIBAN: String(customerData.BankIBAN || '').trim(),
       BankSwift: String(customerData.BankSwift || '').trim(),
       CompanyID: companyId, Notes: String(customerData.Notes || '').trim(),
+      ...(await customerRepField_(idToken, customerData, companyId)), // [NEW DEVELOPMENT sales-rep] SalesRepEmployeeID
       UpdatedAt: now, UpdatedBy: actor
     };
 
@@ -8525,10 +8534,12 @@ async function saveDraftSalesOrder(idToken, header) {
       const existing = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
       if (!existing) throw new Error('Sales Order not found.');
       if (existing.Status !== 'Draft') throw new Error('Only a Draft Sales Order can be edited.');
+      fields.SalesRepEmployeeID = await documentRep_(idToken, header.SalesRepEmployeeID, companyId, { customerId: customerId, existing: existing }); // [NEW DEVELOPMENT sales-rep]
       await firebaseDbRequest_('salesOrders/' + soId, 'patch', fields, idToken);
       return { success: true, soId: soId };
     }
 
+    fields.SalesRepEmployeeID = await documentRep_(idToken, header.SalesRepEmployeeID, companyId, { customerId: customerId }); // [NEW DEVELOPMENT sales-rep]
     const newId = 'SO-' + Utilities.getUuid().split('-')[0].toUpperCase();
     await firebaseDbRequest_('salesOrders/' + newId, 'put', Object.assign({}, fields, {
       SONumber: '', Status: 'Draft', RequestedBy: actor, CreatedAt: now, CreatedBy: actor

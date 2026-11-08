@@ -8,13 +8,18 @@
 // it received; the office cancels a receipt with Cash & Bank's post right.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, firestore, call, reset, baseFixture, val } = require('./_helpers');
+const { app, firestore, call, reset, baseFixture, val, rtdb } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r && r.success, true, r && r.error); return r; };
 const err = async p => { const r = await p.catch(e => ({ success: false, error: e.message })); assert.equal(r.success, false, 'expected a refusal: ' + JSON.stringify(r)); return r.error; };
 const ess = (uid, action, data) => call(uid, 'essPortal', Object.assign({ action }, data || {}));
-const saveRep = (data, uid) => call(uid || 'u-admin', 'saveSalesRep', Object.assign({ companyId: 'C1', active: true, isManager: false, customerIds: [] }, data));
+const saveRep = (data, uid) => call(uid || 'u-admin', 'saveSalesRep', Object.assign({ companyId: 'C1', active: true, isManager: false }, data));
+// A customer's rep is set in the Customer Master (MIS.md, Q435).
+const setRep = async (cu, emp) => {
+  const c = await val('customers/' + cu);
+  await rtdb.ref('customerClassifications/CCLS-RETAIL').set({ Name: c.Classification || 'Local', IsExport: false, CompanyID: '', Status: 'Active' }); // the fixture's classification, as the master knows it
+  const r = await call('u-admin', 'saveCustomer', { customerData: Object.assign({}, c, { CustomerID: cu, SalesRepEmployeeID: emp }) }); assert.equal(r.success, true, r.error); };
 const jv = async id => (await firestore.collection('journalEntries').doc(id).get()).data();
 const receipt = async n => (await firestore.collection('repReceipts').doc(n).get()).data();
 const openOf = async (type, id) => call('u-admin', 'getPartyOpenItems', { partyType: type, partyId: id, companyId: 'C1' });
@@ -43,12 +48,12 @@ test('set-up: the company\'s Rep Cash Clearing account and each rep\'s code', as
   const set = (id, uid) => call(uid || 'u-admin', 'saveSalesRepSettings', { companyId: 'C1', clearingAccountId: id });
   assert.match(await err(set('A-RCC', 'u-viewer')), /permission to change Sales Invoice Configuration/);
   assert.match(await err(set('A-CASH')), /not a cash or bank account/);
-  ok(await saveRep({ employeeId: 'E1', customerIds: ['CU1'] }));
+  ok(await saveRep({ employeeId: 'E1' })); await setRep('CU1', 'E1');
   assert.equal((await val('salesReps/E1')).RepCode, 'EMP0001', 'the employee number by default (Q298)');
   assert.match(await err(saveRep({ employeeId: 'E1', repCode: 'S S' })), /1 to 12 letters or digits/);
-  ok(await saveRep({ employeeId: 'E1', repCode: 'ss', customerIds: ['CU1'] }));
+  ok(await saveRep({ employeeId: 'E1', repCode: 'ss' })); await setRep('CU1', 'E1');
   assert.match(await err(saveRep({ employeeId: 'E2', repCode: 'EMP0001' })), /belongs to another rep/, 'a code once used is the rep\'s for good');
-  ok(await saveRep({ employeeId: 'E2', repCode: 'MM', customerIds: ['CU2'] }));
+  ok(await saveRep({ employeeId: 'E2', repCode: 'MM' })); await setRep('CU2', 'E2');
   // No clearing account yet: cash is refused, so nothing is posted to nowhere.
   assert.match(await err(ess('u-viewer', 'salesCollect', { customerId: 'CU1', method: 'Cash', amount: '10' })), /no Rep Cash Clearing account yet/);
   assert.match(await err(set('A-AR')), /control account/);

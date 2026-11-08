@@ -115,6 +115,7 @@
         <div><label class="block text-xs font-medium text-slate-300 mb-1">State / emirate <span class="text-slate-500">(place of supply)</span></label><select id="cus-form-taxstate" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"><option value="">—</option><optgroup label="UAE: emirates"><option value="AUH">Abu Dhabi</option><option value="DXB">Dubai</option><option value="SHJ">Sharjah</option><option value="AJM">Ajman</option><option value="UAQ">Umm Al Quwain</option><option value="RAK">Ras Al Khaimah</option><option value="FUJ">Fujairah</option></optgroup><optgroup label="India: GST states"><option value="10">10 Bihar</option><option value="11">11 Sikkim</option><option value="12">12 Arunachal Pradesh</option><option value="13">13 Nagaland</option><option value="14">14 Manipur</option><option value="15">15 Mizoram</option><option value="16">16 Tripura</option><option value="17">17 Meghalaya</option><option value="18">18 Assam</option><option value="19">19 West Bengal</option><option value="20">20 Jharkhand</option><option value="21">21 Odisha</option><option value="22">22 Chhattisgarh</option><option value="23">23 Madhya Pradesh</option><option value="24">24 Gujarat</option><option value="26">26 Dadra and Nagar Haveli and Daman and Diu</option><option value="27">27 Maharashtra</option><option value="29">29 Karnataka</option><option value="30">30 Goa</option><option value="31">31 Lakshadweep</option><option value="32">32 Kerala</option><option value="33">33 Tamil Nadu</option><option value="34">34 Puducherry</option><option value="35">35 Andaman and Nicobar Islands</option><option value="36">36 Telangana</option><option value="37">37 Andhra Pradesh</option><option value="38">38 Ladakh</option><option value="97">97 Other Territory</option><option value="01">01 Jammu and Kashmir</option><option value="02">02 Himachal Pradesh</option><option value="03">03 Punjab</option><option value="04">04 Chandigarh</option><option value="05">05 Uttarakhand</option><option value="06">06 Haryana</option><option value="07">07 Delhi</option><option value="08">08 Rajasthan</option><option value="09">09 Uttar Pradesh</option></optgroup></select></div>
         <div><label class="block text-xs font-medium text-slate-300 mb-1">City <span class="text-slate-500">(optional)</span></label><input type="text" id="cus-form-city" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
         <div><label class="block text-xs font-medium text-slate-300 mb-1">PIN / postal code <span class="text-slate-500">(optional)</span></label><input type="text" id="cus-form-postal" maxlength="12" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label for="cus-form-rep" class="block text-xs font-medium text-slate-300 mb-1">Sales Rep <span class="text-slate-500">(optional)</span></label><select id="cus-form-rep" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"><option value="">— No rep —</option></select></div>
         <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment Terms (days)</label><input type="number" id="cus-form-terms" min="0" value="30" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Default Currency <span class="text-slate-500">(optional)</span></label>
@@ -367,16 +368,20 @@
       document.getElementById('cus-form-iban').value = v.BankIBAN || '';
       document.getElementById('cus-form-swift').value = v.BankSwift || '';
       document.getElementById('cus-form-notes').value = v.Notes || '';
+      salesRepPicker.fill(document.getElementById('cus-form-rep'), v.CompanyID || '', v.SalesRepEmployeeID || '');
     } else {
       document.getElementById('cus-modal-title').textContent = 'Add Customer';
       document.getElementById('cus-form-id').value = '';
       document.getElementById('cus-form-code').value = '';
       document.getElementById('cus-form-terms').value = 30;
+      salesRepPicker.fill(document.getElementById('cus-form-rep'), document.getElementById('cus-form-company').value, '');
       document.getElementById('cus-form-classification').value = (classificationByNameOrId('Local') || {}).ClassificationID || '';
       document.getElementById('cus-form-classification').disabled = false;
       document.getElementById('cus-classification-locked-note').classList.add('hidden');
       updateCountryVisibility();
     }
+    const repCo = document.getElementById('cus-form-company'); // the company's reps when it changes
+    if (!repCo.dataset.repWired) { repCo.dataset.repWired = '1'; repCo.addEventListener('change', () => salesRepPicker.fill(document.getElementById('cus-form-rep'), repCo.value, null)); }
     document.getElementById('cus-modal').classList.remove('hidden');
   }
 
@@ -408,7 +413,8 @@
       BankAccountNumber: document.getElementById('cus-form-bankaccount').value.trim(),
       BankIBAN: document.getElementById('cus-form-iban').value.trim(),
       BankSwift: document.getElementById('cus-form-swift').value.trim(),
-      Notes: document.getElementById('cus-form-notes').value.trim()
+      Notes: document.getElementById('cus-form-notes').value.trim(),
+      SalesRepEmployeeID: document.getElementById('cus-form-rep').value
     };
     const error = document.getElementById('cus-form-error');
     const btn = document.getElementById('cus-save-btn');

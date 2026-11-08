@@ -5,8 +5,8 @@ order: 4
 modules: [SALESORDER]
 sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js, functions/src/salesOrderClose.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-11-06
-fingerprint: 2fc98efe83b94c06
+reviewed: 2026-11-08
+fingerprint: 488140efbd762d17
 ---
 ## What it is for
 
@@ -41,6 +41,13 @@ Once the company has projects, the order has a **Project** field after
 Profit Center. Only the company's own and shared projects that are open
 are offered. The order's Delivery Notes and invoices will take its project
 (the next step of this work).
+
+## Sales rep
+
+The order has a **Sales Rep** field. It takes the customer's rep (from [Customer Master](customer-master.html#sales-rep)) when you choose the customer, or the quotation's when the order is made from one; its Delivery Notes and invoices take it in turn. You can change
+it, or choose **No rep**, while the order is a draft; once it is confirmed it
+stays as it is. Only the company's active sales reps are offered. MIS Reports
+→ **Sales by rep** counts each document's own rep.
 
 ## Delivered, remaining and the order's status
 

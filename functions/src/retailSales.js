@@ -469,12 +469,15 @@ async function buildSale(user, d) {
   if (pay.onAccount > 0.005 && !customer.TradeReceivablesAccountID) throw new Error(customer.CustomerName + ' has no Trade Receivables account, so nothing can be left on account.');
 
   const text = k => String(d[k] || '').trim();
+  // The rep (MIS.md, Q437): chosen by the cashier, or none; a named
+  // customer's own rep by default. The walk-in customer has none.
+  const rep = await require('./docRep').documentRep(d.SalesRepEmployeeID, companyId, { customerId: retail ? '' : customerId });
   return {
     settings, customer, customerId, retail, salesType, salesTypeId, revenue, costCenterId, warehouseId, lines, totals, pay, coa, tax,
     header: {
       TransactionType: TYPE, TransactionDate: date, CompanyID: companyId, DivisionID: '', BranchID: '',
       CostCenterID: costCenterId, ProfitCenterID: '',
-      CustomerID: customerId, RetailCustomer: retail,
+      CustomerID: customerId, RetailCustomer: retail, SalesRepEmployeeID: rep,
       // Printed only when entered (blank = no customer block on the invoice).
       BillToName: text('BillToName'), BillToAddress: text('BillToAddress'), BillToTaxNumber: text('BillToTaxNumber'),
       SalesTypeID: salesTypeId, SalesTypeName: salesType.Name, WarehouseID: warehouseId,
@@ -1086,6 +1089,7 @@ exports.confirmRetailReturn = onCallWithMessages(onCallOptions, async (request) 
     const record = Object.assign({
       TransactionType: RTYPE, TransactionDate: b.date, CompanyID: sale.CompanyID, DivisionID: '', BranchID: '',
       CostCenterID: sale.CostCenterID || '', ProfitCenterID: '', CustomerID: sale.CustomerID, RetailCustomer: !!sale.RetailCustomer,
+      SalesRepEmployeeID: sale.SalesRepEmployeeID || '', // the sale's rep (MIS.md, Q437)
       BillToName: sale.BillToName || '', BillToAddress: sale.BillToAddress || '', BillToTaxNumber: sale.BillToTaxNumber || '',
       SalesTypeID: sale.SalesTypeID, SalesTypeName: sale.SalesTypeName || '', WarehouseID: sale.WarehouseID,
       Description: description, Reason: b.reason, Reference: sale.TransactionNumber,

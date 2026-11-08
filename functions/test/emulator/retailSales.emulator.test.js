@@ -292,3 +292,20 @@ test('E: the counter finds customers by mobile; a new customer from the counter 
   s = await call('u-admin', 'saveCustomer', { customerData: Object.assign({}, base, { CustomerID: 'CU1', CustomerName: 'Beta Trading LLC', Phone: '050 123 4567' }) });
   assert.equal(s.success, true, s.error);
 });
+
+// The rep on a retail sale (MIS.md, phase 1c, Q437): chosen by the cashier
+// or none; a named customer's own rep by default; the walk-in customer none;
+// never one who is not an active rep of the company.
+test('the sales rep: chosen, none, a named customer\'s by default, checked', async () => {
+  await ready();
+  await rtdb.ref('salesReps').set({ E1: { CompanyID: 'C1', Active: true, RepCode: 'AA' }, E9: { CompanyID: 'C2', Active: true, RepCode: 'ZZ' } });
+  const one = { Lines: [{ ItemID: 'I2', Quantity: 1 }], Payments: [{ MethodID: M.cash, Amount: 21 }] };
+  const repOf = async r => (await val('stock/transactions/' + r.saleId)).SalesRepEmployeeID;
+  assert.equal(await repOf(await sell(Object.assign({ SalesRepEmployeeID: 'E1' }, one))), 'E1');
+  assert.equal(await repOf(await sell(one)), '', 'the walk-in customer has no rep');
+  await rtdb.ref('customers/CU1/SalesRepEmployeeID').set('E1');
+  assert.equal(await repOf(await sell(Object.assign({ CustomerID: 'CU1' }, one))), 'E1', 'the customer\'s');
+  const refused = await sell(Object.assign({ SalesRepEmployeeID: 'E9' }, one)).then(x => x, e => ({ success: false, error: e.message }));
+  assert.equal(refused.success, false);
+  assert.match(refused.error, /must be an active sales rep of the company/);
+});

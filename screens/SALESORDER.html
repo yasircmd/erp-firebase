@@ -95,6 +95,8 @@
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(optional)</span></label><select id="so-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
     <!-- The order's project (docs/modules/PROJECTS_DIMENSIONS.md, Q387, Q390): carried on to its deliveries and invoices; once the company has a project. -->
     <div id="so-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="so-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <!-- The order's sales rep (docs/modules/MIS.md, Q435-Q437): the customer's by default, changeable while a draft; carried on to its deliveries and invoices. -->
+    <div><label for="so-form-rep" class="block text-xs font-medium text-slate-300 mb-1">Sales Rep</label><select id="so-form-rep" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">— No rep —</option></select></div>
     <div class="grow-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(optional)</span></label><input type="text" id="so-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
   </div>
 
@@ -431,7 +433,7 @@
     document.getElementById('so-status-col-header').classList.toggle('hidden', isDraft);
     document.getElementById('so-actions-col-header').classList.toggle('hidden', isDraft || !canPost);
 
-    ['so-form-company', 'so-form-customer', 'so-form-date', 'so-form-deliverydate', 'so-form-description', 'so-form-division', 'so-form-branch', 'so-form-costcenter', 'so-form-profitcenter', 'so-form-project'].forEach(id => {
+    ['so-form-company', 'so-form-customer', 'so-form-date', 'so-form-deliverydate', 'so-form-description', 'so-form-division', 'so-form-branch', 'so-form-costcenter', 'so-form-profitcenter', 'so-form-project', 'so-form-rep'].forEach(id => {
       document.getElementById(id).disabled = !isDraft;
     });
 
@@ -476,6 +478,7 @@
     document.getElementById('so-form-costcenter').value = currentSo.CostCenterID || '';
     document.getElementById('so-form-profitcenter').value = currentSo.ProfitCenterID || '';
     setProject(currentSo.ProjectID || '');
+    salesRepPicker.fill(document.getElementById('so-form-rep'), currentSo.CompanyID || '', currentSo.SalesRepEmployeeID || '');
     populateItemDatalist(currentSo.CompanyID);
     showCreditBanner('so', currentSo);
     loadPriceListForCurrentCustomer(showEntryView);
@@ -487,6 +490,7 @@
     showCreditBanner('so', null);
     document.getElementById('so-form-company').value = '';
     document.getElementById('so-form-customer').value = '';
+    salesRepPicker.fill(document.getElementById('so-form-rep'), '', '');
     document.getElementById('so-form-date').value = today();
     document.getElementById('so-form-deliverydate').value = '';
     document.getElementById('so-form-description').value = '';
@@ -738,6 +742,7 @@
       CostCenterID: document.getElementById('so-form-costcenter').value,
       ProfitCenterID: document.getElementById('so-form-profitcenter').value,
       ProjectID: document.getElementById('so-form-project').value,
+      SalesRepEmployeeID: document.getElementById('so-form-rep').value,
       Lines: gridLines.filter(l => l.ItemCode).map(l => ({
         LineID: l.LineID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID,
         OrderedQuantity: l.OrderedQuantity, EnteredUOMID: l.EnteredUOMID, UnitPrice: l.UnitPrice
@@ -1001,7 +1006,11 @@
     });
     document.getElementById('so-form-customer').addEventListener('change', () => {
       isDirty = true; updateCompanyRequiredNote(); loadPriceListForCurrentCustomer();
+      // The customer's rep, the order's default (MIS.md, Q436).
+      salesRepPicker.forCustomer(document.getElementById('so-form-rep'), document.getElementById('so-form-company').value, document.getElementById('so-form-customer').value);
     });
+    document.getElementById('so-form-company').addEventListener('change', () => salesRepPicker.fill(document.getElementById('so-form-rep'), document.getElementById('so-form-company').value, null)); // the company's reps
+    document.getElementById('so-form-rep').addEventListener('change', e => { if (e.isTrusted) isDirty = true; });
     // The estimate follows the customer's state and the order date (TAX_ENGINE.md, part 4).
     ['so-form-customer', 'so-form-date'].forEach(id => document.getElementById(id).addEventListener('change', () =>
       scheduleOrderTax(gridLines.reduce((s, l) => s + (Number(l.LineTotal) || 0), 0))));

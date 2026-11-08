@@ -109,6 +109,8 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="dn-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="dn-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
       <div id="dn-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="dn-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <!-- The sales rep (docs/modules/MIS.md, Q437): the order's (else the customer's), changeable while a draft; the invoice takes it. -->
+      <div><label for="dn-form-rep" class="block text-xs font-medium text-slate-300 mb-1">Sales Rep</label><select id="dn-form-rep" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">— No rep —</option></select></div>
       <div class="grow-2">
       <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
       <input type="text" id="dn-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
@@ -526,6 +528,7 @@
   function addLineFromSO(so, line) {
     if (!so || !line) return;
     if (!currentProject() && so.ProjectID) setProject(so.ProjectID); // the order's project, changeable (Q390)
+    if (!gridLines.some(l => l.SourceSOID) && so.SalesRepEmployeeID !== undefined) salesRepPicker.fill(document.getElementById('dn-form-rep'), document.getElementById('dn-form-company').value, so.SalesRepEmployeeID); // the first order's rep (MIS.md, Q437)
     const maxShip = Number(line.MaxShippable) || 0;
     gridLines.push({
       ItemCode: line.ItemCode, ItemName: itemNameByCode(line.ItemCode) || line.ItemCode, WarehouseID: line.WarehouseID,
@@ -608,6 +611,7 @@
       CostCenterID: document.getElementById('dn-form-costcenter').value,
       ProfitCenterID: document.getElementById('dn-form-profitcenter').value,
       ProjectID: currentProject(),
+      SalesRepEmployeeID: document.getElementById('dn-form-rep').value,
       Lines: gridLines.map(l => ({
         SourceSOID: l.SourceSOID, SourceSOLineID: l.SourceSOLineID,
         Quantity: l.Quantity, Description: l.Description,
@@ -716,6 +720,7 @@
     document.getElementById('dn-form-costcenter').value = dn.CostCenterID || '';
     document.getElementById('dn-form-profitcenter').value = dn.ProfitCenterID || '';
     setProject(dn.ProjectID || '');
+    salesRepPicker.fill(document.getElementById('dn-form-rep'), dn.CompanyID || '', dn.SalesRepEmployeeID || '');
   }
 
   function openEntry(dnId) {
@@ -741,6 +746,7 @@
     selectedSOLineKeys = new Set();
     document.getElementById('dn-form-company').value = '';
     document.getElementById('dn-form-customer').value = '';
+    salesRepPicker.fill(document.getElementById('dn-form-rep'), '', '');
     document.getElementById('dn-so-picker-section').classList.add('hidden');
     document.getElementById('dn-form-date').value = today();
     document.getElementById('dn-form-reference').value = '';
@@ -793,7 +799,7 @@
     }
 
     ['dn-form-company', 'dn-form-customer', 'dn-form-date', 'dn-form-reference', 'dn-form-description',
-      'dn-form-division', 'dn-form-branch', 'dn-form-costcenter', 'dn-form-profitcenter', 'dn-form-project'].forEach(id => {
+      'dn-form-division', 'dn-form-branch', 'dn-form-costcenter', 'dn-form-profitcenter', 'dn-form-project', 'dn-form-rep'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
     });
 
@@ -1098,6 +1104,8 @@
     document.getElementById('dn-form-company').addEventListener('change', fetchEligibleSOs);
     document.getElementById('dn-form-company').addEventListener('change', () => setProject(currentProject())); // the company's projects
     document.getElementById('dn-form-customer').addEventListener('change', fetchEligibleSOs);
+    document.getElementById('dn-form-customer').addEventListener('change', () => salesRepPicker.forCustomer(document.getElementById('dn-form-rep'), document.getElementById('dn-form-company').value, document.getElementById('dn-form-customer').value)); // the customer's rep until an order is picked
+    document.getElementById('dn-form-company').addEventListener('change', () => salesRepPicker.fill(document.getElementById('dn-form-rep'), document.getElementById('dn-form-company').value, null));
 
     // Same fix as GRN/JV/CBT's own identical bug: the header Cost
     // Center/Profit Center fields are "(line default)", but only ever
