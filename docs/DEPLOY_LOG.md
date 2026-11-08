@@ -1919,3 +1919,9 @@ from, and how it was verified. The deploy procedure is in the
   (14:02–14:03 UTC), success: the styles, the shell's MIS tiles and Home
   block, public/vendor/chart-4.4.4.umd.js, the Help. With run #331's
   functions and screens, phase 2 is live.
+- **2026-11-08, MIS phase 3, the reports screen (`mis-reports`, 7
+  functions, PR #247, from `624f769`):** "functions set" with --screens
+  (MIS), run [#333](https://github.com/yasircmd/erp-firebase/actions/runs/42493799656)
+  (15:14–15:18 UTC), success. "hosting", run
+  [#334](https://github.com/yasircmd/erp-firebase/actions/runs/42494181173)
+  (15:19–15:20 UTC), success (the shell's misTiles.chart, Help). No rules.
