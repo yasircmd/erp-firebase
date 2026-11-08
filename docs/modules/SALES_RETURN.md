@@ -214,3 +214,8 @@ Sales Invoice's format:
 - subtotal, discount, tax (with its rate) and total.
 
 A reversal entry has no Print. `salesReturn.ui.js` checks it.
+
+## Change: The sales rep (owner, 2026-11-08; [MIS.md](MIS.md#as-built-phase-1c-the-sales-rep-2026-11-08), Q435-Q438)
+
+A return takes its invoice's `SalesRepEmployeeID` (not editable), so MIS
+"Sales by rep" takes it off that rep's sales.

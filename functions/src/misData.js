@@ -118,4 +118,29 @@ async function salesByCustomer(companyId, months) {
   return out;
 }
 
-module.exports = { reversedOrReversal, postedEntries, budgetBuckets, controlAccounts, fyStartMonth, stockOnHand, stockMoved, salesByCustomer, OUT_TYPES, RETURN_TYPES, val };
+// Sales by rep over the months (MIS.md, Q433, Q437): each document's own
+// rep (SalesRepEmployeeID; '' when none, as documents made before the field):
+// posted invoices before tax in base, and retail sales before tax, less
+// their sales returns and retail returns (which carry the rep of the
+// invoice or sale they return).
+async function salesByRep(companyId, months) {
+  const { customerInvoices } = require('./salesStore');
+  const stockStore = require('./stockStore');
+  const out = {};
+  const add = (d, v) => { const k = d.SalesRepEmployeeID || ''; out[k] = M.round2((out[k] || 0) + v); };
+  const live = d => d && d.Status === 'Posted' && !reversedOrReversal(d);
+  for (const m of months) {
+    const inv = await customerInvoices.query({ CompanyID: companyId, Period: m });
+    Object.values(inv || {}).filter(live).forEach(i => add(i, ((Number(i.Subtotal) || 0) - (Number(i.Discount) || 0)) * (Number(i.ExchangeRate) || 1)));
+    for (const [type, sign, value] of [
+      ['SalesReturn', -1, r => (Number(r.ReturnValue) || 0) - (Number(r.DiscountAmount) || 0)],
+      ['RetailSale', 1, r => (Number(r.Total) || 0) - (Number(r.TaxAmount) || 0)],
+      ['RetailReturn', -1, r => (Number(r.Total) || 0) - (Number(r.TaxAmount) || 0)]]) {
+      const txs = await stockStore.queryTx({ CompanyID: companyId, Period: m, TransactionType: type });
+      Object.values(txs || {}).filter(live).forEach(r => add(r, sign * value(r)));
+    }
+  }
+  return out;
+}
+
+module.exports = { reversedOrReversal, postedEntries, budgetBuckets, controlAccounts, fyStartMonth, stockOnHand, stockMoved, salesByCustomer, salesByRep, OUT_TYPES, RETURN_TYPES, val };

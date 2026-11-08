@@ -28,7 +28,7 @@
 //   salesRepCodes/{code} = employeeId (a code is never given to another rep)
 //   salesRepCounters/{employeeId} = the rep's last receipt number
 //   repReceipts/{number} (Firestore) the receipt, as shared with the customer
-//   customers/{id}.SalesRepEmployeeID
+//   customers/{id}.SalesRepEmployeeID (set in the Customer Master: MIS.md, Q435; docRep.js)
 'use strict';
 const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
@@ -169,20 +169,11 @@ exports.saveSalesRep = onCallWithMessages(onCallOptions, async (request) => {
   if (!CODE_RE.test(code)) bad('The rep code is 1 to 12 letters or digits (e.g. AK); it is in their receipt numbers.');
   const holder = await val(CODES + '/' + code);
   if (holder && holder !== empId) bad('The code ' + code + ' belongs to another rep: choose another.');
-  const customers = (await val('customers')) || {};
-  const ids = [...new Set((Array.isArray(d.customerIds) ? d.customerIds : []).map(x => text(x, 80)))];
-  ids.forEach(id => { const c = customers[id]; if (!c || (c.CompanyID && c.CompanyID !== co)) bad('Choose customers of the company.'); });
   await rtdb.ref(CODES + '/' + code).set(empId);
   await rtdb.ref(REPS + '/' + empId).set({ CompanyID: co, Active: d.active !== false, IsManager: d.isManager === true, RepCode: code,
     UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid });
-  // Each customer has one rep: these are now this rep's, and only these.
-  const updates = {};
-  Object.keys(customers).forEach(id => {
-    const mine = customers[id].SalesRepEmployeeID === empId, wanted = ids.includes(id);
-    if (wanted && !mine) updates[id + '/SalesRepEmployeeID'] = empId;
-    if (!wanted && mine) updates[id + '/SalesRepEmployeeID'] = '';
-  });
-  if (Object.keys(updates).length) await rtdb.ref('customers').update(updates);
+  // A customer's rep is set in the Customer Master now (MIS.md, Q435): the
+  // rep's customers are shown here, not chosen.
   return { success: true };
 });
 

@@ -118,6 +118,8 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="cinv-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="cinv-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
       <div id="cinv-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project <span class="text-slate-500">(line default)</span></label><select id="cinv-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <!-- The sales rep (docs/modules/MIS.md, Q437): its Delivery Note's or Sales Order's, else the customer's; changeable while a draft. -->
+      <div><label for="cinv-form-rep" class="block text-xs font-medium text-slate-300 mb-1">Sales Rep</label><select id="cinv-form-rep" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">— No rep —</option></select></div>
       <div id="cinv-fx" class="hidden span-all">
       <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the customer is invoiced in its own currency; for now item lines and direct lines, Delivery Notes stay in <span class="cinv-base-code"></span>)</span></label>
       <div class="flex flex-wrap items-center gap-2 text-sm"><span>1 <b id="cinv-fx-code" class="font-mono"></b> =</span>
@@ -448,6 +450,9 @@
     sel.innerHTML = projectOptionsHtml(id || ''); sel.value = id || '';
     document.getElementById('cinv-project-field').classList.toggle('hidden', !withProjects());
   }
+  // The first source's rep (a Delivery Note or an order line), once (MIS.md, Q437).
+  let repTaken = false;
+  function takeRep(src) { if (!repTaken && src && src.SalesRepEmployeeID !== undefined) { repTaken = true; salesRepPicker.fill(document.getElementById('cinv-form-rep'), document.getElementById('cinv-form-company').value, src.SalesRepEmployeeID); } }
   function takeProject(id) { if (id && !document.getElementById('cinv-form-project').value) { setProject(id); renderGrid(); } } // the source's, if none yet (Q390)
   function orgUnitOptionsHtml(type, selectedId) {
     let html = '<option value="">—</option>';
@@ -702,6 +707,7 @@
         if (e.target.checked) {
           selectedDeliveryNoteIds.add(id);
           takeProject((eligibleDeliveryNotes.find(d => d.DeliveryNoteID === id) || {}).ProjectID);
+          takeRep(eligibleDeliveryNotes.find(d => d.DeliveryNoteID === id));
           if (!selectedDeliveryNoteSalesTypes.has(id)) selectedDeliveryNoteSalesTypes.set(id, '');
         } else {
           selectedDeliveryNoteIds.delete(id);
@@ -996,6 +1002,7 @@
     picked.forEach(i => {
       const l = orderLines[i], it = itemByCode(l.ItemCode);
       takeProject(l.ProjectID);
+      takeRep(l);
       const qty = document.querySelector('.cinv-so-qty[data-i="' + i + '"]').value;
       itemLines.push({ ItemCode: l.ItemCode, WarehouseID: l.WarehouseID, Quantity: qty, UnitPrice: l.UnitPrice, Description: it ? it.ItemName : l.ItemCode,
         CostCenterID: currentHeaderCostCenter(), SourceSOID: l.SOID, SourceSOLineID: l.LineID, SourceSONumber: l.SONumber });
@@ -1038,6 +1045,7 @@
       CostCenterID: document.getElementById('cinv-form-costcenter').value,
       ProfitCenterID: document.getElementById('cinv-form-profitcenter').value,
       ProjectID: document.getElementById('cinv-form-project').value, // docs/modules/PROJECTS_DIMENSIONS.md
+      SalesRepEmployeeID: document.getElementById('cinv-form-rep').value, // docs/modules/MIS.md, Q437
       SourceDeliveryNotes: Array.from(selectedDeliveryNoteIds).map(id => ({ DeliveryNoteID: id, SalesTypeID: selectedDeliveryNoteSalesTypes.get(id) || '' })),
       DirectLines: gridLines.filter(l => l.AccountCode).map(l => ({
         AccountCode: l.AccountCode, Description: l.Description, SalesTypeID: l.SalesTypeID, Amount: l.Amount,
@@ -1215,6 +1223,7 @@
     document.getElementById('cinv-form-costcenter').value = inv.CostCenterID || '';
     document.getElementById('cinv-form-profitcenter').value = inv.ProfitCenterID || '';
     setProject(inv.ProjectID || '');
+    repTaken = true; salesRepPicker.fill(document.getElementById('cinv-form-rep'), inv.CompanyID || '', inv.SalesRepEmployeeID || '');
     document.getElementById('cinv-form-discount').value = inv.Discount || 0;
     document.getElementById('cinv-form-taxpercent').value = inv.TaxPercent || 0;
     document.getElementById('cinv-form-roundoff').value = inv.RoundOff || 0;
@@ -1259,6 +1268,7 @@
     selectedDeliveryNoteSalesTypes = new Map();
     document.getElementById('cinv-form-company').value = '';
     document.getElementById('cinv-form-customer').value = '';
+    repTaken = false; salesRepPicker.fill(document.getElementById('cinv-form-rep'), '', '');
     delete document.getElementById('cinv-fx-rate').dataset.touched;
     document.getElementById('cinv-fx-rate').value = ''; document.getElementById('cinv-fx-reason').value = '';
     document.getElementById('cinv-fx').classList.add('hidden');
@@ -1325,7 +1335,7 @@
     }
 
     ['cinv-form-company', 'cinv-form-customer', 'cinv-form-date', 'cinv-form-description',
-      'cinv-form-division', 'cinv-form-branch', 'cinv-form-costcenter', 'cinv-form-profitcenter', 'cinv-form-project',
+      'cinv-form-division', 'cinv-form-branch', 'cinv-form-costcenter', 'cinv-form-profitcenter', 'cinv-form-project', 'cinv-form-rep',
       'cinv-form-discount', 'cinv-form-taxpercent', 'cinv-form-roundoff'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
     });
@@ -1597,6 +1607,8 @@
     // Line tax: the place of supply chosen here holds; a new customer brings their state (TAX_ENGINE.md, Q318).
     document.getElementById('cinv-tax-place').addEventListener('change', e => { e.target.dataset.chosen = e.target.value; scheduleTaxPreview(); });
     document.getElementById('cinv-form-customer').addEventListener('change', () => { document.getElementById('cinv-tax-place').dataset.chosen = ''; scheduleTaxPreview(); });
+    document.getElementById('cinv-form-customer').addEventListener('change', () => { repTaken = false; salesRepPicker.forCustomer(document.getElementById('cinv-form-rep'), document.getElementById('cinv-form-company').value, document.getElementById('cinv-form-customer').value); }); // the customer's rep until a source is picked
+    document.getElementById('cinv-form-company').addEventListener('change', () => salesRepPicker.fill(document.getElementById('cinv-form-rep'), document.getElementById('cinv-form-company').value, null));
     document.getElementById('cinv-form-roundoff').addEventListener('input', updateTotals);
 
     // Same fix as GRN/Delivery Note/JV/CBT's own identical bug: the

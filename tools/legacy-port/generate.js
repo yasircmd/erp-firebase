@@ -96,6 +96,9 @@ const MAPPED = {
   cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
   needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],
   linesWithProject_: ['projects', 'linesWithProject', 'pure'],
+  documentRep_: ['docRep', 'documentRep', 'dropCtx'], // a document's sales rep (MIS.md, phase 1c, Q435-Q438)
+  customerRepField_: ['docRep', 'customerRepField', 'dropCtx'],
+  invoiceRepSource_: ['docRep', 'invoiceRepSource', 'pure'],
   documentProject_: ['projects', 'documentProject', 'dropCtx'], // a document's header project, checked (PROJECTS_DIMENSIONS.md, Q387)
   recordEInvoice_: ['eInvoicing', 'recordEInvoice', 'dropCtx'], // docs/modules/E_INVOICING.md
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
@@ -181,6 +184,7 @@ const SHARED_PATHS = {
   itemCategories: '../itemCategories',
   fx: '../fx',
   projects: '../projects',
+  docRep: '../docRep',
   dimensionRules: '../dimensionRules',
   eInvoicing: '../eInvoicing',
   dataReset: '../dataReset', // used by name (__dataReset.) in patches
@@ -429,6 +433,22 @@ function taxPartyEdits(mod, p) {
   ];
 }
 const SCREEN_EDITS = [
+  // The customer's sales rep (owner, 2026-11-08; docs/modules/MIS.md, phase 1c, Q435):
+  // set here (an active rep of the customer's company), the default of its new
+  // documents; the shell's salesRepPicker lists the reps.
+  { mod: 'CUSTOMERMASTER', from: `        <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment Terms (days)</label>`,
+    to: `        <div><label for="cus-form-rep" class="block text-xs font-medium text-slate-300 mb-1">Sales Rep <span class="text-slate-500">(optional)</span></label><select id="cus-form-rep" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"><option value="">— No rep —</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment Terms (days)</label>` },
+  { mod: 'CUSTOMERMASTER', from: `      document.getElementById('cus-form-notes').value = v.Notes || '';\n`,
+    to: `      document.getElementById('cus-form-notes').value = v.Notes || '';\n      salesRepPicker.fill(document.getElementById('cus-form-rep'), v.CompanyID || '', v.SalesRepEmployeeID || '');\n` },
+  { mod: 'CUSTOMERMASTER', from: `      document.getElementById('cus-form-terms').value = 30;\n      document.getElementById('cus-form-classification').value =`,
+    to: `      document.getElementById('cus-form-terms').value = 30;\n      salesRepPicker.fill(document.getElementById('cus-form-rep'), document.getElementById('cus-form-company').value, '');\n      document.getElementById('cus-form-classification').value =` },
+  { mod: 'CUSTOMERMASTER', from: `    document.getElementById('cus-modal').classList.remove('hidden');`,
+    to: `    const repCo = document.getElementById('cus-form-company'); // the company's reps when it changes
+    if (!repCo.dataset.repWired) { repCo.dataset.repWired = '1'; repCo.addEventListener('change', () => salesRepPicker.fill(document.getElementById('cus-form-rep'), repCo.value, null)); }
+    document.getElementById('cus-modal').classList.remove('hidden');` },
+  { mod: 'CUSTOMERMASTER', from: `      Notes: document.getElementById('cus-form-notes').value.trim()`,
+    to: `      Notes: document.getElementById('cus-form-notes').value.trim(),\n      SalesRepEmployeeID: document.getElementById('cus-form-rep').value` },
   ...taxPartyEdits('CUSTOMERMASTER', 'cus'),
   ...taxPartyEdits('VENDORMASTER', 'ven'),
   // A price list's prices may include tax (TAX_ENGINE.md, part 2, Q314; patch

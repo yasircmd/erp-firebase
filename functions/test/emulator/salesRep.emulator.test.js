@@ -8,13 +8,18 @@
 // waits as a draft for the office.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, firestore, call, reset, baseFixture, val } = require('./_helpers');
+const { app, firestore, call, reset, baseFixture, val, rtdb } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r && r.success, true, r && r.error); return r; };
 const err = async p => { const r = await p.catch(e => ({ success: false, error: e.message })); assert.equal(r.success, false, 'expected a refusal: ' + JSON.stringify(r)); return r.error; };
 const ess = (uid, action, data) => call(uid, 'essPortal', Object.assign({ action }, data || {}));
-const saveRep = (data, uid) => call(uid || 'u-admin', 'saveSalesRep', Object.assign({ companyId: 'C1', active: true, isManager: false, customerIds: [] }, data));
+const saveRep = (data, uid) => call(uid || 'u-admin', 'saveSalesRep', Object.assign({ companyId: 'C1', active: true, isManager: false }, data));
+// A customer's rep is set in the Customer Master (MIS.md, Q435).
+const setRep = async (cu, emp) => {
+  const c = await val('customers/' + cu);
+  await rtdb.ref('customerClassifications/CCLS-RETAIL').set({ Name: c.Classification || 'Local', IsExport: false, CompanyID: '', Status: 'Active' }); // the fixture's classification, as the master knows it
+  const r = await call('u-admin', 'saveCustomer', { customerData: Object.assign({}, c, { CustomerID: cu, SalesRepEmployeeID: emp }) }); assert.equal(r.success, true, r.error); };
 
 test.before(async () => {
   const f = baseFixture();
@@ -38,7 +43,7 @@ test('not a rep: no Sales tab and no sales actions; the office sets reps with th
   assert.equal((await ess('u-viewer', 'me')).me.SalesRep, null);
   assert.match(await err(ess('u-viewer', 'salesHome')), /You are not set up as a sales rep/);
   assert.match(await err(saveRep({ employeeId: 'E1' }, 'u-viewer')), /permission to change Sales Invoice Configuration/);
-  ok(await saveRep({ employeeId: 'E1', customerIds: ['CU1'] }));
+  ok(await saveRep({ employeeId: 'E1' })); await setRep('CU1', 'E1');
   ok(await call('u-admin', 'saveSalesRepSettings', { companyId: 'C1', clearingAccountId: 'A-RCC' }));
   assert.equal((await val('customers/CU1')).SalesRepEmployeeID, 'E1');
   const list = await call('u-admin', 'getSalesReps', { companyId: 'C1' });

@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-11-06
-fingerprint: 8ef74fec2ecd3754
+reviewed: 2026-11-08
+fingerprint: 00c3e2e839f13950
 ---
 ## What it is for
 
@@ -129,6 +129,13 @@ Ticking a Delivery Note, or adding lines from a Sales Order, fills in the
 invoice's project from it when it has none yet; you can change it. Only the
 company's own and shared projects are offered. See the
 [Project Report](project-report.html).
+
+## Sales rep
+
+The invoice has a **Sales Rep** field. It takes the rep of the first Delivery Note or Sales Order line you add, else the customer's (from [Customer Master](customer-master.html#sales-rep)). You can change
+it, or choose **No rep**, while the invoice is a draft; once it is posted it
+stays as it is. Only the company's active sales reps are offered. MIS Reports
+→ **Sales by rep** counts each document's own rep.
 
 ## What happens in the books
 

@@ -26,6 +26,7 @@ const T = { timeout: 30000 };
     CU1: { CustomerCode: 'C001', CustomerName: 'Corner Shop', Status: 'Active', CompanyID: 'C1', Classification: 'Retail', TradeReceivablesAccountID: 'A-AR', PaymentTermsDays: 0, Phone: '0500000001' },
     CU2: { CustomerCode: 'C002', CustomerName: 'Market Stall', Status: 'Active', CompanyID: 'C1', Classification: 'Retail', TradeReceivablesAccountID: 'A-AR', PaymentTermsDays: 0 }
   };
+  f.customerClassifications = { CLR: { Name: 'Retail', IsExport: false, Status: 'Active', CompanyID: '' } };
   f.priceLists = { PL1: { Name: 'Retail', CompanyID: 'C1', Status: 'Active', CustomerClassificationMapping: 'Retail', CurrencyID: '' } };
   f.priceListLines = { L1: { PriceListID: 'PL1', ItemCode: 'RM-001', UnitPrice: 60, EffectiveFrom: '2026-01-01', Status: 'Active' } };
   f.stock = { ledger: { I1: { WH1: { Quantity: 30, AvgCost: 35, TotalValue: 1050 } } } };
@@ -59,11 +60,29 @@ const T = { timeout: 30000 };
     await page.waitForSelector('#sis-sr-form:not(.hidden)', T);
     await page.selectOption('#sis-sr-employee', 'E1');
     await page.fill('#sis-sr-code', 'ss');
-    await page.fill('#sis-sr-search', 'corner');
-    await page.check('.sis-sr-cust[value="CU1"]');
     await page.click('#sis-sr-save');
     await page.waitForFunction(() => /Sam Seller/.test(document.getElementById('sis-sr-body').textContent), null, T);
+    assert.match(await page.innerText('#sis-sr-body'), /Sam Seller\s+SS\s+Sales rep\s+0\s+0\.00\s+0\.00/, 'no customers yet');
+    // A customer's rep is set in Customer Master (MIS.md, Q435): the rep picker lists the company's reps.
+    const cm = await browser.newPage();
+    cm.on('pageerror', e => errors.push(e.message));
+    await onAppDialog(cm, d => d.accept());
+    await cm.goto('http://127.0.0.1:8102/?module=CUSTOMERMASTER&uid=u-admin');
+    await cm.waitForFunction(() => window.__moduleReady === true, null, T);
+    await cm.click('.cus-edit-btn[data-id="CU1"]');
+    await cm.waitForFunction(() => [...document.querySelectorAll('#cus-form-rep option')].some(o => o.value === 'E1'), null, T);
+    assert.deepEqual(await cm.$$eval('#cus-form-rep option', o => o.map(x => x.textContent)), ['— No rep —', 'Sam Seller (SS)']);
+    await cm.selectOption('#cus-form-rep', 'E1');
+    await cm.click('#cus-save-btn');
+    for (let i = 0; i < 100 && (await val('customers/CU1')).SalesRepEmployeeID !== 'E1'; i++) await cm.waitForTimeout(100);
     assert.equal((await val('customers/CU1')).SalesRepEmployeeID, 'E1');
+    await cm.close();
+    // The tab shows the rep's customers, read-only.
+    await page.reload();
+    await page.waitForFunction(() => window.__moduleReady === true, null, T);
+    await page.waitForFunction(() => [...document.querySelectorAll('#sis-sr-company option')].some(o => o.value === 'C1'), null, T);
+    await page.selectOption('#sis-sr-company', 'C1');
+    await page.waitForFunction(() => /Sam Seller/.test(document.getElementById('sis-sr-body').textContent), null, T);
     assert.match(await page.innerText('#sis-sr-body'), /Sam Seller\s+SS\s+Sales rep\s+1\s+0\.00\s+0\.00/);
     assert.equal((await val('salesRepSettings/C1')).ClearingAccountID, 'A-RCC');
     assert.deepEqual(errors, []);

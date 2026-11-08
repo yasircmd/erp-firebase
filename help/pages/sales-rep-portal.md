@@ -1,6 +1,6 @@
 ---
-fingerprint: c88656c84c7b37c2
-reviewed: 2026-11-06
+fingerprint: f9587decb4a963d8
+reviewed: 2026-11-08
 title: Sales reps in the Employee Portal
 area: sales
 order: 20
@@ -22,8 +22,10 @@ until they hand it to the office.
   a cost center on their employee record.
 - In [Sales Invoice Configuration](sales-invoice-setup.html#sales-reps) →
   **Sales reps**, the office chooses the company's **Rep Cash Clearing**
-  account, adds the rep with their **code** (in their receipt numbers) and
-  their customers. A **Sales manager** sees all the company's customers.
+  account and adds the rep with their **code** (in their receipt numbers).
+  A **Sales manager** sees all the company's customers.
+- Each of the rep's customers names them as **Sales Rep** in
+  [Customer Master](customer-master.html#sales-rep).
 - The customers have a price list (Price Listing, by their classification).
 
 ## Step by step

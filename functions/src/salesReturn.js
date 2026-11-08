@@ -335,6 +335,7 @@ exports.saveSalesReturnDraft = onCallWithMessages(onCallOptions, async (request)
     CompanyID: companyId, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '',
     CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
     ProjectID: inv.ProjectID || '', // the invoice's project, as its other dimensions (PROJECTS_DIMENSIONS.md, Q390)
+    SalesRepEmployeeID: inv.SalesRepEmployeeID || '', // the invoice's rep: its sales by rep less this return (MIS.md, Q437)
     CustomerID: customerId, SourceInvoiceID: invoiceId, SourceInvoiceNumber: inv.TransactionNumber || '',
     Lines: lines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor
   }, computeValues(lines, inv));

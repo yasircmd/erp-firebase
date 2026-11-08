@@ -5,8 +5,8 @@ order: 1
 modules: [CUSTOMERMASTER]
 sources: [functions/src/partyLedger.js, functions/src/customerPhone.js]
 summary: Keep each customer record complete so sales orders, delivery notes and customer invoices can be raised correctly.
-reviewed: 2026-10-26
-fingerprint: 9f464cc9b98b3996
+reviewed: 2026-11-08
+fingerprint: 2e3c6d8207e896e6
 ---
 ## What it is for
 
@@ -24,6 +24,15 @@ fingerprint: 9f464cc9b98b3996
 2. Add or update the customer's basic details.
 3. Complete the sales and credit information needed for invoicing and statements.
 4. Save the record and test it in a sales order or invoice.
+
+## Sales rep
+
+**Sales Rep** is the customer's rep: one of the company's active sales reps
+(set up in [Sales Invoice Configuration](sales-invoice-setup.html#sales-reps)
+→ **Sales reps**), or none. The rep sees the customer in the Employee Portal,
+and a new quotation, Sales Order or invoice for the customer takes this rep,
+which you can change on the document while it is a draft. Changing the rep
+here leaves the documents already made with the rep they have.
 
 ## Tax registration
 
