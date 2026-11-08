@@ -136,3 +136,12 @@ approved on a phone, not entered. Q335-Q337 decided (owner, 2026-10-30), below.
 MIS (MIS Reports) and MISDASHBOARD are phone screens too (the owner's MIS
 request, "mobile view also"; [MIS.md](MIS.md#fix-the-mis-on-a-phone-2026-11-08)):
 the report's lines are cards with their column names, the tiles one column.
+
+## Change: no zoom on a tapped box (owner, 2026-11-08)
+
+iOS Safari and some Android browsers zoom the page in when a box with text
+under 16px is tapped (Home's Search modules, 12px). In the phone view every
+box (input, select, textarea; not checkboxes) is 16px; pinch to zoom is
+kept (no maximum-scale). A computer is unchanged. ui/phoneView.ui.js checks
+it (16px on a phone, 12px on a computer; negative control: without the
+rule, 12px on a phone).

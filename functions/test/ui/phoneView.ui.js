@@ -168,6 +168,8 @@ const PHONE = { viewport: { width: 390, height: 844 }, screen: { width: 390, hei
 
   await check('a phone: MIS Reports and the MIS Dashboard fit its width; the report\'s lines are cards; the tiles one column', async () => {
     const p = await open(PHONE);
+    // A box tapped on a phone is at least 16px, or the browser zooms in (owner, 2026-11-08).
+    assert.equal(await p.evaluate(() => getComputedStyle(document.getElementById('module-search')).fontSize), '16px');
     await openModule(p, 'MIS');
     await p.waitForSelector('#mis-body tr[data-key="revenue"]', { timeout: 15000 });
     let v = await phoneView(p);
@@ -191,6 +193,7 @@ const PHONE = { viewport: { width: 390, height: 844 }, screen: { width: 390, hei
   await check('a computer: nothing changes; an approval opens the document\'s own screen', async () => {
     const p = await open({ viewport: { width: 1280, height: 900 } });
     const v = await phoneView(p);
+    assert.equal(await p.evaluate(() => getComputedStyle(document.getElementById('module-search')).fontSize), '12px', 'a computer keeps its size');
     assert.deepEqual([v.phone, v.notice], [false, false]);
     await showTasks(p);
     await p.click('#home-pending-approvals-list > div');
