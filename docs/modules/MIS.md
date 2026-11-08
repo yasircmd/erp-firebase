@@ -137,6 +137,10 @@ in particular, shows the absolute and % variation.
 | Q436 | The rep on a document | **Defaults from the customer and can be changed until the document is posted or confirmed;** after that it is fixed like every other field, so a reported month's figures don't move. |
 | Q437 | Which documents carry it | **Quotation, Sales Order, Customer Invoice and Retail Sale.** It passes along the chain: quotation → order → delivery note → invoice → sales return keep the earlier document's rep. A Retail Sale has no customer default (one walk-in customer): the cashier picks the rep or leaves it blank. |
 | Q438 | The customer's rep changed | **Documents already made keep their rep;** only new documents take the new one. |
+| Q439 | (phase 2, 2026-11-08) Where the dashboard lives | **Its own MIS Dashboard screen; each user may choose to show it on Home too, off by default.** |
+| Q440 | Who sets a role's default dashboard | **Users with the MIS publish right** (Admin and Finance Manager by default): "Make default for role…"; a user changes their own and can Reset to the role's. |
+| Q441 | Tile kinds | **Key figure** (a number with its change and %), **Chart** (any report as bar or line), **Top list** (a report's top 5), **Gauge / ratio** (a ratio against a target band). |
+| Q442 | How fresh | **Worked out when opened**, the same figures as MIS Reports; each tile loads on its own. |
 
 Taken as the plain reading (say if any should differ): **Q434**, scheduled or
 emailed reports, is not in the first release.

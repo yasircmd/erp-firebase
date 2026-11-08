@@ -1889,3 +1889,18 @@ from, and how it was verified. The deploy procedure is in the
   [#326](https://github.com/yasircmd/erp-firebase/actions/runs/42448428844)
   (2026-11-08 04:50–04:51 UTC), success (Help). No screens, no rules. The
   lock plan's code is complete; step 4 (measure) remains.
+- **2026-11-08, MIS phase 1, the engine (`mis-phase1`, every function, PR
+  #241, from `204c17d`):** every function with --screens (MIS), run
+  [#327](https://github.com/yasircmd/erp-firebase/actions/runs/42452601273)
+  (05:54–08:07 UTC), success. "hosting", run
+  [#328](https://github.com/yasircmd/erp-firebase/actions/runs/42461788727)
+  (08:10–08:11 UTC), success (Help). No rules. Its MIS lists showed only
+  their first row until the next deploy (fixed in PR #242).
+- **2026-11-08, MIS phase 1c, the sales rep (`mis-rep`, every function, PR
+  #242, from `93c85be`):** every function with --screens (CUSTOMERMASTER,
+  SALESORDER, DELIVERYNOTE, CUSTOMERINVOICE, QUOTATION, RETAILSALES,
+  SALESINVOICESETUP), run
+  [#329](https://github.com/yasircmd/erp-firebase/actions/runs/42462046211)
+  (08:14–10:28 UTC), success. "hosting", run
+  [#330](https://github.com/yasircmd/erp-firebase/actions/runs/42473227367)
+  (10:52–10:58 UTC), success (the shell's rep picker, Help). No rules.
