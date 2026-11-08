@@ -144,6 +144,10 @@ in particular, shows the absolute and % variation.
 | Q443 | (phase 3, 2026-11-08) Who sees a saved report | **The owner's own, or shared with chosen roles by a user with MIS publish;** those roles see it under "Shared with me", read-only. |
 | Q444 | A saved report's month | **Chosen when saved:** "the latest month" (rolls forward) or a fixed month. |
 | Q445 | The reports screen's layout | **The chart above the table,** the chart hideable; on a phone the chart, then the lines as cards. Copy to Excel and Print take the table. |
+| Q446 | (phase 4, 2026-11-08) The builder's data sets | **Sales lines, purchase lines, GL lines and stock movements.** |
+| Q447 | How far a user shapes a report | **Fields, filters, grouping (up to two), totals, sorting, and a pivot (rows × columns).** |
+| Q448 | Who sees a data set's figures | **MIS access and the data set's own module** (Sales lines: Customer Invoice; Purchase lines: Vendor Invoice; GL lines: General Ledger; Stock movements: Stock Ledger), for the user's companies only. |
+| Q449 | Where builder reports live | **In MIS Reports, saved as My reports:** shared, charted and usable on the dashboard like the catalogue's reports. |
 
 Taken as the plain reading (say if any should differ): **Q434**, scheduled or
 emailed reports, is not in the first release.
@@ -196,6 +200,58 @@ Five phases, each its own PR and deploy:
   made before this have no rep; they show as "No rep".
 - Behaviour changes to ported modules (Customer Master, Sales Order,
   Delivery Note, Customer Invoice), recorded in their docs.
+
+## As built: phase 4, the report builder (2026-11-08)
+
+Decisions Q446-Q449 (above), built as designed:
+
+- **functions/src/misQuery.js**, the pure engine (unit/misQuery, 5 tests):
+  filters (equals, not equals, contains for text; after / before / between
+  for dates, months and numbers; text without case; a date "equal" to a
+  month means that month), a list of up to 12 columns with totals, a
+  grouping by one or two fields with up to four totals (total, count,
+  average, lowest, highest; "(none)" for a blank), a pivot (rows × the 24
+  busiest columns, with row and column totals), sorting by any column, up to
+  500 rows; `asReportRows` turns a grouping or pivot into a chart's rows.
+- **functions/src/misBuilder.js**, the data sets, each read by month for
+  1-24 months ending at the report's month (at most 20,000 lines):
+  - *Sales lines*: invoice lines (from delivery notes, item lines, direct
+    lines), retail sales, sales and retail returns (negative); customer,
+    rep, item, category, account, sales type, cost centre, project, quantity,
+    amount.
+  - *Purchase lines*: vendor invoice lines from their GRNs (stock and
+    non-stock) and direct lines; vendor, item, category, account.
+  - *GL lines*: each posted journal line: voucher type, account and its
+    type, party, cost and profit centre, project, debit, credit, net.
+  - *Stock movements*: each posted stock line as the Stock Ledger reads it
+    (its Direction; a warehouse movement out of one, into the other);
+    quantity and value signed (in +, out −).
+
+  Amounts in the base currency, before tax, after each document's discount
+  (shared over its lines); reversed documents and their reversals left out.
+  `getMisDatasets` (only the data sets whose module the user may open:
+  Customer Invoice, Vendor Invoice, General Ledger, Stock Ledger, Q448),
+  `runMisBuilder`, `runSavedMisBuilder` (a saved built report as chart rows,
+  for its owner and the roles it is shared with).
+- **Saved:** `misReports` takes `Type: 'builder'` with `Builder: { dataset,
+  months, spec }`, checked; shared and opened like the others.
+- **Dashboard:** a tile's report may be `saved:<id>` (a chart or a top
+  list), drawn by the shell's tiles through runSavedMisBuilder.
+- **screens/MIS.html:** "Build a report…" in the report list: the data set,
+  the months, Grouped / Pivot / List, the fields and totals, filters; a
+  column header sorts; the chart (the first grouping by its first total)
+  above the table; Copy, Print, Save as. **MISDASHBOARD.html:** "My built
+  reports" in a chart or top-list tile's report list.
+- Tests: unit `misQuery` (5); emulator `misBuilder` (the four data sets
+  from real postings, the discount shared, the rights, a saved built report
+  and its rows), `misDashboard` (+ a built report's tile kinds); UI `mis`
+  7/7 (+ the builder: grouped over two months, sorted, filtered, pivoted,
+  saved), `misDashboard` 5/5 (+ a built report as a chart and a top list).
+  Negative controls caught: text filters with case; a pivot's cells
+  ignoring its column; the data set's module not checked; the invoice
+  discount not shared; the screen's view ignored.
+- Deploy set `mis-builder`: 12 functions, --screens (MIS, MISDASHBOARD),
+  then Hosting.
 
 ## As built: phase 3, the reports screen (2026-11-08)
 

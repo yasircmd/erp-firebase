@@ -3309,6 +3309,7 @@
         const cache = {};
         const report = t => {
           const k = [t.type, opt.companyId, opt.month, t.mode].join('|');
+          if (/^saved:/.test(t.type)) return cache[k] || (cache[k] = call('runSavedMisBuilder', { id: t.type.slice(6), companyId: opt.companyId, month: opt.month })); // a built report (MIS.md, Q449)
           return cache[k] || (cache[k] = call('runMisReport', { type: t.type, companyId: opt.companyId, month: opt.month, mode: t.mode }));
         };
         el.innerHTML = (tiles || []).map((t, i) => '<div class="mis-tile bg-slate-800/40 border border-slate-700 rounded-xl p-3 ' + (t.kind === 'chart' ? 'md:col-span-2' : '') + '" data-id="' + esc(t.id) + '" data-kind="' + esc(t.kind) + '">' +

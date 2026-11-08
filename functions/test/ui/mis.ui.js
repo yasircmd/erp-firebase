@@ -150,6 +150,46 @@ async function jv(date, lines) {
     await p.close();
   });
 
+  await check('phase 4: Build a report: GL lines grouped by account type over 2 months, sorted by a header, a pivot, saved as a built report', async () => {
+    const p = await open('u-admin');
+    await p.selectOption('#mis-type', '__builder');
+    await p.waitForFunction(() => [...document.querySelectorAll('#mb-dataset option')].some(o => o.value === 'gl'), null, T);
+    await p.selectOption('#mb-dataset', 'gl');
+    await p.fill('#mb-months', '2');
+    await p.selectOption('#mb-view', 'group');
+    await p.selectOption('#mb-by1', 'accountType');
+    await p.selectOption('#mb-a1', 'sum'); await p.selectOption('#mb-m1', 'net');
+    await p.click('#mis-run');
+    await p.waitForFunction(() => /GL lines/.test(document.getElementById('mis-period').textContent), null, T);
+    const rows = () => p.locator('#mis-body tr').evaluateAll(r => r.map(x => [...x.cells].map(c => c.innerText.trim())));
+    assert.deepEqual(await rows(), [['Asset', '4,100.00'], ['Expense', '900.00'], ['Revenue', '-5,000.00'], ['Total', '0.00']], 'cash 5,000 in less rent 900 out');
+    // Sorted by the total, highest first.
+    await p.click('#mis-head th[data-i="1"]');
+    await p.waitForFunction(() => /▼/.test(document.getElementById('mis-head').textContent), null, T);
+    assert.deepEqual((await rows()).map(r => r[0]), ['Asset', 'Expense', 'Revenue', 'Total']);
+    // A filter: revenue only.
+    await p.click('#mb-add-filter');
+    await p.selectOption('.mb-filter-field', 'accountType'); await p.fill('.mb-filter-value', 'revenue');
+    await p.click('#mis-run');
+    await p.waitForFunction(() => document.querySelectorAll('#mis-body tr').length === 2, null, T);
+    assert.deepEqual(await rows(), [['Revenue', '-5,000.00'], ['Total', '-5,000.00']]);
+    // A pivot: account type × month.
+    await p.click('.mb-filter-remove');
+    await p.selectOption('#mb-view', 'pivot');
+    await p.selectOption('#mb-prows', 'accountType'); await p.selectOption('#mb-pcols', 'month'); await p.selectOption('#mb-pa', 'sum'); await p.selectOption('#mb-pm', 'net');
+    await p.click('#mis-run');
+    await p.waitForFunction(() => document.querySelectorAll('#mis-head th').length === 4, null, T);
+    assert.deepEqual(await p.locator('#mis-head th').allInnerTexts(), ['ACCOUNT TYPE', shown(M1).toUpperCase(), shown(M0).toUpperCase(), 'TOTAL']);
+    assert.deepEqual((await rows())[2], ['Revenue', '-2,000.00', '-3,000.00', '-5,000.00']);
+    // Saved as a built report; reopened.
+    await p.click('#mis-save-as'); await p.fill('#mis-save-name', 'GL by type and month'); await p.click('#mis-save-ok');
+    await p.waitForFunction(() => /Saved report: GL by type and month/.test(document.getElementById('mis-saved-note').textContent), null, T);
+    const saved = (await firestore.collection('misReports').where('Name', '==', 'GL by type and month').get()).docs[0].data();
+    assert.deepEqual([saved.Type, saved.Builder.dataset, saved.Builder.months, saved.Builder.spec.view, saved.Builder.spec.pivot.cols], ['builder', 'gl', 2, 'pivot', 'month']);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

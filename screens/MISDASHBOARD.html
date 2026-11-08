@@ -89,14 +89,20 @@
     } catch (e) { if (mine === keysAsked) { $('misd-key').innerHTML = ''; appAlert(e.message); } }
     finally { if (mine === keysAsked) $('misd-key').dataset.loading = ''; }
   }
-  function types() {
+  // Built reports (My reports, phase 4) show as a chart or a top list.
+  let built = null;
+  async function types() {
     const kind = $('misd-kind').value, allow = FOR[kind];
-    $('misd-type').innerHTML = D.catalogue.filter(c => !allow || allow.includes(c.type)).map(c => '<option value="' + esc(c.type) + '">' + esc(c.title) + '</option>').join('');
+    if ((kind === 'chart' || kind === 'top') && !built) {
+      try { const s = await call('getMyMisReports', {}); built = s.mine.concat(s.shared).filter(r => r.type === 'builder'); } catch (e) { built = []; }
+    }
+    $('misd-type').innerHTML = D.catalogue.filter(c => !allow || allow.includes(c.type)).map(c => '<option value="' + esc(c.type) + '">' + esc(c.title) + '</option>').join('') +
+      ((kind === 'chart' || kind === 'top') && built && built.length ? '<optgroup label="My built reports">' + built.map(r => '<option value="saved:' + esc(r.id) + '">' + esc(r.name) + '</option>').join('') + '</optgroup>' : '');
     return keys();
   }
   function addTile() {
     const kind = $('misd-kind').value, type = $('misd-type').value;
-    const cat = D.catalogue.find(c => c.type === type) || {};
+    const cat = D.catalogue.find(c => c.type === type) || { title: ($('misd-type').selectedOptions[0] || {}).textContent };
     const t = { id: 't' + Date.now().toString(36), kind, type, mode: $('misd-mode').value };
     if (kind === 'kpi' || kind === 'gauge') {
       t.key = $('misd-key').value;

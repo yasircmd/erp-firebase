@@ -1,0 +1,21 @@
+# MIS phase 4, the report builder (owner, 2026-11-08; docs/modules/MIS.md,
+# Q446-Q449). New functions: getMisDatasets, runMisBuilder,
+# runSavedMisBuilder (misBuilder.js, misQuery.js; deploy-functions.sh grants
+# their public invoker). Changed: the saved reports take a built report
+# (misReports.js) and a dashboard tile may show one (misDashboard.js). No
+# moduleRegistry change. Deploy WITH --screens (MIS, MISDASHBOARD), then
+# the "hosting" task (the shell's tiles fetch a built report; the Help).
+# No rules change: the data sets read the company's documents by month
+# (existing Period queries) and journal entries by date (existing index).
+deleteMisReport
+getMisDashboard
+getMisDatasets
+getMisHomeChoice
+getMyMisReports
+resetMisDashboard
+runMisBuilder
+runSavedMisBuilder
+saveMisDashboard
+saveMisReport
+saveMisRoleDashboard
+shareMisReport

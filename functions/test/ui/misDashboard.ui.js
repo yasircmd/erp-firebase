@@ -135,6 +135,19 @@ async function jv(date, lines) {
     await p.close();
   });
 
+  await check('a built report (phase 4) as a chart tile: its rows drawn', async () => {
+    const r = await call('u-admin', 'saveMisReport', { name: 'GL by type', type: 'builder', companyId: 'C1', chart: 'bar', period: { kind: 'latest' },
+      builder: { dataset: 'gl', months: 2, spec: { view: 'group', groupBy: ['accountType'], measures: [{ field: 'net', agg: 'sum' }] } } });
+    ok(await call('u-admin', 'saveMisDashboard', { tiles: [{ kind: 'chart', type: 'saved:' + r.id, chart: 'bar', title: 'GL by type' }, { kind: 'top', type: 'saved:' + r.id, title: 'Top types' }] }));
+    const p = await open('u-admin');
+    await p.waitForFunction(() => { const c = document.querySelector('.mis-tile[data-kind="chart"] canvas'); return c && c.dataset.drawn === '1'; }, null, T);
+    const labels = await p.evaluate(() => Chart.getChart(document.querySelector('.mis-tile[data-kind="chart"] canvas')).data.labels);
+    assert.deepEqual(labels, ['Asset', 'Expense', 'Revenue']);
+    assert.match((await tile(p, 1).innerText()).replace(/\s+/g, ' '), /Asset 4,600\.00 Expense 400\.00 Revenue -5,000\.00/);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

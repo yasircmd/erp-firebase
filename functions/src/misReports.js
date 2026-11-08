@@ -30,7 +30,7 @@ const bad = msg => { throw new HttpsError('invalid-argument', msg); };
 const denied = msg => { throw new HttpsError('permission-denied', msg); };
 const can = (cap, user) => moduleHasCapability('MIS', cap, user.profile.role);
 const shape = (id, d) => ({ id, name: d.Name, type: d.Type, companyId: d.CompanyID, mode: d.Mode, chart: d.Chart, period: d.Period,
-  sharedRoles: d.SharedRoles || [], owner: d.OwnerName || '', updatedAt: d.UpdatedAt || '' });
+  sharedRoles: d.SharedRoles || [], owner: d.OwnerName || '', updatedAt: d.UpdatedAt || '', builder: d.Builder || null });
 
 async function requireAccess(user) { if (!(await can('access', user))) denied('You do not have access to MIS reports.'); }
 async function ownReport(user, id) {
@@ -68,14 +68,22 @@ exports.saveMisReport = onCallWithMessages(onCallOptions, async (request) => {
   const name = text(d.name, 60);
   if (!name) bad('Give the report a name.');
   const type = text(d.type, 40);
-  if (!CATALOGUE.some(c => c.type === type)) bad('Unknown report.');
+  // A catalogue report, or a built one (phase 4, Q449): its data set, months and spec, checked.
+  let builder = null;
+  if (type === 'builder') {
+    const b = d.builder || {};
+    const ds = require('./misBuilder').DATASETS[text(b.dataset, 20)];
+    if (!ds) bad('Choose a data set.');
+    try { builder = { dataset: text(b.dataset, 20), months: Math.min(24, Math.max(1, Math.floor(Number(b.months) || 1))), spec: require('./misQuery').cleanSpec(b.spec, ds.fields) }; }
+    catch (e) { bad(e.message); }
+  } else if (!CATALOGUE.some(c => c.type === type)) bad('Unknown report.');
   const companyId = text(d.companyId, 80);
   if (!companyId || !userCanAccessCompany(user.profile, companyId)) denied('You do not have access to that company.');
   const p = d.period || {};
   const period = p.kind === 'fixed' ? { kind: 'fixed', month: text(p.month, 7) } : { kind: 'latest' };
   if (period.kind === 'fixed' && !/^\d{4}-(0[1-9]|1[0-2])$/.test(period.month)) bad('Choose the month the report keeps.');
   const fields = { Name: name, Type: type, CompanyID: companyId, Mode: MODES.includes(d.mode) ? d.mode : 'prevMonth',
-    Chart: CHARTS.includes(d.chart) ? d.chart : 'bar', Period: period, UpdatedAt: new Date().toISOString() };
+    Chart: CHARTS.includes(d.chart) ? d.chart : 'bar', Period: period, Builder: builder, UpdatedAt: new Date().toISOString() };
   if (d.id) {
     const snap = await ownReport(user, d.id);
     await snap.ref.update(fields);

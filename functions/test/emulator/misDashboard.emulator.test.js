@@ -60,6 +60,9 @@ test('the starter set, the role default, one\'s own, Reset, the Home choice and 
   assert.match(await save([{ kind: 'kpi', type: 'kpis' }]), /choose the figure/);
   assert.match(await save([{ kind: 'gauge', type: 'ratios', key: 'current', low: 3, high: 2 }]), /low under its high/);
   assert.match(await save(Array.from({ length: 25 }, () => kpi('sales'))), /at most 24 tiles/);
+  // A built report (phase 4, Q449): a chart or a top list only.
+  ok(await call('u-admin', 'saveMisDashboard', { tiles: [{ kind: 'chart', type: 'saved:abc123', chart: 'bar' }, { kind: 'top', type: 'saved:abc123' }] }));
+  assert.match(await save([{ kind: 'kpi', type: 'saved:abc123', key: 'x' }]), /built report shows as a chart or a top list/);
   ok(await call('u-admin', 'saveMisDashboard', { tiles: [kpi('sales', { id: 'x' }), kpi('bank', { id: 'x' })] }));
   const ids = (await firestore.collection('misDashboards').doc('u-admin').get()).data().Tiles.map(t => t.id);
   assert.equal(new Set(ids).size, 2, 'tile ids made unique');
