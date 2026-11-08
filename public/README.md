@@ -21,3 +21,9 @@ and never touches a function call; `manifest.webmanifest` (the ERP) and
 `ess.webmanifest` (the Employee Portal) name each app; `icons/` holds their
 icons. `css/` holds the styles, built at deploy by `tools/build-styles.sh`
 from the shell and every screen (never committed).
+
+`vendor/` holds third-party libraries the app ships instead of loading them
+from a CDN at run time, each a released file under its version with its
+licence: `chart-4.4.4.umd.js` (Chart.js, MIT), the MIS dashboard's charts
+([docs/modules/MIS.md](../docs/modules/MIS.md), Q430). Code only, no data
+and no screens.

@@ -13,6 +13,13 @@ screen.
 
 ## 08/11/2026
 
+- **MIS Dashboard.** Under Financial Accounting, **MIS Dashboard** shows
+  your tiles: key figures with their change, charts, top lists and gauges
+  against a good band, worked out when you open it. **Edit** to add, remove
+  and arrange tiles (each with its own comparison) and save your own;
+  **Reset** goes back to your role's. Finance managers can make a
+  dashboard the default for a role. Tick **Show on Home** to see your tiles
+  on Home too (off unless you choose it).
 - **A customer's sales rep is set in Customer Master.** Customer Master has
   a **Sales Rep** field; the Sales reps tab in Sales Invoice Configuration
   now lists each rep's customers instead of choosing them. Quotations, Sales

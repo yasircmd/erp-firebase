@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-11-08
-fingerprint: c1e69837cdf57b5d
+fingerprint: 775d3035da12e544
 ---
 ## Signing in
 
@@ -81,6 +81,13 @@ Put the screens you use most at the top of the menu: user menu →
 **Configure Favourites**, select the star next to each screen you want,
 then **Done**. Until you choose your own, you see your role's defaults, if
 your administrator has set some ([Roles & Permissions](roles.html)).
+
+## Your dashboard on Home
+
+If you use the MIS Dashboard, you can show your tiles on Home as well: tick
+**Show on Home** on the MIS Dashboard screen. **My dashboard** then sits at
+the top of Home, with its company and **Open MIS Dashboard**. It is off
+unless you choose it.
 
 ## Home tasks
 

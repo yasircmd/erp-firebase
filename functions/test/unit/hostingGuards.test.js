@@ -27,12 +27,15 @@ test('the pages Hosting serves have no REPLACE_ME, and the real project config',
 // help build makes (functions/test/unit/help.test.js).
 // And the installable app (docs/modules/PWA.md): its service worker, its two
 // manifests, icons/ (PNGs only) and css/ (the two styles built at deploy; not
-// committed, so absent until built).
+// committed, so absent until built). And vendor/: third-party libraries
+// shipped with the app, each a versioned release file and its licence (Chart.js
+// for the MIS dashboard, docs/modules/MIS.md Q430), no folders.
 test('the deploy script checks those pages, and public/ holds only them, its README, the built Help and the app\'s files', () => {
   const sh = fs.readFileSync(path.join(REPO, 'tools/deploy-hosting.sh'), 'utf8');
   for (const p of PAGES) assert.ok(sh.includes(p), 'deploy-hosting.sh names ' + p);
   const files = fs.readdirSync(path.join(REPO, 'public')).filter(n => n !== 'css').sort();
-  assert.deepEqual(files, ['README.md', 'ess.html', 'ess.webmanifest', 'help', 'icons', 'index.html', 'manifest.webmanifest', 'robots.txt', 'sw.js']);
+  assert.deepEqual(files, ['README.md', 'ess.html', 'ess.webmanifest', 'help', 'icons', 'index.html', 'manifest.webmanifest', 'robots.txt', 'sw.js', 'vendor']);
+  assert.ok(fs.readdirSync(path.join(REPO, 'public/vendor')).every(n => /^[a-z0-9]+-\d+\.\d+\.\d+\.(umd\.js|LICENSE\.md)$/.test(n)), 'public/vendor/ holds only versioned library files and their licences');
   assert.ok(fs.readdirSync(path.join(REPO, 'public/icons')).every(n => /^[a-z0-9-]+\.png$/.test(n)), 'public/icons/ holds only PNGs');
   if (fs.existsSync(path.join(REPO, 'public/css'))) assert.deepEqual(fs.readdirSync(path.join(REPO, 'public/css')).sort(), ['erp.css', 'ess.css'], 'public/css/ holds only the built styles');
   assert.ok(fs.readdirSync(path.join(REPO, 'public/help')).every(n => /^[a-z0-9-]+\.(html|css|js|json|xml)$/.test(n)), 'public/help/ holds only built files, no folders');

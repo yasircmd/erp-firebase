@@ -1,0 +1,158 @@
+<!-- MIS Dashboard (owner, 2026-11-08; docs/modules/MIS.md, phase 2, Q439-Q442):
+     the user's tiles (key figure, chart, top list, gauge), each an MIS report
+     worked out when shown; their own once saved, else their role's default,
+     else the starter set. Edit (MIS design): add, remove, arrange; Reset to
+     the role's. Make default for a role (MIS publish). Show on Home: the
+     user's choice, off by default. The tiles are drawn by the shell's MIS
+     TILES block, which Home uses too. -->
+<div class="space-y-4">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-slate-800 pb-3">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Management reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-chart-pie text-blue-500"></i> MIS Dashboard</h2>
+      <p id="misd-source" class="text-xs text-slate-400 mt-1"></p></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="misd-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="misd-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="misd-month" class="block text-xs font-medium text-slate-300 mb-1">Month</label><input id="misd-month" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <label class="flex items-center gap-2 text-xs text-slate-300 pb-2"><input type="checkbox" id="misd-home"> Show on Home</label>
+      <button id="misd-edit" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-pen"></i> Edit</button>
+      <button id="misd-reset" class="hidden bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm px-3 py-2 rounded-lg" title="Your own tiles removed: your role's dashboard again">Reset</button>
+    </div>
+  </div>
+
+  <div id="misd-editbar" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-3 space-y-3">
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="misd-kind" class="block text-xs font-medium text-slate-300 mb-1">Tile</label><select id="misd-kind" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+        <option value="kpi">Key figure</option><option value="chart">Chart</option><option value="top">Top list</option><option value="gauge">Gauge / ratio</option></select></div>
+      <div><label for="misd-type" class="block text-xs font-medium text-slate-300 mb-1">Report</label><select id="misd-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div id="misd-key-wrap"><label for="misd-key" class="block text-xs font-medium text-slate-300 mb-1">Figure</label><select id="misd-key" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="misd-mode" class="block text-xs font-medium text-slate-300 mb-1">Compare</label><select id="misd-mode" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div id="misd-chart-wrap" class="hidden"><label for="misd-chart" class="block text-xs font-medium text-slate-300 mb-1">Style</label><select id="misd-chart" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="bar">Bars</option><option value="line">Line</option></select></div>
+      <div id="misd-band-wrap" class="hidden flex gap-2"><div><label for="misd-low" class="block text-xs font-medium text-slate-300 mb-1">Good from</label><input id="misd-low" type="number" step="any" class="w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label for="misd-high" class="block text-xs font-medium text-slate-300 mb-1">to</label><input id="misd-high" type="number" step="any" class="w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div></div>
+      <div><label for="misd-title" class="block text-xs font-medium text-slate-300 mb-1">Title</label><input id="misd-title" maxlength="60" class="w-44 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <button id="misd-add" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add tile</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="misd-save" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg">Save my dashboard</button>
+      <button id="misd-cancel" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg">Cancel</button>
+      <span id="misd-publish" class="hidden flex items-center gap-2 ml-auto"><label for="misd-role" class="text-xs text-slate-300">Make these tiles the default for</label>
+        <select id="misd-role" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select>
+        <button id="misd-role-save" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded">Make default</button>
+        <button id="misd-role-remove" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs px-3 py-1.5 rounded">Remove the role's default</button></span>
+    </div>
+  </div>
+
+  <div id="misd-grid" class="grid grid-cols-1 md:grid-cols-4 gap-3"></div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const SOURCE = { mine: 'Your dashboard.', role: 'Your role\'s dashboard: Edit to make your own.', starter: 'The starter dashboard: Edit to make your own.' };
+  const MODE = { prevMonth: 'Previous month', lastYear: 'Same month last year', ytd: 'Year to date', budget: 'Budget' };
+  // The reports a kind can show: a figure (kpi, gauge) needs one row; a chart or list, several.
+  const FOR = { kpi: ['kpis', 'profitLoss', 'balanceSheet', 'cashFlow', 'bankBalances', 'salesByRep', 'salesByCustomer'], gauge: ['ratios', 'kpis'],
+    top: ['receivables', 'payables', 'salesByCustomer', 'salesByRep', 'expenses', 'bankBalances', 'stockInHand'], chart: null };
+  let D = null, tiles = [], editing = false;
+
+  function draw() {
+    $('misd-source').textContent = editing ? 'Editing: add, remove or move tiles, then Save.' : SOURCE[D.source] || '';
+    return misTiles.render($('misd-grid'), tiles, { companyId: $('misd-company').value, month: $('misd-month').value, editable: editing,
+      onRemove: i => { tiles.splice(i, 1); draw(); },
+      onMove: (i, by) => { const j = i + by; if (j < 0 || j >= tiles.length) return; [tiles[i], tiles[j]] = [tiles[j], tiles[i]]; draw(); } });
+  }
+  function bar() {
+    $('misd-edit').classList.toggle('hidden', !D.rights.design || editing);
+    $('misd-reset').classList.toggle('hidden', !(D.source === 'mine') || editing);
+    $('misd-editbar').classList.toggle('hidden', !editing);
+    $('misd-publish').classList.toggle('hidden', !D.rights.publish);
+  }
+  // The figures a report offers, for a key figure or gauge: its rows. Only the
+  // latest request fills the list (a kind and a report chosen quickly ask
+  // twice), and the figure already chosen stays chosen.
+  let keysAsked = 0;
+  async function keys() {
+    const kind = $('misd-kind').value, type = $('misd-type').value, mine = ++keysAsked;
+    $('misd-key-wrap').classList.toggle('hidden', !(kind === 'kpi' || kind === 'gauge'));
+    $('misd-chart-wrap').classList.toggle('hidden', kind !== 'chart');
+    $('misd-band-wrap').classList.toggle('hidden', kind !== 'gauge');
+    if (!(kind === 'kpi' || kind === 'gauge')) { $('misd-key').dataset.loading = ''; return; }
+    const was = $('misd-key').value;
+    $('misd-key').dataset.loading = '1';
+    $('misd-key').innerHTML = '<option value="">Working…</option>';
+    try {
+      const r = await call('runMisReport', { type, companyId: $('misd-company').value, month: $('misd-month').value, mode: 'prevMonth' });
+      if (mine !== keysAsked) return;
+      $('misd-key').innerHTML = (r.rows || []).filter(x => x.key !== 'check').map(x => '<option value="' + esc(x.key) + '">' + esc(x.label) + '</option>').join('');
+      if (was && [...$('misd-key').options].some(o => o.value === was)) $('misd-key').value = was;
+    } catch (e) { if (mine === keysAsked) { $('misd-key').innerHTML = ''; appAlert(e.message); } }
+    finally { if (mine === keysAsked) $('misd-key').dataset.loading = ''; }
+  }
+  function types() {
+    const kind = $('misd-kind').value, allow = FOR[kind];
+    $('misd-type').innerHTML = D.catalogue.filter(c => !allow || allow.includes(c.type)).map(c => '<option value="' + esc(c.type) + '">' + esc(c.title) + '</option>').join('');
+    return keys();
+  }
+  function addTile() {
+    const kind = $('misd-kind').value, type = $('misd-type').value;
+    const cat = D.catalogue.find(c => c.type === type) || {};
+    const t = { id: 't' + Date.now().toString(36), kind, type, mode: $('misd-mode').value };
+    if (kind === 'kpi' || kind === 'gauge') {
+      t.key = $('misd-key').value;
+      if (!t.key) { appAlert('Choose the figure the tile shows.'); return; }
+    }
+    if (kind === 'chart') t.chart = $('misd-chart').value;
+    if (kind === 'gauge') {
+      t.low = Number($('misd-low').value); t.high = Number($('misd-high').value);
+      if ($('misd-low').value === '' || $('misd-high').value === '' || !(t.low < t.high)) { appAlert('Give the good band: from a low value to a higher one.'); return; }
+    }
+    t.title = $('misd-title').value.trim() || (t.key ? ($('misd-key').selectedOptions[0] || {}).textContent : cat.title);
+    tiles.push(t);
+    $('misd-title').value = '';
+    draw();
+  }
+  async function load() {
+    D = await call('getMisDashboard', {});
+    tiles = D.tiles.map(t => Object.assign({}, t));
+    $('misd-home').checked = Boolean(D.showOnHome);
+    $('misd-mode').innerHTML = D.modes.map(m => '<option value="' + m + '">' + esc(MODE[m] || m) + '</option>').join('');
+    $('misd-role').innerHTML = (D.roles || []).map(r => '<option value="' + esc(r.id) + '"' + (r.id === D.role ? ' selected' : '') + '>' + esc(r.name) + '</option>').join('');
+    editing = false; bar();
+    return draw();
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-chart-pie"></i> MIS Dashboard';
+    $('misd-month').value = (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
+    $('misd-company').addEventListener('change', draw);
+    $('misd-month').addEventListener('change', draw);
+    $('misd-kind').addEventListener('change', types);
+    $('misd-type').addEventListener('change', keys);
+    $('misd-add').addEventListener('click', addTile);
+    $('misd-edit').addEventListener('click', () => { editing = true; bar(); types(); draw(); });
+    $('misd-cancel').addEventListener('click', () => { load().catch(e => appAlert(e.message)); });
+    $('misd-save').addEventListener('click', () => call('saveMisDashboard', { tiles }).then(() => { appAlert('Your dashboard is saved.'); return load(); }).catch(e => appAlert(e.message)));
+    $('misd-reset').addEventListener('click', async () => {
+      if (!(await appConfirm('Remove your own tiles and show your role\'s dashboard again?'))) return;
+      call('resetMisDashboard', {}).then(load).catch(e => appAlert(e.message));
+    });
+    $('misd-home').addEventListener('change', () => call('saveMisDashboard', { showOnHome: $('misd-home').checked })
+      .then(() => appAlert($('misd-home').checked ? 'Your dashboard will show on Home.' : 'Your dashboard no longer shows on Home.')).catch(e => appAlert(e.message)));
+    $('misd-role-save').addEventListener('click', async () => {
+      const role = $('misd-role').value, name = ($('misd-role').selectedOptions[0] || {}).textContent || role;
+      if (!(await appConfirm('Make these ' + tiles.length + ' tiles the default dashboard for ' + name + '? Users of the role who have not made their own will see them.'))) return;
+      call('saveMisRoleDashboard', { role, tiles }).then(() => appAlert('The default for ' + name + ' is saved.')).catch(e => appAlert(e.message));
+    });
+    $('misd-role-remove').addEventListener('click', async () => {
+      const role = $('misd-role').value, name = ($('misd-role').selectedOptions[0] || {}).textContent || role;
+      if (!(await appConfirm('Remove the default dashboard of ' + name + '? Its users who have not made their own will see the starter dashboard.'))) return;
+      call('saveMisRoleDashboard', { role, tiles: null }).then(() => appAlert('The default for ' + name + ' is removed.')).catch(e => appAlert(e.message));
+    });
+    call('getActiveCompanies', {}).catch(() => []).then(cos => {
+      $('misd-company').innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      return load();
+    }).catch(e => appAlert(e.message));
+  };
+})();
+</script>

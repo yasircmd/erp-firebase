@@ -194,6 +194,53 @@ Five phases, each its own PR and deploy:
 - Behaviour changes to ported modules (Customer Master, Sales Order,
   Delivery Note, Customer Invoice), recorded in their docs.
 
+## As built: phase 2, the dashboard (2026-11-08)
+
+Decisions Q439-Q442 (above), built as designed:
+
+- **Module `MISDASHBOARD`** (moduleRegistry.js; right: access, by default the
+  roles with MIS access), its own tree node "MIS Dashboard" before MIS
+  Reports, in the Help area "Management reports (MIS)" (unwritten until
+  phase 5). A tile's figures need MIS access (runMisReport checks it);
+  changing one's own tiles MIS **design**; a role's default MIS **publish**.
+- **functions/src/misDashboard.js:** Firestore `misDashboards/{uid}`
+  `{ Tiles, ShowOnHome }` and `misRoleDashboards/{role}` `{ Tiles }`.
+  `getMisDashboard` (one's own, else the role's, else the starter set of
+  seven tiles: sales, net profit, bank and cash, receivables, the 12-month
+  trend, the largest receivables, the current ratio gauge), `getMisHomeChoice`
+  (Home's one small call), `saveMisDashboard` (tiles and / or the Home
+  choice), `resetMisDashboard` (one's own tiles removed, the Home choice
+  kept), `saveMisRoleDashboard` (a role's default, or `tiles: null` to remove
+  it). Each tile checked: kind (kpi, chart, top, gauge), a catalogue report,
+  the figure for a key figure or gauge, a gauge's band (low under high), the
+  comparison; at most 24; ids made unique. Data Reset clears both with
+  "Numbering & Settings".
+- **Chart.js 4.4.4** (MIT) in `public/vendor/chart-4.4.4.umd.js` with its
+  licence, loaded only when a chart tile is drawn (Q430); the hosting guard
+  (unit/hostingGuards) allows `public/vendor/` only versioned library files.
+- **The shell's MIS TILES block** (`misTiles.render`, `misTiles.home`):
+  draws the tiles on the screen and on Home; tiles asking the same report
+  share one runMisReport call; chart labels go through the shell's date
+  format (`window.formatDatesInText`, now exported), so months read Nov-2026
+  on a canvas too; light and dark ink.
+- **screens/MISDASHBOARD.html:** company, month, Show on Home, Edit (add a
+  tile: kind, report, figure, comparison, chart style, good band, title;
+  remove; move earlier / later), Save my dashboard, Reset, and for MIS
+  publish "Make default" for a role / "Remove the role's default". The
+  figure list loads from the chosen report; only the latest request fills
+  it (a quick kind-then-report choice asked twice and the slower answer
+  overwrote the choice: found by the UI test).
+- **Home:** a hidden "My dashboard" block, shown only for a user who ticked
+  Show on Home (getMisHomeChoice; nothing else is read otherwise).
+- Tests: emulator `misDashboard` (the starter set, a role's default, one's
+  own, Reset, the Home choice, the checks, the rights); UI `misDashboard` (4:
+  the starter tiles from real postings with the chart's Mon-yyyy months,
+  Edit and Save with a gauge, a role's default, Show on Home). Negative
+  controls caught: anyone may set a role's default; chart labels not
+  formatted; a screen file dropped in `public/vendor/`.
+- Deploy set `mis-dashboard`: every function (moduleRegistry.js), --screens
+  (MISDASHBOARD), then Hosting (the shell, Chart.js, Help). No rules change.
+
 ## As built: phase 1c, the sales rep (2026-11-08)
 
 Decisions Q435-Q438 (above), built as designed:
