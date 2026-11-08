@@ -201,6 +201,18 @@ Five phases, each its own PR and deploy:
 - Behaviour changes to ported modules (Customer Master, Sales Order,
   Delivery Note, Customer Invoice), recorded in their docs.
 
+## Fix: the MIS on a phone (2026-11-08)
+
+The owner's request included "mobile view also". Phases 2-4 laid the
+screens out for a phone (the report's lines as cards with their column
+names, the tiles in one column), but MIS and MISDASHBOARD were not in the
+shell's PHONE_SCREENS (PHONE_VIEW.md), so on a phone they opened at a
+computer's width with its notice, and the cards never showed (the UI test
+had set the phone class by hand). Both are in PHONE_SCREENS now;
+ui/phoneView.ui.js opens the real screens at a phone's size: the phone's
+width, nothing wider, the lines as cards, the tiles one per row (negative
+control: without the two screens in the list, it fails). Hosting only.
+
 ## As built: phase 5, Help (2026-11-08)
 
 The Help area "Management reports (MIS)" is written: **MIS Dashboard**

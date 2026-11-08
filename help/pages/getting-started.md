@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-11-08
-fingerprint: bbe726621a53a716
+fingerprint: c89075b66b08830b
 ---
 ## Signing in
 
@@ -176,6 +176,9 @@ is for a computer.
   - [Stock Availability](stock-availability.html) and the
     [statements of account](statements-of-account.html) show each row as a
     card, each figure with its heading.
+  - [MIS Reports](mis-reports.html) shows each line as a card, the chart
+    above; the [MIS Dashboard](mis-dashboard.html) shows its tiles one under
+    another.
 
   Their filters wrap to the phone's width. Copy to Excel and Print are
   better done on a computer.

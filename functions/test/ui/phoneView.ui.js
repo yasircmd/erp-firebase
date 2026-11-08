@@ -17,6 +17,9 @@ const { routeCdnStyles } = require('./_cdnStyles');
 const { onAppDialog } = require('./_appDialogs');
 
 const INDEX = fs.readFileSync(path.join(__dirname, '../../../public/index.html'));
+// The MIS screens, as released (MIS.md: "mobile view also").
+const SCREENS = { MIS: fs.readFileSync(path.join(__dirname, '../../../screens/MIS.html'), 'utf8'), MISDASHBOARD: fs.readFileSync(path.join(__dirname, '../../../screens/MISDASHBOARD.html'), 'utf8') };
+const CHART = fs.readFileSync(path.join(__dirname, '../../../public/vendor/chart-4.4.4.umd.js'));
 const SDK = {
   'firebase-app.js': 'export function initializeApp() { return {}; }',
   'firebase-auth.js': `
@@ -53,7 +56,19 @@ function stubs() {
       case 'decidePurchaseOrderApproval':
         if (window.__refuse) return { success: false, error: 'This level has already been decided.' };
         window.__decided = arg; window.__pending = []; return { success: true, status: 'Approved' };
+      // The MIS screens with sample figures.
+      case 'getMisCatalogue': return { catalogue: [{ type: 'profitLoss', title: 'Profit and Loss', group: 'Financial' }, { type: 'kpis', title: 'Key figures', group: 'Dashboard' }], modes: [{ mode: 'prevMonth', label: 'vs previous month' }], rights: {} };
+      case 'getActiveCompanies': return [{ CompanyID: 'C1', LegalName: 'Example Trading' }];
+      case 'getMyMisReports': return { mine: [], shared: [], rights: { design: true, publish: false } };
+      case 'runMisReport': return { type: arg.type, title: 'Profit and Loss', period: { current: '2026-11', compare: '2026-10' }, modeLabel: 'vs previous month', notes: [],
+        rows: [{ key: 'revenue', label: 'Revenue', current: 12400, compare: 11000, abs: 1400, pct: 12.7, good: true }, { key: 'expenses', label: 'Expenses', current: 3100, compare: 3300, abs: -200, pct: -6.1, good: true },
+          { key: 'netProfit', label: 'Net profit', current: 9300, compare: 7700, abs: 1600, pct: 20.8, good: true, level: 1 },
+          { key: 'sales', label: 'Sales (revenue)', current: 12400, compare: 11000, abs: 1400, pct: 12.7, good: true }] };
+      case 'getMisDashboard': return { source: 'starter', showOnHome: false, rights: { design: true, publish: false, reports: true }, role: 'FM', catalogue: [], modes: ['prevMonth'],
+        tiles: [{ id: 't1', kind: 'kpi', type: 'kpis', key: 'sales', mode: 'prevMonth', title: 'Sales' }, { id: 't2', kind: 'top', type: 'profitLoss', mode: 'prevMonth', title: 'Lines' },
+          { id: 't3', kind: 'chart', type: 'profitLoss', mode: 'prevMonth', chart: 'bar', title: 'P&L' }] };
       case 'getModuleFragment':
+        if (window.__screens && window.__screens[arg.moduleId]) return { html: '<div id="stub-module">' + window.__screens[arg.moduleId] + '</div>', canWrite: true };
         if (arg.moduleId === 'TRIALBALANCE' || arg.moduleId === 'STOCKAVAILABILITY') {
           // The report draws its table after its data arrives, as the real screens do.
           return { html: '<div id="stub-module"><div id="rep"></div></div><script>window.initModule = () => setTimeout(() => { document.getElementById("rep").innerHTML = ' + JSON.stringify(TABLE) + '; }, 100);<\/script>', canWrite: true };
@@ -69,7 +84,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 const PHONE = { viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
 (async () => {
-  const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(INDEX); }).listen(8179);
+  const server = http.createServer((req, res) => {
+    if (req.url.startsWith('/vendor/chart-4.4.4.umd.js')) { res.writeHead(200, { 'Content-Type': 'text/javascript' }); res.end(CHART); return; }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(INDEX);
+  }).listen(8179);
   const browser = await chromium.launch();
   async function open(device) {
     const ctx = await browser.newContext(device);
@@ -79,6 +97,7 @@ const PHONE = { viewport: { width: 390, height: 844 }, screen: { width: 390, hei
     await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
     await routeCdnStyles(page);
     await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(s => { window.__screens = s; }, SCREENS);
     await page.addInitScript(stubs);
     await page.goto('http://127.0.0.1:8179/');
     await page.waitForSelector('#tree-container li[data-module-id]', { state: 'attached', timeout: 30000 });
@@ -143,6 +162,28 @@ const PHONE = { viewport: { width: 390, height: 844 }, screen: { width: 390, hei
     assert.ok(await p.isHidden('#phone-notice'), 'closed');
     await openModule(p, 'JV');
     assert.equal((await phoneView(p)).notice, false, 'stays closed for the session');
+    assert.deepEqual(p.__errors, []);
+    await p.context().close();
+  });
+
+  await check('a phone: MIS Reports and the MIS Dashboard fit its width; the report\'s lines are cards; the tiles one column', async () => {
+    const p = await open(PHONE);
+    await openModule(p, 'MIS');
+    await p.waitForSelector('#mis-body tr[data-key="revenue"]', { timeout: 15000 });
+    let v = await phoneView(p);
+    assert.deepEqual([v.phone, v.viewport.startsWith('width=device-width'), v.notice], [true, true, false]);
+    assert.ok(v.wide <= 391, 'nothing wider than the phone: ' + v.wide);
+    assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('#mis-head')).display), 'none');
+    assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('#mis-body tr')).display), 'block');
+    assert.equal(await p.getAttribute('#mis-body tr[data-key="revenue"] td:nth-child(2)', 'data-label'), 'This period');
+    await openModule(p, 'MISDASHBOARD');
+    await p.waitForFunction(() => document.querySelectorAll('#misd-grid .mis-tile[data-ready]').length === 3, null, { timeout: 15000 });
+    v = await phoneView(p);
+    assert.deepEqual([v.phone, v.notice], [true, false]);
+    assert.ok(v.wide <= 391, 'nothing wider than the phone: ' + v.wide);
+    const widths = await p.$$eval('#misd-grid .mis-tile', ts => ts.map(t => Math.round(t.getBoundingClientRect().width)));
+    const lefts = await p.$$eval('#misd-grid .mis-tile', ts => ts.map(t => Math.round(t.getBoundingClientRect().left)));
+    assert.ok(widths.every(w => w > 300) && new Set(lefts).size === 1, 'one tile per row: ' + widths + ' / ' + lefts);
     assert.deepEqual(p.__errors, []);
     await p.context().close();
   });

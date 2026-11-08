@@ -13,6 +13,10 @@ screen.
 
 ## 08/11/2026
 
+- **The MIS on a phone.** [MIS Reports](mis-reports.html) and the
+  [MIS Dashboard](mis-dashboard.html) now open at the phone's width: the
+  report's lines as cards, the tiles one under another. Before, they opened
+  at a computer's width.
 - **Help for the MIS.** A new Help area, Management reports (MIS):
   [MIS Dashboard](mis-dashboard.html), [MIS Reports](mis-reports.html) (the
   comparisons, My reports, the MIS setup) and
