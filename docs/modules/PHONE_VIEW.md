@@ -130,3 +130,9 @@ approved on a phone, not entered. Q335-Q337 decided (owner, 2026-10-30), below.
 - **Deploy:** set `ux2-phone` (5 functions: the closure of homeTasks.js,
   with `getApprovalSummary` new), then the "hosting" task (the shell, its
   styles and the Help). No screen, rule or moduleRegistry change.
+
+## Change: the MIS on a phone (2026-11-08)
+
+MIS (MIS Reports) and MISDASHBOARD are phone screens too (the owner's MIS
+request, "mobile view also"; [MIS.md](MIS.md#fix-the-mis-on-a-phone-2026-11-08)):
+the report's lines are cards with their column names, the tiles one column.
