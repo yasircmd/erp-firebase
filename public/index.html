@@ -565,6 +565,9 @@
     html.phone-view #app-container > div:first-child { flex-wrap: wrap; gap: 0.5rem; }
     html.phone-view #app-container > div:first-child > div { flex-wrap: wrap; }
     html.phone-view #app-title { font-size: 1.05rem; }
+    /* A box tapped on a phone: at least 16px, or the browser zooms in on it (iOS Safari and
+       some Android browsers do below 16px). Pinch to zoom still works (owner, 2026-11-08). */
+    html.phone-view input:not([type="checkbox"]):not([type="radio"]), html.phone-view select, html.phone-view textarea { font-size: 16px !important; }
     html.phone-view #tree-controls { flex-wrap: wrap; width: 100%; }
     html.phone-view #tree-controls .relative, html.phone-view #module-search { width: 100%; }
     html.phone-view #user-info-role { display: none; }

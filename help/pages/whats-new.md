@@ -13,6 +13,10 @@ screen.
 
 ## 08/11/2026
 
+- **No zoom when you tap a box on a phone.** Tapping **Search modules** (or
+  any box on a screen laid out for a phone) no longer zooms the page in:
+  the boxes use a slightly larger text on a phone. Pinch to zoom still
+  works. See [Getting started](getting-started.html#on-a-phone).
 - **The MIS on a phone.** [MIS Reports](mis-reports.html) and the
   [MIS Dashboard](mis-dashboard.html) now open at the phone's width: the
   report's lines as cards, the tiles one under another. Before, they opened
