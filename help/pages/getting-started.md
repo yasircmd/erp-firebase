@@ -82,13 +82,6 @@ Put the screens you use most at the top of the menu: user menu →
 then **Done**. Until you choose your own, you see your role's defaults, if
 your administrator has set some ([Roles & Permissions](roles.html)).
 
-## Your dashboard on Home
-
-If you use the MIS Dashboard, you can show your tiles on Home as well: tick
-**Show on Home** on the MIS Dashboard screen. **My dashboard** then sits at
-the top of Home, with its company and **Open MIS Dashboard**. It is off
-unless you choose it.
-
 ## Home tasks
 
 The **Tasks** button (top bar) shows what is waiting for you, with a count.
@@ -109,6 +102,13 @@ role:
 | Clearances Waiting for You | A leaver's clearance step for your team to sign off ([Clearances](clearances.html)). |
 
 How approvals work is explained in [Approvals](approvals.html).
+
+## Your dashboard on Home
+
+If you use the MIS Dashboard, you can show your tiles on Home as well: tick
+**Show on Home** on the MIS Dashboard screen. **My dashboard** then sits at
+the top of Home, with its company and **Open MIS Dashboard**. It is off
+unless you choose it.
 
 ## The user menu
 

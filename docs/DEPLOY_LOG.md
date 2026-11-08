@@ -1925,3 +1925,9 @@ from, and how it was verified. The deploy procedure is in the
   (15:14–15:18 UTC), success. "hosting", run
   [#334](https://github.com/yasircmd/erp-firebase/actions/runs/42494181173)
   (15:19–15:20 UTC), success (the shell's misTiles.chart, Help). No rules.
+- **2026-11-08, MIS phase 4, the report builder (`mis-builder`, 12
+  functions, PR #249, from `6fa47e3`):** "functions set" with --screens (MIS,
+  MISDASHBOARD), run [#335](https://github.com/yasircmd/erp-firebase/actions/runs/42496751057)
+  (15:49–15:53 UTC), success. "hosting", run
+  [#336](https://github.com/yasircmd/erp-firebase/actions/runs/42497221794)
+  (15:55–15:56 UTC), success (the shell's tiles for built reports, Help). No rules.
