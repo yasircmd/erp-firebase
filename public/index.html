@@ -808,6 +808,15 @@
     </div>
 
     <div id="tree-view-container">
+      <!-- The user's MIS dashboard on Home, when they choose it on the MIS Dashboard screen (docs/modules/MIS.md, Q439); off by default. -->
+      <div id="home-mis" class="hidden mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h3 class="text-sm font-semibold text-slate-300"><i class="fa-solid fa-chart-pie text-blue-400"></i> My dashboard</h3>
+          <div class="flex items-center gap-2"><label for="home-mis-company" class="sr-only">Company</label><select id="home-mis-company" class="bg-slate-800 border border-slate-700 rounded text-xs py-1 px-2"></select>
+            <button id="home-mis-open" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1 rounded border border-slate-700">Open MIS Dashboard</button></div>
+        </div>
+        <div id="home-mis-grid" class="grid grid-cols-1 md:grid-cols-4 gap-3"></div>
+      </div>
       <div id="home-tasks-section" class="hidden mb-6 space-y-4">
         <div id="home-pending-approvals-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
           <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
@@ -1419,6 +1428,7 @@
       loadItemUserCodes();
       loadFavorites();
       loadHomeTasks();
+      if (window.misTiles) misTiles.home(); // the MIS dashboard, when chosen (MIS.md, Q439)
       resetIdleTimer();
     }
 
@@ -2292,6 +2302,7 @@
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
     window.isoLocalDateTime = isoLocalDateTime;
+    window.formatDatesInText = formatDatesInText; // for text drawn where the page's formatting can't reach it (chart labels)
     function formatDatesIn(root) {
       const skip = el => el && el.closest && el.closest('script, style, textarea, .keep-iso');
       const fix = node => {
@@ -3201,6 +3212,146 @@
       return { fill, forCustomer, forget: () => { cache = {}; } };
     })();
     // ---------- END SALES REP ----------
+    // ---------- MIS TILES ----------
+    // The MIS dashboard's tiles (owner, 2026-11-08; docs/modules/MIS.md,
+    // phase 2, Q439-Q442), drawn on the MIS Dashboard screen and, when the
+    // user chooses, on Home. Each tile's figures come from runMisReport when
+    // shown (Q442); tiles asking the same report share one call.
+    //   misTiles.render(el, tiles, { companyId, month, editable, onRemove, onMove })
+    //   misTiles.loadChart() → Promise of Chart.js (shipped with the app, Q430)
+    window.misTiles = (function () {
+      let chartLib = null;
+      const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+      const fmt = n => (n == null ? '—' : (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      const val = (row, v) => (v == null ? '—' : row.unit === '%' ? Number(v).toFixed(1) + '%' : row.unit === 'x' ? Number(v).toFixed(2) : row.unit === 'days' ? Number(v).toFixed(0) + ' days' : fmt(v));
+      const tone = good => (good === true ? 'text-emerald-400' : good === false ? 'text-red-400' : 'text-slate-400');
+      const label = t => (window.formatDatesInText ? window.formatDatesInText(String(t)) : String(t));
+      function loadChart() {
+        if (window.Chart) return Promise.resolve(window.Chart);
+        return chartLib || (chartLib = new Promise((ok, fail) => {
+          const s = document.createElement('script');
+          s.src = '/vendor/chart-4.4.4.umd.js';
+          s.onload = () => (window.Chart ? ok(window.Chart) : fail(new Error('Charts could not load.')));
+          s.onerror = () => { chartLib = null; fail(new Error('Charts could not load.')); };
+          document.head.appendChild(s);
+        }));
+      }
+      const light = () => document.documentElement.getAttribute('data-theme') === 'light';
+      const ink = () => (light() ? '#334155' : '#cbd5e1');
+      const grid = () => (light() ? 'rgba(15,23,42,0.08)' : 'rgba(148,163,184,0.15)');
+      const SERIES = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+      // The rows a chart or top list shows: not the total, nor the balance check.
+      const items = r => (r.rows || []).filter(x => x.key !== 'total' && x.key !== 'check');
+      function body(t, r) {
+        if (t.kind === 'kpi') {
+          const row = (r.rows || []).find(x => x.key === t.key);
+          if (!row) return '<p class="text-xs text-slate-500">Not in this report.</p>';
+          return '<div class="text-2xl font-bold mis-value">' + val(row, row.current) + '</div>' +
+            '<div class="text-xs mt-1 ' + tone(row.good) + '">' + (row.abs == null ? '' : (row.abs > 0 ? '+' : '') + val(row, row.abs)) + (row.pct == null ? '' : ' (' + (row.pct > 0 ? '+' : '') + row.pct.toFixed(1) + '%)') + '</div>' +
+            '<div class="text-[11px] text-slate-500 mt-1">' + esc(r.modeLabel || '') + (r.period && r.period.compare ? ': ' + esc(r.period.compare) : '') + '</div>';
+        }
+        if (t.kind === 'top') {
+          const rows = items(r).slice().sort((a, b) => (Number(b.current) || 0) - (Number(a.current) || 0)).slice(0, 5);
+          return rows.length ? '<table class="w-full text-xs">' + rows.map(x => '<tr class="mis-top-row"><td class="py-1 pr-2 truncate">' + esc(x.label) + '</td><td class="py-1 text-right font-mono">' + val(x, x.current) + '</td></tr>').join('') + '</table>' : '<p class="text-xs text-slate-500">Nothing for this period.</p>';
+        }
+        if (t.kind === 'gauge') {
+          const row = (r.rows || []).find(x => x.key === t.key);
+          if (!row || row.current == null) return '<p class="text-xs text-slate-500">No figure for this period.</p>';
+          const v = Number(row.current), lo = Number(t.low), hi = Number(t.high);
+          const min = Math.min(lo - (hi - lo), v), max = Math.max(hi + (hi - lo), v);
+          const at = x => Math.max(0, Math.min(100, ((x - min) / (max - min || 1)) * 100));
+          const inBand = v >= lo && v <= hi;
+          return '<div class="text-2xl font-bold mis-value ' + (inBand ? 'text-emerald-400' : 'text-amber-400') + '">' + val(row, v) + '</div>' +
+            '<div class="relative h-2 rounded-full bg-slate-700 mt-2"><div class="absolute h-2 rounded-full bg-emerald-600/60" style="left:' + at(lo) + '%;width:' + (at(hi) - at(lo)) + '%"></div>' +
+            '<div class="absolute -top-1 h-4 w-1 rounded bg-white" style="left:calc(' + at(v) + '% - 2px)"></div></div>' +
+            '<div class="text-[11px] text-slate-500 mt-1 mis-band">Good: ' + val(row, lo) + ' to ' + val(row, hi) + (inBand ? '' : ' · outside') + '</div>';
+        }
+        return '<div class="relative h-48"><canvas></canvas></div><p class="mis-chart-note hidden text-xs text-slate-500"></p>';
+      }
+      async function drawChart(card, t, r) {
+        const canvas = card.querySelector('canvas');
+        let labels, sets;
+        if (r.type === 'trend') {
+          labels = (r.rows || []).map(x => label(x.label));
+          sets = [['Revenue', 'revenue'], ['Expenses', 'expenses'], ['Net profit', 'netProfit']].map(([n, k], i) => ({ label: n, data: r.rows.map(x => x[k]) , color: SERIES[i] }));
+        } else if (r.type === 'stockCover') {
+          const names = { fast: 'Fast', normal: 'Normal', slow: 'Slow', nonMoving: 'Non-moving' };
+          labels = (r.classes || []).map(c => names[c.key] || c.key); sets = [{ label: 'Value', data: (r.classes || []).map(c => c.value), color: SERIES[0] }];
+        } else {
+          const rows = items(r).slice(0, 12);
+          labels = rows.map(x => label(x.label));
+          sets = [{ label: 'This period', data: rows.map(x => x.current), color: SERIES[0] }];
+          if (rows.some(x => x.compare != null && x.compare !== 0)) sets.push({ label: 'Compared with', data: rows.map(x => x.compare), color: '#94a3b8' });
+        }
+        try {
+          const Chart = await loadChart();
+          if (card.__chart) card.__chart.destroy();
+          card.__chart = new Chart(canvas, {
+            type: t.chart === 'line' ? 'line' : 'bar',
+            data: { labels, datasets: sets.map(s => ({ label: s.label, data: s.data, backgroundColor: s.color, borderColor: s.color, tension: 0.25 })) },
+            options: { responsive: true, maintainAspectRatio: false, animation: false,
+              plugins: { legend: { labels: { color: ink(), boxWidth: 10 } } },
+              scales: { x: { ticks: { color: ink() }, grid: { color: grid() } }, y: { ticks: { color: ink() }, grid: { color: grid() } } } }
+          });
+          canvas.dataset.drawn = '1';
+        } catch (e) {
+          const note = card.querySelector('.mis-chart-note'); note.textContent = e.message; note.classList.remove('hidden');
+        }
+      }
+      function render(el, tiles, o) {
+        const opt = o || {};
+        (el.__charts || []).forEach(c => { try { c.destroy(); } catch (e) { /* gone */ } });
+        el.__charts = [];
+        const cache = {};
+        const report = t => {
+          const k = [t.type, opt.companyId, opt.month, t.mode].join('|');
+          return cache[k] || (cache[k] = call('runMisReport', { type: t.type, companyId: opt.companyId, month: opt.month, mode: t.mode }));
+        };
+        el.innerHTML = (tiles || []).map((t, i) => '<div class="mis-tile bg-slate-800/40 border border-slate-700 rounded-xl p-3 ' + (t.kind === 'chart' ? 'md:col-span-2' : '') + '" data-id="' + esc(t.id) + '" data-kind="' + esc(t.kind) + '">' +
+          '<div class="flex items-start justify-between gap-2 mb-2"><div class="text-xs font-semibold text-slate-300 uppercase">' + esc(t.title || t.type) + '</div>' +
+          (opt.editable ? '<div class="flex gap-1 text-slate-500"><button class="mis-up hover:text-slate-200" title="Move earlier"' + (i ? '' : ' disabled') + '><i class="fa-solid fa-arrow-left"></i></button><button class="mis-down hover:text-slate-200" title="Move later"' + (i < tiles.length - 1 ? '' : ' disabled') + '><i class="fa-solid fa-arrow-right"></i></button><button class="mis-remove hover:text-red-400" title="Remove the tile"><i class="fa-solid fa-xmark"></i></button></div>' : '') +
+          '</div><div class="mis-body text-xs text-slate-500">Working…</div></div>').join('') ||
+          '<p class="text-sm text-slate-500">No tiles yet.</p>';
+        if (opt.editable) el.querySelectorAll('.mis-tile').forEach((card, i) => {
+          card.querySelector('.mis-remove').addEventListener('click', () => opt.onRemove && opt.onRemove(i));
+          card.querySelector('.mis-up').addEventListener('click', () => opt.onMove && opt.onMove(i, -1));
+          card.querySelector('.mis-down').addEventListener('click', () => opt.onMove && opt.onMove(i, 1));
+        });
+        const done = (tiles || []).map((t, i) => {
+          const card = el.querySelectorAll('.mis-tile')[i];
+          if (!opt.companyId) { card.querySelector('.mis-body').textContent = 'Choose a company.'; return Promise.resolve(); }
+          return report(t).then(async r => {
+            card.querySelector('.mis-body').classList.remove('text-slate-500');
+            card.querySelector('.mis-body').innerHTML = body(t, r);
+            if (t.kind === 'chart') { await drawChart(card, t, r); if (card.__chart) el.__charts.push(card.__chart); }
+            card.dataset.ready = '1';
+          }, e => { card.querySelector('.mis-body').textContent = e.message || 'Unable to load.'; card.dataset.ready = 'error'; });
+        });
+        return Promise.all(done);
+      }
+      // Home (Q439): shown only when the user chose it; one small call otherwise.
+      async function home() {
+        const box = document.getElementById('home-mis');
+        if (!box) return;
+        let choice;
+        try { choice = await call('getMisHomeChoice', {}); } catch (e) { box.classList.add('hidden'); return; }
+        if (!choice || !choice.showOnHome) { box.classList.add('hidden'); return; }
+        const [d, cos] = await Promise.all([call('getMisDashboard', {}), call('getActiveCompanies', {}).catch(() => [])]);
+        const sel = document.getElementById('home-mis-company');
+        const was = sel.value;
+        sel.innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+        if (was && [...sel.options].some(o => o.value === was)) sel.value = was;
+        const month = (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
+        const draw = () => render(document.getElementById('home-mis-grid'), d.tiles, { companyId: sel.value, month });
+        sel.onchange = draw;
+        document.getElementById('home-mis-open').onclick = () => openModule('MISDASHBOARD');
+        box.classList.remove('hidden');
+        return draw();
+      }
+      return { render, loadChart, home };
+    })();
+    // ---------- END MIS TILES ----------
     // ---------- DOCUMENT LINKS ----------
     // Next steps and linked documents (owner, 2026-10-24; docs/modules/
     // LINKED_FLOWS.md, decisions Q287-Q289), on every screen of the sales
@@ -3528,6 +3679,7 @@
       // inside a module needs to actually disappear from this list
       // once they come back, not linger with a stale count.
       loadHomeTasks();
+      if (window.misTiles) misTiles.home();
       // And the company name in the title: a company assigned to this
       // user in a module (User Management) shows without a reload
       // (onboarding dry run, 2026-10-23).

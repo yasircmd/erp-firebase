@@ -412,3 +412,4 @@ const support = require('./src/support');
 ['getTechRefPart', 'searchTechRef'].forEach(n => { exports[n] = require('./src/techRef')[n]; });
 // MIS (docs/modules/MIS.md): the engine (phase 1).
 ['getMisCatalogue', 'runMisReport', 'getMisSetup', 'saveMisSetup'].forEach(n => { exports[n] = require('./src/mis')[n]; });
+['getMisDashboard', 'getMisHomeChoice', 'saveMisDashboard', 'resetMisDashboard', 'saveMisRoleDashboard'].forEach(n => { exports[n] = require('./src/misDashboard')[n]; }); // MIS.md, phase 2
