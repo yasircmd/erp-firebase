@@ -1882,3 +1882,10 @@ from, and how it was verified. The deploy procedure is in the
   functions, PR #236, from `3589789`):** "functions set", run
   [#324](https://github.com/yasircmd/erp-firebase/actions/runs/42408073145)
   (19:49–19:54 UTC), success. No screens, no rules, no Hosting.
+- **2026-11-07, The posting lock, step 2: the last check at commit
+  (`lock-step2`, every function, PR #238, from `129aa57`):** every function,
+  run [#325](https://github.com/yasircmd/erp-firebase/actions/runs/42417596556)
+  (2026-11-07 21:48 – 2026-11-08 00:02 UTC), success. "hosting", run
+  [#326](https://github.com/yasircmd/erp-firebase/actions/runs/42448428844)
+  (2026-11-08 04:50–04:51 UTC), success (Help). No screens, no rules. The
+  lock plan's code is complete; step 4 (measure) remains.
