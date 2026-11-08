@@ -1745,6 +1745,8 @@
           field('New password <span class="text-slate-400 font-normal">(8+ characters, not your code)</span>', '<input id="me-new" type="password" autocomplete="new-password" class="' + inputCls + '">') +
           '<button class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5">Change password</button></form>') : '') +
         card('<button id="me-theme" class="w-full flex items-center justify-between text-sm font-medium"><span><i class="fa-solid ' + (dark ? 'fa-sun' : 'fa-moon') + ' w-5"></i> ' + (dark ? 'Light mode' : 'Dark mode') + '</span><i class="fa-solid fa-chevron-right text-slate-400"></i></button>') +
+        // Task emails (docs/modules/TASK_EMAILS.md, Q452-Q453): my requests' updates by email, on or off.
+        card('<label class="flex items-center justify-between gap-3 text-sm font-medium"><span><i class="fa-solid fa-envelope w-5"></i> Email me my requests\' updates<span id="me-mail-to" class="block text-xs font-normal text-slate-500 dark:text-slate-400"></span></span><input id="me-mail" type="checkbox" disabled class="w-5 h-5"></label>') +
         (me.Via === 'erp' ? '<a href="/" class="block text-center rounded-xl bg-slate-200 dark:bg-slate-800 py-3 font-semibold"><i class="fa-solid fa-arrow-left"></i> Back to the ERP</a>'
           : '<button id="me-signout" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 py-3 font-semibold text-rose-600 dark:text-rose-400"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</button>') +
         '</div>');
@@ -1753,6 +1755,14 @@
         document.documentElement.classList.toggle('dark', on);
         try { localStorage.setItem('ess-theme', on ? 'dark' : 'light'); } catch (e) { /* private mode */ }
         pageMe();
+      });
+      api('emailSetting').then(r => {
+        $('me-mail').checked = r.on; $('me-mail').disabled = !r.email;
+        $('me-mail-to').textContent = r.email ? 'To ' + r.email : 'No email on your employee record: ask HR.';
+      }, () => {});
+      $('me-mail').addEventListener('change', e => {
+        const on = e.target.checked;
+        api('saveEmailSetting', { on }).then(() => toast(on ? 'Request updates will be emailed.' : 'No more request emails.'), err => { e.target.checked = !on; fail(err); });
       });
       if ($('me-signout')) $('me-signout').addEventListener('click', () => signOutTo(''));
       if ($('me-pw')) $('me-pw').addEventListener('submit', e => {

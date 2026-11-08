@@ -32,13 +32,19 @@ test('every callable goes through callable.js; the one HTTP function sets its co
     const s = read(p);
     const name = p === INDEX ? 'index.js' : rel(p);
     if (name !== 'callable.js' && /\bonCall\s*\(/.test(s)) bad.push(name + ': onCall');
-    if (/require\('firebase-functions\/v2\/(?!https')/.test(s) || /require\('firebase-functions'\)/.test(s)) bad.push(name + ': a trigger that is not a callable');
+    // taskMail.js: the one scheduled function (TASK_EMAILS.md), which runs each corporate in turn (below).
+    const other = s.replace(name === 'taskMail.js' ? /require\('firebase-functions\/v2\/scheduler'\)/ : /^\b$/, '');
+    if (/require\('firebase-functions\/v2\/(?!https')/.test(other) || /require\('firebase-functions'\)/.test(other)) bad.push(name + ': a trigger that is not a callable');
     if (/\bonRequest\s*\(/.test(s) && name !== 'attachments.js') bad.push(name + ': onRequest');
   });
   assert.deepEqual(bad, []);
   const a = read(path.join(SRC, 'attachments.js'));
   const handler = a.slice(a.indexOf('exports.driveOAuthCallback = onRequest'));
   assert.match(handler.slice(0, handler.indexOf('\n});')), /runInCorporate\(corporate, /, 'driveOAuthCallback runs in its corporate');
+  const t = read(path.join(SRC, 'taskMail.js'));
+  const sweep = t.slice(t.indexOf('async function sweepAll('), t.indexOf('\n}\n', t.indexOf('async function sweepAll(')));
+  assert.match(sweep, /for \(const c of await require\('\.\/corporates'\)\.activeCorporates\(\)\) \{[\s\S]*runInCorporate\(c, /, 'the task-email sweep runs each corporate in its own');
+  assert.match(t, /onSchedule\(\{[^}]*\}, async \(\) => \{\n[^\n]*\n\s+const out = await sweepAll\(/, 'the scheduled function reaches data only through sweepAll');
 });
 
 test('only tests and tools work outside a request', () => {

@@ -406,6 +406,10 @@ async function nextNumber(from) {
 // actor is { uid, profile: { username, fullName } }; opts.createdBy is who
 // asked (for the approvers' self-approval flag), opts.before history
 // entries to add first, opts.acceptWithoutDocument the actor's answer.
+// The employee is emailed their leave's decision (docs/modules/TASK_EMAILS.md, Q452; never stops it).
+const tellLeave = (l, number, what) => require('./taskMail').portalUpdate(l.EmployeeID, 'Your leave ' + (number || '') + ': ' + what.split(':')[0],
+  'Your ' + (l.LeaveTypeName || 'leave') + ' ' + (number || '') + ' from ' + (l.FromDate || '') + ' to ' + (l.EffectiveTo || l.ToDate || '') + ' was ' + what + '.', 'leave/history');
+exports.tellLeave = tellLeave;
 async function submitCore(l, emp, actor, opts) {
   const o = opts || {};
   const v = await evaluate(l, emp, l.LeaveID);
@@ -426,6 +430,7 @@ async function submitCore(l, emp, actor, opts) {
   base.Lines = withPayMonths(v.Lines, [], await lockedMonths(l.CompanyID));
   await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'Approved', ApprovedAt: now, AcceptedWithoutDocument: missing ? acceptedBy(actor) : null,
     History: hist.concat([histEntry('Submitted (no approval needed)', actor)], missing ? [histEntry('Accepted without the supporting document', actor)] : []) }));
+  await tellLeave(l, number, 'approved');
   return { success: true, status: 'Approved', leaveNumber: number };
 }
 // Whether a leave would go to Approval Configuration (the portal asks
@@ -464,6 +469,7 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
       v.Lines = withPayMonths(v.Lines, [], await lockedMonths(l.CompanyID));
       await LEAVES().doc(l.LeaveID).update(Object.assign(v, { Status: 'Approved', ApprovedAt: now, UpdatedAt: now, AcceptedWithoutDocument: missing ? acceptedBy(user) : null,
         History: (l.History || []).concat(missing ? [histEntry('Approved, accepted without the supporting document', user)] : [histEntry('Approved', user)]) }));
+      await tellLeave(l, l.LeaveNumber, 'approved');
     } catch (err) {
       // As other modules: undo the decision and hand it back for correcting.
       const inst = await approvalInstances.get(l.ApprovalInstanceID);
@@ -472,6 +478,7 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
     }
   } else if (result.status === 'Rejected') {
     await LEAVES().doc(l.LeaveID).update({ Status: 'Rejected', RejectionReason: text(d.reason, 500), UpdatedAt: now, History: (l.History || []).concat([histEntry('Rejected', user, text(d.reason, 500))]) });
+    await tellLeave(l, l.LeaveNumber, 'rejected: ' + text(d.reason, 500));
   } else {
     await LEAVES().doc(l.LeaveID).update({ UpdatedAt: now, History: (l.History || []).concat([histEntry('Approved level ' + d.levelNumber + (missing ? ', accepted without the supporting document' : ''), user)]) });
   }

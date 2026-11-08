@@ -5,8 +5,8 @@ order: 13
 modules: [EMPREQUESTS]
 sources: [functions/src/employeeRequests.js, functions/src/requestTypes.js, functions/src/essPortal.js, functions/src/reimbursements.js, functions/src/payrollLoans.js]
 summary: Manage employee queries, claims and requests from the portal or the ERP’s request workflows.
-reviewed: 2026-11-06
-fingerprint: 34e81b6f1d3779ba
+reviewed: 2026-11-08
+fingerprint: 54954bbc2fa370f5
 ---
 ## What it is for
 
@@ -31,6 +31,11 @@ Requests may include a question or case, reimbursement claim, loan/advance reque
 6. For a loan/advance request, check the configured loan type and limits, then follow the approval and payout workflow in [Loans and Advances](payroll-loan.html).
 7. For leave, use the Leave Register and approval workflow for the authoritative dates, balance, and return handling.
 8. Reopen or follow up requests that need more information; close only after the business action is complete and the employee has a clear resolution.
+
+The employee is emailed when the request changes for them: a reply from HR
+(not an internal note), resolved, rejected, or decided by the line manager.
+They can switch these emails off on the portal's **Me** page
+([Task emails](getting-started.html#task-emails)).
 
 ## Request types
 

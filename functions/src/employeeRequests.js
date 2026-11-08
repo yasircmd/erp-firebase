@@ -51,6 +51,9 @@ const isMonth = v => /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
 const nextMonth = m => { const [y, mo] = m.split('-').map(Number); return mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0'); };
 const docs = snap => snap.docs.map(d => Object.assign({ RequestID: d.id }, d.data()));
 const money = n => Number(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+// The employee is emailed what changed (docs/modules/TASK_EMAILS.md, Q452; never stops the change).
+const tellEmployee = (r, what) => require('./taskMail').portalUpdate(r.EmployeeID, 'Your request ' + r.Number + ': ' + what,
+  'Your request ' + r.Number + ' (' + (r.Type === 'Query' ? r.Category : r.Type === 'Claim' ? 'Reimbursement' : r.TypeName || r.Type) + '): ' + what + '.', 'requests/view/' + r.RequestID);
 const nameOf = user => user.profile.fullName || user.profile.username || user.uid;
 const entry = (event, by, note) => ({ Event: event, By: by, At: new Date().toISOString(), Note: note || '' });
 
@@ -391,11 +394,13 @@ async function decideLoanRequest(me, d) {
     if (!reason) bad('Give the reason for rejecting.');
     await REQUESTS().doc(r.RequestID).update({ Status: 'Rejected', RejectionReason: reason, RejectedAt: now, UpdatedAt: now, ManagerDecision: 'Rejected', ManagerDecidedAt: now,
       History: (r.History || []).concat([entry('Rejected by the line manager', me.emp.FullName, reason)]) });
+    await tellEmployee(r, 'rejected by your line manager: ' + reason);
     return { success: true, status: 'Rejected' };
   }
   if (d.decision !== 'Approved') bad('Approve or reject.');
   await REQUESTS().doc(r.RequestID).update({ Status: 'WithHR', UpdatedAt: now, LastAt: now, LastFrom: 'Employee', ManagerDecision: 'Approved', ManagerDecidedAt: now,
     History: (r.History || []).concat([entry('Approved by the line manager', me.emp.FullName)]) });
+  await tellEmployee(r, 'approved by your line manager, now with HR');
   return { success: true, status: 'WithHR' };
 }
 
@@ -444,12 +449,14 @@ async function decideTeamRequest(me, d) {
     if (!reason) bad('Give the reason for rejecting.');
     await REQUESTS().doc(r.RequestID).update({ Status: 'Rejected', RejectionReason: reason, RejectedAt: now, UpdatedAt: now, ManagerDecision: 'Rejected', ManagerDecidedAt: now,
       History: (r.History || []).concat([entry('Rejected by the line manager', me.emp.FullName, reason)]) });
+    await tellEmployee(r, 'rejected by your line manager: ' + reason);
     return { success: true, status: 'Rejected' };
   }
   if (d.decision !== 'Approved') bad('Approve or reject.');
   const type = await RT().typeOf(r.TypeID);
   await REQUESTS().doc(r.RequestID).update({ Status: 'New', UpdatedAt: now, LastAt: now, LastFrom: 'Employee', ManagerDecision: 'Approved', ManagerDecidedAt: now,
     DueDate: type ? RT().dueFrom(type, today()) : '', History: (r.History || []).concat([entry('Approved by the line manager', me.emp.FullName), entry('Sent to HR', 'System')]) });
+  await tellEmployee(r, 'approved by your line manager, now with HR');
   return { success: true, status: 'New' };
 }
 
@@ -520,6 +527,7 @@ const ERP = {
     const internal = d.internal === true, now = new Date().toISOString();
     await REQUESTS().doc(r.RequestID).update(Object.assign({ Messages: (r.Messages || []).concat([{ From: 'HR', By: nameOf(user), ByUid: user.uid, At: now, Text: msg, Internal: internal }]), UpdatedAt: now },
       internal ? {} : { LastFrom: 'HR', LastAt: now }, inProgress(r)));
+    if (!internal) await tellEmployee(r, 'HR replied');
     return { success: true };
   },
   // Decision 101: anyone with "handle" can reassign.
@@ -545,6 +553,7 @@ const ERP = {
     const now = new Date().toISOString();
     await REQUESTS().doc(r.RequestID).update({ Status: 'Resolved', Outcome: outcome, ResolvedAt: now, RejectedAt: '', UpdatedAt: now, LastFrom: 'HR', LastAt: now,
       Messages: (r.Messages || []).concat([{ From: 'HR', By: nameOf(user), ByUid: user.uid, At: now, Text: outcome, Internal: false }]), History: (r.History || []).concat([entry('Resolved', nameOf(user))]) });
+    await tellEmployee(r, 'resolved by HR');
     return { success: true };
   },
   async reject(user, d) {
@@ -560,6 +569,7 @@ const ERP = {
     const now = new Date().toISOString();
     await REQUESTS().doc(r.RequestID).update({ Status: 'Rejected', RejectionReason: reason, RejectedAt: now, ResolvedAt: '', LoanID: '', UpdatedAt: now, LastFrom: 'HR', LastAt: now,
       Messages: (r.Messages || []).concat([{ From: 'HR', By: nameOf(user), ByUid: user.uid, At: now, Text: reason, Internal: false }]), History: (r.History || []).concat([entry('Rejected', nameOf(user), reason)]) });
+    await tellEmployee(r, 'rejected by HR: ' + reason);
     return { success: true };
   },
   // A claim's approver (Approval Configuration "Reimbursement", decision 94).

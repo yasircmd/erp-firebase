@@ -36,6 +36,11 @@ ok "last batch holds the remainder" "$(tail -1 "$STUB_LOG.fb")" "deploy --projec
 ok "every function bound once" "$(sort "$STUB_LOG.iam" | uniq | wc -l)/$(wc -l < "$STUB_LOG.iam")" "34/34"
 ok "clean run" "$(echo "$out" | tail -1)" "fail=0"
 
+# A scheduled function gets no public access (TASK_EMAILS.md).
+reset; out=$(env -u TMUX -u STY FIREBASE="$T/firebase" GCLOUD="$T/gcloud" bash -c 'P=proj; source tools/deploy-lib.sh; fail=0; grant_invokers fnA sweepTaskMail fnB; echo "fail=$fail"')
+ok "no public access for sweepTaskMail" "$(sort "$STUB_LOG.iam" | tr '\n' ' ')" "fnA fnB "
+ok "the others still bound" "$(echo "$out" | tail -1)" "fail=0"
+
 reset; run TMUX=/tmp/x >/dev/null
 ok "inside tmux: batches of 20" "$(wc -l < "$STUB_LOG.fb")" 2
 reset; run STY=x BATCH=34 >/dev/null

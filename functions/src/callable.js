@@ -9,12 +9,17 @@ const perf = require('./perf');
 // callable goes through this (unit/corporateContext checks).
 // Each call is timed (perf.js, docs/modules/PERFORMANCE.md P1), from before
 // its corporate is found to its answer.
+// .inCorporate(request): the same handler for a caller already inside a
+// corporate (the task-email summary asks Home's task readers for a user,
+// docs/modules/TASK_EMAILS.md); the corporate is the caller's, never the request's.
 function onCallInCorporate(options, handler) {
-  return onCall(options, (request) => perf.timed(async () => {
+  const fn = onCall(options, (request) => perf.timed(async () => {
     const corporate = await resolveCorporate(request);
     perf.setCorporate(corporate && corporate.id);
     return runInCorporate(corporate, () => handler(request));
   }));
+  fn.inCorporate = handler;
+  return fn;
 }
 
 // onCallInCorporate, plus one guarantee the original GAS functions had: the

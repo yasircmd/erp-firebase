@@ -34,9 +34,12 @@ deploy_batches() {
 # function in the set is (re)bound: a function created by an earlier,
 # interrupted run still gets its binding. Sets fail=1 on error, naming the
 # function and gcloud's last line.
+# Functions that are not callables get no public access: the scheduled task
+# emails (docs/modules/TASK_EMAILS.md) would otherwise be startable by anyone.
+NO_PUBLIC_INVOKER="sweepTaskMail"
 grant_invokers() {
   local out
-  out=$(printf '%s\n' "$@" | xargs -P "${IAM_PARALLEL:-4}" -I{} sh -c '
+  out=$(printf '%s\n' "$@" | grep -vxF -f <(printf '%s\n' $NO_PUBLIC_INVOKER) | xargs -P "${IAM_PARALLEL:-4}" -I{} sh -c '
     for a in 1 2 3 4; do
       err=$("$1" functions add-invoker-policy-binding "$2" --region=us-central1 --member=allUsers --gen2 --project="$3" 2>&1 >/dev/null) && exit 0
       [ $a = 4 ] || sleep $((a * $4))

@@ -803,6 +803,7 @@
             <button id="theme-toggle-btn" onclick="toggleTheme()" class="no-print w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i id="theme-toggle-icon" class="fa-solid fa-sun"></i> <span id="theme-toggle-label">Light mode</span></button>
             <button id="fav-config-btn" onclick="setFavoriteConfigMode(true)" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-star text-amber-400"></i> Configure Favourites</button>
             <button id="refresh-btn" onclick="refreshTree()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            <button id="email-settings-btn" onclick="openEmailSettings()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-envelope"></i> Email settings</button>
             <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-key"></i> Change Password</button>
             <button onclick="handleLogout()" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
           </div>
@@ -924,6 +925,32 @@
       <h3 class="text-lg font-bold text-slate-100">Still there?</h3>
       <p class="text-sm text-slate-400">You've been inactive for a while. For security, you'll be signed out in <span id="idle-countdown" class="text-amber-400 font-semibold">30</span> seconds.</p>
       <button id="idle-stay-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm">Stay Signed In</button>
+    </div>
+  </div>
+
+  <!-- Task emails (docs/modules/TASK_EMAILS.md, Q451-Q456): when this user is emailed their tasks. -->
+  <div id="email-settings-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-[60]">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <h3 class="text-lg font-bold text-slate-100"><i class="fa-solid fa-envelope text-blue-400"></i> Email settings</h3>
+        <button onclick="closeEmailSettings()" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-xs text-slate-400">Your tasks are emailed to <span id="es-email" class="text-slate-200 font-medium"></span>.</p>
+      <div class="space-y-2 text-sm text-slate-200" id="es-timing">
+        <label class="flex items-start gap-2"><input type="radio" name="es-timing" value="instant" class="mt-1"> <span>Each task as it reaches me <span class="block text-xs text-slate-400">Approvals and my rejected items within minutes, plus the summary.</span></span></label>
+        <label class="flex items-start gap-2"><input type="radio" name="es-timing" value="approvals-instant" class="mt-1"> <span>Approvals at once, the rest in a summary <span class="block text-xs text-slate-400">The default.</span></span></label>
+        <label class="flex items-start gap-2"><input type="radio" name="es-timing" value="daily" class="mt-1"> <span>A summary only</span></label>
+        <label class="flex items-start gap-2"><input type="radio" name="es-timing" value="off" class="mt-1"> <span>No emails</span></label>
+      </div>
+      <div id="es-summary" class="space-y-2">
+        <label class="block text-xs font-medium text-slate-300">The summary of my open tasks, at <select id="es-time" class="ml-1 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-slate-100"></select> <span id="es-zone" class="text-slate-400"></span></label>
+        <div class="flex flex-wrap gap-2 text-xs text-slate-200" id="es-days"></div>
+        <p class="text-xs text-slate-500">No days chosen: no summary. None is sent when nothing is open.</p>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeEmailSettings()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-100">Cancel</button>
+        <button type="button" id="es-save" onclick="saveEmailSettings()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Save</button>
+      </div>
     </div>
   </div>
 
@@ -3602,6 +3629,42 @@
     }
 
     // ---------- CHANGE PASSWORD ----------
+    // ===== EMAIL SETTINGS (docs/modules/TASK_EMAILS.md) =====
+    function openEmailSettings() {
+      closeUserMenu();
+      rpc.withSuccessHandler(s => {
+        document.getElementById('es-email').textContent = s.email || '(no email on your account: ask your administrator)';
+        document.getElementById('es-zone').textContent = '(' + s.timeZone + ' time)';
+        document.querySelectorAll('input[name="es-timing"]').forEach(r => { r.checked = r.value === s.Timing; });
+        const time = document.getElementById('es-time');
+        time.innerHTML = '';
+        for (let m = 0; m < 24 * 60; m += 30) {
+          const v = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+          time.add(new Option(v, v, false, v === s.SummaryTime));
+        }
+        document.getElementById('es-days').innerHTML = s.days.map(d => '<label class="flex items-center gap-1"><input type="checkbox" value="' + d + '"' + (s.SummaryDays.includes(d) ? ' checked' : '') + '> ' + d + '</label>').join('');
+        emailSettingsSummaryShown();
+        document.getElementById('email-settings-modal').classList.remove('hidden');
+      }).withFailureHandler(err => appAlert('Email settings: ' + (err.message || err))).getMyEmailSettings();
+    }
+    function emailSettingsSummaryShown() {
+      const t = (document.querySelector('input[name="es-timing"]:checked') || {}).value;
+      document.getElementById('es-summary').classList.toggle('hidden', t === 'off');
+    }
+    document.addEventListener('change', e => { if (e.target && e.target.name === 'es-timing') emailSettingsSummaryShown(); });
+    function closeEmailSettings() { document.getElementById('email-settings-modal').classList.add('hidden'); }
+    function saveEmailSettings() {
+      const btn = document.getElementById('es-save');
+      const data = {
+        Timing: (document.querySelector('input[name="es-timing"]:checked') || {}).value,
+        SummaryTime: document.getElementById('es-time').value,
+        SummaryDays: [...document.querySelectorAll('#es-days input:checked')].map(c => c.value)
+      };
+      btn.disabled = true;
+      rpc.withSuccessHandler(() => { btn.disabled = false; closeEmailSettings(); appAlert('Email settings saved.'); })
+        .withFailureHandler(err => { btn.disabled = false; appAlert(err.message || String(err)); }).saveMyEmailSettings(data);
+    }
+
     function openChangePasswordModal() {
       closeUserMenu();
       document.getElementById('change-password-form').reset();

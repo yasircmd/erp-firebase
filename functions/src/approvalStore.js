@@ -22,7 +22,11 @@ const approvalInstances = makeStore({
   derived: {
     // Every approver a level names (as delegated, if it was).
     ApproverUserID: { field: 'ApproverUserIDs', op: 'array-contains', value: d => [...new Set(listOf(d.RequiredLevels).map(l => l.ApproverUserID).filter(Boolean).map(String))].sort() }
-  }
+  },
+  // Task emails (docs/modules/TASK_EMAILS.md): every module's approvals, the
+  // ported ones too, are written here, so here is where an approver given a
+  // task, or a submitter's rejection, is told.
+  afterWrite: (id, before, after) => require('./taskMail').approvalChanged(id, before, after)
 });
 
 module.exports = { approvalInstances };
