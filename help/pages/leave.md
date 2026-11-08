@@ -5,8 +5,8 @@ order: 4
 modules: [LEAVE]
 sources: [functions/src/hrLeave.js, functions/src/hrLeaveSetup.js, functions/src/hrLeaveClose.js, functions/src/workCalendar.js]
 summary: Register and approve leave so balances, attendance and payroll deductions remain accurate.
-reviewed: 2026-10-18
-fingerprint: fdf2fbecf07b4dd4
+reviewed: 2026-11-08
+fingerprint: d985cfeaec63eee5
 ---
 ## What it is for
 
@@ -26,7 +26,7 @@ fingerprint: fdf2fbecf07b4dd4
 1. Open Leave, or start from the employee's leave card. Select the employee and leave type.
 2. Enter the first and last dates, and mark a half day at either end if the type allows it. Enter the reason and attach any supporting file.
 3. Review the live preview before saving. It shows counted days, pay treatment by day band, balance before/after, and any portion beyond an available balance that will be unpaid.
-4. Save the document. Submit it for approval; if no approval is configured, submission approves it immediately. A portal leave request first goes to the line manager and then follows the configured approval flow.
+4. Save the document. Submit it for approval; if no approval is configured, submission approves it immediately. A portal leave request first goes to the line manager and then follows the configured approval flow. The employee is emailed when their leave is approved or rejected, unless they switched these emails off on the portal's **Me** page ([Task emails](getting-started.html#task-emails)).
 5. The approver checks the dates, balance, pay breakdown, reason, and any document flag, then approves or rejects with a reason.
 
 ### Record the return or adjustment

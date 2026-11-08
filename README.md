@@ -279,6 +279,10 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
 - **Every new callable needs a public-invoker binding**, since a 2nd-gen
   function doesn't get one automatically:
   `gcloud functions add-invoker-policy-binding FN --region=us-central1 --member=allUsers --gen2 --project=erp1-8f4cd`
+  **Except a function that is not a callable** (the scheduled task emails,
+  `sweepTaskMail`, docs/modules/TASK_EMAILS.md): it must never be public.
+  `tools/deploy-lib.sh` skips the names in `NO_PUBLIC_INVOKER`; add any new
+  scheduled function there.
 - **New modules:** list the functions in `tools/deploy-sets/<set>.txt` and
   run `tools/deploy-functions.sh <set>` (clean-copy check, batches,
   retries, the binding for each, 8 bindings at a time). Add `--screens`

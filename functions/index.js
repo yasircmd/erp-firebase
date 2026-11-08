@@ -415,3 +415,6 @@ const support = require('./src/support');
 ['getMisDashboard', 'getMisHomeChoice', 'saveMisDashboard', 'resetMisDashboard', 'saveMisRoleDashboard'].forEach(n => { exports[n] = require('./src/misDashboard')[n]; }); // MIS.md, phase 2
 ['getMyMisReports', 'saveMisReport', 'shareMisReport', 'deleteMisReport'].forEach(n => { exports[n] = require('./src/misReports')[n]; }); // MIS.md, phase 3
 ['getMisDatasets', 'runMisBuilder', 'runSavedMisBuilder'].forEach(n => { exports[n] = require('./src/misBuilder')[n]; }); // MIS.md, phase 4
+// Task emails (docs/modules/TASK_EMAILS.md): the user's Email settings, and the
+// scheduled sender (not a callable: tools/deploy-lib.sh gives it no public access).
+['getMyEmailSettings', 'saveMyEmailSettings', 'sweepTaskMail'].forEach(n => { exports[n] = require('./src/taskMail')[n]; });

@@ -261,7 +261,7 @@ let ALI, SARA, TYPE, AUG;
   });
 
   await check('an ERP user linked to an employee: straight in, no second sign-in; Back to the ERP instead of a password; on a desktop the side menu; dark mode', async () => {
-    await call('u-admin', 'saveEmployee', { employee: Object.assign((await call('u-admin', 'getEmployee', { employeeId: SARA })).employee, { UserUID: 'u-approver' }) });
+    await call('u-admin', 'saveEmployee', { employee: Object.assign((await call('u-admin', 'getEmployee', { employeeId: SARA })).employee, { UserUID: 'u-approver', WorkEmail: 'sara@example.com' }) });
     const p = await portal({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false, deviceScaleFactor: 1 }, '?uid=u-approver');
     await visible(p, '#home-leave-left');
     assert.equal(await p.textContent('#page-title'), 'Hello, Sara');
@@ -270,6 +270,12 @@ let ALI, SARA, TYPE, AUG;
     await p.click('#side-nav a[data-nav="me"]');
     await visible(p, '#me-theme');
     assert.ok(await p.isVisible('a[href="/"]') && !(await p.$('#me-pw')) && !(await p.$('#me-signout')));
+    // Task emails (TASK_EMAILS.md, Q452): my requests' updates by email, on by default; switched off and kept.
+    await until(p, () => /sara@example\.com/.test(document.getElementById('me-mail-to').textContent));
+    assert.equal(await p.isChecked('#me-mail'), true);
+    await p.click('#me-mail');
+    await until(p, () => /No more request emails/.test(document.body.textContent));
+    assert.deepEqual(await call('u-approver', 'essPortal', { action: 'emailSetting' }), { on: false, email: 'sara@example.com' });
     const dark = await p.evaluate(() => document.documentElement.classList.contains('dark'));
     await p.click('#me-theme');
     assert.equal(await p.evaluate(() => document.documentElement.classList.contains('dark')), !dark);

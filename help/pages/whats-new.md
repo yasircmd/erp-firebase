@@ -13,6 +13,13 @@ screen.
 
 ## 08/11/2026
 
+- **Your tasks by email.** The ERP can email you what waits for you:
+  approvals within a few minutes, your rejected items, and a summary of
+  your open tasks at the time and on the days you choose. Choose in
+  **Email settings** (your name, top right), or turn the emails off.
+  Employees are emailed their portal requests' and leave's updates, and can
+  switch them off on the portal's **Me** page. See
+  [Getting started](getting-started.html#task-emails).
 - **No zoom when you tap a box on a phone.** Tapping **Search modules** (or
   any box on a screen laid out for a phone) no longer zooms the page in:
   the boxes use a slightly larger text on a phone. Pinch to zoom still

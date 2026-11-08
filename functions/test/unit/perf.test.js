@@ -64,7 +64,7 @@ test('not logged in the emulators (unless asked); a log failure never fails the 
 
 test('every callable is timed, and the lock reports to it', () => {
   const src = f => fs.readFileSync(path.join(__dirname, '../../src', f), 'utf8');
-  assert.match(src('callable.js'), /return onCall\(options, \(request\) => perf\.timed\(async \(\) => \{\n\s+const corporate = await resolveCorporate\(request\);\n\s+perf\.setCorporate/);
+  assert.match(src('callable.js'), /(?:return|const fn =) onCall\(options, \(request\) => perf\.timed\(async \(\) => \{\n\s+const corporate = await resolveCorporate\(request\);\n\s+perf\.setCorporate/);
   const lock = src('lock.js');
   assert.match(lock, /if \(acquired\) \{\n\s+perf\.lockAcquired\(Date\.now\(\) - started, tries\);/);
   assert.match(lock, /perf\.lockTimedOut\(Date\.now\(\) - started, tries\);\n\s+throw new Error\(BUSY_MESSAGE\)/);

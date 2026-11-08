@@ -214,25 +214,35 @@ function makeStore(spec) {
 
   // RTDB set(): replaces the document (null or empty: deletes it). With a
   // batch or transaction, the write joins it.
+  // spec.afterWrite(id, before, after): told of every write once made (or,
+  // in a batch, joined; the task emails check again before sending:
+  // approvalStore.js, docs/modules/TASK_EMAILS.md). It never throws.
+  const told = async (id, before, after) => { if (spec.afterWrite) await spec.afterWrite(String(id), before, after); };
   async function set(id, doc, tx) {
     const r = ref(id);
     const v = normalize(doc);
     await dateGuard(r, v);
-    if (tx) { if (v === null) tx.delete(r); else tx.set(r, stored(v)); return v; }
+    const before = spec.afterWrite ? await r.get().then(x => (x.exists ? fromStore(x.data()) : null)) : null;
+    if (tx) { if (v === null) tx.delete(r); else tx.set(r, stored(v)); await told(id, before, v); return v; }
     if (v === null) await r.delete(); else await r.set(stored(v));
+    await told(id, before, v);
     return v;
   }
   // RTDB update(): merges path keys into the document, creating it if absent.
   async function update(id, fieldsToSet) {
     const r = ref(id);
-    return fs().runTransaction(async t => {
+    let before = null;
+    const out = await fs().runTransaction(async t => {
       const s = await t.get(r);
       const current = s.exists ? fromStore(s.data()) : null;
+      before = current;
       const next = applyUpdate(current, fieldsToSet);
       await dateGuard(r, next, current);
       if (next === null) t.delete(r); else t.set(r, stored(next));
       return next;
     });
+    await told(id, before, out);
+    return out;
   }
   async function remove(id) { await ref(id).delete(); }
   // RTDB transaction(): fn(current) gives the document to write, or
@@ -240,9 +250,11 @@ function makeStore(spec) {
   // { committed, snapshot } as RTDB's.
   async function transact(id, fn) {
     const r = ref(id);
-    return fs().runTransaction(async t => {
+    let before = null;
+    const out = await fs().runTransaction(async t => {
       const s = await t.get(r);
       const current = s.exists ? fromStore(s.data()) : null;
+      before = current;
       const next = fn(current === null ? null : JSON.parse(JSON.stringify(current)));
       if (next === undefined) return { committed: false, snapshot: { val: () => current, exists: () => current !== null } };
       const v = normalize(next);
@@ -250,6 +262,8 @@ function makeStore(spec) {
       if (v === null) t.delete(r); else t.set(r, stored(v));
       return { committed: true, snapshot: { val: () => v, exists: () => v !== null } };
     });
+    if (out.committed) await told(id, before, out.snapshot.val());
+    return out;
   }
 
   // Equality filters only (see the header), on `fields` and `derived`.

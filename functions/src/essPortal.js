@@ -310,6 +310,7 @@ async function decideLeave(me, d) {
     if (!reason) bad('Give the reason for rejecting.');
     await LEAVES().doc(l.LeaveID).update(Object.assign({ Status: 'Rejected', RejectionReason: reason, ManagerDecision: 'Rejected', UpdatedAt: now, UpdatedBy: lv.actorOf(me.actor),
       History: (l.History || []).concat([lv.histEntry('Rejected by the line manager', me.actor, reason)]) }, mark));
+    await lv.tellLeave(l, l.LeaveNumber, 'rejected by your line manager: ' + reason);
     return { success: true, status: 'Rejected' };
   }
   if (d.decision !== 'Approved') bad('Approve or reject.');
@@ -462,7 +463,10 @@ const ACTIONS = {
   quoteItems: { run: async (me, d) => require('./quotations').portalQuoteItems((await crmRep(me)).user, d) },
   quoteOrder: { run: async (me, d) => require('./quotations').orderForRep((await crmRep(me)).user, me, d) },
   // A leaver's clearance, read only (clearance.js; docs/modules/LEAVER_CLEARANCE.md, Q304).
-  myClearance: { run: async (me) => ({ clearance: await require('./clearance').forPortal(me.emp) }) }
+  myClearance: { run: async (me) => ({ clearance: await require('./clearance').forPortal(me.emp) }) },
+  // Emails of my requests' updates, on or off (docs/modules/TASK_EMAILS.md, Q452-Q453).
+  emailSetting: { run: async (me) => Object.assign(await require('./taskMail').employeeSetting(me.emp.EmployeeID), { email: me.emp.WorkEmail || me.emp.PersonalEmail || '' }) },
+  saveEmailSetting: { run: (me, d) => require('./taskMail').saveEmployeeSetting(me.emp.EmployeeID, d.on === true) }
 };
 
 exports.essPortal = onCallWithMessages(onCallOptions, async (request) => {

@@ -1,6 +1,6 @@
 # Task emails: users' tasks sent to their email
 
-Status: **design, decisions Q450-Q456 made 2026-11-08; awaiting the go-ahead.**
+Status: **built 2026-11-08** (decisions Q450-Q456; the owner's go-ahead the same day). See *As built* below: it differs from the proposal on four points, each said there.
 
 ## The request (owner, 2026-11-08)
 
@@ -92,8 +92,133 @@ attachments: the email says what is waiting; the ERP shows it after sign-in.
    docs, the deploy set (the touched functions, the new scheduled one, the
    secrets).
 
+## As built (2026-11-08)
+
+**Different from the proposal above**, for reasons found while building:
+
+1. **"At once" is within about 5 minutes, not immediate.** Functions run in
+   the firm's project and reach each client corporate's data through
+   runInCorporate; a Firestore trigger cannot watch the client projects.
+   So the places that create a task put an email in their corporate's
+   Firestore `mailQueue`, and **one scheduled function, `sweepTaskMail`**
+   (every 5 minutes), serves every corporate: Corporate 100, then each
+   Active one in the directory (`corporates.activeCorporates`). One mailbox
+   sends for all of them (the secret is the firm's).
+2. **One secret, `TASK_MAIL_ACCOUNT`**, holds the sending address and its app
+   password ("address app-password"), in the firm's project only, not one
+   per corporate. Sent through `smtp.gmail.com:465` with that account (the
+   SMTP relay `smtp-relay.gmail.com` needs a Workspace admin's relay set-up
+   besides; the app password needs none). The value `none` means no
+   account: every email is logged "not sent: no mail account set".
+3. **The link opens the ERP, not the document.** The ERP has no address for
+   one document yet, so an email links to https://erp1-8f4cd.web.app/ and
+   says to open the task from Tasks. A portal email links to its page
+   (`ess.html#requests/view/<id>`, `#leave/history`). A link to the
+   document itself is a later step if wanted.
+4. **No party name** in an approval email: an approval record holds the
+   document's number and amount, not its party; reading each module's
+   document for it was not worth the cost. The email gives the document,
+   the amount and the level.
+
+**Who is told what.**
+- *Approvals.* Every module's approvals, the ported ones too, are written
+  through `approvalStore.js`, which now tells `taskMail.approvalChanged`
+  of each write (`docStore.js` `afterWrite`): the approvers who have the
+  task now but did not before are queued. As Home shows it, a document's
+  every undecided level's approver has it from the start (so all are
+  emailed when it is sent); a Job Order request goes level by level (the
+  next level when one approves); a delegated level's new approver. A
+  rejection is queued once, to its submitter (CreatedBy). Before sending,
+  the sweep checks the task is still open (the level undecided, the
+  rejection still the status), so a decision undone (e.g. Leave's rollback
+  when approving fails) or made within the 5 minutes sends nothing.
+- *Employee Portal (Q452).* `employeeRequests.js`: HR's reply (not an
+  internal note), resolved, rejected; the line manager's decision on a loan
+  or a request type. `hrLeave.js` / `essPortal.js`: the leave approved
+  (finally, or with no approval needed) or rejected (by an approver or the
+  line manager). To the employee's WorkEmail, else PersonalEmail, unless
+  they switched it off: the portal's Me page, **Email me my requests'
+  updates** (`employeeEmailSettings/{EmployeeID}` { Off }). Claims decided
+  by their approvers and loans' own stages are not emailed (not asked for
+  precisely; easy to add to the same helper).
+- *Timing (Q451)*: 'instant' approvals and rejections at once;
+  'approvals-instant' (the default) approvals at once; 'daily' none at once;
+  'off' nothing. **Every choice but Off also gets the summary**, on the
+  days chosen; with no day ticked, no summary.
+- *The summary (Q455-Q456)*: when the user's time comes on one of their
+  days (Asia/Dubai; within the hour after, if a run was late), gathered by
+  Home's own readers, each with the user's own rights, through
+  `callable.js`'s new `.inCorporate` (the handler, run in the caller's
+  corporate): approvals, rejected items, follow-ups, PDCs due, recurring
+  JVs due, CRM activities due, company and employee documents expiring,
+  employee requests waiting, clearance steps, leave returns to record. At
+  most 50 lines a kind ("and n more"). None when nothing is open. Sent once
+  a day: `mailSummaries/{uid}_{date}` is created before sending, so an
+  overlapping or retried run never sends it twice (a failed send is
+  logged, not retried that day). Five users at a time (many share 07:00);
+  the run may take up to 9 minutes, and a user it did not reach is taken by
+  the next run, within the hour.
+- *The log*: `mailLog` { To, Uid / EmployeeID, Kind, Subject, Result
+  ('sent', 'failed', 'not sent: no mail account set', 'not sent: no email
+  address'), Error, At }. A failure never stops the posting, approval or
+  request that caused it (queuing never throws).
+- *Dates* in an email read dd/mm/yyyy (owner, 2026-09-29).
+- *Security*: `sweepTaskMail` is not a callable; `tools/deploy-lib.sh`
+  never grants it the public invoker (`NO_PUBLIC_INVOKER`;
+  tools/test-deploy-lib.sh checks). The settings callables touch only the
+  caller's own setting. The stores are Data Reset's "never offered" kind
+  (unit/dataResetCoverage).
+
+**Files.** `functions/src/taskMail.js` (new); `docStore.js` (afterWrite),
+`approvalStore.js`, `callable.js` (.inCorporate), `corporates.js`
+(activeCorporates), `employeeRequests.js`, `hrLeave.js`, `essPortal.js`;
+`public/index.html` (user menu, EMAIL SETTINGS), `public/ess.html` (Me);
+`functions/package.json` (nodemailer 6.9.16).
+
+**Tests.** unit/taskMail (the setting, timing, clock, summary due, the email
+text, the secret, who an approval's write tells); emulator/taskMail (the
+settings callables; a JV's approvers emailed by their timing; a decided
+task not sent; a rejection to its submitter; no account and no address
+logged; a delegation; the summary at its time and day, once a day, none
+when nothing is open; a portal rejection to the work email and the
+portal's off); ui/home (Email settings), ui/essPortal (the Me page's
+switch); test-deploy-lib (no public invoker). Negative controls, each
+caught then restored: the rejection told on every write (unit); the
+send-time check removed (emulator); the summary's once-a-day record
+removed (emulator); `NO_PUBLIC_INVOKER` emptied (test-deploy-lib); and,
+during the build, the hook placed in approvals.js only: the ported
+modules' (and the JV's) decisions were missed, which the emulator suite
+caught and which moved the hook to the store.
+
+### Setting it up (the owner, once, before the deploy)
+
+In Cloud Shell, project erp1-8f4cd:
+
+1. The APIs: `gcloud services enable cloudscheduler.googleapis.com
+   secretmanager.googleapis.com --project=erp1-8f4cd`.
+2. The deploy's service account (the one behind `GCP_SA_KEY`; skip if you
+   deploy from Cloud Shell as an Owner) needs **Cloud Scheduler Admin** and
+   **Secret Manager Admin**, to create the 5-minute schedule and to let the
+   function read the secret:
+   `for R in roles/cloudscheduler.admin roles/secretmanager.admin; do gcloud projects add-iam-policy-binding erp1-8f4cd --member=serviceAccount:<its email> --role=$R; done`
+3. The secret, so the deploy can go ahead: `printf none | firebase
+   functions:secrets:set TASK_MAIL_ACCOUNT --project erp1-8f4cd --data-file=-`
+   (or `--force` and type `none`).
+4. When the mailbox is ready (Q454): on the chosen existing mailbox, turn
+   on 2-Step Verification, then Google Account → Security → App passwords →
+   create one ("ERP"). Set the secret to the address, a space, and the
+   16-letter password: `printf 'tasks@yourdomain.com abcdefghijklmnop' |
+   firebase functions:secrets:set TASK_MAIL_ACCOUNT --project erp1-8f4cd
+   --data-file=-`, then redeploy **sweepTaskMail** alone (a set of one) so
+   it picks up the new version. If the Workspace admin has turned off app
+   passwords, they turn them back on for that mailbox's group.
+
+Then check `mailLog` (Firestore, Corporate 100) after the first approval:
+"sent", or why not.
+
 ## Open questions for the owner
 
-None: Q450-Q456 decided. Building waits for the owner's go-ahead; sending
-waits for the app password (step 1-2 above), and until then the ERP logs
-each email as "not sent: no mail account set" and carries on.
+None. Later, if wanted: a link to the document itself; claims' and loans'
+own stages emailed; scheduled emailed MIS reports (MIS.md Q434) on the same
+sender.
+

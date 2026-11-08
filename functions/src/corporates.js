@@ -35,6 +35,14 @@ async function directoryEntry(id) {
   return entry && entry.Status === 'Active' ? entry : null;
 }
 
+// Every corporate a scheduled function serves: Corporate 100, then each
+// Active one in the directory, as { id, entry } for runInCorporate
+// (task emails, docs/modules/TASK_EMAILS.md).
+async function activeCorporates() {
+  const snap = await firm.firestore.collection(DIRECTORY).where('Status', '==', 'Active').get();
+  return [{ id: HOME_ID }].concat(snap.docs.filter(d => VALID_ID.test(d.id) && d.id !== HOME_ID).map(d => ({ id: d.id, entry: d.data() })));
+}
+
 // { id, entry } of the corporate a callable request is for; unwraps a
 // client corporate's envelope into request.data and request.auth.
 async function resolveCorporate(request) {
@@ -77,4 +85,4 @@ async function signInConfig(corporateId) {
   return { corporateId: id, home: false, webConfig };
 }
 
-module.exports = { DIRECTORY, ENVELOPE, HOME_WEB_API_KEY, directoryEntry, resolveCorporate, signInConfig };
+module.exports = { DIRECTORY, ENVELOPE, HOME_WEB_API_KEY, directoryEntry, activeCorporates, resolveCorporate, signInConfig };

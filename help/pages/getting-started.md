@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-11-08
-fingerprint: 405a3983e6525f05
+fingerprint: e195eb92548bb3e1
 ---
 ## Signing in
 
@@ -121,8 +121,42 @@ Select your name (top right) for:
 - **Configure Favourites**;
 - **Refresh**: reloads the menu (after an administrator changed it or your
   rights);
+- **Email settings**: when your tasks are emailed to you (see
+  [Task emails](#task-emails));
 - **Change Password**;
 - **Log Out**.
+
+## Task emails
+
+The ERP can email you your tasks, at the address you sign in with. Choose
+how in **Email settings** (your name, top right):
+
+| Choice | What you get |
+|---|---|
+| Each task as it reaches me | An email within a few minutes when a document waits for your approval, or when one of yours is rejected; and the summary. |
+| Approvals at once, the rest in a summary | The default: approvals within a few minutes; everything else in the summary. |
+| A summary only | One email listing your open tasks. |
+| No emails | Nothing. |
+
+**The summary** lists every open task of yours, by kind, as Home's Tasks
+shows them: approvals, your rejected items, follow-ups, cheques due,
+recurring entries due, CRM activities, documents expiring, employee
+requests, clearance steps and leave returns to record. Choose its time (on
+the hour or half hour, in the company's time, Asia/Dubai) and its days. With
+no days ticked there is no summary; none is sent when nothing is open.
+
+An email says what is waiting (for example *Purchase Order
+PO-26-01-000012, 4,250.00, waiting for your approval*) and links to the
+ERP: sign in and open it from **Tasks**. It carries no other figures and no
+attachments. Do not reply to it: the mailbox that sends it is not watched
+for replies.
+
+Employees using the Employee Portal are emailed when their request or leave
+changes (approved, rejected, answered or resolved), at their work email
+(else their personal email). They switch it off on the portal's **Me** page:
+**Email me my requests' updates**.
+
+Emails start once your administrator has set up the sending mailbox.
 
 ## Help
 

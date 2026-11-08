@@ -65,6 +65,8 @@ function stubs() {
         (window.__companies || []).forEach(c => { c.Chosen = arg.companyIds.includes(c.CompanyID); });
         return { companyIds: arg.companyIds };
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
+      case 'getMyEmailSettings': return Object.assign({ Timing: 'approvals-instant', SummaryTime: '07:00', SummaryDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], email: 'yasir@example.com', timeZone: 'Asia/Dubai', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] }, window.__emailSaved || {});
+      case 'saveMyEmailSettings': window.__emailSaved = arg; return { success: true };
       case 'getCrmActivitiesDueForUser': return window.__crmDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
@@ -143,6 +145,35 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForSelector('#stub-module');
     assert.ok(await page.isHidden('#user-menu'));
     assert.ok(await page.isHidden('#theme-toggle-btn'));
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('Email settings (TASK_EMAILS.md): the user menu shows the choice, the time and the days; Off hides the summary; saved', async () => {
+    const page = await open();
+    await menu(page, '#email-settings-btn');
+    await page.waitForSelector('#email-settings-modal:not(.hidden)');
+    assert.equal(await page.textContent('#es-email'), 'yasir@example.com');
+    assert.equal(await page.textContent('#es-zone'), '(Asia/Dubai time)');
+    assert.equal(await page.$eval('input[name="es-timing"]:checked', r => r.value), 'approvals-instant');
+    assert.equal(await page.inputValue('#es-time'), '07:00');
+    assert.equal(await page.locator('#es-time option').count(), 48, 'half-hour steps');
+    assert.deepEqual(await page.$$eval('#es-days input:checked', cs => cs.map(c => c.value)), ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+    await page.check('input[name="es-timing"][value="off"]');
+    assert.ok(await page.isHidden('#es-summary'), 'Off: no summary to set');
+    await page.check('input[name="es-timing"][value="daily"]');
+    assert.ok(await page.isVisible('#es-summary'));
+    await page.selectOption('#es-time', '18:30');
+    await page.uncheck('#es-days input[value="Fri"]');
+    await page.check('#es-days input[value="Sun"]');
+    await page.click('#es-save');
+    await page.waitForSelector('#app-dialog-message:has-text("Email settings saved.")');
+    await page.click('#app-dialog-ok');
+    assert.deepEqual(await page.evaluate(() => window.__emailSaved), { Timing: 'daily', SummaryTime: '18:30', SummaryDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Sun'] });
+    assert.ok(await page.isHidden('#email-settings-modal'));
+    await menu(page, '#email-settings-btn');
+    await page.waitForSelector('#email-settings-modal:not(.hidden)');
+    assert.equal(await page.$eval('input[name="es-timing"]:checked', r => r.value), 'daily', 'opened again: as saved');
     assert.deepEqual(page.__errors, []);
     await page.close();
   });
