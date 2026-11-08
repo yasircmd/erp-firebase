@@ -209,8 +209,8 @@ In Cloud Shell, project erp1-8f4cd:
    create one ("ERP"). Set the secret to the address, a space, and the
    16-letter password: `printf 'tasks@yourdomain.com abcdefghijklmnop' |
    firebase functions:secrets:set TASK_MAIL_ACCOUNT --project erp1-8f4cd
-   --data-file=-`, then redeploy **sweepTaskMail** alone (a set of one) so
-   it picks up the new version. If the Workspace admin has turned off app
+   --data-file=-`, then redeploy **sweepTaskMail** alone (Deploy workflow, "functions set",
+   set `task-mail-sender`) so it picks up the new version. If the Workspace admin has turned off app
    passwords, they turn them back on for that mailbox's group.
 
 Then check `mailLog` (Firestore, Corporate 100) after the first approval:
