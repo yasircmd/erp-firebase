@@ -1904,3 +1904,13 @@ from, and how it was verified. The deploy procedure is in the
   (08:14–10:28 UTC), success. "hosting", run
   [#330](https://github.com/yasircmd/erp-firebase/actions/runs/42473227367)
   (10:52–10:58 UTC), success (the shell's rep picker, Help). No rules.
+- **2026-11-08, MIS phase 2, the dashboard (`mis-dashboard`, every
+  function, PR #244, from `def899b`):** every function with --screens, run
+  [#331](https://github.com/yasircmd/erp-firebase/actions/runs/42476390820)
+  (11:35–13:55 UTC): all 681 functions deployed with their access, the
+  screens released (20261108T135454Z-def899b), then **failed** at the styles
+  / Hosting step: tools/deploy-hosting.sh's own guard on public/ did not
+  allow public/vendor/ (Chart.js), which only unit/hostingGuards had been
+  widened for. Fixed in the next PR (the script allows the versioned
+  libraries, and the unit test now checks the script does); then the
+  "hosting" task to finish.

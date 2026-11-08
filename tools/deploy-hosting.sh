@@ -24,13 +24,17 @@ done
 # The styles, built ahead of time from the shell and every screen (docs/modules/PWA.md).
 tools/build-styles.sh || { echo "STOP: the styles could not be built."; exit 1; }
 # Also allowed: the installable app's files (PWA.md): the service worker, the
-# two manifests, their icons, and the styles just built.
+# two manifests, their icons, and the styles just built; and vendor/, the
+# libraries shipped with the app, each a versioned release file and its
+# licence (Chart.js for the MIS dashboard, docs/modules/MIS.md Q430). The
+# same rule as unit/hostingGuards.
 extra=$(find public -type f ! -path public/index.html ! -path public/ess.html ! -path public/README.md ! -path public/robots.txt \
   ! -path public/sw.js ! -path public/manifest.webmanifest ! -path public/ess.webmanifest \
   ! -path public/css/erp.css ! -path public/css/ess.css ! -regex 'public/icons/[a-z0-9-]+\.png' \
-  ! -regex 'public/help/[a-z0-9-]+\.\(html\|css\|js\|json\|xml\)' | sort)
+  ! -regex 'public/help/[a-z0-9-]+\.\(html\|css\|js\|json\|xml\)' \
+  ! -regex 'public/vendor/[a-z0-9]+-[0-9]+\.[0-9]+\.[0-9]+\.\(umd\.js\|LICENSE\.md\)' | sort)
 if [ -n "$extra" ]; then
-  echo "STOP: public/ must hold only index.html, ess.html, the app's service worker, manifests, icons and styles, and the built Help (screens go through tools/release-screens.sh):"; echo "$extra"; exit 1
+  echo "STOP: public/ must hold only index.html, ess.html, the app's service worker, manifests, icons and styles, the versioned libraries in vendor/, and the built Help (screens go through tools/release-screens.sh):"; echo "$extra"; exit 1
 fi
 echo "Deploying Hosting (public/index.html, public/ess.html, the styles, the app files, public/help/) from $(git log -1 --format='%h %s')"
 if $FIREBASE deploy --project "$P" --only hosting; then echo "ALL DONE"; else echo "HOSTING DEPLOY FAILED"; exit 1; fi
