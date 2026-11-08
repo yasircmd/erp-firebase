@@ -1931,3 +1931,10 @@ from, and how it was verified. The deploy procedure is in the
   (15:49–15:53 UTC), success. "hosting", run
   [#336](https://github.com/yasircmd/erp-firebase/actions/runs/42497221794)
   (15:55–15:56 UTC), success (the shell's tiles for built reports, Help). No rules.
+- **2026-11-08, MIS phase 5, Help (PR #250, from `d4c8758`):** "hosting",
+  run [#337](https://github.com/yasircmd/erp-firebase/actions/runs/42497953617)
+  (16:03–16:05 UTC), success.
+- **2026-11-08, the MIS on a phone (PR #251, from `3c876c9`):** "hosting",
+  run [#338](https://github.com/yasircmd/erp-firebase/actions/runs/42499870072)
+  (16:26–16:27 UTC), success: MIS and MISDASHBOARD are phone screens. The
+  MIS module is complete and live.
