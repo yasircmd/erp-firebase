@@ -99,8 +99,8 @@ const CATEGORIES = {
     detail: 'Pay elements, payroll accounting, payment file formats, loan and provision types, reimbursement categories, the employee request types and who handles employee requests.' },
   approvalSetup: { label: 'Approval Configuration', group: S, rtdb: ['approvalConfigurations', 'approvalLevels', 'approvalFollowUpSettings', 'approvalFollowUps'],
     detail: 'Which documents need approval, their levels and approvers, and the follow-up teams. Cleared, documents post without approval until it is set again.' },
-  settings: { label: 'Numbering & Settings', group: S, rtdb: ['numbering', 'salesInvoiceSettings', 'eInvoiceSettings', 'barcodeSettings', 'retailSales', 'fxSettings', 'openingBalances/settings', 'salesRepSettings'], fs: ['companyDocumentCategories', 'bankDetails', 'misSetup', 'misDashboards', 'misRoleDashboards'],
-    detail: 'Document numbering formats; Sales Invoice, e-invoicing, barcode, retail counter, exchange-rate and opening-balance settings; company document categories; the bank accounts\' bank details (Chart of Accounts → Bank details); the MIS setup (ratio map, stock cover) and the MIS dashboards (of each user and each role).' }
+  settings: { label: 'Numbering & Settings', group: S, rtdb: ['numbering', 'salesInvoiceSettings', 'eInvoiceSettings', 'barcodeSettings', 'retailSales', 'fxSettings', 'openingBalances/settings', 'salesRepSettings'], fs: ['companyDocumentCategories', 'bankDetails', 'misSetup', 'misDashboards', 'misRoleDashboards', 'misReports'],
+    detail: 'Document numbering formats; Sales Invoice, e-invoicing, barcode, retail counter, exchange-rate and opening-balance settings; company document categories; the bank accounts\' bank details (Chart of Accounts → Bank details); the MIS setup (ratio map, stock cover) and the MIS dashboards (of each user and each role) and saved MIS reports.' }
 };
 
 // What uses each master (decision 284): a master is cleared only once these

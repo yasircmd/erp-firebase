@@ -13,6 +13,12 @@ screen.
 
 ## 08/11/2026
 
+- **MIS Reports: charts and My reports.** Each report shows a chart above
+  its table (bars, a line, or none); **Copy** takes the table for Excel and
+  **Print** prints it; on a phone each line is a card. **Save as…** keeps a
+  report with its company, comparison and chart, opening on the latest month
+  or on the month you saved; finance managers can **Share** it with roles,
+  whose users see it under "Shared with me".
 - **MIS Dashboard.** Under Financial Accounting, **MIS Dashboard** shows
   your tiles: key figures with their change, charts, top lists and gauges
   against a good band, worked out when you open it. **Edit** to add, remove

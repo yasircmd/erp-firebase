@@ -1,13 +1,26 @@
-<!-- MIS Reports (owner, 2026-11-08; docs/modules/MIS.md, Q427-Q434): phase 1,
-     the report catalogue with its comparisons, as a table: choose the
-     report, the company, the month and the comparison (previous month, the
-     same month last year, year to date, budget); each figure with its change
-     and %, coloured by whether the change is good. The dashboard, the charts,
-     saved reports and the builder come in the next phases. -->
+<!-- MIS Reports (owner, 2026-11-08; docs/modules/MIS.md, Q427-Q434, phase 3
+     Q443-Q445): the report catalogue with its comparisons (previous month,
+     the same month last year, year to date, budget): the chart above the
+     table (hideable), each figure with its change and %, coloured by whether
+     the change is good; Copy (to Excel) and Print take the table; on a phone
+     the lines are cards. "My reports": a report saved with its company,
+     comparison, chart and month (the latest, or fixed), private or shared
+     with roles (MIS publish), the roles seeing it read-only. -->
+<style>
+  html.phone-view #mis-table thead { display: none; }
+  html.phone-view #mis-table tr { display: block; padding: 0.6rem 0.75rem; }
+  html.phone-view #mis-table td { display: flex; justify-content: space-between; gap: 1rem; padding: 0.15rem 0 !important; text-align: right; }
+  html.phone-view #mis-table td::before { content: attr(data-label); color: #94a3b8; font-size: 0.7rem; text-align: left; }
+  html.phone-view #mis-table td:first-child { font-weight: 600; }
+  html.phone-view #mis-table td:first-child::before { content: none; }
+  @media print { #mis-chart-box { break-inside: avoid; } }
+</style>
 <div class="space-y-4">
   <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-slate-800 pb-3">
-    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Management reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-chart-line text-blue-500"></i> MIS Reports</h2></div>
-    <div class="flex flex-wrap items-end gap-2">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Management reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-chart-line text-blue-500"></i> MIS Reports</h2>
+      <p id="mis-saved-note" class="text-xs text-slate-400 mt-1"></p></div>
+    <div class="flex flex-wrap items-end gap-2 no-print">
+      <div><label for="mis-saved" class="block text-xs font-medium text-slate-300 mb-1">My reports</label><select id="mis-saved" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm max-w-[14rem]"></select></div>
       <div><label for="mis-type" class="block text-xs font-medium text-slate-300 mb-1">Report</label><select id="mis-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
       <div><label for="mis-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="mis-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
       <div><label for="mis-month" class="block text-xs font-medium text-slate-300 mb-1">Month</label><input id="mis-month" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
@@ -15,10 +28,33 @@
       <button id="mis-run" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg">Show</button>
     </div>
   </div>
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <label for="mis-chart" class="text-xs text-slate-300">Chart</label>
+    <select id="mis-chart" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="bar">Bars</option><option value="line">Line</option><option value="none">No chart</option></select>
+    <button id="mis-copy" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-copy"></i> Copy</button>
+    <button id="mis-print" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-print"></i> Print</button>
+    <span class="flex-1"></span>
+    <button id="mis-save-as" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save as…</button>
+    <button id="mis-save" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded">Save changes</button>
+    <button id="mis-share" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-share-nodes"></i> Share</button>
+    <button id="mis-delete" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs px-3 py-1.5 rounded">Delete</button>
+  </div>
+  <div id="mis-save-panel" class="hidden no-print bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-wrap items-end gap-2">
+    <div><label for="mis-save-name" class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="mis-save-name" maxlength="60" class="w-56 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label for="mis-save-period" class="block text-xs font-medium text-slate-300 mb-1">Opens on</label><select id="mis-save-period" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="latest">The latest month</option><option value="fixed">This month, kept</option></select></div>
+    <button id="mis-save-ok" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg">Save</button>
+    <button id="mis-save-cancel" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg">Cancel</button>
+  </div>
+  <div id="mis-share-panel" class="hidden no-print bg-slate-800/40 border border-slate-700 rounded-xl p-3 space-y-2">
+    <p class="text-xs text-slate-400">Share this report with the roles ticked; their users see it under "Shared with me", and cannot change it.</p>
+    <div id="mis-share-roles" class="flex flex-wrap gap-3 text-sm"></div>
+    <div class="flex gap-2"><button id="mis-share-ok" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg">Save sharing</button><button id="mis-share-cancel" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg">Cancel</button></div>
+  </div>
   <p id="mis-period" class="text-xs text-slate-400"></p>
   <div id="mis-extra"></div>
+  <div id="mis-chart-box" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-3"><div class="relative h-64"><canvas id="mis-canvas"></canvas></div><p id="mis-chart-note" class="hidden text-xs text-slate-500"></p></div>
   <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
-    <table class="w-full text-left text-sm"><thead id="mis-head"></thead><tbody id="mis-body" class="divide-y divide-slate-800"></tbody></table>
+    <table id="mis-table" class="w-full text-left text-sm"><thead id="mis-head"></thead><tbody id="mis-body" class="divide-y divide-slate-800"></tbody></table>
   </div>
   <p id="mis-notes" class="text-xs text-slate-500"></p>
 </div>
@@ -31,48 +67,149 @@
   const fmt = n => (n == null ? '—' : (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const pct = n => (n == null ? '—' : (n > 0 ? '+' : '') + n.toFixed(1) + '%');
   const tone = good => (good === true ? 'text-emerald-400' : good === false ? 'text-red-400' : 'text-slate-300');
+  const shown = t => (window.formatDatesInText ? window.formatDatesInText(String(t)) : String(t));
+  const thisMonth = () => (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
   const CLASS = { fast: 'Fast', normal: 'Normal', slow: 'Slow', nonMoving: 'Non-moving' };
-  let C = null;
+  let C = null, S = { mine: [], shared: [], rights: {} }, last = null, cols = [], open = null;
 
-  function head(cols) { $('mis-head').innerHTML = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700">' + cols.map((c, i) => '<th class="py-2 px-3' + (i ? ' text-right' : '') + '">' + esc(c) + '</th>').join('') + '</tr>'; }
+  function head(c) { cols = c; $('mis-head').innerHTML = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700">' + c.map((x, i) => '<th class="py-2 px-3' + (i ? ' text-right' : '') + '">' + esc(x) + '</th>').join('') + '</tr>'; }
+  const td = (i, html, cls) => '<td data-label="' + esc(cols[i] || '') + '" class="py-2 px-3' + (i ? ' text-right' : '') + (cls ? ' ' + cls : '') + '">' + html + '</td>';
+  // The table as text for Excel: the same lines and columns, dates as shown.
+  let copyRows = [];
+  async function drawChart(r) {
+    const style = $('mis-chart').value;
+    const box = $('mis-chart-box');
+    if (style === 'none' || (r.type !== 'trend' && r.type !== 'stockCover' && !(r.rows || []).some(x => x.key !== 'total' && x.current != null))) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden'); $('mis-chart-note').classList.add('hidden');
+    try { await misTiles.chart($('mis-canvas'), r, style); }
+    catch (e) { $('mis-chart-note').textContent = e.message; $('mis-chart-note').classList.remove('hidden'); }
+  }
   function draw(r) {
+    last = r;
     $('mis-period').textContent = r.title + ': ' + r.period.current + (r.period.compare ? ' ' + r.modeLabel + ' (' + r.period.compare + ')' : '');
     $('mis-notes').textContent = (r.notes || []).join(' ');
     $('mis-extra').innerHTML = '';
+    drawChart(r);
     if (r.type === 'trend') {
       head(['Month', 'Revenue', 'Expenses', 'Net profit']);
-      $('mis-body').innerHTML = r.rows.map(x => '<tr><td class="py-2 px-3">' + esc(x.label) + '</td><td class="py-2 px-3 text-right">' + fmt(x.revenue) + '</td><td class="py-2 px-3 text-right">' + fmt(x.expenses) + '</td><td class="py-2 px-3 text-right">' + fmt(x.netProfit) + '</td></tr>').join('');
+      copyRows = r.rows.map(x => [shown(x.label), x.revenue, x.expenses, x.netProfit]);
+      $('mis-body').innerHTML = r.rows.map(x => '<tr>' + td(0, esc(x.label)) + td(1, fmt(x.revenue)) + td(2, fmt(x.expenses)) + td(3, fmt(x.netProfit)) + '</tr>').join('');
       return;
     }
     if (r.type === 'stockCover') {
       $('mis-extra').innerHTML = '<div class="flex flex-wrap gap-2">' + r.classes.map(c => '<span class="text-xs px-2 py-1 rounded-full border border-slate-700">' + esc(CLASS[c.key]) + ': ' + c.count + ' items · ' + fmt(c.value) + '</span>').join('') + '</div>';
       head(['Item', 'On hand', 'Moved', 'Days of cover', 'Class']);
-      $('mis-body').innerHTML = r.rows.map(x => '<tr data-key="' + esc(x.key) + '"><td class="py-2 px-3">' + esc(x.label) + '</td><td class="py-2 px-3 text-right">' + fmt(x.onHand) + '</td><td class="py-2 px-3 text-right">' + fmt(x.moved) +
-        '</td><td class="py-2 px-3 text-right">' + (x.cover == null ? '—' : x.cover.toFixed(0)) + '</td><td class="py-2 px-3 text-right">' + esc(CLASS[x.class] || x.class) + '</td></tr>').join('');
+      copyRows = r.rows.map(x => [x.label, x.onHand, x.moved, x.cover == null ? '' : Math.round(x.cover), CLASS[x.class] || x.class]);
+      $('mis-body').innerHTML = r.rows.map(x => '<tr data-key="' + esc(x.key) + '">' + td(0, esc(x.label)) + td(1, fmt(x.onHand)) + td(2, fmt(x.moved)) +
+        td(3, x.cover == null ? '—' : x.cover.toFixed(0)) + td(4, esc(CLASS[x.class] || x.class)) + '</tr>').join('');
       return;
     }
     if (r.buckets) $('mis-extra').innerHTML = '<div class="flex flex-wrap gap-2">' + r.buckets.map(b => '<span class="text-xs px-2 py-1 rounded-full border border-slate-700">' + esc(b.label) + ': ' + fmt(b.amount) + '</span>').join('') + '</div>';
     head(['', 'This period', 'Compared with', 'Change', '%']);
     const val = (x, v) => (x.unit === '%' && v != null ? v.toFixed(1) + '%' : x.unit === 'x' && v != null ? v.toFixed(2) : x.unit === 'days' && v != null ? v.toFixed(0) + ' days' : fmt(v));
-    $('mis-body').innerHTML = r.rows.map(x => '<tr data-key="' + esc(x.key) + '" class="' + (x.level ? 'font-semibold' : '') + '"><td class="py-2 px-3">' + esc(x.label) + '</td><td class="py-2 px-3 text-right">' + val(x, x.current) +
-      '</td><td class="py-2 px-3 text-right text-slate-400">' + val(x, x.compare) + '</td><td class="py-2 px-3 text-right ' + tone(x.good) + '">' + (x.abs == null ? '—' : (x.unit ? val(x, x.abs) : fmt(x.abs))) +
-      '</td><td class="py-2 px-3 text-right ' + tone(x.good) + '">' + pct(x.pct) + '</td></tr>').join('') || '<tr><td colspan="5" class="py-6 text-center text-slate-500">Nothing for this period.</td></tr>';
+    copyRows = r.rows.map(x => [x.label, x.current, x.compare, x.abs, x.pct == null ? '' : x.pct / 100]);
+    $('mis-body').innerHTML = r.rows.map(x => '<tr data-key="' + esc(x.key) + '" class="' + (x.level ? 'font-semibold' : '') + '">' + td(0, esc(x.label)) + td(1, val(x, x.current)) +
+      td(2, val(x, x.compare), 'text-slate-400') + td(3, x.abs == null ? '—' : (x.unit ? val(x, x.abs) : fmt(x.abs)), tone(x.good)) + td(4, pct(x.pct), tone(x.good)) + '</tr>').join('') ||
+      '<tr><td colspan="5" class="py-6 text-center text-slate-500">Nothing for this period.</td></tr>';
   }
   async function run() {
     $('mis-body').innerHTML = '<tr><td class="py-6 px-3 text-slate-500">Working…</td></tr>';
     try { draw(await call('runMisReport', { type: $('mis-type').value, companyId: $('mis-company').value, month: $('mis-month').value, mode: $('mis-mode').value })); }
-    catch (e) { $('mis-body').innerHTML = ''; appAlert(e.message); }
+    catch (e) { $('mis-body').innerHTML = ''; $('mis-chart-box').classList.add('hidden'); appAlert(e.message); }
+  }
+  async function copy() {
+    if (!last) return;
+    const cell = v => (v == null ? '' : String(v).replace(/[\t\n]/g, ' '));
+    const text = [cols.map(cell).join('\t')].concat(copyRows.map(r => r.map(cell).join('\t'))).join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => appAlert('Copied: paste it into Excel.'), async () => (await appPrompt('Copy this text:', text)));
+    else await appPrompt('Copy this text:', text);
+  }
+
+  // ---------- My reports (Q443-Q445) ----------
+  function fillSaved(selectId) {
+    const opt = r => '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>';
+    $('mis-saved').innerHTML = '<option value="">— Choose a saved report —</option>' +
+      (S.mine.length ? '<optgroup label="Mine">' + S.mine.map(opt).join('') + '</optgroup>' : '') +
+      (S.shared.length ? '<optgroup label="Shared with me">' + S.shared.map(opt).join('') + '</optgroup>' : '');
+    $('mis-saved').value = selectId || '';
+  }
+  function buttons() {
+    const mine = open && S.mine.some(r => r.id === open.id);
+    $('mis-save-as').classList.toggle('hidden', !S.rights.design);
+    $('mis-save').classList.toggle('hidden', !(mine && S.rights.design));
+    $('mis-delete').classList.toggle('hidden', !mine);
+    $('mis-share').classList.toggle('hidden', !(mine && S.rights.publish));
+    $('mis-saved-note').textContent = !open ? '' : mine ? 'Saved report: ' + open.name + (open.sharedRoles.length ? ' · shared with ' + open.sharedRoles.length + ' role(s)' : ' · private') + (open.period.kind === 'fixed' ? ' · keeps ' + shown(open.period.month) : ' · the latest month')
+      : 'Shared with you by ' + open.owner + ': ' + open.name + ' (read-only; Save as… to keep your own copy)';
+  }
+  async function loadSaved(selectId) {
+    S = await call('getMyMisReports', {});
+    fillSaved(selectId);
+    open = selectId ? S.mine.concat(S.shared).find(r => r.id === selectId) || null : null;
+    buttons();
+  }
+  function openSaved() {
+    const id = $('mis-saved').value;
+    open = S.mine.concat(S.shared).find(r => r.id === id) || null;
+    buttons();
+    if (!open) return;
+    $('mis-type').value = open.type;
+    if ([...$('mis-company').options].some(o => o.value === open.companyId)) $('mis-company').value = open.companyId;
+    $('mis-mode').value = open.mode;
+    $('mis-chart').value = open.chart;
+    $('mis-month').value = open.period.kind === 'fixed' ? open.period.month : thisMonth();
+    run();
+  }
+  const current = () => ({ type: $('mis-type').value, companyId: $('mis-company').value, mode: $('mis-mode').value, chart: $('mis-chart').value });
+  async function saveChanges() {
+    if (!open) return;
+    try { await call('saveMisReport', Object.assign({ id: open.id, name: open.name, period: open.period.kind === 'fixed' ? { kind: 'fixed', month: $('mis-month').value } : { kind: 'latest' } }, current())); appAlert('Saved.'); await loadSaved(open.id); }
+    catch (e) { appAlert(e.message); }
+  }
+  async function saveAs() {
+    const name = $('mis-save-name').value.trim();
+    if (!name) { appAlert('Give the report a name.'); return; }
+    const period = $('mis-save-period').value === 'fixed' ? { kind: 'fixed', month: $('mis-month').value } : { kind: 'latest' };
+    try { const r = await call('saveMisReport', Object.assign({ name, period }, current())); $('mis-save-panel').classList.add('hidden'); appAlert('Saved as "' + name + '".'); await loadSaved(r.id); }
+    catch (e) { appAlert(e.message); }
+  }
+  function shareOpen() {
+    $('mis-share-roles').innerHTML = (S.roles || []).map(r => '<label class="flex items-center gap-1"><input type="checkbox" class="mis-share-role" value="' + esc(r.id) + '"' + (open.sharedRoles.includes(r.id) ? ' checked' : '') + '> ' + esc(r.name) + '</label>').join('');
+    $('mis-share-panel').classList.remove('hidden');
+  }
+  async function shareSave() {
+    const roles = [...document.querySelectorAll('.mis-share-role')].filter(x => x.checked).map(x => x.value);
+    try { await call('shareMisReport', { id: open.id, roles }); $('mis-share-panel').classList.add('hidden'); appAlert(roles.length ? 'Shared with ' + roles.length + ' role(s).' : 'The report is private again.'); await loadSaved(open.id); }
+    catch (e) { appAlert(e.message); }
+  }
+  async function remove() {
+    if (!(await appConfirm('Delete the saved report "' + open.name + '"? The roles it is shared with lose it too.'))) return;
+    try { await call('deleteMisReport', { id: open.id }); open = null; await loadSaved(''); }
+    catch (e) { appAlert(e.message); }
   }
 
   window.initModule = function () {
     $('app-title').innerHTML = '<i class="fa-solid fa-chart-line"></i> MIS Reports';
-    $('mis-month').value = (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
+    $('mis-month').value = thisMonth();
     $('mis-run').addEventListener('click', run);
-    Promise.all([call('getMisCatalogue', {}), call('getActiveCompanies', {}).catch(() => [])]).then(([cat, cos]) => {
-      C = cat;
+    $('mis-chart').addEventListener('change', () => last && drawChart(last));
+    $('mis-copy').addEventListener('click', copy);
+    $('mis-print').addEventListener('click', () => window.print());
+    $('mis-saved').addEventListener('change', openSaved);
+    $('mis-save').addEventListener('click', saveChanges);
+    $('mis-save-as').addEventListener('click', () => { $('mis-save-name').value = open ? open.name + ' (copy)' : ''; $('mis-save-panel').classList.remove('hidden'); $('mis-save-name').focus(); });
+    $('mis-save-ok').addEventListener('click', saveAs);
+    $('mis-save-cancel').addEventListener('click', () => $('mis-save-panel').classList.add('hidden'));
+    $('mis-share').addEventListener('click', shareOpen);
+    $('mis-share-ok').addEventListener('click', shareSave);
+    $('mis-share-cancel').addEventListener('click', () => $('mis-share-panel').classList.add('hidden'));
+    $('mis-delete').addEventListener('click', remove);
+    Promise.all([call('getMisCatalogue', {}), call('getActiveCompanies', {}).catch(() => []), call('getMyMisReports', {}).catch(() => S)]).then(([cat, cos, saved]) => {
+      C = cat; S = saved;
       $('mis-type').innerHTML = cat.catalogue.map(c => '<option value="' + esc(c.type) + '">' + esc(c.group + ' · ' + c.title) + '</option>').join('');
       $('mis-mode').innerHTML = cat.modes.map(m => '<option value="' + esc(m.mode) + '">' + esc(m.label) + '</option>').join('');
       $('mis-company').innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      fillSaved(''); buttons();
       return run();
     }, e => appAlert(e.message));
   };

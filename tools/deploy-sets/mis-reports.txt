@@ -1,0 +1,17 @@
+# MIS phase 3, the reports screen (owner, 2026-11-08; docs/modules/MIS.md,
+# Q443-Q445). New functions: getMyMisReports, saveMisReport, shareMisReport,
+# deleteMisReport (misReports.js; deploy-functions.sh grants their public
+# invoker). And the three Data Reset functions (dataReset.js: saved MIS
+# reports are cleared with "Numbering & Settings"; the legacy port's other
+# functions only reach its helpers, as in ux3-wave3). No moduleRegistry
+# change: My reports belong to the MIS module. Deploy WITH --screens (MIS),
+# then the "hosting" task (the shell's misTiles.chart, the Help). No rules
+# change: the saved reports are Firestore documents read by their owner and
+# by role (single-field queries, no new index).
+getMyMisReports
+saveMisReport
+shareMisReport
+deleteMisReport
+clearDataCategories
+clearSelectedRecords
+getCategoryRecords
