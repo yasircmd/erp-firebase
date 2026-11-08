@@ -33,6 +33,8 @@ test('the pages Hosting serves have no REPLACE_ME, and the real project config',
 test('the deploy script checks those pages, and public/ holds only them, its README, the built Help and the app\'s files', () => {
   const sh = fs.readFileSync(path.join(REPO, 'tools/deploy-hosting.sh'), 'utf8');
   for (const p of PAGES) assert.ok(sh.includes(p), 'deploy-hosting.sh names ' + p);
+  // The script's own guard allows vendor/ as this test does (run #331 stopped there, 2026-11-08).
+  assert.ok(sh.includes("! -regex 'public/vendor/[a-z0-9]+-[0-9]+\\.[0-9]+\\.[0-9]+\\.\\(umd\\.js\\|LICENSE\\.md\\)'"), 'deploy-hosting.sh allows the versioned libraries in public/vendor/');
   const files = fs.readdirSync(path.join(REPO, 'public')).filter(n => n !== 'css').sort();
   assert.deepEqual(files, ['README.md', 'ess.html', 'ess.webmanifest', 'help', 'icons', 'index.html', 'manifest.webmanifest', 'robots.txt', 'sw.js', 'vendor']);
   assert.ok(fs.readdirSync(path.join(REPO, 'public/vendor')).every(n => /^[a-z0-9]+-\d+\.\d+\.\d+\.(umd\.js|LICENSE\.md)$/.test(n)), 'public/vendor/ holds only versioned library files and their licences');
