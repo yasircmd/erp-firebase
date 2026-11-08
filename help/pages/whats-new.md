@@ -13,6 +13,10 @@ screen.
 
 ## 08/11/2026
 
+- **Help for the MIS.** A new Help area, Management reports (MIS):
+  [MIS Dashboard](mis-dashboard.html), [MIS Reports](mis-reports.html) (the
+  comparisons, My reports, the MIS setup) and
+  [Build a report](mis-report-builder.html).
 - **MIS Reports: Build a report.** Choose **Build a report…** to make your
   own report from sales lines, purchase lines, GL lines or stock movements:
   over 1 to 24 months, with filters, grouped by one or two fields with

@@ -201,6 +201,21 @@ Five phases, each its own PR and deploy:
 - Behaviour changes to ported modules (Customer Master, Sales Order,
   Delivery Note, Customer Invoice), recorded in their docs.
 
+## As built: phase 5, Help (2026-11-08)
+
+The Help area "Management reports (MIS)" is written: **MIS Dashboard**
+(mis-dashboard: the tiles, which dashboard one sees, editing, a role's
+default, Show on Home), **MIS Reports** (mis-reports: the reports, the
+comparisons, Copy and Print, My reports and sharing, the MIS setup) and
+**Build a report** (mis-report-builder: the data sets and their rights, the
+three ways to show them, filters, sorting, saving). What's new links them.
+Getting started's "Your dashboard on Home" now follows "Home tasks" (the
+Help UI test expects the pages' sections in that order; it had failed
+since phase 2). The MIS module is complete; scheduled reports (Q434) were
+left out of the first release.
+
+Deploy: Hosting only (the Help).
+
 ## As built: phase 4, the report builder (2026-11-08)
 
 Decisions Q446-Q449 (above), built as designed:
