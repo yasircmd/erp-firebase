@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://erp1-8f4cd.web.app/help/</loc></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/getting-started.html</loc><lastmod>2026-11-07</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/getting-started.html</loc><lastmod>2026-11-08</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/working-with-screens.html</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/approvals.html</loc><lastmod>2026-10-31</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/whats-new.html</loc><lastmod>2026-11-07</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/whats-new-2.html</loc><lastmod>2026-11-07</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/whats-new-3.html</loc><lastmod>2026-11-07</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/whats-new-4.html</loc><lastmod>2026-11-07</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/whats-new.html</loc><lastmod>2026-11-08</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/whats-new-2.html</loc><lastmod>2026-11-08</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/whats-new-3.html</loc><lastmod>2026-11-08</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/whats-new-4.html</loc><lastmod>2026-11-08</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/chart-of-accounts.html</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/currencies.html</loc><lastmod>2026-10-30</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/opening-balances.html</loc><lastmod>2026-10-17</lastmod></url>
@@ -101,6 +101,6 @@
   <url><loc>https://erp1-8f4cd.web.app/help/master-import.html</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/document-storage.html</loc><lastmod>2026-11-02</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/company-documents.html</loc><lastmod>2026-11-02</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/data-reset.html</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/data-reset.html</loc><lastmod>2026-11-08</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/support.html</loc><lastmod>2026-11-06</lastmod></url>
 </urlset>

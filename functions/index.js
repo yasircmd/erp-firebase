@@ -409,3 +409,5 @@ const support = require('./src/support');
 ['getCorrectionJvs', 'getEntryForCorrection', 'getCorrectionJv', 'saveCorrectionJvDraft'].forEach(n => { exports[n] = require('./src/correctionJv')[n]; });
 // Technical Reference (docs/modules/TECH_REFERENCE.md): firm-only, read only.
 ['getTechRefPart', 'searchTechRef'].forEach(n => { exports[n] = require('./src/techRef')[n]; });
+// MIS (docs/modules/MIS.md): the engine (phase 1).
+['getMisCatalogue', 'runMisReport', 'getMisSetup', 'saveMisSetup'].forEach(n => { exports[n] = require('./src/mis')[n]; });

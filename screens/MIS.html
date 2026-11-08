@@ -1,0 +1,80 @@
+<!-- MIS Reports (owner, 2026-11-08; docs/modules/MIS.md, Q427-Q434): phase 1,
+     the report catalogue with its comparisons, as a table: choose the
+     report, the company, the month and the comparison (previous month, the
+     same month last year, year to date, budget); each figure with its change
+     and %, coloured by whether the change is good. The dashboard, the charts,
+     saved reports and the builder come in the next phases. -->
+<div class="space-y-4">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-slate-800 pb-3">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Management reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-chart-line text-blue-500"></i> MIS Reports</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="mis-type" class="block text-xs font-medium text-slate-300 mb-1">Report</label><select id="mis-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="mis-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="mis-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="mis-month" class="block text-xs font-medium text-slate-300 mb-1">Month</label><input id="mis-month" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label for="mis-mode" class="block text-xs font-medium text-slate-300 mb-1">Compare</label><select id="mis-mode" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <button id="mis-run" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg">Show</button>
+    </div>
+  </div>
+  <p id="mis-period" class="text-xs text-slate-400"></p>
+  <div id="mis-extra"></div>
+  <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+    <table class="w-full text-left text-sm"><thead id="mis-head"></thead><tbody id="mis-body" class="divide-y divide-slate-800"></tbody></table>
+  </div>
+  <p id="mis-notes" class="text-xs text-slate-500"></p>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (n == null ? '—' : (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  const pct = n => (n == null ? '—' : (n > 0 ? '+' : '') + n.toFixed(1) + '%');
+  const tone = good => (good === true ? 'text-emerald-400' : good === false ? 'text-red-400' : 'text-slate-300');
+  const CLASS = { fast: 'Fast', normal: 'Normal', slow: 'Slow', nonMoving: 'Non-moving' };
+  let C = null;
+
+  function head(cols) { $('mis-head').innerHTML = '<tr class="text-xs text-slate-400 uppercase border-b border-slate-700">' + cols.map((c, i) => '<th class="py-2 px-3' + (i ? ' text-right' : '') + '">' + esc(c) + '</th>').join('') + '</tr>'; }
+  function draw(r) {
+    $('mis-period').textContent = r.title + ': ' + r.period.current + (r.period.compare ? ' ' + r.modeLabel + ' (' + r.period.compare + ')' : '');
+    $('mis-notes').textContent = (r.notes || []).join(' ');
+    $('mis-extra').innerHTML = '';
+    if (r.type === 'trend') {
+      head(['Month', 'Revenue', 'Expenses', 'Net profit']);
+      $('mis-body').innerHTML = r.rows.map(x => '<tr><td class="py-2 px-3">' + esc(x.label) + '</td><td class="py-2 px-3 text-right">' + fmt(x.revenue) + '</td><td class="py-2 px-3 text-right">' + fmt(x.expenses) + '</td><td class="py-2 px-3 text-right">' + fmt(x.netProfit) + '</td></tr>').join('');
+      return;
+    }
+    if (r.type === 'stockCover') {
+      $('mis-extra').innerHTML = '<div class="flex flex-wrap gap-2">' + r.classes.map(c => '<span class="text-xs px-2 py-1 rounded-full border border-slate-700">' + esc(CLASS[c.key]) + ': ' + c.count + ' items · ' + fmt(c.value) + '</span>').join('') + '</div>';
+      head(['Item', 'On hand', 'Moved', 'Days of cover', 'Class']);
+      $('mis-body').innerHTML = r.rows.map(x => '<tr data-key="' + esc(x.key) + '"><td class="py-2 px-3">' + esc(x.label) + '</td><td class="py-2 px-3 text-right">' + fmt(x.onHand) + '</td><td class="py-2 px-3 text-right">' + fmt(x.moved) +
+        '</td><td class="py-2 px-3 text-right">' + (x.cover == null ? '—' : x.cover.toFixed(0)) + '</td><td class="py-2 px-3 text-right">' + esc(CLASS[x.class] || x.class) + '</td></tr>').join('');
+      return;
+    }
+    if (r.buckets) $('mis-extra').innerHTML = '<div class="flex flex-wrap gap-2">' + r.buckets.map(b => '<span class="text-xs px-2 py-1 rounded-full border border-slate-700">' + esc(b.label) + ': ' + fmt(b.amount) + '</span>').join('') + '</div>';
+    head(['', 'This period', 'Compared with', 'Change', '%']);
+    const val = (x, v) => (x.unit === '%' && v != null ? v.toFixed(1) + '%' : x.unit === 'x' && v != null ? v.toFixed(2) : x.unit === 'days' && v != null ? v.toFixed(0) + ' days' : fmt(v));
+    $('mis-body').innerHTML = r.rows.map(x => '<tr data-key="' + esc(x.key) + '" class="' + (x.level ? 'font-semibold' : '') + '"><td class="py-2 px-3">' + esc(x.label) + '</td><td class="py-2 px-3 text-right">' + val(x, x.current) +
+      '</td><td class="py-2 px-3 text-right text-slate-400">' + val(x, x.compare) + '</td><td class="py-2 px-3 text-right ' + tone(x.good) + '">' + (x.abs == null ? '—' : (x.unit ? val(x, x.abs) : fmt(x.abs))) +
+      '</td><td class="py-2 px-3 text-right ' + tone(x.good) + '">' + pct(x.pct) + '</td></tr>').join('') || '<tr><td colspan="5" class="py-6 text-center text-slate-500">Nothing for this period.</td></tr>';
+  }
+  async function run() {
+    $('mis-body').innerHTML = '<tr><td class="py-6 px-3 text-slate-500">Working…</td></tr>';
+    try { draw(await call('runMisReport', { type: $('mis-type').value, companyId: $('mis-company').value, month: $('mis-month').value, mode: $('mis-mode').value })); }
+    catch (e) { $('mis-body').innerHTML = ''; appAlert(e.message); }
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-chart-line"></i> MIS Reports';
+    $('mis-month').value = (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
+    $('mis-run').addEventListener('click', run);
+    Promise.all([call('getMisCatalogue', {}), call('getActiveCompanies', {}).catch(() => [])]).then(([cat, cos]) => {
+      C = cat;
+      $('mis-type').innerHTML = cat.catalogue.map(c => '<option value="' + esc(c.type) + '">' + esc(c.group + ' · ' + c.title) + '</option>').join('');
+      $('mis-mode').innerHTML = cat.modes.map(m => '<option value="' + esc(m.mode) + '">' + esc(m.label) + '</option>').join('');
+      $('mis-company').innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      return run();
+    }, e => appAlert(e.message));
+  };
+})();
+</script>
