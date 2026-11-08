@@ -1938,3 +1938,13 @@ from, and how it was verified. The deploy procedure is in the
   run [#338](https://github.com/yasircmd/erp-firebase/actions/runs/42499870072)
   (16:26–16:27 UTC), success: MIS and MISDASHBOARD are phone screens. The
   MIS module is complete and live.
+- **2026-11-08, no zoom on a tapped box on a phone (PR #253, from `b02a22f`):**
+  "hosting", run [#339](https://github.com/yasircmd/erp-firebase/actions/runs/42501237322)
+  (16:42–16:43 UTC), success.
+- **2026-11-08, task emails (PR #255, from `75172e0`):** "functions set"
+  `task-emails`, run [#340](https://github.com/yasircmd/erp-firebase/actions/runs/42511806535)
+  (18:48 UTC), **failed at "Install dependencies", nothing deployed**:
+  `npm ci` refused functions/package-lock.json ("Missing: @types/range-parser@1.2.7
+  from lock file"): adding nodemailer had left the lock file out of step
+  with package.json. Fixed in PR #256 (the lock file from a full
+  `npm install`, checked with `npm ci` on npm 10 and 11). Rerun after it.
