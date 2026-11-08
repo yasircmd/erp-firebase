@@ -1,0 +1,5 @@
+# Task emails' sender alone (docs/modules/TASK_EMAILS.md, "Setting it up"
+# step 4): after a new version of the secret TASK_MAIL_ACCOUNT (the mailbox's
+# address and app password), so the function reads it. No public invoker
+# (tools/deploy-lib.sh NO_PUBLIC_INVOKER).
+sweepTaskMail
