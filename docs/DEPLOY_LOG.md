@@ -1914,3 +1914,8 @@ from, and how it was verified. The deploy procedure is in the
   widened for. Fixed in the next PR (the script allows the versioned
   libraries, and the unit test now checks the script does); then the
   "hosting" task to finish.
+- **2026-11-08, MIS phase 2 finished (PR #245, from `416801d`):** "hosting",
+  run [#332](https://github.com/yasircmd/erp-firebase/actions/runs/42487801109)
+  (14:02–14:03 UTC), success: the styles, the shell's MIS tiles and Home
+  block, public/vendor/chart-4.4.4.umd.js, the Help. With run #331's
+  functions and screens, phase 2 is live.
