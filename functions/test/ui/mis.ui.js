@@ -9,7 +9,8 @@ const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
-const { app, call, reset, baseFixture } = require('../emulator/_helpers');
+const path = require('path');
+const { app, call, reset, baseFixture, rtdb, firestore } = require('../emulator/_helpers');
 
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300) + ' @ ' + String(e.stack).split('\n').find(l => /mis.ui/.test(l))]); }); }
@@ -34,9 +35,14 @@ async function jv(date, lines) {
   await jv(M0 + '-01', [['6000', 400, 0], ['1000', 0, 400]]);
 
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
-  const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8220);
+  const chartJs = fs.readFileSync(path.join(__dirname, '../../../public/vendor/chart-4.4.4.umd.js'));
+  const server = http.createServer((req, res) => {
+    if (req.url.startsWith('/vendor/chart-4.4.4.umd.js')) { res.writeHead(200, { 'Content-Type': 'text/javascript' }); res.end(chartJs); return; }
+    res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness);
+  }).listen(8220);
   const browser = await chromium.launch();
-  const context = await browser.newContext();
+  const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+  await rtdb.ref('permissions/MIS').set({ access: ['Admin', 'Viewer'], design: ['Admin', 'Viewer'], publish: ['Admin'] });
   const T = { timeout: 30000 };
   async function open(uid) {
     const page = await context.newPage();
@@ -88,6 +94,59 @@ async function jv(date, lines) {
     for (let i = 0; i < 100 && !p.__dialogs.length; i++) await p.waitForTimeout(100);
     assert.match(p.__dialogs.join(' | '), /not a budget/);
     assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('phase 3: the chart above the table (Mon-yyyy months), hidden on "No chart"; Copy takes the table', async () => {
+    const p = await open('u-admin');
+    await show(p, 'trend');
+    await p.waitForFunction(() => document.getElementById('mis-canvas').dataset.drawn === '1', null, T);
+    assert.equal(await p.isVisible('#mis-chart-box'), true);
+    const labels = await p.evaluate(() => Chart.getChart(document.getElementById('mis-canvas')).data.labels);
+    assert.deepEqual(labels.slice(-2), [shown(M1), shown(M0)]);
+    await p.selectOption('#mis-chart', 'none');
+    assert.equal(await p.isVisible('#mis-chart-box'), false);
+    await p.click('#mis-copy');
+    const clip = await p.evaluate(() => navigator.clipboard.readText());
+    assert.equal(clip.split('\n')[0], 'Month\tRevenue\tExpenses\tNet profit');
+    assert.equal(clip.split('\n').slice(-1)[0], shown(M0) + '\t3000\t400\t2600');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('phase 3: My reports: Save as (the latest month), reopened with its settings, shared with the Viewer, read-only for them', async () => {
+    const p = await open('u-admin');
+    await p.selectOption('#mis-type', 'profitLoss'); await p.selectOption('#mis-mode', 'lastYear'); await p.selectOption('#mis-chart', 'line');
+    await p.click('#mis-save-as');
+    await p.fill('#mis-save-name', 'Monthly P&L');
+    await p.click('#mis-save-ok');
+    await p.waitForFunction(() => /Saved report: Monthly P&L/.test(document.getElementById('mis-saved-note').textContent), null, T);
+    const saved = (await firestore.collection('misReports').get()).docs.map(d => d.data());
+    assert.deepEqual(saved.map(r => [r.Name, r.Type, r.Mode, r.Chart, r.Period.kind]), [['Monthly P&L', 'profitLoss', 'lastYear', 'line', 'latest']]);
+    // Share with the Viewer role.
+    await p.click('#mis-share');
+    await p.check('.mis-share-role[value="Viewer"]');
+    await p.click('#mis-share-ok');
+    for (let i = 0; i < 100 && !((await firestore.collection('misReports').get()).docs[0].data().SharedRoles || []).length; i++) await p.waitForTimeout(100);
+    await p.close();
+    const v = await open('u-viewer');
+    const id = (await firestore.collection('misReports').get()).docs[0].id;
+    await v.selectOption('#mis-saved', id);
+    await v.waitForFunction(() => /Shared with you by Admin User/.test(document.getElementById('mis-saved-note').textContent), null, T);
+    assert.deepEqual([await v.inputValue('#mis-type'), await v.inputValue('#mis-mode'), await v.inputValue('#mis-chart'), await v.inputValue('#mis-month')], ['profitLoss', 'lastYear', 'line', M0]);
+    assert.deepEqual([await v.isVisible('#mis-save'), await v.isVisible('#mis-delete'), await v.isVisible('#mis-share'), await v.isVisible('#mis-save-as')], [false, false, false, true]);
+    assert.deepEqual(v.__errors, []);
+    await v.close();
+  });
+
+  await check('phase 3: on a phone the lines are cards, each figure with its column', async () => {
+    const p = await open('u-admin');
+    await show(p, 'profitLoss', 'prevMonth');
+    await p.evaluate(() => document.documentElement.classList.add('phone-view'));
+    assert.equal(await p.isVisible('#mis-head tr'), false);
+    const cell = p.locator('#mis-body tr[data-key="revenue"] td').nth(1);
+    assert.equal(await cell.getAttribute('data-label'), 'This period');
+    assert.equal(await cell.evaluate(el => getComputedStyle(el).display), 'flex');
     await p.close();
   });
 

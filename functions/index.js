@@ -413,3 +413,4 @@ const support = require('./src/support');
 // MIS (docs/modules/MIS.md): the engine (phase 1).
 ['getMisCatalogue', 'runMisReport', 'getMisSetup', 'saveMisSetup'].forEach(n => { exports[n] = require('./src/mis')[n]; });
 ['getMisDashboard', 'getMisHomeChoice', 'saveMisDashboard', 'resetMisDashboard', 'saveMisRoleDashboard'].forEach(n => { exports[n] = require('./src/misDashboard')[n]; }); // MIS.md, phase 2
+['getMyMisReports', 'saveMisReport', 'shareMisReport', 'deleteMisReport'].forEach(n => { exports[n] = require('./src/misReports')[n]; }); // MIS.md, phase 3

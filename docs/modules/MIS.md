@@ -141,6 +141,9 @@ in particular, shows the absolute and % variation.
 | Q440 | Who sets a role's default dashboard | **Users with the MIS publish right** (Admin and Finance Manager by default): "Make default for role…"; a user changes their own and can Reset to the role's. |
 | Q441 | Tile kinds | **Key figure** (a number with its change and %), **Chart** (any report as bar or line), **Top list** (a report's top 5), **Gauge / ratio** (a ratio against a target band). |
 | Q442 | How fresh | **Worked out when opened**, the same figures as MIS Reports; each tile loads on its own. |
+| Q443 | (phase 3, 2026-11-08) Who sees a saved report | **The owner's own, or shared with chosen roles by a user with MIS publish;** those roles see it under "Shared with me", read-only. |
+| Q444 | A saved report's month | **Chosen when saved:** "the latest month" (rolls forward) or a fixed month. |
+| Q445 | The reports screen's layout | **The chart above the table,** the chart hideable; on a phone the chart, then the lines as cards. Copy to Excel and Print take the table. |
 
 Taken as the plain reading (say if any should differ): **Q434**, scheduled or
 emailed reports, is not in the first release.
@@ -193,6 +196,33 @@ Five phases, each its own PR and deploy:
   made before this have no rep; they show as "No rep".
 - Behaviour changes to ported modules (Customer Master, Sales Order,
   Delivery Note, Customer Invoice), recorded in their docs.
+
+## As built: phase 3, the reports screen (2026-11-08)
+
+Decisions Q443-Q445 (above), built as designed:
+
+- **functions/src/misReports.js:** Firestore `misReports/{id}` `{ OwnerUID,
+  OwnerName, Name, Type, CompanyID, Mode, Chart, Period: { kind:
+  'latest'|'fixed', month }, SharedRoles }`. `getMyMisReports` (mine, and
+  those shared with my role: two single-field queries), `saveMisReport`
+  (MIS design; new, or the owner's change; at most 100 per user; the
+  company the user's), `shareMisReport` (MIS publish; the owner's; known
+  roles; [] private again), `deleteMisReport` (the owner). Only the owner
+  changes, shares or deletes; the roles see it read-only. Data Reset clears
+  them with "Numbering & Settings". No module change (part of MIS).
+- **screens/MIS.html:** My reports (Mine / Shared with me), Save as… (name,
+  opens on the latest month or this month kept), Save changes, Share (role
+  ticks), Delete; the chart above the table (Bars / Line / No chart) through
+  the shell's `misTiles.chart` (now shared with the dashboard's tiles);
+  Copy (tab-separated for Excel; the shell formats its dates) and Print;
+  on a phone each line a card with its column names.
+- Tests: emulator `misReports` (saved, shared and read-only, fixed or
+  latest, the owner's changes, the checks, the rights); UI `mis` 6/6 (+3:
+  the chart and Copy, Save as / reopen / share / read-only, phone cards).
+  Negative controls caught: anyone may change a report; the phone cards'
+  column names dropped. (Copy's dates without the screen's own formatting:
+  not caught, because the shell formats copied text itself.)
+- Deploy set `mis-reports`: 7 functions, --screens (MIS), then Hosting.
 
 ## As built: phase 2, the dashboard (2026-11-08)
 

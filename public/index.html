@@ -3218,6 +3218,7 @@
     // user chooses, on Home. Each tile's figures come from runMisReport when
     // shown (Q442); tiles asking the same report share one call.
     //   misTiles.render(el, tiles, { companyId, month, editable, onRemove, onMove })
+    //   misTiles.chart(canvas, report, 'bar'|'line') → Promise of the drawn Chart
     //   misTiles.loadChart() → Promise of Chart.js (shipped with the app, Q430)
     window.misTiles = (function () {
       let chartLib = null;
@@ -3269,12 +3270,12 @@
         }
         return '<div class="relative h-48"><canvas></canvas></div><p class="mis-chart-note hidden text-xs text-slate-500"></p>';
       }
-      async function drawChart(card, t, r) {
-        const canvas = card.querySelector('canvas');
+      // A report as a chart on a canvas (the dashboard's tiles, the MIS Reports screen).
+      async function chart(canvas, r, style) {
         let labels, sets;
         if (r.type === 'trend') {
           labels = (r.rows || []).map(x => label(x.label));
-          sets = [['Revenue', 'revenue'], ['Expenses', 'expenses'], ['Net profit', 'netProfit']].map(([n, k], i) => ({ label: n, data: r.rows.map(x => x[k]) , color: SERIES[i] }));
+          sets = [['Revenue', 'revenue'], ['Expenses', 'expenses'], ['Net profit', 'netProfit']].map(([n, k], i) => ({ label: n, data: r.rows.map(x => x[k]), color: SERIES[i] }));
         } else if (r.type === 'stockCover') {
           const names = { fast: 'Fast', normal: 'Normal', slow: 'Slow', nonMoving: 'Non-moving' };
           labels = (r.classes || []).map(c => names[c.key] || c.key); sets = [{ label: 'Value', data: (r.classes || []).map(c => c.value), color: SERIES[0] }];
@@ -3284,20 +3285,22 @@
           sets = [{ label: 'This period', data: rows.map(x => x.current), color: SERIES[0] }];
           if (rows.some(x => x.compare != null && x.compare !== 0)) sets.push({ label: 'Compared with', data: rows.map(x => x.compare), color: '#94a3b8' });
         }
-        try {
-          const Chart = await loadChart();
-          if (card.__chart) card.__chart.destroy();
-          card.__chart = new Chart(canvas, {
-            type: t.chart === 'line' ? 'line' : 'bar',
-            data: { labels, datasets: sets.map(s => ({ label: s.label, data: s.data, backgroundColor: s.color, borderColor: s.color, tension: 0.25 })) },
-            options: { responsive: true, maintainAspectRatio: false, animation: false,
-              plugins: { legend: { labels: { color: ink(), boxWidth: 10 } } },
-              scales: { x: { ticks: { color: ink() }, grid: { color: grid() } }, y: { ticks: { color: ink() }, grid: { color: grid() } } } }
-          });
-          canvas.dataset.drawn = '1';
-        } catch (e) {
-          const note = card.querySelector('.mis-chart-note'); note.textContent = e.message; note.classList.remove('hidden');
-        }
+        const Chart = await loadChart();
+        const old = Chart.getChart(canvas);
+        if (old) old.destroy();
+        const c = new Chart(canvas, {
+          type: style === 'line' ? 'line' : 'bar',
+          data: { labels, datasets: sets.map(s => ({ label: s.label, data: s.data, backgroundColor: s.color, borderColor: s.color, tension: 0.25 })) },
+          options: { responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { labels: { color: ink(), boxWidth: 10 } } },
+            scales: { x: { ticks: { color: ink() }, grid: { color: grid() } }, y: { ticks: { color: ink() }, grid: { color: grid() } } } }
+        });
+        canvas.dataset.drawn = '1';
+        return c;
+      }
+      async function drawChart(card, t, r) {
+        try { card.__chart = await chart(card.querySelector('canvas'), r, t.chart); }
+        catch (e) { const note = card.querySelector('.mis-chart-note'); note.textContent = e.message; note.classList.remove('hidden'); }
       }
       function render(el, tiles, o) {
         const opt = o || {};
@@ -3349,7 +3352,7 @@
         box.classList.remove('hidden');
         return draw();
       }
-      return { render, loadChart, home };
+      return { render, loadChart, chart, home };
     })();
     // ---------- END MIS TILES ----------
     // ---------- DOCUMENT LINKS ----------
