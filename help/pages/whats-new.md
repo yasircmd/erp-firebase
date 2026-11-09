@@ -13,6 +13,12 @@ screen.
 
 ## 09/11/2026
 
+- **Built modules.** Your ERP provider can now build modules for your kind of
+  business (rooms and bookings, investments, properties and leases …) from
+  settings. Each appears in your menu like any other module, with its own
+  rights, numbering, statuses and approvals. See
+  [Built modules](built-modules.html).
+
 - **Task emails from your own mailbox.** Each corporate now sends its task
   emails from its own mailbox, and each company can have its own: set the
   address and its app password in Company Master (**Task emails mailbox**, or

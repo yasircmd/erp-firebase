@@ -56,7 +56,8 @@ function checkScreens(screens, registryIds) {
   const ids = Object.keys(screens);
   const problems = [
     ...registryIds.filter(id => !ids.includes(id)).map(id => 'no screen for module ' + id),
-    ...ids.filter(id => !registryIds.includes(id)).map(id => 'screen ' + id + ' is not in MODULE_REGISTRY'),
+    // BUILT: the one screen every built module runs on (MODULE_BUILDER.md); its modules are published, not in the code.
+    ...ids.filter(id => id !== 'BUILT' && !registryIds.includes(id)).map(id => 'screen ' + id + ' is not in MODULE_REGISTRY'),
     ...ids.filter(id => screens[id].includes('google.script.run')).map(id => 'screen ' + id + ' still calls google.script.run')
   ];
   if (problems.length) throw new Error('Screens not released: ' + problems.join('; '));

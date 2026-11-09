@@ -1,0 +1,218 @@
+<!-- Module Builder, phase 1 (owner, 2026-11-09; docs/modules/MODULE_BUILDER.md,
+     Q461-Q469): the firm (Corporate 100) defines a module: a master (records
+     like rooms) or a document (like a booking), its fields, one line table,
+     numbering, statuses (with approval where wanted), the list's columns;
+     saves a draft, publishes a version for every corporate (Q467). A
+     published module is then a module: rights in Roles & Permissions, a
+     menu item in Tree Management, switched on for client corporates in the
+     Developer screen; try it in Corporate 100 before switching it on. -->
+<style>
+  #bd-fields input, #bd-fields select, #bd-fields textarea, #bd-line-fields input, #bd-line-fields select, #bd-line-fields textarea, #bd-statuses input { border-radius: 0.375rem; padding: 0.25rem 0.4rem; font-size: 0.8rem; width: 100%; }
+</style>
+<div class="space-y-5">
+  <div id="bd-list-view" class="space-y-3">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">The firm</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-screwdriver-wrench text-blue-500"></i> Module Builder</h2>
+        <p class="text-xs text-slate-400 mt-1">Define a module from settings: published, it is a module like any other (rights, menu, switched on for corporates). It never posts to the accounts itself.</p></div>
+      <button id="bd-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New module</button>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Module</th><th class="py-2 px-3">Id</th><th class="py-2 px-3">Kind</th><th class="py-2 px-3">Version</th><th class="py-2 px-3">Published</th><th class="py-2 px-3"></th></tr></thead>
+        <tbody id="bd-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+  </div>
+
+  <div id="bd-edit-view" class="hidden space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+      <div class="flex items-center gap-3"><button id="bd-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+        <h2 id="bd-title" class="font-bold text-blue-400"></h2><span id="bd-version" class="text-xs text-slate-400"></span></div>
+      <div class="flex flex-wrap gap-2">
+        <button id="bd-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
+        <button id="bd-publish" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-upload"></i> Publish</button>
+        <button id="bd-delete" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded text-red-300"><i class="fa-solid fa-trash"></i> Delete draft</button>
+      </div>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div><label for="bd-id" class="block text-xs font-medium text-slate-300 mb-1">Id <span class="text-slate-500">(X_ then capitals; fixed once saved)</span></label><input id="bd-id" placeholder="X_ROOM" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"></div>
+      <div><label for="bd-label" class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="bd-label" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label for="bd-kind" class="block text-xs font-medium text-slate-300 mb-1">Kind</label><select id="bd-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+        <option value="master">Master (records: rooms, properties, investments…)</option><option value="document">Document (bookings, orders, leases…)</option></select></div>
+      <div class="md:col-span-2"><label for="bd-description" class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(shown under its title)</span></label><input id="bd-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Companies</label><label class="inline-flex items-center gap-2 text-sm py-2"><input type="checkbox" id="bd-company" checked> Each record belongs to a company</label></div>
+      <div class="bd-doc"><label for="bd-prefix" class="block text-xs font-medium text-slate-300 mb-1">Number prefix <span class="text-slate-500">(e.g. BK → BK-26-000001)</span></label><input id="bd-prefix" maxlength="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono uppercase"></div>
+      <div><label for="bd-print-title" class="block text-xs font-medium text-slate-300 mb-1">Print title</label><input id="bd-print-title" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between"><h3 class="font-semibold text-slate-200">Fields</h3><button id="bd-add-field" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add field</button></div>
+      <p class="text-xs text-slate-500" id="bd-fields-note"></p>
+      <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-1 px-1">Key</th><th class="py-1 px-1">Label</th><th class="py-1 px-1">Type</th><th class="py-1 px-1">Options / links to</th><th class="py-1 px-1">Default</th><th class="py-1 px-1">Required</th><th class="py-1 px-1">In the list</th><th></th></tr></thead>
+        <tbody id="bd-fields"></tbody></table></div>
+    </div>
+
+    <div class="bd-doc bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-semibold text-slate-200"><label class="inline-flex items-center gap-2"><input type="checkbox" id="bd-lines-on"> A line table</label></h3>
+        <div class="flex items-center gap-2"><input id="bd-lines-label" placeholder="Lines" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-sm w-40"><button id="bd-add-line-field" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add line field</button></div></div>
+      <p class="text-xs text-slate-500">Number and amount line fields are totalled on the document.</p>
+      <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-1 px-1">Key</th><th class="py-1 px-1">Label</th><th class="py-1 px-1">Type</th><th class="py-1 px-1">Options / links to</th><th class="py-1 px-1">Default</th><th class="py-1 px-1">Required</th><th></th><th></th></tr></thead>
+        <tbody id="bd-line-fields"></tbody></table></div>
+    </div>
+
+    <div class="bd-doc bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between"><h3 class="font-semibold text-slate-200">Statuses <span class="text-xs text-slate-500 font-normal">(in order; the first is where a document starts)</span></h3><button id="bd-add-status" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add status</button></div>
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 px-1">Name</th><th class="py-1 px-1">Can be changed in it</th><th class="py-1 px-1">Needs approval to enter</th><th class="py-1 px-1">Final</th><th></th></tr></thead>
+        <tbody id="bd-statuses"></tbody></table>
+    </div>
+
+    <div id="bd-versions-wrap" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+      <h3 class="font-semibold text-slate-200 mb-2">Published versions</h3><ul id="bd-versions" class="text-xs text-slate-400 space-y-1"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const fail = err => appAlert(err && err.message ? err.message : String(err));
+  const TYPE_LABELS = { text: 'Text', longtext: 'Long text', number: 'Number', amount: 'Amount', date: 'Date', datetime: 'Date and time', yesno: 'Yes / no', choice: 'Choice list', link: 'Link' };
+  let L = null, def = null, isNew = false, published = null;
+
+  function renderList() {
+    $('bd-new').classList.toggle('hidden', !L.rights.write);
+    $('bd-body').innerHTML = L.definitions.map(d => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(d.id) + '"><td class="py-2 px-3">' + esc(d.label) + '</td><td class="py-2 px-3 font-mono text-xs">' + esc(d.id) +
+      '</td><td class="py-2 px-3 text-xs">' + (d.kind === 'master' ? 'Master' : 'Document') + '</td><td class="py-2 px-3 text-xs">' + (d.version ? 'v' + d.version : '<span class="text-amber-400">Draft</span>') +
+      '</td><td class="py-2 px-3 text-xs">' + esc(String(d.publishedAt || '').slice(0, 10)) + '</td><td class="py-2 px-3 text-xs">' + (d.changed ? '<span class="text-amber-400">Draft changed</span>' : '') + '</td></tr>').join('') ||
+      '<tr><td colspan="6" class="py-6 text-center text-slate-500">No module yet: New module.</td></tr>';
+  }
+  const load = () => call('getModuleDefinitions', {}).then(r => { L = r; renderList(); }, fail);
+
+  // One field row (header or line).
+  function fieldRow(f, i, line) {
+    const types = line ? L.lineTypes : L.types;
+    const targets = Object.entries(L.linkTargets).map(([k, v]) => [k, v]).concat(L.masters.filter(m => m !== def.id).map(m => [m, m]), def.kind === 'master' && def.id ? [[def.id, def.id + ' (this module)']] : []);
+    const extra = f.type === 'choice' ? '<textarea rows="2" class="bd-options bg-slate-900 border border-slate-700" placeholder="One option per line">' + esc((f.options || []).join('\n')) + '</textarea>'
+      : f.type === 'link' ? '<select class="bd-target bg-slate-900 border border-slate-700"><option value=""></option>' + targets.map(([k, v]) => '<option value="' + esc(k) + '"' + (k === f.target ? ' selected' : '') + '>' + esc(v) + '</option>').join('') + '</select>' : '';
+    return '<tr data-i="' + i + '" class="border-b border-slate-800">' +
+      '<td class="py-1 px-1"><input class="bd-key bg-slate-900 border border-slate-700 font-mono" value="' + esc(f.key || '') + '" placeholder="roomType"></td>' +
+      '<td class="py-1 px-1"><input class="bd-flabel bg-slate-900 border border-slate-700" value="' + esc(f.label || '') + '"></td>' +
+      '<td class="py-1 px-1"><select class="bd-type bg-slate-900 border border-slate-700">' + types.map(t => '<option value="' + t + '"' + (t === f.type ? ' selected' : '') + '>' + TYPE_LABELS[t] + '</option>').join('') + '</select></td>' +
+      '<td class="py-1 px-1">' + extra + '</td>' +
+      '<td class="py-1 px-1">' + (f.type === 'link' ? '' : '<input class="bd-default bg-slate-900 border border-slate-700" value="' + esc(f.default == null ? '' : f.default) + '">') + '</td>' +
+      '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-required"' + (f.required ? ' checked' : '') + '></td>' +
+      '<td class="py-1 px-1 text-center">' + (line ? '' : '<input type="checkbox" class="bd-col"' + ((def.listColumns || []).includes(f.key) ? ' checked' : '') + '>') + '</td>' +
+      '<td class="py-1 px-1 whitespace-nowrap"><button class="bd-up text-slate-500 hover:text-slate-200" title="Move up"><i class="fa-solid fa-arrow-up"></i></button><button class="bd-remove text-slate-500 hover:text-red-400 ml-1" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+  function readFields(tbody) {
+    return [...$(tbody).querySelectorAll('tr[data-i]')].map(tr => {
+      const f = { key: tr.querySelector('.bd-key').value.trim(), label: tr.querySelector('.bd-flabel').value.trim(), type: tr.querySelector('.bd-type').value, required: tr.querySelector('.bd-required').checked };
+      const o = tr.querySelector('.bd-options'); if (o) f.options = o.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      const t = tr.querySelector('.bd-target'); if (t) f.target = t.value;
+      const d = tr.querySelector('.bd-default'); if (d && d.value !== '') f.default = d.value;
+      f._col = Boolean(tr.querySelector('.bd-col') && tr.querySelector('.bd-col').checked);
+      return f;
+    });
+  }
+  function capture() {
+    const fields = readFields('bd-fields');
+    def = Object.assign(def, {
+      id: $('bd-id').value.trim().toUpperCase(), label: $('bd-label').value.trim(), kind: $('bd-kind').value, description: $('bd-description').value.trim(),
+      companyScoped: $('bd-company').checked, printTitle: $('bd-print-title').value.trim(),
+      numbering: { prefix: $('bd-prefix').value.trim().toUpperCase() },
+      fields: fields.map(f => { const x = Object.assign({}, f); delete x._col; return x; }),
+      listColumns: fields.filter(f => f._col).map(f => f.key),
+      lines: { enabled: $('bd-lines-on').checked, label: $('bd-lines-label').value.trim(), fields: readFields('bd-line-fields').map(f => { const x = Object.assign({}, f); delete x._col; return x; }) },
+      statuses: [...$('bd-statuses').querySelectorAll('tr[data-i]')].map(tr => ({ name: tr.querySelector('.bd-sname').value.trim(), editable: tr.querySelector('.bd-editable').checked, approval: tr.querySelector('.bd-approval').checked, final: tr.querySelector('.bd-final').checked }))
+    });
+  }
+  function draw() {
+    $('bd-id').value = def.id || ''; $('bd-id').disabled = !isNew;
+    $('bd-label').value = def.label || ''; $('bd-kind').value = def.kind || 'master'; $('bd-kind').disabled = Boolean(published);
+    $('bd-description').value = def.description || ''; $('bd-company').checked = def.companyScoped !== false;
+    $('bd-prefix').value = (def.numbering || {}).prefix || ''; $('bd-print-title').value = def.printTitle || '';
+    document.querySelectorAll('.bd-doc').forEach(el => el.classList.toggle('hidden', def.kind !== 'document'));
+    $('bd-fields-note').textContent = def.kind === 'master' ? 'Every record also has its Code and Name (and its company).' : 'Every document also has its Number, Date and Status (and its company).';
+    $('bd-fields').innerHTML = (def.fields || []).map((f, i) => fieldRow(f, i, false)).join('');
+    const l = def.lines || {};
+    $('bd-lines-on').checked = Boolean(l.enabled); $('bd-lines-label').value = l.label || '';
+    $('bd-line-fields').innerHTML = (l.fields || []).map((f, i) => fieldRow(f, i, true)).join('');
+    $('bd-statuses').innerHTML = (def.statuses || []).map((s, i) => '<tr data-i="' + i + '" class="border-b border-slate-800"><td class="py-1 px-1"><input class="bd-sname bg-slate-900 border border-slate-700" value="' + esc(s.name) + '"></td>' +
+      '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-editable"' + (i === 0 || s.editable ? ' checked' : '') + (i === 0 ? ' disabled' : '') + '></td>' +
+      '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-approval"' + (s.approval ? ' checked' : '') + (i === 0 ? ' disabled' : '') + '></td>' +
+      '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-final"' + (s.final ? ' checked' : '') + (i === 0 ? ' disabled' : '') + '></td>' +
+      '<td class="py-1 px-1"><button class="bd-sremove text-slate-500 hover:text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>').join('');
+    const can = L.rights.write;
+    $('bd-save').classList.toggle('hidden', !can);
+    $('bd-publish').classList.toggle('hidden', !L.rights.publish || isNew);
+    $('bd-delete').classList.toggle('hidden', !can || isNew || Boolean(published));
+  }
+  async function open(id) {
+    try {
+      if (id) {
+        const r = await call('getModuleDefinition', { id });
+        def = JSON.parse(JSON.stringify(r.draft || r.published)); published = r.published; isNew = false;
+        $('bd-title').textContent = def.label; $('bd-version').textContent = r.version ? 'Published v' + r.version : 'Not published yet';
+        $('bd-versions-wrap').classList.toggle('hidden', !r.versions.length);
+        $('bd-versions').innerHTML = r.versions.map(v => '<li>v' + v.version + ': ' + esc(String(v.publishedAt).slice(0, 10)) + ' by ' + esc(v.publishedBy) + '</li>').join('');
+      } else {
+        def = { id: 'X_', label: '', kind: 'master', companyScoped: true, fields: [], lines: { enabled: false, fields: [] }, statuses: [{ name: 'Draft' }, { name: 'Confirmed' }, { name: 'Cancelled', final: true }], listColumns: [] };
+        published = null; isNew = true;
+        $('bd-title').textContent = 'New module'; $('bd-version').textContent = ''; $('bd-versions-wrap').classList.add('hidden');
+      }
+      $('bd-list-view').classList.add('hidden'); $('bd-edit-view').classList.remove('hidden');
+      draw();
+    } catch (err) { fail(err); }
+  }
+  async function save() {
+    capture();
+    try {
+      const r = await call('saveModuleDefinitionDraft', { definition: def, isNew });
+      appAlert('Draft saved.' + (isNew ? ' Publish it to make it a module.' : ''));
+      await load(); await open(r.id);
+    } catch (err) { fail(err); }
+  }
+  async function publish() {
+    capture();
+    try {
+      await call('saveModuleDefinitionDraft', { definition: def });
+      if (!(await appConfirm('Publish ' + def.label + '? Every corporate it is on gets this version at once. Then: give its rights in Roles & Permissions, add it to the menu in Tree Management, and switch it on for client corporates in the Developer screen.'))) return;
+      const r = await call('publishModuleDefinition', { id: def.id });
+      appAlert(def.label + ': version ' + r.version + ' published.');
+      await load(); await open(def.id);
+    } catch (err) { fail(err); }
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-screwdriver-wrench"></i> Module Builder';
+    load();
+    $('bd-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) open(tr.dataset.id); });
+    $('bd-new').addEventListener('click', () => open(null));
+    $('bd-back').addEventListener('click', () => { $('bd-edit-view').classList.add('hidden'); $('bd-list-view').classList.remove('hidden'); load(); });
+    $('bd-save').addEventListener('click', save);
+    $('bd-publish').addEventListener('click', publish);
+    $('bd-delete').addEventListener('click', async () => {
+      if (!(await appConfirm('Delete the draft ' + def.id + '? It was never published.'))) return;
+      call('deleteModuleDefinitionDraft', { id: def.id }).then(() => { $('bd-back').click(); }, fail);
+    });
+    $('bd-kind').addEventListener('change', () => { capture(); draw(); });
+    $('bd-add-field').addEventListener('click', () => { capture(); def.fields.push({ key: '', label: '', type: 'text' }); draw(); });
+    $('bd-add-line-field').addEventListener('click', () => { capture(); def.lines.enabled = true; def.lines.fields.push({ key: '', label: '', type: 'text' }); draw(); });
+    $('bd-add-status').addEventListener('click', () => { capture(); def.statuses.push({ name: '' }); draw(); });
+    const rowsOf = id => ({ 'bd-fields': () => def.fields, 'bd-line-fields': () => def.lines.fields })[id]();
+    ['bd-fields', 'bd-line-fields'].forEach(id => {
+      $(id).addEventListener('change', e => { if (e.target.matches('.bd-type')) { capture(); draw(); } });
+      $(id).addEventListener('click', e => {
+        const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+        const i = Number(tr.dataset.i);
+        if (e.target.closest('.bd-remove')) { capture(); rowsOf(id).splice(i, 1); draw(); }
+        else if (e.target.closest('.bd-up') && i > 0) { capture(); const a = rowsOf(id); [a[i - 1], a[i]] = [a[i], a[i - 1]]; draw(); }
+      });
+    });
+    $('bd-statuses').addEventListener('click', e => { const tr = e.target.closest('tr[data-i]'); if (tr && e.target.closest('.bd-sremove')) { capture(); def.statuses.splice(Number(tr.dataset.i), 1); draw(); } });
+  };
+})();
+</script>

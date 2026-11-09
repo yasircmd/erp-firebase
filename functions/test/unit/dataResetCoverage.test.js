@@ -20,12 +20,14 @@ const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js')).concat(['legacy
 const NEVER = ['users', 'roles', 'permissions', 'tree', 'userFavorites', 'userPreferences', 'roleFavorites', 'approvalMigrations', 'appState', 'settings', 'system', 'screenReleases',
   'corporateDirectory', 'corporateGroups', 'corporateNotes', 'supportIssues', 'supportCounters', '__documentStorage',
   // Task emails (TASK_EMAILS.md): each user's and employee's choice, and the sender's own state.
-  'userEmailSettings', 'employeeEmailSettings', 'mailQueue', 'mailLog', 'mailSummaries', 'mailAccounts'];
+  'userEmailSettings', 'employeeEmailSettings', 'mailQueue', 'mailLog', 'mailSummaries', 'mailAccounts',
+  // Module Builder (MODULE_BUILDER.md): the firm's definitions; a corporate's built records (not in Data Reset in phase 1).
+  'moduleDefinitions', 'builtRecords', 'builtCounters'];
 
 // Sub-collections, cleared with their documents (recursive delete): a
 // payroll run's payslips, a request's or an issue's messages, the document
 // storage connection's pending sign-ins.
-const SUBCOLLECTIONS = ['slips', 'messages', 'pending'];
+const SUBCOLLECTIONS = ['slips', 'messages', 'pending', 'versions']; // versions: a built module's published versions (MODULE_BUILDER.md)
 
 // The ported categories' paths (Code.gs DATA_RESET_CATEGORIES, as patched).
 function portedPaths() {

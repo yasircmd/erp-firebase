@@ -420,3 +420,6 @@ const support = require('./src/support');
 ['getMyEmailSettings', 'saveMyEmailSettings', 'sweepTaskMail'].forEach(n => { exports[n] = require('./src/taskMail')[n]; });
 // Each corporate's and company's own sending mailbox (TASK_EMAILS.md, phase 2): Company Master.
 ['getMailAccounts', 'saveMailAccount', 'testMailAccount'].forEach(n => { exports[n] = require('./src/mailAccounts')[n]; });
+// Module Builder (MODULE_BUILDER.md, phase 1): the firm's builder, and the runtime every built module runs on.
+['getModuleDefinitions', 'getModuleDefinition', 'saveModuleDefinitionDraft', 'publishModuleDefinition', 'deleteModuleDefinitionDraft'].forEach(n => { exports[n] = require('./src/moduleBuilder')[n]; });
+['getBuiltModule', 'getBuiltLinkOptions', 'listBuiltRecords', 'getBuiltRecord', 'saveBuiltRecord', 'setBuiltActive', 'setBuiltStatus', 'decideBuiltApproval', 'deleteBuiltRecord'].forEach(n => { exports[n] = require('./src/builtModules')[n]; });

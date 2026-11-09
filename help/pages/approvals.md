@@ -4,8 +4,8 @@ area: start
 order: 3
 summary: How documents are submitted, approved, rejected and delegated.
 sources: [functions/src/approvals.js, functions/src/homeTasks.js]
-reviewed: 2026-10-31
-fingerprint: d09a7f519395f916
+reviewed: 2026-11-09
+fingerprint: 2ecc47b63098fa66
 ---
 ## When a document needs approval
 
@@ -46,7 +46,9 @@ than approve or reject; their card offers the full document only. See
 A rejected document returns to its submitter, with the reason, under
 **Rejected — Needs Your Resubmission**. Correct it and submit it again.
 It leaves your tasks once it is submitted again, or posted (a corrected
-document that no longer needs approval posts at once).
+document that no longer needs approval posts at once). A document of a
+[built module](built-modules.html) keeps its status when rejected, and shows
+here the same way.
 
 If it will not be submitted again, choose **Close** on it. It leaves your
 tasks, and the rejection stays on record, marked "Closed, not

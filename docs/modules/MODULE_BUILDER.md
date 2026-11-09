@@ -1,7 +1,7 @@
 # Module Builder: modules made from settings, for any business
 
-Status: **design, decisions Q461-Q468 made 2026-11-09; awaiting the go-ahead
-for phase 1.**
+Status: **phase 1 built 2026-11-09** (decisions Q461-Q469; the owner's go-ahead
+the same day). See *As built: phase 1* below.
 
 ## The request (owner, 2026-11-09)
 
@@ -28,6 +28,7 @@ for phase 1.**
 | Q466 | Line tables | **One** per document (header fields only is also allowed). |
 | Q467 | Changing a published module | **A new version for every corporate at once**, like a screens release: added fields appear; a removed field stays readable on old records. |
 | Q468 | The status board | **Phase 2, with the calendar** (and the double-booking check). |
+| Q469 | Links in phase 1 | **Yes** (owner, 2026-11-09, on the go-ahead): a link field to a customer, vendor, item, employee, company, or another built master (a booking's Room). |
 | Q464 | What comes first | **The builder core:** custom masters and documents (fields, lines, numbering, statuses, approvals, attachments, print, rights, lists) and a status board; then the link to the invoice; then variants. |
 
 ## What the examples need, in the builder's terms
@@ -125,6 +126,86 @@ for phase 1.**
   list for now), formulas beyond line totals, the board and calendar,
   creating invoices, variants, reports in the MIS builder.
 
+## As built: phase 1 (2026-11-09)
+
+As designed (Q461-Q469), with these points:
+
+- **The registry, at run time.** `builtDefinitions.js` keeps the published
+  definitions in this instance and, before each call (callable.js), brings
+  the code's own MODULE_REGISTRY, DEFAULT_PERMISSIONS, Approval
+  Configuration's list (APPROVAL_GATEABLE_MODULES) and the approvals' storage
+  map (APPROVAL_MODULE_STORAGE_) up to date **in place**, at most every
+  30 seconds; the ported code (Roles & Permissions, Tree Management, Approval
+  Configuration) then sees a built module with no change of its own. Each
+  function is its own instance, so a module just published can be unknown
+  to another for up to 30 s; a lookup that misses reads again at once
+  (`publishedDef`, getModuleFragment). A coded module's id can never be
+  taken (`X_` ids only, and refused if the code has it). Its rights: access
+  and write (masters), and void (documents: to a final status); default
+  ADMIN, set in Roles & Permissions.
+- **The builder** (BUILDER, homeOnly, internal: access, write, publish):
+  `moduleBuilder.js` and screens/BUILDER.html. A draft is checked as it
+  would be published; **Publish** writes the next version (versions kept in
+  `moduleDefinitions/{id}/versions/{n}`) and is at once every corporate's
+  (Q467). A new version may not change the kind, retype a published field,
+  or relink one (its records keep their values); a never-published draft may
+  be deleted, a published module never (switch it off for a corporate in
+  the Developer screen). **Preview**: a published module is invisible to a
+  client corporate until switched on for it, so the firm publishes and tries
+  it in Corporate 100 first (a separate preview of an unpublished draft is
+  not built).
+- **The runtime**: `builtModules.js` and screens/BUILT.html, served by
+  getModuleFragment for any `X_` module with its id. Masters: Code (unique
+  in the company), Name, their fields, switched on or off (never deleted).
+  Documents: a number PREFIX-YY-000001 (`builtCounters`, a transaction), the
+  Date, their fields, one line table (blank lines dropped; number and amount
+  columns totalled), the statuses: any other status from a non-final one;
+  only an editable status (the first always) allows changes; a final one
+  needs void; one marked "needs approval" goes through
+  beginApprovalInstance (Approval Configuration, the document's first amount
+  total as the amount) and waits as PendingStatus until decided
+  (decideBuiltApproval → recordApprovalDecision); a rejection keeps the
+  status, marked ApprovalRejected (Home's rejected items show it:
+  homeTasks.awaitsResubmission). Delete only in the first status. Links: the
+  record's company's active customers, vendors, items, employees, companies
+  (the user's) or the built master's active records; the label is the
+  ERP's, never the caller's. Print: the record or document with its lines.
+  Copy: the list for Excel. Dates as yyyy-mm-dd for the shell to show.
+- **Help**: one page, *Built modules* (Administration), for every built
+  module; Help's `?m=X_...` opens it (tools/help/lib.js). The builder is
+  internal (no Help, like Developer).
+- **Not in phase 1** (as decided, or found while building): formulas beyond
+  the line totals, file fields, the board and calendar (phase 2), invoices
+  from a document (phase 3), variants (phase 4), MIS data sets (phase 5);
+  also pasting lines from Excel, the phone layout's cards, and the phone
+  approval card for built documents (Home opens the document, with Approve
+  and Reject on it); Data Reset does not offer built records yet.
+- **Tests**: unit/moduleBuilder (a definition's checks; the registry joined
+  in place and a module no longer published taken out; values by type, a
+  link only from its choices with the ERP's label, totals, the statuses);
+  emulator/moduleBuilder (the builder's rights, checks, drafts, versions, a
+  retyped field refused, a published module never deleted; masters: codes,
+  choices, required, rights, the company; documents: link choices per
+  company, totals, numbering, approval through Approval Configuration to
+  the approver's Home tasks and back, editable statuses, void, a rejection
+  in the submitter's rejected items, delete only a Draft, a switched-off
+  master not offered); ui/moduleBuilder (a master defined and published in
+  the builder; a room saved, a stay with a guest and rooms on its lines,
+  totals, numbered, Confirmed); ui/help (?m=X_ROOM). Negative controls, each
+  caught then restored: stale built modules left in the registry; a link
+  taking any id; the lines' totals wrong. Found by the tests while
+  building: a required text field accepted spaces (fixed); a module just
+  published unknown to another instance (the re-read on a miss).
+
+### Setting it up (after the deploy)
+
+1. Corporate 100: link **Module Builder** in the menu (Tree Management).
+2. Build and publish a module; give its rights (Roles & Permissions) and a
+   menu item (Tree Management); try it.
+3. A client corporate: switch the module on for it (Developer screen: its
+   modules, or its group's); its Admin then gives the rights and the menu
+   item (or the firm's tree for it).
+
 ## Open questions for the owner
 
-None for phase 1: Q461-Q468 decided. Building waits for the go-ahead.
+None for phase 1. Phase 2 (boards and calendars) is designed with the owner first.
