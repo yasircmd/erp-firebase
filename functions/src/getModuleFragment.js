@@ -31,7 +31,9 @@ const cache = new Map();
 exports.getModuleFragment = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const id = String(request.data && request.data.moduleId || '').trim().toUpperCase();
-  const moduleDef = MODULE_REGISTRY.find(m => m.id === id);
+  let moduleDef = MODULE_REGISTRY.find(m => m.id === id);
+  // A built module published a moment ago by another instance (MODULE_BUILDER.md).
+  if (!moduleDef && /^X_/.test(id)) { await require('./builtDefinitions').publishedDef(id); moduleDef = MODULE_REGISTRY.find(m => m.id === id); }
 
   if (!moduleDef) {
     throw new HttpsError('not-found', 'Unknown module: ' + (request.data && request.data.moduleId));
@@ -47,11 +49,14 @@ exports.getModuleFragment = onCallInCorporate(onCallOptions, async (request) => 
   const pointer = await firm.firestore.doc('system/screens').get();
   const release = pointer.exists ? pointer.get('activeRelease') : null;
   if (release !== cachedRelease) { cache.clear(); cachedRelease = release; }
-  let html = cache.get(id);
+  // A built module (MODULE_BUILDER.md) runs on the one runtime screen, told which module it is.
+  const screenId = moduleDef.built ? 'BUILT' : id;
+  let html = cache.get(screenId);
   if (html === undefined && release) {
-    const snap = await firm.firestore.doc('screenReleases/' + release + '/screens/' + id).get();
-    if (snap.exists) { html = snap.get('html'); cache.set(id, html); }
+    const snap = await firm.firestore.doc('screenReleases/' + release + '/screens/' + screenId).get();
+    if (snap.exists) { html = snap.get('html'); cache.set(screenId, html); }
   }
+  if (html && moduleDef.built) html = '<script>window.__builtModuleId = ' + JSON.stringify(id) + ';</script>' + html;
   if (!html) {
     throw new HttpsError('not-found', 'Module "' + id + '" has no fragment file yet.');
   }

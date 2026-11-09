@@ -57,7 +57,8 @@ test('the firm\'s own project is reached only for the directory and the screens 
   const users = files.filter(p => rel(p) !== 'firebaseAdmin.js' && /\bfirm\b[\s\S]{0,80}require\('\.\.?\/firebaseAdmin'\)|firebaseAdmin\.firm\b/.test(read(p))).map(rel).sort();
   // fxSheet.js: the firm's exchange-rates sheet link only (FX_SHEET.md, Q330); the rates it applies are the corporate's.
   // techRef.js: the Technical Reference inside the screens release (TECH_REFERENCE.md), firm-only.
-  assert.deepEqual(users, ['corporates.js', 'developer.js', 'fxSheet.js', 'getModuleFragment.js', 'support.js', 'techRef.js']);
+  // builtDefinitions.js, moduleBuilder.js: the built modules' definitions, the firm's like the screens release (MODULE_BUILDER.md, Q461).
+  assert.deepEqual(users, ['builtDefinitions.js', 'corporates.js', 'developer.js', 'fxSheet.js', 'getModuleFragment.js', 'moduleBuilder.js', 'support.js', 'techRef.js']);
 });
 
 test('no module keeps data between requests, except these', () => {
@@ -65,6 +66,7 @@ test('no module keeps data between requests, except these', () => {
     'firebaseAdmin.js': ['context', 'outsideRequests'], // the corporate itself
     'documentStorage.js': ['cachedTokens'], // the Drive access token, per corporate
     'getModuleFragment.js': ['cachedRelease', 'cache'], // the screens release: code, the firm's
+    'builtDefinitions.js': ['loaded', 'loading'], // the published built modules: the firm's, the same for every corporate (MODULE_BUILDER.md)
     'numbering.js': ['KINDS'], // the document kinds, static
     'periodLock.js': ['consentStore', 'ADJUSTABLE_TYPES'], // per request; static
     'budgetConsent.js': ['store'], // per request (the budget consent, docs/modules/BUDGET.md B3)

@@ -195,7 +195,8 @@ function buildTechRef() {
     };
   });
   modules.forEach(m => { if (!m.screen) issues.push('module ' + m.id + ' has no screen'); });
-  Object.keys(screens).forEach(id => { if (!MODULE_REGISTRY.some(m => m.id === id)) issues.push('screen ' + id + ' is in no module'); });
+  // BUILT: the one screen every built module runs on (MODULE_BUILDER.md); its modules are published, not in the code.
+  Object.keys(screens).forEach(id => { if (id !== 'BUILT' && !MODULE_REGISTRY.some(m => m.id === id)) issues.push('screen ' + id + ' is in no module'); });
 
   // ---- deploy sets ----
   const deploySets = list(path.join(REPO, 'tools/deploy-sets'), '.txt').map(f => {

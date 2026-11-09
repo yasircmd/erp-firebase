@@ -113,7 +113,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     // ...or on two, when its entries straddle a page break.
     assert.ok(found.length >= 2, found.join(' | '));
     assert.equal(found[0], 'Getting started');
-    found.slice(1).forEach(f => assert.match(f, /^What's new( \(page \d+\))?$/, found.join(' | ')));
+    assert.ok(found.slice(1).some(f => /^What's new( \(page \d+\))?$/.test(f)), found.join(' | ')); // and any page that also names it
     await p.fill('#q', 'reject reason');
     await p.waitForFunction(() => /Approvals/.test((document.querySelector('#results') || {}).textContent || ''));
     await p.fill('#q', 'zzzz nothing');
@@ -135,6 +135,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.waitForURL(/\/help\/journal-entries\.html$/);
     await p.goto(base + '/help/?m=GRN');
     await p.waitForURL(/\/help\/goods-receipt-note\.html$/);
+    // Any built module (MODULE_BUILDER.md): the one Built modules page.
+    await p.goto(base + '/help/?m=X_ROOM');
+    await p.waitForURL(/\/help\/built-modules\.html$/);
     await p.goto(base + '/help/?m=PDCISSUED');
     await p.waitForURL(/\/help\/post-dated-cheques\.html$/);
     assert.match(await p.textContent('main .lead + .lead, main p.lead:nth-of-type(2)'), /Screens: PDC Received, PDC Issued/);

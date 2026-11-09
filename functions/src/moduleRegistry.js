@@ -184,6 +184,8 @@ const MODULE_REGISTRY = [
   // technical details for the firm's developers, read only. Firm-only and
   // internal (no public Help page: it maps the system's inside).
   { id: 'TECHREF', label: 'Technical Reference', capabilities: ['access'], internal: true, homeOnly: true },
+  // Module Builder (MODULE_BUILDER.md, Q461): the firm defines and publishes modules; Corporate 100 only.
+  { id: 'BUILDER', label: 'Module Builder', capabilities: ['access', 'write', 'publish'], internal: true, homeOnly: true },
   // Support (MULTI_CORPORATE.md, M3; decisions 252-254, 256): a client
   // corporate's Admin sends issues to the firm. clientOnly: never Corporate
   // 100's own (it is the firm), though its tree can hold the item for the
@@ -334,6 +336,7 @@ const DEFAULT_PERMISSIONS = {
   MISDASHBOARD:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   TECHREF:            { access: ['ADMIN'] },
+  BUILDER:            { access: ['ADMIN'], write: ['ADMIN'], publish: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };
 

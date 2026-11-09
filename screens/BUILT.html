@@ -1,0 +1,339 @@
+<!-- Module Builder, phase 1 (owner, 2026-11-09; docs/modules/MODULE_BUILDER.md,
+     Q461-Q469): the one screen every built module runs on, drawn from its
+     published definition (getModuleFragment tells it which: window.__builtModuleId).
+     A master: its list (code, name, the chosen columns), Add / Edit, switch off.
+     A document: its list (number, date, status), the form (fields, its line
+     table with totals), Save, the status buttons the definition allows (to one
+     needing approval: sent through Approval Configuration), the approver's
+     Approve / Reject, Delete while in its first status, Print, the history. -->
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    #bm-print { display: block !important; }
+  }
+  #bm-print { display: none; }
+  #bm-print table { border-collapse: collapse; width: 100%; }
+  #bm-print th, #bm-print td { border: 1px solid #333; padding: 4px 6px; font-size: 11px; text-align: left; }
+  #bm-lines input, #bm-lines select { border-radius: 0.375rem; padding: 0.25rem 0.4rem; font-size: 0.8rem; width: 100%; }
+</style>
+
+<div class="space-y-5 no-print">
+  <div id="bm-loading" class="text-sm text-slate-400">Loading…</div>
+  <div id="bm-list-view" class="hidden space-y-3">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1" id="bm-kind"></div><h2 class="text-2xl font-bold"><i class="fa-solid fa-cubes text-blue-500"></i> <span id="bm-label"></span></h2>
+        <p id="bm-description" class="text-xs text-slate-400 mt-1"></p></div>
+      <div class="flex flex-wrap items-end gap-2">
+        <div><label for="bm-search" class="block text-xs font-medium text-slate-300 mb-1">Find</label><input id="bm-search" type="search" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-56"></div>
+        <div id="bm-status-wrap" class="hidden"><label for="bm-status" class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="bm-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <button id="bm-copy" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-2 rounded-lg" title="Copy the list for Excel"><i class="fa-solid fa-copy"></i> Copy</button>
+        <button id="bm-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> <span id="bm-new-label">New</span></button>
+      </div>
+    </div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr id="bm-head" class="text-xs text-slate-400 uppercase border-b border-slate-700"></tr></thead>
+        <tbody id="bm-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+  </div>
+
+  <div id="bm-form-view" class="hidden space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+      <div class="flex items-center gap-3">
+        <button id="bm-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+        <h2 id="bm-title" class="font-bold text-blue-400"></h2>
+        <span id="bm-badge" class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-200"></span>
+      </div>
+      <div class="flex flex-wrap gap-2" id="bm-actions">
+        <button id="bm-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        <span id="bm-status-buttons" class="flex flex-wrap gap-2"></span>
+        <button id="bm-approve" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Approve</button>
+        <button id="bm-reject" class="hidden bg-rose-700 hover:bg-rose-600 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-xmark"></i> Reject</button>
+        <button id="bm-active" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"></button>
+        <button id="bm-delete" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded text-red-300"><i class="fa-solid fa-trash"></i> Delete</button>
+        <button id="bm-print-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+    </div>
+    <div id="bm-note" class="hidden text-xs rounded-lg p-2.5"></div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4" id="bm-fields"></div>
+    <div id="bm-lines-wrap" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between"><h3 id="bm-lines-label" class="font-semibold text-slate-200"></h3>
+        <button id="bm-add-line" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add line</button></div>
+      <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr id="bm-lines-head" class="text-xs text-slate-400 uppercase border-b border-slate-700"></tr></thead>
+        <tbody id="bm-lines"></tbody><tfoot><tr id="bm-lines-total" class="text-sm font-semibold border-t border-slate-700"></tr></tfoot></table></div>
+    </div>
+    <div id="bm-history-wrap" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+      <h3 class="font-semibold text-slate-200 mb-2">History</h3><ul id="bm-history" class="text-xs text-slate-400 space-y-1"></ul>
+    </div>
+  </div>
+</div>
+<div id="bm-print"></div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const fail = err => appAlert(err && err.message ? err.message : String(err));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const inputCls = 'w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500';
+  let M = null, def = null, rows = [], rec = null, next = [], approval = null, lines = [], links = {}, pending = null;
+  const isDoc = () => def.kind === 'document';
+  const companyName = id => ((M.companies || []).find(c => c.id === id) || {}).name || id || '';
+
+  // How a field's value shows in a list or the print.
+  function show(f, v) {
+    if (v == null || v === '') return '';
+    if (f.type === 'link') return v.label || v.id || '';
+    if (f.type === 'yesno') return v ? 'Yes' : 'No';
+    if (f.type === 'amount') return fmt(v);
+    return String(v);
+  }
+
+  // ---------- the list ----------
+  function columns() {
+    const cols = def.listColumns.map(k => def.fields.find(f => f.key === k)).filter(Boolean);
+    const amountTotal = isDoc() && def.lines.enabled ? def.lines.fields.find(f => f.type === 'amount') : null;
+    return { cols, amountTotal };
+  }
+  function renderList() {
+    const { cols, amountTotal } = columns();
+    const head = (isDoc() ? ['Number', 'Date'] : ['Code', 'Name']).concat(def.companyScoped ? ['Company'] : [], cols.map(c => c.label), amountTotal ? [amountTotal.label] : [], [isDoc() ? 'Status' : 'Active']);
+    $('bm-head').innerHTML = head.map(h => '<th class="py-2 px-3">' + esc(h) + '</th>').join('');
+    const q = $('bm-search').value.trim().toLowerCase();
+    const st = $('bm-status').value;
+    const list = rows.filter(r => (!st || r.Status === st) && (!q || JSON.stringify([r.Code, r.Name, r.Number, r.Fields]).toLowerCase().includes(q)));
+    $('bm-body').innerHTML = list.map(r => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(r.RecordID) + '">' +
+      (isDoc() ? '<td class="py-2 px-3 font-mono text-xs">' + esc(r.Number) + '</td><td class="py-2 px-3">' + esc(r.Date) + '</td>' : '<td class="py-2 px-3 font-mono text-xs">' + esc(r.Code) + '</td><td class="py-2 px-3">' + esc(r.Name) + '</td>') +
+      (def.companyScoped ? '<td class="py-2 px-3 text-xs">' + esc(companyName(r.CompanyID)) + '</td>' : '') +
+      cols.map(c => '<td class="py-2 px-3 ' + (c.type === 'amount' || c.type === 'number' ? 'text-right' : '') + '">' + esc(show(c, r.Fields[c.key])) + '</td>').join('') +
+      (amountTotal ? '<td class="py-2 px-3 text-right">' + fmt((r.Totals || {})[amountTotal.key]) + '</td>' : '') +
+      '<td class="py-2 px-3 text-xs">' + (isDoc() ? esc(r.Status) + (r.PendingStatus ? ' <span class="text-amber-400">(→ ' + esc(r.PendingStatus) + ', for approval)</span>' : '') : (r.Active === false ? '<span class="text-slate-500">Off</span>' : '<span class="text-emerald-400">Active</span>')) + '</td></tr>').join('') ||
+      '<tr><td colspan="' + head.length + '" class="py-6 text-center text-slate-500">Nothing yet.</td></tr>';
+  }
+  function copyList() {
+    const { cols, amountTotal } = columns();
+    const head = (isDoc() ? ['Number', 'Date'] : ['Code', 'Name']).concat(def.companyScoped ? ['Company'] : [], cols.map(c => c.label), amountTotal ? [amountTotal.label] : [], [isDoc() ? 'Status' : 'Active']);
+    const body = rows.map(r => (isDoc() ? [r.Number, r.Date] : [r.Code, r.Name]).concat(def.companyScoped ? [companyName(r.CompanyID)] : [], cols.map(c => show(c, r.Fields[c.key])), amountTotal ? [(r.Totals || {})[amountTotal.key] || 0] : [], [isDoc() ? r.Status : (r.Active === false ? 'Off' : 'Active')]));
+    const tsv = [head].concat(body).map(l => l.map(v => String(v == null ? '' : v).replace(/\t|\n/g, ' ')).join('\t')).join('\n');
+    navigator.clipboard.writeText(tsv).then(() => appAlert('Copied ' + body.length + ' rows: paste them into Excel.'), fail);
+  }
+  function load() {
+    return call('listBuiltRecords', { moduleId: def.id }).then(r => { rows = r.records || []; renderList(); }, fail);
+  }
+  function backToList() {
+    $('bm-form-view').classList.add('hidden'); $('bm-list-view').classList.remove('hidden');
+    rec = null; return load();
+  }
+
+  // ---------- the form ----------
+  async function optionsFor(target, companyId) {
+    const k = target + '|' + (companyId || '');
+    if (!links[k]) links[k] = call('getBuiltLinkOptions', { moduleId: def.id, target, companyId }).then(r => r.options || [], err => { delete links[k]; throw err; });
+    return links[k];
+  }
+  function inputFor(f, v, opts, extra) {
+    const a = ' data-key="' + esc(f.key) + '"' + (extra || '');
+    if (f.type === 'longtext') return '<textarea rows="3"' + a + ' class="' + inputCls + '">' + esc(v || '') + '</textarea>';
+    if (f.type === 'yesno') return '<label class="inline-flex items-center gap-2 py-2"><input type="checkbox"' + a + (v ? ' checked' : '') + '> Yes</label>';
+    if (f.type === 'choice') return '<select' + a + ' class="' + inputCls + '"><option value=""></option>' + f.options.map(o => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
+    if (f.type === 'link') {
+      const id = v && v.id;
+      const list = (opts || []).slice();
+      if (id && !list.some(o => o.id === id)) list.unshift({ id, label: (v.label || id) + ' (no longer offered)' });
+      return '<select' + a + ' class="' + inputCls + '"><option value=""></option>' + list.map(o => '<option value="' + esc(o.id) + '"' + (o.id === id ? ' selected' : '') + '>' + esc(o.label) + '</option>').join('') + '</select>';
+    }
+    const type = f.type === 'date' ? 'date' : f.type === 'datetime' ? 'datetime-local' : f.type === 'number' || f.type === 'amount' ? 'text' : 'text';
+    return '<input type="' + type + '"' + a + (f.type === 'amount' || f.type === 'number' ? ' inputmode="decimal"' : '') + ' value="' + esc(v == null ? '' : v) + '" class="' + inputCls + (f.type === 'amount' || f.type === 'number' ? ' text-right' : '') + '">';
+  }
+  function readValue(el, f) {
+    if (f.type === 'yesno') return el.checked;
+    if (f.type === 'link') return el.value ? { id: el.value } : null;
+    return el.value;
+  }
+  const editable = () => {
+    if (!M.rights.write) return false;
+    if (!rec || !rec.RecordID || !isDoc()) return true;
+    const st = def.statuses.find(s => s.name === rec.Status);
+    return Boolean(st && st.editable && !rec.PendingStatus);
+  };
+
+  async function drawForm() {
+    const companyId = rec.CompanyID || '';
+    const can = editable();
+    const linkTargets = [...new Set(def.fields.concat(def.lines.fields || []).filter(f => f.type === 'link').map(f => f.target))];
+    const opts = {};
+    if (!def.companyScoped || companyId) for (const t of linkTargets) opts[t] = await optionsFor(t, companyId).catch(() => []);
+    const head = [];
+    if (def.companyScoped) {
+      head.push('<div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label>' + (rec.RecordID
+        ? '<div class="py-2 text-sm">' + esc(companyName(companyId)) + '</div>'
+        : '<select id="bm-company" class="' + inputCls + '"><option value=""></option>' + M.companies.map(c => '<option value="' + esc(c.id) + '"' + (c.id === companyId ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select>') + '</div>');
+    }
+    if (isDoc()) {
+      head.push('<div><label for="bm-date" class="block text-xs font-medium text-slate-300 mb-1">Date</label><input id="bm-date" type="date" value="' + esc(rec.Date || '') + '" class="' + inputCls + ' entry-date"></div>');
+      if (rec.Number) head.push('<div><label class="block text-xs font-medium text-slate-300 mb-1">Number</label><div class="py-2 font-mono text-sm">' + esc(rec.Number) + '</div></div>');
+    } else {
+      head.push('<div><label for="bm-code" class="block text-xs font-medium text-slate-300 mb-1">Code</label><input id="bm-code" value="' + esc(rec.Code || '') + '" class="' + inputCls + '"></div>');
+      head.push('<div class="md:col-span-2"><label for="bm-name" class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="bm-name" value="' + esc(rec.Name || '') + '" class="' + inputCls + '"></div>');
+    }
+    def.fields.forEach(f => {
+      head.push('<div class="' + (f.type === 'longtext' ? 'md:col-span-3' : '') + '"><label class="block text-xs font-medium text-slate-300 mb-1">' + esc(f.label) + (f.required ? ' <span class="text-rose-400">*</span>' : '') + '</label>' +
+        inputFor(f, (rec.Fields || {})[f.key], opts[f.target]) + '</div>');
+    });
+    $('bm-fields').innerHTML = head.join('');
+    $('bm-fields').querySelectorAll('input, select, textarea').forEach(el => { if (el.id !== 'bm-company') el.disabled = !can; });
+    if ($('bm-company')) $('bm-company').addEventListener('change', () => { rec.CompanyID = $('bm-company').value; captureForm(); drawForm(); });
+    // Lines.
+    $('bm-lines-wrap').classList.toggle('hidden', !(isDoc() && def.lines.enabled));
+    if (isDoc() && def.lines.enabled) {
+      $('bm-lines-label').textContent = def.lines.label;
+      $('bm-add-line').classList.toggle('hidden', !can);
+      $('bm-lines-head').innerHTML = '<th class="py-2 px-2 w-8">#</th>' + def.lines.fields.map(f => '<th class="py-2 px-2">' + esc(f.label) + (f.required ? ' *' : '') + '</th>').join('') + '<th></th>';
+      $('bm-lines').innerHTML = lines.map((l, i) => '<tr data-line="' + i + '" class="border-b border-slate-800"><td class="py-1 px-2 text-xs text-slate-500">' + (i + 1) + '</td>' +
+        def.lines.fields.map(f => '<td class="py-1 px-2">' + inputFor(f, l[f.key], opts[f.target], can ? '' : ' disabled') + '</td>').join('') +
+        '<td class="py-1 px-2">' + (can ? '<button class="bm-del-line text-slate-500 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>').join('');
+      drawTotals();
+    }
+  }
+  function drawTotals() {
+    const sum = k => lines.reduce((s, l) => s + (Number(String(l[k] == null ? '' : l[k]).replace(/,/g, '')) || 0), 0);
+    $('bm-lines-total').innerHTML = '<td class="py-2 px-2">Total</td>' + def.lines.fields.map(f => '<td class="py-2 px-2 ' + (f.type === 'amount' || f.type === 'number' ? 'text-right' : '') + '">' +
+      (f.type === 'amount' ? fmt(sum(f.key)) : f.type === 'number' ? String(Math.round(sum(f.key) * 10000) / 10000) : '') + '</td>').join('') + '<td></td>';
+  }
+  function captureLines() {
+    $('bm-lines').querySelectorAll('tr[data-line]').forEach(tr => {
+      const l = lines[Number(tr.dataset.line)] || {};
+      tr.querySelectorAll('[data-key]').forEach(el => { const f = def.lines.fields.find(x => x.key === el.dataset.key); l[f.key] = readValue(el, f); });
+    });
+  }
+  function captureForm() {
+    const fields = Object.assign({}, rec.Fields || {});
+    $('bm-fields').querySelectorAll('[data-key]').forEach(el => { const f = def.fields.find(x => x.key === el.dataset.key); fields[f.key] = readValue(el, f); });
+    rec.Fields = fields;
+    if ($('bm-date')) rec.Date = $('bm-date').value;
+    if ($('bm-code')) rec.Code = $('bm-code').value;
+    if ($('bm-name')) rec.Name = $('bm-name').value;
+    if (isDoc() && def.lines.enabled) captureLines();
+  }
+
+  function note(msg, kind) {
+    $('bm-note').className = msg ? 'text-xs rounded-lg p-2.5 ' + (kind === 'warn' ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-slate-800 border border-slate-700 text-slate-300') : 'hidden';
+    $('bm-note').textContent = msg || '';
+  }
+  async function openRecord(id) {
+    try {
+      if (id) {
+        const r = await call('getBuiltRecord', { moduleId: def.id, id });
+        rec = r.record; next = r.next || []; approval = r.approval || null;
+      } else {
+        rec = { CompanyID: M.companies.length === 1 ? M.companies[0].id : '', Fields: {}, Date: isDoc() ? new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : '' };
+        def.fields.forEach(f => { if (f.default != null) rec.Fields[f.key] = f.default; });
+        next = []; approval = null;
+      }
+      lines = (rec.Lines || []).map(l => Object.assign({}, l));
+      if (isDoc() && def.lines.enabled && !lines.length && editable()) lines.push({});
+      $('bm-list-view').classList.add('hidden'); $('bm-form-view').classList.remove('hidden');
+      $('bm-title').textContent = rec.RecordID ? (isDoc() ? def.label + ' ' + rec.Number : rec.Code + ' · ' + rec.Name) : 'New ' + def.label;
+      $('bm-badge').textContent = rec.RecordID ? (isDoc() ? rec.Status : (rec.Active === false ? 'Off' : 'Active')) : '';
+      $('bm-badge').classList.toggle('hidden', !rec.RecordID);
+      await drawForm();
+      drawActions();
+    } catch (err) { fail(err); }
+  }
+  function drawActions() {
+    const can = editable();
+    $('bm-save').classList.toggle('hidden', !can);
+    $('bm-status-buttons').innerHTML = rec.RecordID && M.rights.write && isDoc() ? next.filter(n => { const s = def.statuses.find(x => x.name === n); return !(s.final && !M.rights.void); })
+      .map(n => '<button data-status="' + esc(n) + '" class="bm-to bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded">→ ' + esc(n) + '</button>').join('') : '';
+    const mine = approval && approval.myLevel;
+    $('bm-approve').classList.toggle('hidden', !mine);
+    $('bm-reject').classList.toggle('hidden', !mine);
+    $('bm-active').classList.toggle('hidden', !(rec.RecordID && !isDoc() && M.rights.write));
+    $('bm-active').textContent = rec.Active === false ? 'Switch on' : 'Switch off';
+    $('bm-delete').classList.toggle('hidden', !(rec.RecordID && isDoc() && M.rights.write && rec.Status === def.statuses[0].name && !rec.PendingStatus));
+    $('bm-print-btn').classList.toggle('hidden', !rec.RecordID);
+    note(rec.PendingStatus ? 'Waiting for approval to become ' + rec.PendingStatus + (approval ? ' (' + approval.decided + ' of ' + approval.levels + ' levels decided).' : '.') :
+      rec.ApprovalRejected ? 'Rejected: ' + (rec.RejectionReason || '') + '. Correct it and send it again.' : '', rec.PendingStatus || rec.ApprovalRejected ? 'warn' : '');
+    const h = rec.History || [];
+    $('bm-history-wrap').classList.toggle('hidden', !h.length);
+    $('bm-history').innerHTML = h.slice().reverse().map(x => '<li><span class="text-slate-300">' + esc(String(x.At || '').slice(0, 10)) + '</span> ' + esc(x.By) + ': ' + esc(x.What) + (x.Reason ? ' (' + esc(x.Reason) + ')' : '') + '</li>').join('');
+  }
+
+  async function save() {
+    captureForm();
+    if (def.companyScoped && !rec.RecordID && $('bm-company')) rec.CompanyID = $('bm-company').value;
+    try {
+      const r = await call('saveBuiltRecord', { moduleId: def.id, record: { RecordID: rec.RecordID || '', CompanyID: rec.CompanyID, Code: rec.Code, Name: rec.Name, Date: rec.Date, Fields: rec.Fields, Lines: lines } });
+      appAlert(isDoc() ? 'Saved' + (r.number ? ': ' + r.number : '') + '.' : 'Saved.');
+      await openRecord(r.id);
+    } catch (err) { fail(err); }
+  }
+  async function toStatus(status) {
+    const s = def.statuses.find(x => x.name === status);
+    let reason = '';
+    if (s.final) { reason = await appPrompt('Make ' + rec.Number + ' ' + status + '? It can\'t be changed after. A note (optional):', ''); if (reason === null) return; }
+    else if (!(await appConfirm('Make ' + rec.Number + ' ' + status + '?' + (s.approval ? ' It goes for approval first, where Approval Configuration has approvers for it.' : '')))) return;
+    try {
+      const r = await call('setBuiltStatus', { moduleId: def.id, id: rec.RecordID, status, reason });
+      appAlert(r.pending ? 'Sent for approval to become ' + r.pending + '.' : rec.Number + ' is ' + r.status + '.');
+      await openRecord(rec.RecordID);
+    } catch (err) { fail(err); }
+  }
+  async function decide(decision) {
+    let reason = '';
+    if (decision === 'Rejected') { reason = await appPrompt('The reason for rejecting (the submitter sees it):', ''); if (!reason) return; }
+    try {
+      const r = await call('decideBuiltApproval', { moduleId: def.id, id: rec.RecordID, levelNumber: approval.myLevel, decision, reason });
+      appAlert(decision === 'Rejected' ? 'Rejected.' : r.status === 'Approved' ? 'Approved: ' + rec.Number + ' is ' + rec.PendingStatus + '.' : 'Approved at your level.');
+      await openRecord(rec.RecordID);
+    } catch (err) { fail(err); }
+  }
+  function print() {
+    const fields = def.fields.map(f => '<tr><th>' + esc(f.label) + '</th><td>' + esc(show(f, (rec.Fields || {})[f.key])) + '</td></tr>').join('');
+    const lt = def.lines.enabled && isDoc() ? '<h3 style="font-size:12px;margin:10px 0 4px;">' + esc(def.lines.label) + '</h3><table><thead><tr><th>#</th>' + def.lines.fields.map(f => '<th>' + esc(f.label) + '</th>').join('') + '</tr></thead><tbody>' +
+      (rec.Lines || []).map((l, i) => '<tr><td>' + (i + 1) + '</td>' + def.lines.fields.map(f => '<td' + (f.type === 'amount' || f.type === 'number' ? ' style="text-align:right"' : '') + '>' + esc(show(f, l[f.key])) + '</td>').join('') + '</tr>').join('') +
+      '<tr style="font-weight:bold"><td>Total</td>' + def.lines.fields.map(f => '<td style="text-align:right">' + (f.type === 'amount' ? fmt((rec.Totals || {})[f.key]) : f.type === 'number' ? esc((rec.Totals || {})[f.key]) : '') + '</td>').join('') + '</tr></tbody></table>' : '';
+    $('bm-print').innerHTML = '<h1 style="font-size:16px;font-weight:bold;">' + esc(companyName(rec.CompanyID)) + '</h1><h2 style="font-size:14px;margin:6px 0;">' + esc(def.printTitle) + ' ' + esc(isDoc() ? rec.Number : rec.Code) + '</h2>' +
+      (isDoc() ? '<p style="font-size:11px;">Date: ' + esc(rec.Date) + ' · Status: ' + esc(rec.Status) + '</p>' : '<p style="font-size:11px;">' + esc(rec.Name) + '</p>') + '<table><tbody>' + fields + '</tbody></table>' + lt;
+    window.print();
+  }
+
+  window.initModule = function () {
+    pending = window.__pendingModuleParams; window.__pendingModuleParams = null;
+    const id = window.__builtModuleId;
+    call('getBuiltModule', { moduleId: id }).then(r => {
+      M = r; def = r.definition;
+      $('app-title').innerHTML = '<i class="fa-solid fa-cubes"></i> ' + esc(def.label);
+      $('bm-label').textContent = def.label;
+      $('bm-kind').textContent = isDoc() ? 'Document' : 'Master data';
+      $('bm-description').textContent = def.description || '';
+      $('bm-new').classList.toggle('hidden', !M.rights.write);
+      $('bm-new-label').textContent = 'New ' + def.label;
+      $('bm-status-wrap').classList.toggle('hidden', !isDoc());
+      if (isDoc()) $('bm-status').innerHTML = '<option value="">All</option>' + def.statuses.map(s => '<option>' + esc(s.name) + '</option>').join('');
+      $('bm-loading').classList.add('hidden'); $('bm-list-view').classList.remove('hidden');
+      return load().then(() => { if (pending && pending.OpenEntryId) openRecord(pending.OpenEntryId); });
+    }, err => { $('bm-loading').textContent = err.message || String(err); });
+    $('bm-search').addEventListener('input', () => def && renderList());
+    $('bm-status').addEventListener('change', () => def && renderList());
+    $('bm-copy').addEventListener('click', copyList);
+    $('bm-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openRecord(tr.dataset.id); });
+    $('bm-new').addEventListener('click', () => openRecord(null));
+    $('bm-back').addEventListener('click', backToList);
+    $('bm-save').addEventListener('click', save);
+    $('bm-status-buttons').addEventListener('click', e => { const b = e.target.closest('.bm-to'); if (b) toStatus(b.dataset.status); });
+    $('bm-approve').addEventListener('click', () => decide('Approved'));
+    $('bm-reject').addEventListener('click', () => decide('Rejected'));
+    $('bm-active').addEventListener('click', () => call('setBuiltActive', { moduleId: def.id, id: rec.RecordID, active: rec.Active === false }).then(() => openRecord(rec.RecordID), fail));
+    $('bm-delete').addEventListener('click', async () => {
+      if (!(await appConfirm('Delete ' + rec.Number + '? Its number is not used again.'))) return;
+      call('deleteBuiltRecord', { moduleId: def.id, id: rec.RecordID }).then(backToList, fail);
+    });
+    $('bm-print-btn').addEventListener('click', print);
+    $('bm-add-line').addEventListener('click', () => { captureForm(); lines.push({}); drawForm(); });
+    $('bm-lines').addEventListener('click', e => { const b = e.target.closest('.bm-del-line'); if (!b) return; captureForm(); lines.splice(Number(b.closest('tr').dataset.line), 1); drawForm(); });
+    $('bm-lines').addEventListener('input', () => { captureLines(); drawTotals(); });
+  };
+})();
+</script>

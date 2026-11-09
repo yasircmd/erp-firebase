@@ -16,6 +16,8 @@ function onCallInCorporate(options, handler) {
   const fn = onCall(options, (request) => perf.timed(async () => {
     const corporate = await resolveCorporate(request);
     perf.setCorporate(corporate && corporate.id);
+    // The published built modules join the registry (MODULE_BUILDER.md; the firm's, at most every 30 s).
+    await require('./builtDefinitions').refresh();
     return runInCorporate(corporate, () => handler(request));
   }));
   fn.inCorporate = handler;

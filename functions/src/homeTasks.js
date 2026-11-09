@@ -111,7 +111,8 @@ exports.getApprovalSummary = onCallInCorporate(onCallOptions, async (request) =>
 // line), or a Closed PO whose reopening was refused.
 function awaitsResubmission(doc, inst) {
   if (!doc || doc.ApprovalInstanceID !== inst.InstanceID) return false;
-  return ['Rejected', 'Draft', 'Amendment Requested'].includes(doc.Status) || (doc.Status === 'Closed' && Boolean(doc.ReopenRequested));
+  // A built module's document keeps its own status when rejected (MODULE_BUILDER.md): ApprovalRejected says so.
+  return ['Rejected', 'Draft', 'Amendment Requested'].includes(doc.Status) || (doc.Status === 'Closed' && Boolean(doc.ReopenRequested)) || doc.ApprovalRejected === true;
 }
 
 exports.getMyRejectedSubmissions = onCallInCorporate(onCallOptions, async (request) => {
