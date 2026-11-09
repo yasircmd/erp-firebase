@@ -86,6 +86,13 @@
         <table class="text-sm"><tbody id="bd-holds"></tbody></table></div>
     </div>
 
+    <!-- Phase 3 (Q474-Q480): actions to the books (a Customer Invoice, Vendor Invoice or Journal from a record) and bulk runs. -->
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
+      <div class="flex items-center justify-between"><h3 class="font-semibold text-slate-200">Actions to the books <span class="text-xs text-slate-500 font-normal">(each makes a document through its own screen's checks; the company's accounts, sales type and cost centre are set in the module's Setup when no field gives them)</span></h3>
+        <button id="bd-add-action" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded whitespace-nowrap"><i class="fa-solid fa-plus"></i> Add action</button></div>
+      <div id="bd-actions" class="space-y-3"></div>
+    </div>
+
     <div id="bd-versions-wrap" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4">
       <h3 class="font-semibold text-slate-200 mb-2">Published versions</h3><ul id="bd-versions" class="text-xs text-slate-400 space-y-1"></ul>
     </div>
@@ -146,6 +153,7 @@
       listColumns: fields.filter(f => f._col).map(f => f.key),
       lines: { enabled: $('bd-lines-on').checked, label: $('bd-lines-label').value.trim(), fields: readFields('bd-line-fields').map(f => { const x = Object.assign({}, f); delete x._col; return x; }) },
       statuses: [...$('bd-statuses').querySelectorAll('tr[data-i]')].map(tr => ({ name: tr.querySelector('.bd-sname').value.trim(), editable: tr.querySelector('.bd-editable').checked, approval: tr.querySelector('.bd-approval').checked, final: tr.querySelector('.bd-final').checked })),
+      actions: readActions(),
       board: { enabled: $('bd-board-on').checked, stateField: $('bd-board-field').value },
       schedule: { enabled: $('bd-sched-on').checked, resourceField: $('bd-sched-res').value, startField: $('bd-sched-start').value, endField: $('bd-sched-end').value,
         endIsFree: $('bd-sched-endfree').value === 'free',
@@ -187,11 +195,65 @@
       return '<tr data-status="' + esc(st.name) + '"><td class="py-1 pr-3"><label class="inline-flex items-center gap-2"><input type="checkbox" class="bd-hold"' + (h ? ' checked' : '') + '> ' + esc(st.name) + '</label></td>' +
         '<td class="py-1"><input class="bd-state bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" placeholder="e.g. Booked" value="' + esc(h ? h.state : '') + '"></td></tr>'; }).join('');
     document.querySelectorAll('.bd-sched-only').forEach(el => el.classList.toggle('hidden', !sc.enabled));
+    drawActions();
     const can = L.rights.write;
     $('bd-save').classList.toggle('hidden', !can);
     $('bd-publish').classList.toggle('hidden', !L.rights.publish || isNew);
     $('bd-delete').classList.toggle('hidden', !can || isNew || Boolean(published));
   }
+  // Phase 3: the actions, one card each; every choice is a field of the right type.
+  function drawActions() {
+    const head = def.fields || [], lf = (def.lines || {}).fields || [];
+    const sel = (k, v, list, blank) => '<select data-k="' + k + '" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm">' + (blank == null ? '' : '<option value="">' + esc(blank) + '</option>') +
+      list.map(([val, lab]) => '<option value="' + esc(val) + '"' + (String(val) === String(v == null ? '' : v) ? ' selected' : '') + '>' + esc(lab) + '</option>').join('') + '</select>';
+    const fieldsOf = (list, types, targets) => list.filter(f => types.includes(f.type) && (!targets || targets.includes(f.target))).map(f => [f.key, f.label || f.key]);
+    const box = (label, html, extra) => '<div class="' + (extra || '') + '"><label class="block text-xs font-medium text-slate-300 mb-1">' + label + '</label>' + html + '</div>';
+    $('bd-actions').innerHTML = (def.actions || []).map((a, i) => {
+      const t = a.target || 'CUSTOMERINVOICE', lines = a.source === 'lines', from = lines ? lf : head, either = lines ? lf.concat(head) : head;
+      const partyTo = t === 'CUSTOMERINVOICE' ? ['CUSTOMER'] : t === 'VENDORINVOICE' ? ['VENDOR'] : ['CUSTOMER', 'VENDOR'];
+      const b = a.bulk || {};
+      const acct = (k, label) => box(label, sel(k, a[k], fieldsOf(either, ['link'], ['ACCOUNT']), 'set per company in Setup'));
+      const item = a.kind === 'item' && t === 'CUSTOMERINVOICE';
+      return '<div data-a="' + i + '" class="bd-action border border-slate-700 rounded-lg p-3 space-y-2">' +
+        '<div class="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">' +
+        box('Key', '<input data-k="key" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm font-mono" value="' + esc(a.key || '') + '" placeholder="invoice">') +
+        box('Label', '<input data-k="label" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + esc(a.label || '') + '" placeholder="Create invoice">') +
+        box('Creates', sel('target', t, Object.entries(L.targets || {}))) +
+        box('As', sel('state', a.state || 'Draft', [['Draft', 'a draft (checked, then posted on its screen)'], ['Submitted', 'submitted (posted, or to its approvers)']])) +
+        '<div class="text-right"><button class="bd-aremove text-slate-500 hover:text-red-400 text-sm" title="Remove"><i class="fa-solid fa-xmark"></i> Remove</button></div></div>' +
+        (def.kind === 'document' ? '<div class="text-xs text-slate-400">Used in: ' + (def.statuses || []).map(st => '<label class="inline-flex items-center gap-1 mr-3"><input type="checkbox" class="bd-astatus" value="' + esc(st.name) + '"' + ((a.statuses || []).includes(st.name) ? ' checked' : '') + '> ' + esc(st.name) + '</label>').join('') + '</div>' : '') +
+        '<div class="grid grid-cols-2 md:grid-cols-5 gap-2">' +
+        box(t === 'JV' ? 'Party (optional)' : t === 'VENDORINVOICE' ? 'Vendor' : 'Customer', sel('party', a.party, fieldsOf(head, ['link'], partyTo), t === 'JV' ? 'none' : '')) +
+        (t === 'JV' ? box('Party on the', sel('partySide', a.partySide || 'debit', [['debit', 'debit side'], ['credit', 'credit side']])) : '') +
+        box('Date', sel('date', a.date, fieldsOf(head, ['date']), 'the day it runs')) +
+        (t === 'CUSTOMERINVOICE' ? '' : box(t === 'JV' ? 'Reference' : 'Vendor\'s invoice no', sel('reference', a.reference, fieldsOf(head, ['text']), 'the record\'s number'))) +
+        box('Description <span class="text-slate-500">({number}, {name}, {period}, {field})</span>', '<input data-k="description" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + esc(a.description || '') + '" placeholder="Rent {number} {period}">', 'md:col-span-2') + '</div>' +
+        '<div class="grid grid-cols-2 md:grid-cols-5 gap-2">' +
+        box('Takes', sel('source', a.source || 'header', [['header', 'one line from the record'], ['lines', 'a line per row of its lines']].filter(o => o[0] === 'header' || (def.lines || {}).enabled))) +
+        (t === 'CUSTOMERINVOICE' ? box('Lines are', sel('kind', a.kind || 'account', [['account', 'account lines'], ['item', 'item lines (deliver the stock)']])) : '') +
+        (item ? box('Item', sel('item', a.item, fieldsOf(either, ['link'], ['ITEM']), '')) + box('Quantity', sel('quantity', a.quantity, fieldsOf(from, ['number', 'amount']), '')) +
+          box('Price', sel('price', a.price, fieldsOf(from, ['number', 'amount']), '')) + box('Warehouse', sel('warehouse', a.warehouse, fieldsOf(either, ['link'], ['WAREHOUSE']), 'set per company in Setup'))
+          : box('Amount', sel('amount', a.amount, fieldsOf(from, ['number', 'amount']), '')) +
+          (t === 'JV' ? (a.partySide === 'debit' && a.party ? '' : acct('debitAccount', 'Debit account')) + (a.partySide !== 'debit' && a.party ? '' : acct('creditAccount', 'Credit account')) : acct('account', t === 'VENDORINVOICE' ? 'Expense account' : 'Revenue account'))) +
+        box('Line text', sel('lineText', a.lineText, fieldsOf(either, ['text', 'choice']), 'the description')) + '</div>' +
+        '<div class="text-xs text-slate-300"><label class="inline-flex items-center gap-2"><input type="checkbox" class="bd-abulk"' + (b.enabled ? ' checked' : '') + '> A bulk run (subscriptions, rent): the records due by a next-due date, moved on by their period</label></div>' +
+        (b.enabled ? '<div class="grid grid-cols-2 md:grid-cols-4 gap-2">' + box('Next due', sel('b.nextDue', b.nextDue, fieldsOf(head, ['date']), '')) +
+          box('Period', sel('b.period', b.period || '', (L.periods || []).map(p => [p, p]), 'from a field')) +
+          (b.period ? '' : box('Period field', sel('b.periodField', b.periodField, fieldsOf(head, ['choice']), ''))) +
+          (t === 'JV' ? '' : box('One document', sel('b.group', b.group || 'party', [['party', 'per ' + (t === 'VENDORINVOICE' ? 'vendor' : 'customer')], ['record', 'per record']]))) + '</div>' : '') +
+        '</div>';
+    }).join('') || '<p class="text-xs text-slate-500">None: the module stays off the books.</p>';
+  }
+  function readActions() {
+    return [...$('bd-actions').querySelectorAll('.bd-action')].map(card => {
+      const a = { bulk: {} };
+      card.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (k.startsWith('b.')) a.bulk[k.slice(2)] = el.value; else a[k] = el.value.trim(); });
+      a.statuses = [...card.querySelectorAll('.bd-astatus')].filter(x => x.checked).map(x => x.value);
+      a.bulk.enabled = card.querySelector('.bd-abulk').checked;
+      return a;
+    });
+  }
+
   async function open(id) {
     try {
       if (id) {
@@ -255,6 +317,9 @@
         else if (e.target.closest('.bd-up') && i > 0) { capture(); const a = rowsOf(id); [a[i - 1], a[i]] = [a[i], a[i - 1]]; draw(); }
       });
     });
+    $('bd-add-action').addEventListener('click', () => { capture(); (def.actions = def.actions || []).push({ key: '', label: '', target: 'CUSTOMERINVOICE', state: 'Draft', bulk: {} }); draw(); });
+    $('bd-actions').addEventListener('change', e => { if (e.target.matches('[data-k="target"], [data-k="source"], [data-k="kind"], [data-k="party"], [data-k="partySide"], [data-k="b.period"], .bd-abulk')) { capture(); draw(); } });
+    $('bd-actions').addEventListener('click', e => { const c = e.target.closest('.bd-action'); if (c && e.target.closest('.bd-aremove')) { capture(); def.actions.splice(Number(c.dataset.a), 1); draw(); } });
     $('bd-statuses').addEventListener('click', e => { const tr = e.target.closest('tr[data-i]'); if (tr && e.target.closest('.bd-sremove')) { capture(); def.statuses.splice(Number(tr.dataset.i), 1); draw(); } });
   };
 })();

@@ -21,8 +21,8 @@ const NEVER = ['users', 'roles', 'permissions', 'tree', 'userFavorites', 'userPr
   'corporateDirectory', 'corporateGroups', 'corporateNotes', 'supportIssues', 'supportCounters', '__documentStorage',
   // Task emails (TASK_EMAILS.md): each user's and employee's choice, and the sender's own state.
   'userEmailSettings', 'employeeEmailSettings', 'mailQueue', 'mailLog', 'mailSummaries', 'mailAccounts',
-  // Module Builder (MODULE_BUILDER.md): the firm's definitions; a corporate's built records (not in Data Reset in phase 1).
-  'moduleDefinitions', 'builtRecords', 'builtCounters'];
+  // Module Builder (MODULE_BUILDER.md): the firm's definitions; a corporate's built records, its Setup and runs (not in Data Reset yet).
+  'moduleDefinitions', 'builtRecords', 'builtCounters', 'builtSetup', 'builtRuns'];
 
 // Sub-collections, cleared with their documents (recursive delete): a
 // payroll run's payslips, a request's or an issue's messages, the document

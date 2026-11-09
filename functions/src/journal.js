@@ -836,3 +836,9 @@ exports.saveAndPostCbt = (request, cbtData) => run(request, async (ctx) => {
 // through the same code as a JV's, under the CJV module's draft right.
 exports.saveCorrectionRecord = (request, a) => run(request, (ctx) =>
   saveJournalRecord_(ctx, 'CJV', a.jvId || '', a.date, a.description, a.reference || '', a.lines, a.dimensions, a.extraFields));
+
+// For Module Builder (docs/modules/MODULE_BUILDER.md, phase 3): a journal a
+// built record creates, saved and posted through the same code and rights as
+// the Journal Entry screen (the caller's request is the context).
+exports.saveJournalFor = (request, jvData) => run(request, (ctx) => saveJournalDraft(ctx, jvData));
+exports.postJournalFor = (request, jvId) => run(request, (ctx) => postJournalEntry(ctx, jvId));

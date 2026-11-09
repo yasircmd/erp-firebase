@@ -423,3 +423,4 @@ const support = require('./src/support');
 // Module Builder (MODULE_BUILDER.md, phase 1): the firm's builder, and the runtime every built module runs on.
 ['getModuleDefinitions', 'getModuleDefinition', 'saveModuleDefinitionDraft', 'publishModuleDefinition', 'deleteModuleDefinitionDraft'].forEach(n => { exports[n] = require('./src/moduleBuilder')[n]; });
 ['getBuiltModule', 'getBuiltLinkOptions', 'listBuiltRecords', 'getBuiltRecord', 'saveBuiltRecord', 'setBuiltActive', 'setBuiltStatus', 'decideBuiltApproval', 'deleteBuiltRecord', 'getBuiltBoard', 'setBuiltBoardState', 'getBuiltCalendar'].forEach(n => { exports[n] = require('./src/builtModules')[n]; });
+['runBuiltAction', 'previewBuiltRun', 'runBuiltBulk', 'getBuiltRuns', 'getBuiltSetup', 'saveBuiltSetup'].forEach(n => { exports[n] = require('./src/builtActions')[n]; });

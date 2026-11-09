@@ -1,6 +1,6 @@
 ---
-fingerprint: 5b9d3176698e1dde
-reviewed: 2026-11-07
+fingerprint: 07bf60135eb77a57
+reviewed: 2026-11-09
 title: Correction JV (CJV)
 area: finance
 order: 4.5

@@ -165,6 +165,20 @@ async function linkOptions(target, companyId, user) {
   if (target === 'CUSTOMER') return pick((await rtdb.ref('customers').get()).val(), 'CustomerCode', 'CustomerName', true);
   if (target === 'VENDOR') return pick((await rtdb.ref('vendors').get()).val(), 'VendorCode', 'VendorName', true);
   if (target === 'ITEM') return pick((await rtdb.ref('items').get()).val(), 'ItemCode', 'ItemName', true);
+  if (target === 'ACCOUNT') {
+    const m = new Map();
+    Object.entries((await rtdb.ref('coa').get()).val() || {}).forEach(([id, a]) => {
+      if (a && a.IsPostable === true && a.Status === 'Active' && (!a.CompanyID || !companyId || a.CompanyID === companyId)) m.set(id, [a.AccountCode, a.AccountName].filter(Boolean).join(' · ') || id);
+    });
+    return m;
+  }
+  if (target === 'WAREHOUSE') {
+    const m = new Map();
+    Object.entries((await rtdb.ref('orgUnits').get()).val() || {}).forEach(([id, u]) => {
+      if (u && u.Type === 'Warehouse' && u.Status !== 'Inactive' && (!u.CompanyID || !companyId || u.CompanyID === companyId)) m.set(id, [u.Code, u.Name].filter(Boolean).join(' · ') || id);
+    });
+    return m;
+  }
   if (target === 'COMPANY') {
     const m = pick((await rtdb.ref('companies').get()).val(), 'CompanyRefCode', 'LegalName', true);
     [...m.keys()].forEach(id => { if (!userCanAccessCompany(user.profile, id)) m.delete(id); });
@@ -246,8 +260,18 @@ exports.getBuiltModule = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const def = await moduleFor(user, (request.data || {}).moduleId, 'access');
   return { definition: def, companies: def.companyScoped ? await activeCompanies(user) : [],
-    rights: { write: await moduleHasCapability(def.id, 'write', user.profile.role), void: def.kind === 'document' && await moduleHasCapability(def.id, 'void', user.profile.role) }, me: user.uid };
+    rights: { write: await moduleHasCapability(def.id, 'write', user.profile.role), void: def.kind === 'document' && await moduleHasCapability(def.id, 'void', user.profile.role),
+      // Phase 3: each target's rights, for the action buttons (the server checks again).
+      targets: await targetRights(def, user) }, me: user.uid };
 });
+
+async function targetRights(def, user) {
+  const out = {};
+  for (const t of [...new Set((def.actions || []).map(a => a.target))]) {
+    out[t] = { draft: (await moduleHasCapability(t, 'access', user.profile.role)) && (await moduleHasCapability(t, 'draft', user.profile.role)), post: await moduleHasCapability(t, 'post', user.profile.role) };
+  }
+  return out;
+}
 
 // A link field's choices: [{ id, label }], for the record's company.
 exports.getBuiltLinkOptions = onCallWithMessages(onCallOptions, async (request) => {
@@ -283,6 +307,8 @@ exports.getBuiltRecord = onCallWithMessages(onCallOptions, async (request) => {
   const def = await moduleFor(user, d.moduleId, 'access');
   const r = await loadRecord(user, def, d.id);
   const out = { record: r, next: def.kind === 'document' && !r.PendingStatus ? nextStatuses(def, r.Status) : [] };
+  // Phase 3: what its actions made, as those documents are now.
+  if ((def.actions || []).length) out.created = await require('./builtActions').createdOf(r);
   // The approver's own level, when the record waits for them.
   if (r.PendingStatus && r.ApprovalInstanceID) {
     const inst = await require('./approvalStore').approvalInstances.get(r.ApprovalInstanceID);
@@ -532,8 +558,10 @@ exports.deleteBuiltRecord = onCallWithMessages(onCallOptions, async (request) =>
   if (def.kind !== 'document') bad('A master is switched off, not deleted.');
   const r = await loadRecord(user, def, d.id);
   if (r.Status !== def.statuses[0].name || r.PendingStatus) throw new HttpsError('failed-precondition', 'Only a ' + def.label + ' that is still ' + def.statuses[0].name + ' is deleted.');
+  const made = (await require('./builtActions').createdOf(r)).find(c => c.live);
+  if (made) throw new HttpsError('failed-precondition', 'It made ' + made.module + ' ' + (made.number || '(' + made.status + ')') + ': delete or reverse that first.');
   await RECORDS().doc(r.RecordID).delete();
   return { success: true };
 });
 
-module.exports = Object.assign(exports, { cleanValue, cleanFields, cleanLines, nextStatuses, amountOf, periodOf, resourcesOf, overlaps, holdingState, addDay });
+module.exports = Object.assign(exports, { moduleFor, loadRecord, cleanValue, cleanFields, cleanLines, nextStatuses, amountOf, periodOf, resourcesOf, overlaps, holdingState, addDay });
