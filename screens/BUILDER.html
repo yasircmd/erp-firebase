@@ -67,6 +67,25 @@
         <tbody id="bd-statuses"></tbody></table>
     </div>
 
+    <!-- Phase 2 (Q470-Q473): a master's board; a document's schedule (its calendar and the clash check). -->
+    <div class="bd-master bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2">
+      <h3 class="font-semibold text-slate-200"><label class="inline-flex items-center gap-2"><input type="checkbox" id="bd-board-on"> A board</label> <span class="text-xs text-slate-500 font-normal">(each record's state today: from the documents that book it, or set by hand)</span></h3>
+      <div class="bd-board-only"><label for="bd-board-field" class="block text-xs font-medium text-slate-300 mb-1">State set by hand <span class="text-slate-500">(a choice field, e.g. Cleaning, Out of order; it wins when set)</span></label>
+        <select id="bd-board-field" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+    </div>
+    <div class="bd-doc bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
+      <h3 class="font-semibold text-slate-200"><label class="inline-flex items-center gap-2"><input type="checkbox" id="bd-sched-on"> A schedule</label> <span class="text-xs text-slate-500 font-normal">(a calendar, and no double booking of its resource)</span></h3>
+      <div class="bd-sched-only grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label for="bd-sched-res" class="block text-xs font-medium text-slate-300 mb-1">Resource <span class="text-slate-500">(a link to a built master)</span></label><select id="bd-sched-res" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+        <div><label for="bd-sched-start" class="block text-xs font-medium text-slate-300 mb-1">Start</label><select id="bd-sched-start" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+        <div><label for="bd-sched-end" class="block text-xs font-medium text-slate-300 mb-1">End</label><select id="bd-sched-end" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+        <div><label for="bd-sched-endfree" class="block text-xs font-medium text-slate-300 mb-1">The end date is</label><select id="bd-sched-endfree" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm">
+          <option value="free">the day it is free again (a hotel's departure)</option><option value="last">the last day used (a rental)</option></select></div>
+      </div>
+      <div class="bd-sched-only"><p class="text-xs text-slate-400 mb-1">The statuses that hold the resource, and what each shows on the board and the calendar:</p>
+        <table class="text-sm"><tbody id="bd-holds"></tbody></table></div>
+    </div>
+
     <div id="bd-versions-wrap" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4">
       <h3 class="font-semibold text-slate-200 mb-2">Published versions</h3><ul id="bd-versions" class="text-xs text-slate-400 space-y-1"></ul>
     </div>
@@ -126,7 +145,11 @@
       fields: fields.map(f => { const x = Object.assign({}, f); delete x._col; return x; }),
       listColumns: fields.filter(f => f._col).map(f => f.key),
       lines: { enabled: $('bd-lines-on').checked, label: $('bd-lines-label').value.trim(), fields: readFields('bd-line-fields').map(f => { const x = Object.assign({}, f); delete x._col; return x; }) },
-      statuses: [...$('bd-statuses').querySelectorAll('tr[data-i]')].map(tr => ({ name: tr.querySelector('.bd-sname').value.trim(), editable: tr.querySelector('.bd-editable').checked, approval: tr.querySelector('.bd-approval').checked, final: tr.querySelector('.bd-final').checked }))
+      statuses: [...$('bd-statuses').querySelectorAll('tr[data-i]')].map(tr => ({ name: tr.querySelector('.bd-sname').value.trim(), editable: tr.querySelector('.bd-editable').checked, approval: tr.querySelector('.bd-approval').checked, final: tr.querySelector('.bd-final').checked })),
+      board: { enabled: $('bd-board-on').checked, stateField: $('bd-board-field').value },
+      schedule: { enabled: $('bd-sched-on').checked, resourceField: $('bd-sched-res').value, startField: $('bd-sched-start').value, endField: $('bd-sched-end').value,
+        endIsFree: $('bd-sched-endfree').value === 'free',
+        holds: [...$('bd-holds').querySelectorAll('tr[data-status]')].filter(tr => tr.querySelector('.bd-hold').checked).map(tr => ({ status: tr.dataset.status, state: tr.querySelector('.bd-state').value.trim() })) }
     });
   }
   function draw() {
@@ -145,6 +168,25 @@
       '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-approval"' + (s.approval ? ' checked' : '') + (i === 0 ? ' disabled' : '') + '></td>' +
       '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-final"' + (s.final ? ' checked' : '') + (i === 0 ? ' disabled' : '') + '></td>' +
       '<td class="py-1 px-1"><button class="bd-sremove text-slate-500 hover:text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>').join('');
+    // Phase 2: the board's and the schedule's choices, from the fields as they are now.
+    document.querySelectorAll('.bd-master').forEach(el => el.classList.toggle('hidden', def.kind !== 'master'));
+    const opt = (list, v) => '<option value=""></option>' + list.map(f => '<option value="' + esc(f.key) + '"' + (f.key === v ? ' selected' : '') + '>' + esc(f.label || f.key) + '</option>').join('');
+    const bd = def.board || {};
+    $('bd-board-on').checked = Boolean(bd.enabled);
+    $('bd-board-field').innerHTML = opt((def.fields || []).filter(f => f.type === 'choice'), bd.stateField);
+    document.querySelectorAll('.bd-board-only').forEach(el => el.classList.toggle('hidden', !bd.enabled));
+    const sc = def.schedule || {};
+    $('bd-sched-on').checked = Boolean(sc.enabled);
+    const linkFields = (def.fields || []).concat((def.lines || {}).fields || []).filter(f => f.type === 'link' && /^X_/.test(f.target || ''));
+    $('bd-sched-res').innerHTML = opt(linkFields, sc.resourceField);
+    const dates = (def.fields || []).filter(f => f.type === 'date');
+    $('bd-sched-start').innerHTML = opt(dates, sc.startField);
+    $('bd-sched-end').innerHTML = opt(dates, sc.endField);
+    $('bd-sched-endfree').value = sc.endIsFree === false ? 'last' : 'free';
+    $('bd-holds').innerHTML = (def.statuses || []).map(st => { const h = (sc.holds || []).find(x => x.status === st.name);
+      return '<tr data-status="' + esc(st.name) + '"><td class="py-1 pr-3"><label class="inline-flex items-center gap-2"><input type="checkbox" class="bd-hold"' + (h ? ' checked' : '') + '> ' + esc(st.name) + '</label></td>' +
+        '<td class="py-1"><input class="bd-state bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" placeholder="e.g. Booked" value="' + esc(h ? h.state : '') + '"></td></tr>'; }).join('');
+    document.querySelectorAll('.bd-sched-only').forEach(el => el.classList.toggle('hidden', !sc.enabled));
     const can = L.rights.write;
     $('bd-save').classList.toggle('hidden', !can);
     $('bd-publish').classList.toggle('hidden', !L.rights.publish || isNew);
@@ -199,6 +241,7 @@
       call('deleteModuleDefinitionDraft', { id: def.id }).then(() => { $('bd-back').click(); }, fail);
     });
     $('bd-kind').addEventListener('change', () => { capture(); draw(); });
+    ['bd-board-on', 'bd-sched-on'].forEach(id => $(id).addEventListener('change', () => { capture(); draw(); }));
     $('bd-add-field').addEventListener('click', () => { capture(); def.fields.push({ key: '', label: '', type: 'text' }); draw(); });
     $('bd-add-line-field').addEventListener('click', () => { capture(); def.lines.enabled = true; def.lines.fields.push({ key: '', label: '', type: 'text' }); draw(); });
     $('bd-add-status').addEventListener('click', () => { capture(); def.statuses.push({ name: '' }); draw(); });

@@ -1,0 +1,25 @@
+# Module Builder, phase 2: boards and calendars (owner, 2026-11-09;
+# docs/modules/MODULE_BUILDER.md, Q470-Q473). The builder's and the runtime's
+# functions, and the three new ones (getBuiltBoard, setBuiltBoardState,
+# getBuiltCalendar). Not every function: builtDefinitions.js's part every call
+# runs (refresh, applyToRegistry) is unchanged; its definition checks and the
+# fresh read are used by these functions only. Deploy WITH --screens
+# ("functions set, then screens": BUILDER, BUILT), then the "hosting" task
+# (the Help). No rules change.
+getModuleDefinitions
+getModuleDefinition
+saveModuleDefinitionDraft
+publishModuleDefinition
+deleteModuleDefinitionDraft
+getBuiltModule
+getBuiltLinkOptions
+listBuiltRecords
+getBuiltRecord
+saveBuiltRecord
+setBuiltActive
+setBuiltStatus
+decideBuiltApproval
+deleteBuiltRecord
+getBuiltBoard
+setBuiltBoardState
+getBuiltCalendar

@@ -103,11 +103,43 @@ function amountOf(def, rec) {
   return head ? Number((rec.Fields || {})[head.key]) || 0 : 0;
 }
 
+// ---------- pure: schedules (phase 2, Q470-Q473) ----------
+
+const addDay = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+// The state a status shows while holding the resource, or null.
+const holdingState = (def, status) => ((def.schedule || {}).enabled ? ((def.schedule.holds.find(h => h.status === status) || {}).state || null) : null);
+// The days a document holds: [start, end) with end the day it is free again.
+function periodOf(def, rec) {
+  const sc = def.schedule, f = rec.Fields || {};
+  const start = f[sc.startField], end = f[sc.endField];
+  if (!start || !end) return null;
+  return { start, end: sc.endIsFree ? end : addDay(end, 1) };
+}
+// The resources (built master records) a document names.
+function resourcesOf(def, rec) {
+  const sc = def.schedule, k = sc.resourceField;
+  const ids = sc.resourceInLines ? (rec.Lines || []).map(l => l[k] && l[k].id) : [((rec.Fields || {})[k] || {}).id];
+  return [...new Set(ids.filter(Boolean))];
+}
+const overlaps = (a, b) => a.start < b.end && b.start < a.end;
+// A document's dates, checked when it holds: its end after its start.
+function checkPeriod(def, rec) {
+  const p = periodOf(def, rec);
+  const lab = k => (def.fields.find(f => f.key === k) || {}).label || k;
+  if (!p) bad('A ' + def.label + ' that holds its ' + resourceLabel(def) + ' needs its ' + lab(def.schedule.startField) + ' and ' + lab(def.schedule.endField) + '.');
+  if (!(p.start < p.end)) bad(lab(def.schedule.endField) + ' must be ' + (def.schedule.endIsFree ? 'after' : 'on or after') + ' ' + lab(def.schedule.startField) + '.');
+  return p;
+}
+function resourceLabel(def) {
+  const k = def.schedule.resourceField;
+  return (def.fields.concat(def.lines.fields || []).find(f => f.key === k) || {}).label || 'resource';
+}
+
 // ---------- the module, its rights, its links ----------
 
 async function moduleFor(user, moduleId, capability) {
   const id = text(moduleId, 33).toUpperCase();
-  const def = B.ID.test(id) ? await B.publishedDef(id) : null;
+  const def = B.ID.test(id) ? await B.publishedDef(id, true) : null; // the current version, always
   if (!def) throw new HttpsError('not-found', 'Unknown module: ' + id);
   if (!(await moduleHasCapability(id, 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to ' + def.label + '.');
   if (capability && capability !== 'access' && !(await moduleHasCapability(id, capability, user.profile.role))) {
@@ -160,6 +192,39 @@ async function linksFor(def, companyId, user) {
   for (const t of [...new Set(linkFields(def).map(f => f.target))]) out[t] = await linkOptions(t, companyId, user);
   return out;
 }
+
+// Every published document module scheduling `target`, i.e. booking its records.
+async function schedulersOf(target) {
+  return (await B.refresh(true)).filter(d => d.kind === 'document' && d.schedule && d.schedule.enabled && d.schedule.target === target);
+}
+// The first document (of any module scheduling the same master) holding one of
+// rec's resources over overlapping days, or null (Q472). rec: as it will be saved.
+async function findClash(def, rec, status) {
+  if (!holdingState(def, status)) return null;
+  const mine = checkPeriod(def, rec);
+  const res = resourcesOf(def, rec);
+  if (!res.length) return null;
+  for (const other of await schedulersOf(def.schedule.target)) {
+    const docs = (await RECORDS().where('ModuleID', '==', other.id).get()).docs;
+    for (const d of docs) {
+      if (d.id === rec.RecordID) continue;
+      const o = d.data();
+      if ((o.CompanyID || '') !== (rec.CompanyID || '') || !holdingState(other, o.Status)) continue;
+      const p = periodOf(other, o);
+      if (!p || !overlaps(mine, p)) continue;
+      const shared = resourcesOf(other, o).find(id => res.includes(id));
+      if (shared) return { number: o.Number, resource: shared, start: o.Fields[other.schedule.startField], end: o.Fields[other.schedule.endField] };
+    }
+  }
+  return null;
+}
+async function refuseClash(def, rec, status, ctx) {
+  const c = await findClash(def, rec, status);
+  if (!c) return;
+  const label = ((ctx && ctx.links[def.schedule.target]) || new Map()).get(c.resource) || c.resource;
+  throw new HttpsError('failed-precondition', label + ' is already held by ' + c.number + ' from ' + c.start + ' to ' + c.end + '.');
+}
+const lockedIfScheduled = (def, user, fn) => (def.schedule && def.schedule.enabled ? require('./lock').withGlobalLock(user.uid, fn) : fn());
 
 async function loadRecord(user, def, id) {
   const s = await RECORDS().doc(text(id, 80) || '-').get();
@@ -283,9 +348,14 @@ exports.saveBuiltRecord = onCallWithMessages(onCallOptions, async (request) => {
   const { lines, totals } = cleanLines(def, rec.Lines, ctx);
   const doc = Object.assign(base, { Date: date, Lines: lines, Totals: totals });
   if (old) {
-    await RECORDS().doc(id).set(doc, { merge: true });
-    return { success: true, id, number: old.Number };
+    // A document holding its resource is checked again as changed (Q472).
+    return lockedIfScheduled(def, user, async () => {
+      await refuseClash(def, Object.assign({ RecordID: id }, doc), old.Status, ctx);
+      await RECORDS().doc(id).set(doc, { merge: true });
+      return { success: true, id, number: old.Number };
+    });
   }
+  await refuseClash(def, Object.assign({ RecordID: '' }, doc), def.statuses[0].name, ctx); // a first status that holds (unusual)
   const number = await nextNumber(def, date);
   const ref = await RECORDS().add(Object.assign(doc, { Number: number, Status: def.statuses[0].name, PendingStatus: '', History: [{ At: now, By: by(user), What: 'Created as ' + def.statuses[0].name }], CreatedAt: now, CreatedBy: by(user), CreatedByUid: user.uid }));
   return { success: true, id: ref.id, number };
@@ -315,6 +385,16 @@ exports.setBuiltStatus = onCallWithMessages(onCallOptions, async (request) => {
   if (to.final && !(await moduleHasCapability(def.id, 'void', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have the right to make a ' + def.label + ' ' + to.name + ' (void).');
   const now = new Date().toISOString();
   const history = (r.History || []).concat([]);
+  if (holdingState(def, to.name)) {
+    const ctx = { links: { [def.schedule.target]: await linkOptions(def.schedule.target, r.CompanyID, user) } };
+    return lockedIfScheduled(def, user, async () => {
+      await refuseClash(def, r, to.name, ctx);
+      return moveStatus(user, def, r, to, d, now, history);
+    });
+  }
+  return moveStatus(user, def, r, to, d, now, history);
+});
+async function moveStatus(user, def, r, to, d, now, history) {
   if (to.approval) {
     const { beginApprovalInstance, resolveApprovalScopeKeyForDocument } = require('./approvals');
     const scopeKey = await resolveApprovalScopeKeyForDocument(def.id, { CompanyID: r.CompanyID });
@@ -328,7 +408,7 @@ exports.setBuiltStatus = onCallWithMessages(onCallOptions, async (request) => {
   history.push({ At: now, By: by(user), What: r.Status + ' → ' + to.name + (text(d.reason, 300) ? ': ' + text(d.reason, 300) : '') });
   await RECORDS().doc(r.RecordID).update({ Status: to.name, History: history, UpdatedAt: now, UpdatedBy: by(user) });
   return { success: true, status: to.name };
-});
+}
 
 // The approver decides (the approval engine checks the level is theirs).
 exports.decideBuiltApproval = onCallWithMessages(onCallOptions, async (request) => {
@@ -337,6 +417,11 @@ exports.decideBuiltApproval = onCallWithMessages(onCallOptions, async (request) 
   const def = await moduleFor(user, d.moduleId, 'access');
   const r = await loadRecord(user, def, d.id);
   if (!r.PendingStatus || !r.ApprovalInstanceID) throw new HttpsError('failed-precondition', 'It is not waiting for approval.');
+  // Approving it into a status that holds its resource: checked first (Q472), nothing recorded on a clash.
+  if (d.decision === 'Approved' && holdingState(def, r.PendingStatus)) {
+    const ctx = { links: { [def.schedule.target]: await linkOptions(def.schedule.target, r.CompanyID, user) } };
+    await refuseClash(def, r, r.PendingStatus, ctx);
+  }
   const result = await require('./approvals').recordApprovalDecision(user, r.ApprovalInstanceID, Number(d.levelNumber), d.decision, d.reason);
   const now = new Date().toISOString();
   const history = (r.History || []).concat([]);
@@ -353,6 +438,92 @@ exports.decideBuiltApproval = onCallWithMessages(onCallOptions, async (request) 
   return { success: true, status: result.status };
 });
 
+// ---------- the board and the calendar (phase 2, Q470-Q473) ----------
+
+const companyFor = (def, user, companyId) => {
+  const id = def.companyScoped ? text(companyId, 80) : '';
+  if (def.companyScoped && !id) bad('Choose the company.');
+  if (id && !userCanAccessCompany(user.profile, id)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  return id;
+};
+// Every document holding the master's records over [from, to), as bars.
+async function holdingsOf(target, companyId, from, to) {
+  const out = [];
+  for (const m of await schedulersOf(target)) {
+    (await RECORDS().where('ModuleID', '==', m.id).get()).docs.forEach(d => {
+      const o = d.data();
+      const state = holdingState(m, o.Status);
+      if (!state || (o.CompanyID || '') !== companyId) return;
+      const p = periodOf(m, o);
+      if (!p || !(p.start < to && from < p.end)) return;
+      const first = (m.listColumns || [])[0];
+      const fv = first ? (o.Fields || {})[first] : null;
+      resourcesOf(m, o).forEach(rid => out.push({ resourceId: rid, recordId: d.id, moduleId: m.id, number: o.Number, state, start: p.start, end: p.end,
+        title: fv && typeof fv === 'object' ? fv.label || '' : fv == null ? '' : String(fv) }));
+    });
+  }
+  return out;
+}
+
+// A master's board: each record's state on the day (its hand-set field, else a document holding it, else Free).
+exports.getBuiltBoard = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const def = await moduleFor(user, d.moduleId, 'access');
+  if (def.kind !== 'master' || !def.board || !def.board.enabled) bad(def.label + ' has no board.');
+  const companyId = companyFor(def, user, d.companyId);
+  const day = isDate(d.date) ? d.date : new Date().toISOString().slice(0, 10);
+  const recs = (await RECORDS().where('ModuleID', '==', def.id).get()).docs.map(x => Object.assign({ RecordID: x.id }, x.data()))
+    .filter(r => r.Active !== false && (r.CompanyID || '') === companyId)
+    .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }));
+  const held = await holdingsOf(def.id, companyId, day, addDay(day, 1));
+  const states = [];
+  const add = st => { if (st && !states.includes(st)) states.push(st); };
+  (await schedulersOf(def.id)).forEach(m => m.schedule.holds.forEach(h => add(h.state)));
+  const sf = def.board.stateField ? def.fields.find(f => f.key === def.board.stateField) : null;
+  if (sf) sf.options.forEach(add);
+  add('Free');
+  const cards = recs.map(r => {
+    const manual = sf ? (r.Fields || {})[sf.key] : null;
+    const h = held.find(x => x.resourceId === r.RecordID);
+    return { id: r.RecordID, code: r.Code, name: r.Name, state: manual || (h ? h.state : 'Free'), manual: manual || '',
+      doc: h ? { id: h.recordId, moduleId: h.moduleId, number: h.number, title: h.title, start: h.start, end: h.end } : null };
+  });
+  return { date: day, states, cards, stateField: sf ? { key: sf.key, label: sf.label, options: sf.options } : null,
+    canWrite: await moduleHasCapability(def.id, 'write', user.profile.role) };
+});
+
+// The hand-set state from a board's card (or cleared).
+exports.setBuiltBoardState = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const def = await moduleFor(user, d.moduleId, 'write');
+  const sf = def.board && def.board.enabled && def.board.stateField ? def.fields.find(f => f.key === def.board.stateField) : null;
+  if (!sf) bad(def.label + ' has no state set by hand.');
+  const r = await loadRecord(user, def, d.id);
+  const v = text(d.value, 60);
+  if (v && !sf.options.includes(v)) bad('Choose one of ' + sf.label + '\'s options.');
+  await RECORDS().doc(r.RecordID).update({ ['Fields.' + sf.key]: v || null, UpdatedAt: new Date().toISOString(), UpdatedBy: by(user) });
+  return { success: true };
+});
+
+// A document's calendar: the resource's records as rows, the documents holding them as bars, over `days` from `from`.
+exports.getBuiltCalendar = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const def = await moduleFor(user, d.moduleId, 'access');
+  if (def.kind !== 'document' || !def.schedule || !def.schedule.enabled) bad(def.label + ' has no calendar.');
+  const companyId = companyFor(def, user, d.companyId);
+  const from = isDate(d.from) ? d.from : new Date().toISOString().slice(0, 10);
+  const days = Math.min(Math.max(Number(d.days) || 14, 1), 62);
+  const to = addDay(from, days);
+  const rows = [...(await linkOptions(def.schedule.target, companyId, user)).entries()].map(([id, label]) => ({ id, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  const bars = (await holdingsOf(def.schedule.target, companyId, from, to)).filter(b => rows.some(r => r.id === b.resourceId));
+  const states = [...new Set((await schedulersOf(def.schedule.target)).flatMap(m => m.schedule.holds.map(h => h.state)))];
+  return { from, days, rows, bars, states, resource: resourceLabel(def) };
+});
+
 // A document still in its first status may be deleted (its number is not reused).
 exports.deleteBuiltRecord = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -365,4 +536,4 @@ exports.deleteBuiltRecord = onCallWithMessages(onCallOptions, async (request) =>
   return { success: true };
 });
 
-module.exports = Object.assign(exports, { cleanValue, cleanFields, cleanLines, nextStatuses, amountOf });
+module.exports = Object.assign(exports, { cleanValue, cleanFields, cleanLines, nextStatuses, amountOf, periodOf, resourcesOf, overlaps, holdingState, addDay });

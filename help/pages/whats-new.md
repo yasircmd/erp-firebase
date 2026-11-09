@@ -13,6 +13,12 @@ screen.
 
 ## 09/11/2026
 
+- **Boards and calendars for built modules.** A built module can now show a
+  **Board** (for example rooms by state today: Booked, Occupied, Cleaning,
+  Free) and a **Calendar** (each booking a bar across the days), and refuses
+  a double booking of the same room for overlapping days. See
+  [Built modules](built-modules.html#board-and-calendar).
+
 - **Built modules.** Your ERP provider can now build modules for your kind of
   business (rooms and bookings, investments, properties and leases …) from
   settings. Each appears in your menu like any other module, with its own

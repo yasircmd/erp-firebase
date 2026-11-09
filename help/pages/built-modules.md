@@ -1,5 +1,5 @@
 ---
-fingerprint: 670a2ee8c02a35c2
+fingerprint: 4cc4723565a1525a
 reviewed: 2026-11-09
 title: Built modules
 area: admin
@@ -47,6 +47,31 @@ A built module never posts to the accounts by itself.
    number is not used again). A master record is switched **off**, never
    deleted, since documents may name it.
 8. **Print** prints the record or the document with its lines.
+
+## Board and calendar
+
+Some built modules have tabs above their list:
+
+- **Board** (on master data, for example Rooms): one column per state, each
+  record as a card in its state on the day chosen (today at first; use the
+  arrows or the date). A record's state comes from the documents that book
+  it that day (for example *Booked* or *Occupied*), else it is **Free**. A
+  state set by hand (for example *Cleaning* or *Out of order*) wins: choose
+  it on the card, or *none* to clear it. A card's document opens from it.
+- **Calendar** (on a document, for example Bookings): the records booked
+  (rooms, vehicles, units) as rows and 14 days as columns, each document a
+  bar from its start to its end in its state's colour. The arrows move a
+  week; **Today** comes back. Select a bar to open its document. Only
+  documents in a status that holds the record show (not a draft or a
+  cancelled one).
+
+**No double booking.** A document can't hold a record another document
+already holds for overlapping days: saving or moving it to such a status
+is refused, naming the other document, for example *101 · Garden room is
+already held by BK-26-000004 from 20/11/2026 to 22/11/2026*. Whether the end
+date is the day the record is free again (a hotel: a guest may arrive on
+another's departure day) or its last day in use (a rental) is set for each
+module.
 
 ## Rights
 
