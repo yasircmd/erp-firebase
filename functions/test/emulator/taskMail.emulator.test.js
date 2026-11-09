@@ -43,10 +43,11 @@ function fakeTransport() {
   return { sent, sendMail: async m => { sent.push(m); return { messageId: String(sent.length) }; } };
 }
 const ACCOUNT = { user: 'tasks@test.local', pass: 'x' };
-const sweep = (transport, now) => taskMail.sweepCorporate({ account: transport ? ACCOUNT : null, transport, now: now || new Date('2026-09-10T02:00:00Z') });
+// Corporate 100 with the firm's mailbox (no company or corporate mailbox saved), or none.
+const sweep = (transport, now) => taskMail.sweepCorporate({ firmAccount: transport ? ACCOUNT : null, makeTransport: () => transport, now: now || new Date('2026-09-10T02:00:00Z') });
 const queued = async () => (await firestore.collection('mailQueue').get()).docs.map(d => d.data());
 const logs = async () => (await firestore.collection('mailLog').get()).docs.map(d => d.data()).sort((a, b) => (a.At + a.To).localeCompare(b.At + b.To));
-const clearMail = async () => { for (const c of ['mailQueue', 'mailLog', 'mailSummaries']) for (const d of (await firestore.collection(c).get()).docs) await d.ref.delete(); };
+const clearMail = async () => { for (const c of ['mailQueue', 'mailLog', 'mailSummaries', 'mailAccounts']) for (const d of (await firestore.collection(c).get()).docs) await d.ref.delete(); };
 const setting = (uid, s) => firestore.collection('userEmailSettings').doc(uid).set(Object.assign({ SummaryTime: '07:00', SummaryDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }, s));
 
 test('the settings: the defaults, a choice saved, wrong ones refused', async () => {

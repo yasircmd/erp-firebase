@@ -418,3 +418,5 @@ const support = require('./src/support');
 // Task emails (docs/modules/TASK_EMAILS.md): the user's Email settings, and the
 // scheduled sender (not a callable: tools/deploy-lib.sh gives it no public access).
 ['getMyEmailSettings', 'saveMyEmailSettings', 'sweepTaskMail'].forEach(n => { exports[n] = require('./src/taskMail')[n]; });
+// Each corporate's and company's own sending mailbox (TASK_EMAILS.md, phase 2): Company Master.
+['getMailAccounts', 'saveMailAccount', 'testMailAccount'].forEach(n => { exports[n] = require('./src/mailAccounts')[n]; });

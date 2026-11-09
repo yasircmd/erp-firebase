@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-08
+reviewed: 2026-11-09
 title: What's new
 area: start
 order: 3
@@ -10,6 +10,15 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 09/11/2026
+
+- **Task emails from your own mailbox.** Each corporate now sends its task
+  emails from its own mailbox, and each company can have its own: set the
+  address and its app password in Company Master (**Task emails mailbox**, or
+  the envelope on a company's row), then **Send a test email**. The password
+  is saved encrypted and never shown again. With no mailbox set, task emails
+  are not sent. See [Company Master](company-master.html#task-emails-sending-mailbox).
 
 ## 08/11/2026
 

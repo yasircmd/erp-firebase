@@ -1,0 +1,15 @@
+# Task emails, phase 2: each corporate's and company's own sending mailbox
+# (owner, 2026-11-09; docs/modules/TASK_EMAILS.md, Q457-Q460).
+# The sender (sweepTaskMail; no public invoker) and the three new Company
+# Master callables. Not every function: the queueing code every approval runs
+# (taskMail.js approvalChanged, portalUpdate) is unchanged; an email's company
+# is found when sending, in sweepTaskMail. approvalDelegation.js only exports
+# a helper it already had.
+# BEFORE this deploy, once: the secret TASK_MAIL_KEY (TASK_EMAILS.md, phase 2,
+# "Setting it up", step 1); without it the deploy fails.
+# Deploy WITH --screens ("functions set, then screens": COMPANYMASTER), then
+# the "hosting" task (the Help).
+sweepTaskMail
+getMailAccounts
+saveMailAccount
+testMailAccount

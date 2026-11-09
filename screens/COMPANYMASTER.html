@@ -10,7 +10,7 @@
 <div class="space-y-6 no-print">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Enterprise Structure & Organizational Master Data</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-building text-blue-500"></i> Company Master Data</h2></div>
-    <button id="co-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Company</button>
+    <div class="flex flex-wrap gap-2"><button id="co-mail-default-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-slate-100 font-medium px-4 py-2 rounded-lg text-sm" title="The corporate's own mailbox for task emails"><i class="fa-solid fa-envelope"></i> Task emails mailbox</button><button id="co-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Company</button></div>
   </div>
 
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -74,6 +74,23 @@
   </div>
 </div>
 <div id="co-print-document" class="print-only"></div>
+<!-- Task emails: a company's or the corporate's own sending mailbox (docs/modules/TASK_EMAILS.md, phase 2, Q457-Q460). -->
+<div id="co-mail-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 class="text-lg font-bold"><i class="fa-solid fa-envelope text-blue-400"></i> Task emails: sending mailbox</h3><button id="co-mail-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <div id="co-mail-title" class="text-sm font-semibold text-slate-200"></div>
+    <p class="text-xs text-slate-400">The ERP sends this company's task emails (approvals, rejections, employees' updates) from this mailbox, with its app password. Users' daily summaries go from the corporate default. With none set, task emails are not sent.</p>
+    <div><label for="co-mail-address" class="block text-xs font-medium text-slate-300 mb-1">Mailbox address</label><input id="co-mail-address" type="email" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label for="co-mail-password" class="block text-xs font-medium text-slate-300 mb-1">App password</label><input id="co-mail-password" type="password" autocomplete="new-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      <p class="text-xs text-slate-500 mt-1">Created in that mailbox's Google Account (Security, App passwords). It is saved encrypted and never shown again.</p></div>
+    <div id="co-mail-status" class="text-xs text-slate-400"></div>
+    <div id="co-mail-error" class="hidden text-xs rounded-lg p-2.5 bg-red-500/10 border border-red-500/20 text-red-400"></div>
+    <div class="flex flex-wrap justify-between gap-2 pt-2">
+      <div class="flex gap-2"><button type="button" id="co-mail-remove" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-red-300">Remove</button><button type="button" id="co-mail-test" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Send a test email</button></div>
+      <div class="flex gap-2"><button type="button" id="co-mail-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button><button type="button" id="co-mail-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+    </div>
+  </div>
+</div>
 <div id="co-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
   <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="co-modal-title" class="text-lg font-bold">Add Company</h3><button id="co-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
@@ -241,7 +258,7 @@
       const location = [c.City, c.Country].filter(Boolean).join(', ') || '—';
       const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.partyId = c.CompanyID;
       const actions = (shRights.CanView ? `<button class="co-shareholders text-slate-400 hover:text-blue-400 p-1" title="Shareholders"><i class="fa-solid fa-users"></i></button>` : '') + (canWrite
-        ? `<button class="co-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+        ? `<button class="co-mail text-slate-400 hover:text-blue-400 p-1" title="Task emails: sending mailbox"><i class="fa-solid fa-envelope"></i></button><button class="co-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
            <button class="co-toggle text-slate-400 ${c.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${c.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${c.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`
         : '');
       row.innerHTML = `
@@ -255,6 +272,7 @@
       if (shRights.CanView) row.querySelector('.co-shareholders').addEventListener('click', () => openShareholders(c));
       if (canWrite) {
         row.querySelector('.co-edit').addEventListener('click', () => openModal(c.CompanyID));
+        row.querySelector('.co-mail').addEventListener('click', () => openMailAccount(c.CompanyID, c.LegalName));
         row.querySelector('.co-toggle').addEventListener('click', () => toggleStatus(c));
       }
       tbody.appendChild(row);
@@ -502,6 +520,55 @@
     shCall('getCompanyShareholders', { rightsOnly: true }).then(r => { shRights = r || shRights; if (shRights.CanView) renderTable(); }, () => {});
   }
 
+  // ===== Task emails: sending mailbox (docs/modules/TASK_EMAILS.md, phase 2, Q457-Q460) =====
+  let mailAccounts = { corporate: null, companies: {} }, mailKey = '', mailName = '';
+  const mailCall = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const mailEl = id => document.getElementById(id);
+  const mailError = msg => { mailEl('co-mail-error').textContent = msg || ''; mailEl('co-mail-error').classList.toggle('hidden', !msg); };
+  const mailLoad = () => mailCall('getMailAccounts', {}).then(r => { mailAccounts = r || mailAccounts; });
+  function mailShow() {
+    const a = mailKey === 'CORPORATE' ? mailAccounts.corporate : mailAccounts.companies[mailKey];
+    mailEl('co-mail-title').textContent = mailName;
+    mailEl('co-mail-address').value = a ? a.Address : '';
+    mailEl('co-mail-password').value = '';
+    mailEl('co-mail-password').placeholder = a && a.HasPassword ? 'Saved: leave blank to keep it' : 'The mailbox\'s 16-letter app password';
+    mailEl('co-mail-status').textContent = !a ? 'No mailbox saved' + (mailKey === 'CORPORATE' ? ': task emails are not sent unless a company has its own.' : ': the corporate default sends this company\'s task emails, if one is set.')
+      : 'Saved by ' + (a.UpdatedBy || '') + ' on ' + String(a.UpdatedAt || '').slice(0, 10) + '. ' + (a.LastTest ? 'Last test, ' + String(a.LastTest.At || '').slice(0, 10) + ' to ' + a.LastTest.To + ': ' + a.LastTest.Result + '.' : 'Not tested yet: send a test email.');
+    mailEl('co-mail-remove').classList.toggle('hidden', !a);
+    mailEl('co-mail-test').classList.toggle('hidden', !a);
+    mailError(mailAccounts.keySet === false ? 'The firm has not set the mail key yet: passwords can\'t be saved.' : '');
+    mailEl('co-mail-modal').classList.remove('hidden');
+  }
+  function openMailAccount(key, name) {
+    mailKey = key; mailName = key === 'CORPORATE' ? 'Corporate default (all companies, and every summary)' : name;
+    mailLoad().then(mailShow, err => appAlert(err.message || String(err)));
+  }
+  function mailBusy(on) { ['co-mail-save', 'co-mail-test', 'co-mail-remove'].forEach(id => { mailEl(id).disabled = on; }); }
+  function wireMailAccounts() {
+    mailEl('co-mail-default-btn').classList.toggle('hidden', !canWrite);
+    mailEl('co-mail-default-btn').addEventListener('click', () => openMailAccount('CORPORATE'));
+    const close = () => mailEl('co-mail-modal').classList.add('hidden');
+    mailEl('co-mail-close').addEventListener('click', close);
+    mailEl('co-mail-cancel').addEventListener('click', close);
+    mailEl('co-mail-save').addEventListener('click', () => {
+      mailBusy(true); mailError('');
+      mailCall('saveMailAccount', { key: mailKey, address: mailEl('co-mail-address').value.trim(), password: mailEl('co-mail-password').value })
+        .then(mailLoad).then(() => { mailBusy(false); mailShow(); appAlert('Saved. Send a test email to check it.'); }, err => { mailBusy(false); mailError(err.message || String(err)); });
+    });
+    mailEl('co-mail-test').addEventListener('click', () => {
+      mailBusy(true); mailError('');
+      mailCall('testMailAccount', { key: mailKey }).then(r => {
+        appAlert(r.success ? 'Test email sent to ' + r.to + '. Check that it arrived, and not in spam.' : 'Not sent: ' + r.result);
+        return mailLoad();
+      }).then(() => { mailBusy(false); mailShow(); }, err => { mailBusy(false); mailError(err.message || String(err)); });
+    });
+    mailEl('co-mail-remove').addEventListener('click', async () => {
+      if (!(await appConfirm('Remove this sending mailbox? Its task emails then go from the corporate default, or are not sent.'))) return;
+      mailBusy(true);
+      mailCall('saveMailAccount', { key: mailKey, remove: true }).then(mailLoad).then(() => { mailBusy(false); mailShow(); }, err => { mailBusy(false); mailError(err.message || String(err)); });
+    });
+  }
+
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken, writeAllowed) {
     // "Documents (n)" on each company: its Company Documents (docs/modules/COMPANY_DOCUMENTS.md).
@@ -520,6 +587,7 @@
     fetchAndRender();
     loadAccounts();
     wireShareholders();
+    wireMailAccounts();
   };
 })();
 </script>

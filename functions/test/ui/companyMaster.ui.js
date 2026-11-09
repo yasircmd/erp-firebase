@@ -83,6 +83,43 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await v.close();
   });
 
+  await check('Task emails mailbox (TASK_EMAILS.md, phase 2): a company\'s saved, the password never shown again; the corporate default; removed', async () => {
+    const { firestore } = require('../emulator/_helpers');
+    for (const d of (await firestore.collection('mailAccounts').get()).docs) await d.ref.delete();
+    await page.reload();
+    await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('#co-table-body tr[data-party-id]').length === 5, null, { timeout: 30000 });
+    assert.ok(await page.isVisible('#co-mail-default-btn'));
+    await page.click('#co-table-body tr[data-party-id="C1"] .co-mail');
+    await page.waitForSelector('#co-mail-modal:not(.hidden)');
+    assert.equal(await page.textContent('#co-mail-title'), 'Test Co One');
+    assert.match(await page.textContent('#co-mail-status'), /No mailbox saved: the corporate default sends/);
+    assert.ok(await page.isHidden('#co-mail-test'), 'nothing to test yet');
+    await page.fill('#co-mail-address', 'tasks@c1.example');
+    await page.click('#co-mail-save');
+    await page.waitForFunction(() => /app password/.test(document.getElementById('co-mail-error').textContent));
+    await page.fill('#co-mail-password', 'abcd efgh ijkl mnop');
+    page.__dialogs = [];
+    await page.click('#co-mail-save');
+    await page.waitForFunction(() => /Saved by admin/.test(document.getElementById('co-mail-status').textContent));
+    assert.deepEqual(page.__dialogs, ['Saved. Send a test email to check it.']);
+    assert.equal(await page.inputValue('#co-mail-password'), '', 'never shown again');
+    assert.equal(await page.getAttribute('#co-mail-password', 'placeholder'), 'Saved: leave blank to keep it');
+    assert.ok(await page.isVisible('#co-mail-test') && await page.isVisible('#co-mail-remove'));
+    assert.equal((await firestore.collection('mailAccounts').doc('C1').get()).data().Address, 'tasks@c1.example');
+    // Removed, after the in-app confirmation.
+    await page.click('#co-mail-remove');
+    await page.waitForFunction(() => /No mailbox saved/.test(document.getElementById('co-mail-status').textContent));
+    assert.equal((await firestore.collection('mailAccounts').doc('C1').get()).exists, false);
+    await page.click('#co-mail-cancel');
+    // The corporate default.
+    await page.click('#co-mail-default-btn');
+    await page.waitForSelector('#co-mail-modal:not(.hidden)');
+    assert.match(await page.textContent('#co-mail-title'), /Corporate default/);
+    await page.click('#co-mail-close');
+    assert.deepEqual(page.__errors, []);
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

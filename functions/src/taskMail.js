@@ -203,54 +203,72 @@ async function writeLog(entry) {
   await LOG().add(Object.assign({ At: new Date().toISOString() }, entry));
 }
 
-// Sends one email (or logs why not). transport: nodemailer's, or null when no account.
-async function deliver(transport, from, to, mail, logBase) {
+// Sends one email (or logs why not). sender: { user, transport } or { error }.
+async function deliver(sender, to, mail, logBase) {
   if (!to) return writeLog(Object.assign({}, logBase, { Subject: mail.subject, Result: 'not sent: no email address' }));
-  if (!transport) return writeLog(Object.assign({}, logBase, { To: to, Subject: mail.subject, Result: NO_ACCOUNT }));
+  if (sender.error) return writeLog(Object.assign({}, logBase, { To: to, Subject: mail.subject, Result: sender.error, From: '' }));
   try {
-    await transport.sendMail({ from: '"ERP tasks" <' + from + '>', to, subject: mail.subject, text: mail.text, html: mail.html });
-    await writeLog(Object.assign({}, logBase, { To: to, Subject: mail.subject, Result: 'sent' }));
+    await sender.transport.sendMail({ from: '"ERP tasks" <' + sender.user + '>', to, subject: mail.subject, text: mail.text, html: mail.html });
+    await writeLog(Object.assign({}, logBase, { To: to, From: sender.user, Subject: mail.subject, Result: 'sent' }));
     return true;
   } catch (err) {
-    await writeLog(Object.assign({}, logBase, { To: to, Subject: mail.subject, Result: 'failed', Error: text(err && err.message, 300) }));
+    await writeLog(Object.assign({}, logBase, { To: to, From: sender.user, Subject: mail.subject, Result: 'failed', Error: text(err && err.message, 300) }));
     return false;
   }
 }
 
-// Whether a queued approval or rejection is still the user's task.
+// One run's senders (phase 2, Q457-Q460): the mailbox of a company (or of the
+// corporate, companyId ''), each looked up and connected once a run.
+function sendersFor(o) {
+  const cache = new Map();
+  return companyId => {
+    const k = companyId || '';
+    if (!cache.has(k)) {
+      cache.set(k, require('./mailAccounts').accountFor({ companyId: k, secret: o.secret, firmAccount: o.firmAccount }).then(a => (a.error ? a : { user: a.user, transport: o.makeTransport(a) })));
+    }
+    return cache.get(k);
+  };
+}
+
+// Whether a queued approval or rejection is still the user's task: its
+// approval record when it is (the sender finds its company from it, phase 2),
+// true for an item with no approval, false when no longer open.
 async function stillOpen(check) {
   if (!check || !check.InstanceID) return true;
   const inst = await require('./approvalStore').approvalInstances.get(check.InstanceID);
   if (!inst || inst.Status !== check.Status) return false;
-  if (check.Status !== 'Pending') return true;
-  return approversWithTask(inst).some(l => l.LevelNumber === check.LevelNumber);
+  if (check.Status === 'Pending' && !approversWithTask(inst).some(l => l.LevelNumber === check.LevelNumber)) return false;
+  return inst;
 }
 
-async function recipient(item, users) {
+async function recipient(item, users, inst) {
   if (item.Kind === 'portal') {
     const e = (await firestore.collection('employees').doc(item.EmployeeID).get()).data();
     if (!e || !(await employeeSetting(item.EmployeeID)).on) return null;
-    return { to: text(e.WorkEmail, 200) || text(e.PersonalEmail, 200), log: { EmployeeID: item.EmployeeID } };
+    return { to: text(e.WorkEmail, 200) || text(e.PersonalEmail, 200), companyId: e.CompanyID || '', log: { EmployeeID: item.EmployeeID } };
   }
   const u = users[item.ToUid];
   if (!u || u.status !== 'Active') return null;
   const s = await SETTINGS(item.ToUid).get();
   if (!sendsAtOnce(settingsOf(s.exists ? s.data() : null).Timing, item.Kind)) return null;
-  return { to: text(u.email, 200), log: { Uid: item.ToUid } };
+  // Its company's mailbox sends it (phase 2, Q457): the approved document's company, found when sending.
+  const companyId = inst && inst !== true ? await require('./approvalDelegation').companyOfApproval(inst).catch(() => '') : '';
+  return { to: text(u.email, 200), companyId, log: { Uid: item.ToUid } };
 }
 
 // The queue: each item claimed (so a second run never sends it), checked, sent, removed.
-async function sendQueue(account, transport, users) {
+async function sendQueue(senderOf, users) {
   const snap = await QUEUE().where('Status', '==', 'Queued').limit(QUEUE_BATCH).get();
   let sent = 0;
   for (const doc of snap.docs) {
     try { await doc.ref.update({ Status: 'Sending' }, { lastUpdateTime: doc.updateTime }); } catch (err) { continue; }
     const item = doc.data();
     try {
-      const who = (await stillOpen(item.Check)) ? await recipient(item, users) : null;
+      const open = await stillOpen(item.Check);
+      const who = open ? await recipient(item, users, open) : null;
       if (who) {
         const mail = composeEmail(item.Subject, [{ title: '', lines: item.Lines || [] }], item.Link || ERP_LINK);
-        if (await deliver(transport, account && account.user, who.to, mail, Object.assign({ Kind: item.Kind }, who.log))) sent++;
+        if (await deliver(await senderOf(who.companyId), who.to, mail, Object.assign({ Kind: item.Kind }, who.log))) sent++;
       }
     } catch (err) {
       await writeLog({ Kind: item.Kind, Subject: text(item.Subject, 150), Result: 'failed', Error: text(err && err.message, 300) });
@@ -297,7 +315,7 @@ async function tasksOf(uid, today) {
 }
 
 // The summaries due now (Q455-Q456): one email per user, none when nothing is open.
-async function sendSummaries(account, transport, users, now) {
+async function sendSummaries(senderOf, users, now) {
   const clock = localClock(now);
   const saved = {};
   (await firestore.collection('userEmailSettings').get()).docs.forEach(d => { saved[d.id] = d.data(); });
@@ -311,7 +329,7 @@ async function sendSummaries(account, transport, users, now) {
       if (!sections.length) return;
       const count = sections.reduce((n, s) => n + Number((/\((\d+)\)$/.exec(s.title) || [0, 0])[1]), 0);
       const mail = composeEmail('Your ERP tasks, ' + clock.date + ': ' + count + ' open', sections, ERP_LINK);
-      if (await deliver(transport, account && account.user, text(users[uid].email, 200), mail, { Kind: 'summary', Uid: uid })) sent++;
+      if (await deliver(await senderOf(''), text(users[uid].email, 200), mail, { Kind: 'summary', Uid: uid })) sent++;
     } catch (err) {
       await writeLog({ Kind: 'summary', Uid: uid, Result: 'failed', Error: text(err && err.message, 300) });
     }
@@ -322,20 +340,25 @@ async function sendSummaries(account, transport, users, now) {
 }
 
 // One corporate's run: the queue, then the summaries due. Called inside runInCorporate.
+// opts: { firmAccount (Corporate 100 only), secret (TASK_MAIL_KEY), makeTransport(account), now }.
 async function sweepCorporate(opts) {
-  const o = opts || {};
+  const o = Object.assign({ makeTransport: transportFor }, opts || {});
+  const senderOf = sendersFor(o);
   const users = (await rtdb.ref('users').get()).val() || {};
-  const queued = await sendQueue(o.account || null, o.transport || null, users);
-  const summaries = await sendSummaries(o.account || null, o.transport || null, users, o.now || new Date());
+  const queued = await sendQueue(senderOf, users);
+  const summaries = await sendSummaries(senderOf, users, o.now || new Date());
   return { queued, summaries };
 }
 
 // Every corporate; one that fails or is out of reach never stops the others.
-async function sweepAll(account, transport, now) {
+// The firm's mailbox sends for Corporate 100 only: another corporate's
+// emails never sit in its Sent items (Q458).
+async function sweepAll(firmAccount, secret, now) {
+  const { HOME_ID } = require('./firebaseAdmin');
   const out = {};
   for (const c of await require('./corporates').activeCorporates()) {
     try {
-      out[c.id] = await runInCorporate(c, () => sweepCorporate({ account, transport, now }));
+      out[c.id] = await runInCorporate(c, () => sweepCorporate({ firmAccount: String(c.id) === HOME_ID ? firmAccount : null, secret, now }));
     } catch (err) {
       console.error('taskMail: Corporate ' + c.id + ' not swept', err);
       out[c.id] = { error: err.message };
@@ -345,21 +368,21 @@ async function sweepAll(account, transport, now) {
 }
 
 function transportFor(account) {
-  if (!account) return null;
-  return require('nodemailer').createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: account.user, pass: account.pass } });
+  return require('nodemailer').createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: account.user, pass: account.pass }, connectionTimeout: 15000, greetingTimeout: 15000 });
 }
 
 // The scheduled function (not a callable: no public access, tools/deploy-lib.sh).
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const MAIL_ACCOUNT = defineSecret('TASK_MAIL_ACCOUNT');
-exports.sweepTaskMail = onSchedule({ schedule: 'every 5 minutes', region: 'us-central1', timeZone: 'UTC', secrets: [MAIL_ACCOUNT], timeoutSeconds: 540, memory: '512MiB' }, async () => {
+exports.sweepTaskMail = onSchedule({ schedule: 'every 5 minutes', region: 'us-central1', timeZone: 'UTC', secrets: [MAIL_ACCOUNT, require('./mailAccounts').MAIL_KEY], timeoutSeconds: 540, memory: '512MiB' }, async () => {
   const account = parseAccount(MAIL_ACCOUNT.value());
-  const out = await sweepAll(account, transportFor(account), new Date());
-  console.log(JSON.stringify({ message: 'taskMail', account: Boolean(account), corporates: out }));
+  const secret = String(require('./mailAccounts').MAIL_KEY.value() || '').trim();
+  const out = await sweepAll(account, secret, new Date());
+  console.log(JSON.stringify({ message: 'taskMail', account: Boolean(account), key: Boolean(secret), corporates: out }));
 });
 
 module.exports = Object.assign(exports, {
   TIMINGS, DAYS, DEFAULTS, NO_ACCOUNT, cleanSettings, settingsOf, sendsAtOnce, localClock, summaryDue, composeEmail, parseAccount, showDate,
-  approvalNews, approvalChanged, portalUpdate, employeeSetting, saveEmployeeSetting, sweepCorporate, approversWithTask
+  approvalNews, approvalChanged, portalUpdate, employeeSetting, saveEmployeeSetting, sweepCorporate, approversWithTask, transportFor
 });

@@ -1,6 +1,6 @@
 # Task emails: users' tasks sent to their email
 
-Status: **built 2026-11-08** (decisions Q450-Q456; the owner's go-ahead the same day). See *As built* below: it differs from the proposal on four points, each said there.
+Status: **built 2026-11-08**; phase 2 (each corporate's own sender, Q457-Q460) built 2026-11-09 (decisions Q450-Q456; the owner's go-ahead the same day). See *As built* below: it differs from the proposal on four points, each said there.
 
 ## The request (owner, 2026-11-08)
 
@@ -227,6 +227,116 @@ In Cloud Shell, project erp1-8f4cd:
 
 Then check `mailLog` (Firestore, Corporate 100) after the first approval:
 "sent", or why not.
+
+## Phase 2: each corporate's and company's own sender (design, 2026-11-09)
+
+### The request (owner, 2026-11-09)
+
+"Is it possible to use each corporate their own email ID that can saved in
+company master data"
+
+### The owner's decisions (2026-11-09)
+
+| # | Question | Decision |
+|---|---|---|
+| Q457 | Where the sender is set | **A corporate default, and a company's own in Company Master**, which then sends that company's task emails. |
+| Q458 | How it sends | **From their own mailbox** (its address and app password), so another corporate's emails never sit in anyone else's Sent items. The owner raised the privacy point: a mailbox keeps a copy of every email it sends. |
+| Q459 | Who sets it | **Company Master's own rights** (whoever may change a company there). |
+| Q460 | None set, or it fails | **Not sent**: logged "not sent: no mail account set" (or "failed" with Google's reason), never sent from another mailbox. |
+
+### The privacy point, and today's sender
+
+The firm's mailbox (the secret TASK_MAIL_ACCOUNT) sends today for **every**
+corporate, so its Sent items hold their task emails (document numbers,
+amounts, employees' names). Under Q458 and Q460 that stops: the firm's
+mailbox becomes **Corporate 100's** default only, and a client corporate's
+emails go only from its own mailbox, or not at all.
+
+### The proposal
+
+- **Company Master** gains a section, **Task emails: sending mailbox**:
+  - the address, and the app password, which is written once and never shown
+    again; leaving the password box blank keeps the saved one;
+  - **Send a test email** (to the person setting it), to prove the address
+    and password before anyone depends on them;
+  - the same section, opened from the screen's top, for the **corporate
+    default (all companies)**.
+
+  Company Master is a ported module, so its screen is changed through
+  `SCREEN_EDITS` (tools/legacy-port/generate.js), and the section calls new
+  hand-written functions; the ported saveCompany is untouched.
+- **Stored** in the corporate's own Firestore, `mailAccounts/{CORPORATE |
+  companyId}` { Address, Password (encrypted), UpdatedAt, UpdatedBy,
+  LastTest }. The password is encrypted with AES-256-GCM under a firm key,
+  a new secret **TASK_MAIL_KEY**, so a copy of the database alone never
+  reveals it. Rules stay deny-all; only the sender decrypts it.
+- **Which mailbox sends:**
+  - an email about a document (an approval, a rejection, an employee's
+    request or leave) uses its company's own mailbox, else the corporate
+    default;
+  - a user's summary covers several companies, so it uses the corporate
+    default;
+  - with neither, it is not sent (Q460).
+- **Corporate 100**: its default stays the secret TASK_MAIL_ACCOUNT unless set
+  in its own Company Master.
+- **Each corporate's own domain** needs DKIM/SPF/DMARC to stay out of spam,
+  as in step 5; the test email shows at once whether it lands in spam.
+- **Rights**: Company Master's own "write" right (Q459); the corporate
+  default needs the same right.
+
+### As built (2026-11-09)
+
+The owner's go-ahead the same day ("Go on"). As proposed, with these points:
+
+- **Company Master is a hand-kept screen** (`handScreens` in
+  tools/legacy-port/modules.json), so the section was added to
+  screens/COMPANYMASTER.html directly: **Task emails mailbox** at the top (the
+  corporate default) and an **envelope** on each company's row (Company
+  Master write only), opening one dialog: the address, the app password
+  (blank keeps the saved one; a new address needs its own), **Send a test
+  email** (to the person's own ERP address; its result is kept as LastTest
+  and shown), **Remove** (after an in-app confirmation).
+- **`functions/src/mailAccounts.js`** (new): getMailAccounts (addresses, never
+  passwords; only the companies the user may open), saveMailAccount,
+  testMailAccount, all declaring the secret TASK_MAIL_KEY; the encryption
+  (AES-256-GCM, a fresh IV each time, the key SHA-256 of the secret); and
+  `accountFor`, which the sender asks: the company's mailbox, else the
+  corporate's, else (Corporate 100 only) the firm's TASK_MAIL_ACCOUNT, else
+  "not sent: no mail account set". A saved password that can't be read
+  (another key) is logged as such and **never** falls back to another
+  mailbox.
+- **The sender** (taskMail.js): `sweepAll` gives the firm's mailbox to
+  Corporate 100 only; each run looks up and connects each mailbox once. An
+  email's company is found **when it is sent**: an approval's from its
+  document (approvalDelegation's `companyOfApproval`, now exported), an
+  employee's from their record; a summary uses the corporate default. So
+  the queueing code (approvalChanged, portalUpdate) is unchanged, and only
+  the sender needs redeploying. The log now also records `From`.
+- **Tests**: unit/taskMail (the encryption: round trip, a fresh IV, another
+  key and tampering refused; the test email's outcomes); emulator/
+  mailAccounts (rights, the company's access, the address and password
+  checks, never sent back, stored encrypted, blank keeps it, a new address
+  needs its own; which mailbox sends: the company's, the corporate's, the
+  firm's in Corporate 100, none; an unreadable password never falls back);
+  emulator/taskMail updated; ui/companyMaster (the dialog: saved, the
+  password not shown again, removed, the corporate default). The emulator
+  reads TASK_MAIL_KEY from functions/.secret.local (git-ignored; README,
+  Testing). Negative controls, each caught then restored: the firm's
+  mailbox given to every corporate (unit/corporateContext); the fallback
+  past an unreadable password (emulator); the company not found when
+  sending (emulator).
+
+### Setting it up (the owner, once, before the deploy)
+
+1. **The mail key**, in Cloud Shell (one command, nothing to type in):
+   `openssl rand -base64 32 | gcloud secrets create TASK_MAIL_KEY --data-file=- --replication-policy=automatic --project=erp1-8f4cd`.
+   **Never change or delete it**: the saved passwords can only be read with
+   it (a new key means saving each mailbox's password again).
+2. Deploy (set `task-emails-own-sender`, with screens), then Hosting (Help).
+3. Each corporate: in Company Master, its **Task emails mailbox** (and a
+   company's own, if wanted), then **Send a test email**. A client
+   corporate without one gets no task emails. Corporate 100 keeps the
+   firm's mailbox until it sets its own.
 
 ## Open questions for the owner
 

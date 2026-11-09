@@ -61,3 +61,21 @@ test('who an approval\'s write tells: new approvers with the task, a rejection o
   assert.deepEqual([m.approvalNews(inst(), rej).rejected, m.approvalNews(rej, rej).rejected, m.approvalNews(rej, Object.assign({}, rej, { Status: 'Closed' })).rejected], [true, false, false]);
   assert.deepEqual(m.approvalNews(inst(), null), { waiting: [], rejected: false });
 });
+
+test('a mailbox\'s password: encrypted, read back only with the same key; the test email\'s outcome', async () => {
+  const a = require('../../src/mailAccounts');
+  const blob = a.encrypt('abcdefghijklmnop', 'key-1');
+  assert.match(blob, /^v1:[^:]+:[^:]+:[^:]+$/);
+  assert.notEqual(a.encrypt('abcdefghijklmnop', 'key-1'), blob, 'a fresh IV each time');
+  assert.equal(a.decrypt(blob, 'key-1'), 'abcdefghijklmnop');
+  assert.equal(a.decrypt(blob, 'key-2'), null, 'another key');
+  const parts = blob.split(':'); parts[3] = Buffer.from('tampered').toString('base64');
+  assert.equal(a.decrypt(parts.join(':'), 'key-1'), null, 'tampered');
+  assert.equal(a.decrypt('plain text', 'key-1'), null);
+  const sent = [];
+  const ok = { sendMail: async m => { sent.push(m); } };
+  assert.equal(await a.sendTest({ user: 'tasks@x.example', pass: 'p' }, 'me@x.example', ok), 'sent');
+  assert.deepEqual([sent[0].from, sent[0].to], ['"ERP tasks" <tasks@x.example>', 'me@x.example']);
+  assert.equal(await a.sendTest({ user: 'tasks@x.example', pass: 'p' }, 'me@x.example', { sendMail: async () => { throw new Error('535 Username and Password not accepted'); } }), 'failed: 535 Username and Password not accepted');
+  assert.equal(await a.sendTest({ error: 'none' }, 'me@x.example', null), 'not sent: no mail account set');
+});
