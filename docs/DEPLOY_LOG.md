@@ -2005,3 +2005,16 @@ from, and how it was verified. The deploy procedure is in the
   (16:15–16:16 UTC), success (the Built modules Help page, help.js sending
   ?m=X_... to it, What's new). Next: link Module Builder in Corporate 100's
   tree.
+- **2026-11-09, Module Builder phase 2 (PR #265, from `308fb53`):** run
+  [#352](https://github.com/yasircmd/erp-firebase/actions/runs/42656242334)
+  (16:35 UTC) started from `7ffae97`, before #265 was merged, so the set
+  `module-builder-p2` did not exist yet: **failed, nothing deployed** (the run
+  listed the known sets). "functions set, then screens" `module-builder-p2`, run
+  [#353](https://github.com/yasircmd/erp-firebase/actions/runs/42656977191)
+  (16:39–16:44 UTC), success: 17 functions (the 5 builder callables, the 9
+  runtime callables, getBuiltBoard, setBuiltBoardState, getBuiltCalendar),
+  access granted to 17, screens released (BUILDER, BUILT). "hosting", run
+  [#354](https://github.com/yasircmd/erp-firebase/actions/runs/42661228581)
+  (17:05–17:06 UTC), success (the Built modules Help page's Board and calendar
+  section, What's new). Live: a master's board, a document's schedule with the
+  timeline calendar, and the double-booking check.
