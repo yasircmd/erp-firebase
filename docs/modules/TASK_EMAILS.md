@@ -206,12 +206,24 @@ In Cloud Shell, project erp1-8f4cd:
    (or `--force` and type `none`).
 4. When the mailbox is ready (Q454): on the chosen existing mailbox, turn
    on 2-Step Verification, then Google Account → Security → App passwords →
-   create one ("ERP"). Set the secret to the address, a space, and the
-   16-letter password: `printf 'tasks@yourdomain.com abcdefghijklmnop' |
-   firebase functions:secrets:set TASK_MAIL_ACCOUNT --project erp1-8f4cd
-   --data-file=-`, then redeploy **sweepTaskMail** alone (Deploy workflow, "functions set",
-   set `task-mail-sender`) so it picks up the new version. If the Workspace admin has turned off app
-   passwords, they turn them back on for that mailbox's group.
+   create one ("ERP"). Put it in the secret **in the console**, not the
+   shell (Cloud Shell `read` prompts pasted as one block stored an empty
+   value, 2026-11-09): Secret Manager → TASK_MAIL_ACCOUNT → **+ New
+   version** → the value `address app-password` on one line (the spaces
+   Google shows inside the password may stay) → Add new version. Check it
+   without showing the password:
+   `gcloud secrets versions access latest --secret=TASK_MAIL_ACCOUNT --project=erp1-8f4cd | awk '{print "address: " $1 "   parts: " NF}'`
+   (the address, and 2 parts, or 5). Then redeploy **sweepTaskMail** alone
+   (Deploy workflow, "functions set", set `task-mail-sender`): it reads the
+   secret's version as of its deploy. If the Workspace admin has turned off
+   app passwords, they turn them back on for that mailbox's group.
+5. **Inbox, not spam.** Gmail first put the emails in spam (2026-11-09):
+   give the sending domain DKIM (admin.google.com → Apps → Google Workspace
+   → Gmail → Authenticate email → Generate new record, the TXT record
+   `google._domainkey` in the domain's DNS, then Start authentication), an
+   SPF record including `include:_spf.google.com`, and a DMARC record
+   (`_dmarc`: `v=DMARC1; p=none; rua=mailto:<an address>`). Until Gmail
+   trusts the domain, users mark the first email "Not spam".
 
 Then check `mailLog` (Firestore, Corporate 100) after the first approval:
 "sent", or why not.

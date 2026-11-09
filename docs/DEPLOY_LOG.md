@@ -1963,3 +1963,13 @@ from, and how it was verified. The deploy procedure is in the
   Me switch, the Help and What's new. Task emails are live; they are
   logged "not sent: no mail account set" until the mailbox's app password
   is in the secret (TASK_EMAILS.md, Setting it up, step 4).
+- **2026-11-09, task emails, the sender with the mail account (from `d28e7c4`, then `6bac6cf`):**
+  "functions set" `task-mail-sender`, run [#344](https://github.com/yasircmd/erp-firebase/actions/runs/42565485264)
+  (05:07–05:09 UTC), success (sweepTaskMail only, no public access), but
+  emails were still logged "not sent: no mail account set": the secret's
+  version 2 was empty (the Cloud Shell `read` prompts, pasted as one block,
+  took no input). The value was added again in the Secret Manager console
+  (+ New version), then run [#345](https://github.com/yasircmd/erp-firebase/actions/runs/42581829470)
+  (07:50–07:53 UTC), success. **Task emails work:** an approval's email
+  arrived within minutes, in Gmail's spam folder at first (the sending
+  domain's DKIM, SPF and DMARC: TASK_EMAILS.md).
