@@ -1973,3 +1973,18 @@ from, and how it was verified. The deploy procedure is in the
   (07:50–07:53 UTC), success. **Task emails work:** an approval's email
   arrived within minutes, in Gmail's spam folder at first (the sending
   domain's DKIM, SPF and DMARC: TASK_EMAILS.md).
+- **2026-11-09, task emails phase 2, each corporate's own sending mailbox (PR #259, from `989660d`):**
+  "functions set, then screens" `task-emails-own-sender`, run
+  [#346](https://github.com/yasircmd/erp-firebase/actions/runs/42602148334)
+  (10:37–10:40 UTC), **failed, nothing deployed**: the new secret
+  TASK_MAIL_KEY did not exist yet ("In non-interactive mode but have no value
+  for the secret TASK_MAIL_KEY"; the three new callables' IAM steps then
+  found no function). The key created in Cloud Shell (setup step 1), then run
+  [#347](https://github.com/yasircmd/erp-firebase/actions/runs/42603426453)
+  (10:45–10:48 UTC), success: 4 functions (sweepTaskMail, getMailAccounts,
+  saveMailAccount, testMailAccount), access granted to 3 (none for
+  sweepTaskMail), screens released (COMPANYMASTER). "hosting", run
+  [#348](https://github.com/yasircmd/erp-firebase/actions/runs/42603944442)
+  (10:48–10:49 UTC), success (Help, What's new). Live: a client corporate
+  without its own mailbox (Company Master) gets no task emails; Corporate 100
+  keeps the firm's mailbox until it sets its own.
