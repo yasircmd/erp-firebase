@@ -1948,3 +1948,18 @@ from, and how it was verified. The deploy procedure is in the
   from lock file"): adding nodemailer had left the lock file out of step
   with package.json. Fixed in PR #256 (the lock file from a full
   `npm install`, checked with `npm ci` on npm 10 and 11). Rerun after it.
+- **2026-11-08, task emails (PR #255 with the lock-file fix PR #256, from `d28e7c4`):**
+  "functions set" `task-emails`, run [#341](https://github.com/yasircmd/erp-firebase/actions/runs/42512288718)
+  (18:54–21:24 UTC), success: all 691 functions, among them the new
+  getMyEmailSettings, saveMyEmailSettings and sweepTaskMail (scheduled
+  every 5 minutes; Cloud Scheduler and Secret Manager APIs on, the secret
+  TASK_MAIL_ACCOUNT set to `none`). The summary said "access granted: 691",
+  but that line counted the set: the binding step itself skips sweepTaskMail
+  (NO_PUBLIC_INVOKER), so 690 were granted; the line now counts what it
+  grants. Run [#342](https://github.com/yasircmd/erp-firebase/actions/runs/42541090295)
+  (00:36 UTC, 2026-11-09): refused at once, the confirm box read "DRPLOY";
+  nothing ran. "hosting", run [#343](https://github.com/yasircmd/erp-firebase/actions/runs/42541206876)
+  (00:37–00:38 UTC), success: Email settings in the user menu, the portal's
+  Me switch, the Help and What's new. Task emails are live; they are
+  logged "not sent: no mail account set" until the mailbox's app password
+  is in the secret (TASK_EMAILS.md, Setting it up, step 4).

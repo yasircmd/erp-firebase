@@ -43,5 +43,6 @@ grant_invokers "${FNS[@]}"
 if [ $fail = 0 ] && [ $SCREENS = 1 ]; then tools/release-screens.sh || fail=1; fi
 # One line saying what this run changed.
 DEPLOYED=$([ $ACCESS_ONLY = 1 ] && echo "none (access only)" || echo "${#FNS[@]} (${FNS[*]})")
-echo "SUMMARY: functions deployed: $DEPLOYED; access granted: ${#FNS[@]}; screens released: $([ $SCREENS = 1 ] && [ $fail = 0 ] && echo yes || echo no)"
+PUBLIC=$(printf '%s\n' "${FNS[@]}" | grep -vxcF -f <(printf '%s\n' $NO_PUBLIC_INVOKER))
+echo "SUMMARY: functions deployed: $DEPLOYED; access granted: $PUBLIC (none for: $NO_PUBLIC_INVOKER); screens released: $([ $SCREENS = 1 ] && [ $fail = 0 ] && echo yes || echo no)"
 if [ $fail = 0 ]; then echo "ALL DONE"; else echo "SOME STEPS FAILED — re-run this script"; exit 1; fi
