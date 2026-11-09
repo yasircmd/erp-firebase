@@ -113,6 +113,56 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await s.close();
   });
 
+  await check('phase 2: the builder sets a board; the Board tab shows each room\'s state; the Calendar tab shows a booking as a bar that opens it', async () => {
+    // The builder: X_ROOM gets a board, its state set by hand from Room type (a choice field here).
+    const p = await open('BUILDER');
+    await p.click('#bd-body tr[data-id="X_ROOM"]');
+    await p.waitForSelector('#bd-edit-view:not(.hidden)');
+    await p.check('#bd-board-on');
+    await p.waitForSelector('#bd-board-field', { state: 'visible' });
+    await p.click('#bd-publish');
+    await p.waitForFunction(() => /Published v2/.test(document.getElementById('bd-version').textContent));
+    assert.deepEqual((await call('u-admin', 'getModuleDefinition', { id: 'X_ROOM' })).published.board, { enabled: true, stateField: '' });
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+
+    // A booking module with a schedule, a room and a confirmed booking (by the server calls).
+    await call('u-admin', 'saveModuleDefinitionDraft', { isNew: true, definition: { id: 'X_HOLD', label: 'Hold', kind: 'document', numbering: { prefix: 'HD' }, listColumns: ['guest'],
+      fields: [{ key: 'guest', label: 'Guest', type: 'text' }, { key: 'arrival', label: 'Arrival', type: 'date' }, { key: 'departure', label: 'Departure', type: 'date' }],
+      lines: { enabled: true, fields: [{ key: 'room', label: 'Room', type: 'link', target: 'X_ROOM' }] },
+      statuses: [{ name: 'Draft' }, { name: 'Confirmed' }, { name: 'Cancelled', final: true }],
+      schedule: { enabled: true, resourceField: 'room', startField: 'arrival', endField: 'departure', holds: [{ status: 'Confirmed', state: 'Booked' }] } } });
+    await call('u-admin', 'publishModuleDefinition', { id: 'X_HOLD' });
+    await rtdb.ref('permissions/X_HOLD').set({ access: ['Admin'], write: ['Admin'], void: ['Admin'] });
+    const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const plus = n => { const t = new Date(today + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+    const roomId = (await call('u-admin', 'listBuiltRecords', { moduleId: 'X_ROOM' })).records.find(r => r.Code === '101').RecordID;
+    const h = await call('u-admin', 'saveBuiltRecord', { moduleId: 'X_HOLD', record: { CompanyID: 'C1', Date: today, Fields: { guest: 'Guest A', arrival: today, departure: plus(2) }, Lines: [{ room: { id: roomId } }] } });
+    await call('u-admin', 'setBuiltStatus', { moduleId: 'X_HOLD', id: h.id, status: 'Confirmed' });
+
+    const r = await open('X_ROOM');
+    await r.waitForSelector('#bm-tabs:not(.hidden)');
+    assert.ok(await r.isHidden('.bm-tab[data-tab="calendar"]'), 'a master has no calendar');
+    await r.click('.bm-tab[data-tab="board"]');
+    await r.waitForFunction(() => /Booked/.test(document.getElementById('bm-board').textContent));
+    assert.match(await r.textContent('#bm-board'), /Booked\s*1\s*101 · Garden room\s*HD-\d\d-000001 · Guest A/);
+    assert.match(await r.textContent('#bm-board'), /Free\s*0/);
+    assert.deepEqual(r.__errors, []);
+    await r.close();
+
+    const c = await open('X_HOLD');
+    await c.waitForSelector('#bm-tabs:not(.hidden)');
+    assert.ok(await c.isHidden('.bm-tab[data-tab="board"]'), 'a document has no board');
+    await c.click('.bm-tab[data-tab="calendar"]');
+    await c.waitForSelector('#bm-calendar .bm-bar');
+    assert.equal(await c.$eval('#bm-calendar .bm-bar', b => b.closest('td').colSpan), 2, 'two nights: two days\' bar');
+    assert.match(await c.textContent('#bm-calendar'), /101 · Garden room/);
+    await c.click('#bm-calendar .bm-bar');
+    await c.waitForFunction(() => /Hold HD-\d\d-000001/.test(document.getElementById('bm-title').textContent));
+    assert.deepEqual(c.__errors, []);
+    await c.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   void rtdb;
   results.forEach(r => console.log(r.join('  ')));

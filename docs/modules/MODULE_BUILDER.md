@@ -206,6 +206,104 @@ As designed (Q461-Q469), with these points:
    modules, or its group's); its Admin then gives the rights and the menu
    item (or the firm's tree for it).
 
+## Phase 2: boards and calendars (built 2026-11-09)
+
+### The owner's decisions (2026-11-09)
+
+| # | Question | Decision |
+|---|---|---|
+| Q470 | A board's state of a record | **Both:** worked out from the documents that cover the day (a room in a Confirmed booking is Booked, in a Checked-in one Occupied), and a choice field on the master set by hand (Cleaning, Out of order) that wins when set. |
+| Q471 | The calendar | **A timeline by resource:** rows are the linked masters (rooms, vehicles, units), columns days, each document a bar from its start to its end. |
+| Q472 | Two documents on one resource for overlapping dates | **Refused**, naming the clashing document, for the statuses marked as holding the resource. |
+| Q473 | Where they appear | **Tabs in the module's own screen:** List, Board, Calendar, as the firm enables them. |
+
+### The proposal (the firm's choices, per module, in the builder)
+
+- **A document's schedule** (optional): its **resource**, a link field to a
+  built master (in the header, one resource; or in the lines, one per line,
+  e.g. a booking's rooms); its **start** and **end** date fields; whether the
+  end is the day it is **free again** (a hotel's departure: 20-22 is two
+  nights, and another may arrive on the 22nd) or the **last day used** (a
+  rental: 20-22 is three days); and the statuses that **hold** the resource,
+  each with the **state** it shows on the board (Confirmed → Booked,
+  Checked in → Occupied). A document in any other status (a Draft, a
+  Cancelled one) holds nothing.
+- **The clash check (Q472)**: on Save while in a holding status, on moving
+  into one, and on the approval that makes it one, every other document
+  holding the same resource (of any module scheduling that master) whose
+  dates overlap refuses it: "Room 101 is booked by BK-26-000004 from
+  20/11/2026 to 22/11/2026." Done under the global lock (lock.js), so two
+  people can't book the same room at the same moment.
+- **A master's board (Q470)** (optional): one column per state; its states
+  are the holding ones' states, the hand-set field's options, and **Free**.
+  A record's state on the day chosen (today by default): its hand-set field
+  if set, else the state of a document holding it that day, else Free. A
+  card shows its code and name, and the document (its number and first list
+  column, e.g. the guest) with a link to it; the hand-set field changes
+  from the card (write right).
+- **A document's calendar (Q471)**: the resource's records as rows (the
+  company's, active), 14 days from the day chosen (back and forward by a
+  week, Today), each document holding a resource as a bar in its state's
+  colour from its start to its end, its number on it; a click opens it.
+  Documents in other statuses don't show. A day with no document is empty
+  (a click on it starts a new document for that resource and date: not in
+  phase 2).
+- **Tabs (Q473)**: List always; Board on a master with a board; Calendar on
+  a document with a schedule.
+- **What a schedule may not change once published**: the fields it names
+  keep their types (as any published field).
+
+### Build
+
+1. builtDefinitions.js: the schedule and board settings, checked;
+   builtModules.js: the clash check, getBuiltBoard, getBuiltCalendar,
+   setBuiltBoardState (the hand-set field from a card).
+2. BUILT.html: the tabs, the board, the timeline; BUILDER.html: the settings.
+3. Tests with negative controls, Help, What's new, docs, the deploy set
+   (the builder's and the runtime's functions; the registry part of
+   builtDefinitions.js is unchanged), PR.
+
+### As built: phase 2 (2026-11-09)
+
+As designed (Q470-Q473), with these points:
+
+- **Settings** (builtDefinitions.js `cleanSchedule`, `cleanBoard`; the builder's
+  Board and Schedule sections): the resource a link to a built master (header
+  or lines); start and end header date fields, two different ones; the end
+  "free again" (default) or "last day used"; at least one holding status, each
+  with its state (letters, up to 20). A board's hand-set field is a choice
+  field.
+- **The clash check** (builtModules.js `findClash`): every published document
+  module scheduling the same master, same company, a holding status,
+  overlapping days [start, end) and a shared resource. On Save of a document
+  in a holding status, on a move into one (also before sending it for
+  approval), and before an approver approves it into one (nothing recorded on
+  a clash); a first status that holds (unusual) is checked on its first Save.
+  Under the global lock. A holding document needs both dates, the end after
+  the start (or on it, for "last day used").
+- **The board** (`getBuiltBoard`, `setBuiltBoardState`): columns in order: the
+  holding states of every module scheduling this master, then the hand-set
+  field's options, then Free; a card's document is the one holding it that
+  day, with its number and its first list column (the guest).
+- **The calendar** (`getBuiltCalendar`): 14 days (up to 62), rows the
+  master's active records of the company, bars per resource. BUILT.html
+  draws the bars as table cells spanning their days.
+- **A version just published** is used by the runtime's calls at once: they
+  read the definitions fresh (`publishedDef(id, true)`), found by the UI test
+  (a board published a moment before didn't show). The registry part for
+  every other call keeps its 30 s.
+- **Tests**: unit/moduleBuilder (a hotel's departure day free, a rental's last
+  day used, overlaps, resources, holding states, the settings' checks);
+  emulator/moduleBuilderSchedule (the settings refused; a room held twice
+  refused naming the other booking; arriving on a departure day allowed; two
+  rooms with one taken refused; dates the wrong way round refused; an edit of
+  a holding booking checked again; cancelling frees it; the board's states by
+  day and a hand-set state winning and cleared; the calendar's rows and bars);
+  ui/moduleBuilder (the builder sets a board; the Board tab; the Calendar tab's
+  bar of two nights opening its booking). Negative controls, each caught then
+  restored: a departure day counted as taken (overlaps with <=); a rental's
+  last day not counted; the clash check returning nothing.
+
 ## Open questions for the owner
 
-None for phase 1. Phase 2 (boards and calendars) is designed with the owner first.
+None for phase 2: Q470-Q473 decided.

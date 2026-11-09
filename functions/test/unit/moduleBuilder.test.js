@@ -63,3 +63,35 @@ test('a record\'s values: by type; a link only from its choices; lines totalled;
   assert.deepEqual(R.nextStatuses(def, 'Cancelled'), [], 'a final status is the end');
   assert.equal(R.amountOf(def, { Totals: { amount: 150.1 } }), 150.1);
 });
+
+test('phase 2: a schedule\'s days; a hotel\'s departure day free, a rental\'s last day used; overlaps; resources; the holding states', () => {
+  const base = { id: 'X_BK', label: 'Booking', kind: 'document', numbering: { prefix: 'BK' },
+    fields: [{ key: 'arrival', label: 'Arrival', type: 'date' }, { key: 'departure', label: 'Departure', type: 'date' }, { key: 'unit', label: 'Unit', type: 'link', target: 'X_ROOM' }],
+    lines: { enabled: true, fields: [{ key: 'room', label: 'Room', type: 'link', target: 'X_ROOM' }] },
+    statuses: [{ name: 'Draft' }, { name: 'Confirmed' }, { name: 'In' }, { name: 'Out', final: true }] };
+  const sched = (extra) => B.cleanDefinition(Object.assign({}, base, { schedule: Object.assign({ enabled: true, resourceField: 'room', startField: 'arrival', endField: 'departure', holds: [{ status: 'Confirmed', state: 'Booked' }, { status: 'In', state: 'Occupied' }] }, extra) }), ['X_ROOM']);
+  const hotel = sched({}), rental = sched({ endIsFree: false, resourceField: 'unit' });
+  assert.deepEqual([hotel.schedule.resourceInLines, rental.schedule.resourceInLines, rental.schedule.endIsFree], [true, false, false]);
+  const doc = (a, d, rooms, unit) => ({ Fields: { arrival: a, departure: d, unit: unit ? { id: unit } : null }, Lines: (rooms || []).map(id => ({ room: { id } })) });
+  // A hotel: 20-22 is two nights; the next guest may arrive on the 22nd.
+  const A = R.periodOf(hotel, doc('2026-11-20', '2026-11-22')), C = R.periodOf(hotel, doc('2026-11-22', '2026-11-24'));
+  assert.deepEqual(A, { start: '2026-11-20', end: '2026-11-22' });
+  assert.equal(R.overlaps(A, C), false, 'arriving on a departure day is fine');
+  assert.equal(R.overlaps(A, R.periodOf(hotel, doc('2026-11-21', '2026-11-23'))), true);
+  // A rental: 20-22 is three days; the 22nd is taken.
+  const X = R.periodOf(rental, doc('2026-11-20', '2026-11-22')), Y = R.periodOf(rental, doc('2026-11-22', '2026-11-24'));
+  assert.deepEqual(X, { start: '2026-11-20', end: '2026-11-23' });
+  assert.equal(R.overlaps(X, Y), true, 'a rental\'s last day is used');
+  assert.deepEqual(R.resourcesOf(hotel, doc('', '', ['r1', 'r2', 'r1'])), ['r1', 'r2']);
+  assert.deepEqual(R.resourcesOf(rental, doc('', '', [], 'u9')), ['u9']);
+  assert.deepEqual([R.holdingState(hotel, 'Confirmed'), R.holdingState(hotel, 'In'), R.holdingState(hotel, 'Draft'), R.holdingState(hotel, 'Out')], ['Booked', 'Occupied', null, null]);
+  assert.equal(R.periodOf(hotel, doc('', '2026-11-22')), null);
+  // The settings' checks.
+  assert.throws(() => sched({ resourceField: 'arrival' }), /link field to a built master/);
+  assert.throws(() => sched({ startField: 'unit' }), /start and end date fields/);
+  assert.throws(() => sched({ holds: [{ status: 'Confirmed', state: '' }] }), /the state it shows/);
+  assert.throws(() => sched({ holds: [{ status: 'Confirmed', state: 'A' }, { status: 'Confirmed', state: 'B' }] }), /listed twice/);
+  assert.deepEqual(B.cleanDefinition(Object.assign({}, base, { schedule: { enabled: false } }), ['X_ROOM']).schedule, { enabled: false });
+  assert.deepEqual(B.cleanDefinition({ id: 'X_ROOM', label: 'Room', kind: 'master', fields: [{ key: 'hk', label: 'HK', type: 'choice', options: ['Cleaning'] }], board: { enabled: true, stateField: 'hk' } }, []).board, { enabled: true, stateField: 'hk' });
+  assert.throws(() => B.cleanDefinition({ id: 'X_ROOM', label: 'Room', kind: 'master', fields: [{ key: 'hk', label: 'HK', type: 'text' }], board: { enabled: true, stateField: 'hk' } }, []), /choice field/);
+});

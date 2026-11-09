@@ -107,11 +107,55 @@ function cleanDefinition(d, masters) {
     if (statuses[0].final) bad('The first status (where a document starts) can\'t be final.');
     out.statuses = statuses;
   }
+  // Phase 2 (Q470-Q473): a document's schedule, a master's board.
+  out.schedule = cleanSchedule(x.schedule, out);
+  out.board = cleanBoard(x.board, out);
   const keys = fields.map(f => f.key);
   const columns = (Array.isArray(x.listColumns) ? x.listColumns : []).map(c => text(c, 31)).filter(c => keys.includes(c));
   out.listColumns = [...new Set(columns)].slice(0, 6);
   out.printTitle = text(x.printTitle, 60) || label;
   return out;
+}
+
+// A document's schedule (phase 2, Q471-Q472): its resource (a link to a built
+// master, in the header or the lines), its start and end date fields, whether
+// the end is the day it is free again (a hotel's departure) or the last day
+// used (a rental), and the statuses that hold the resource with the state each
+// shows on the board.
+function cleanSchedule(sc, def) {
+  const x = sc || {};
+  if (def.kind !== 'document' || x.enabled !== true) return { enabled: false };
+  const rf = text(x.resourceField, 31);
+  const head = def.fields.find(f => f.key === rf);
+  const line = (def.lines.fields || []).find(f => f.key === rf);
+  const res = head || line;
+  if (!res || res.type !== 'link' || !ID.test(res.target)) bad('Schedule: its resource is a link field to a built master (for example the Room).');
+  const date = k => { const f = def.fields.find(y => y.key === k); return f && f.type === 'date' ? f.key : null; };
+  const startField = date(text(x.startField, 31)), endField = date(text(x.endField, 31));
+  if (!startField || !endField) bad('Schedule: choose its start and end date fields (header date fields).');
+  if (startField === endField) bad('Schedule: the start and the end are two different date fields.');
+  const holds = (Array.isArray(x.holds) ? x.holds : []).map(h => ({ status: text(h && h.status, 30), state: text(h && h.state, 20) }))
+    .filter(h => h.status);
+  if (!holds.length) bad('Schedule: choose at least one status that holds the resource (for example Confirmed).');
+  holds.forEach(h => {
+    const st = def.statuses.find(y => y.name === h.status);
+    if (!st) bad('Schedule: "' + h.status + '" is not one of its statuses.');
+    if (!/^[A-Za-z][A-Za-z0-9 ]{0,19}$/.test(h.state)) bad('Schedule: give "' + h.status + '" the state it shows (for example Booked).');
+  });
+  if (new Set(holds.map(h => h.status)).size !== holds.length) bad('Schedule: a status is listed twice.');
+  return { enabled: true, resourceField: rf, resourceInLines: Boolean(line && !head), target: res.target, startField, endField, endIsFree: x.endIsFree !== false, holds };
+}
+
+// A master's board (phase 2, Q470): optionally a choice field set by hand that wins over the documents.
+function cleanBoard(bd, def) {
+  const x = bd || {};
+  if (def.kind !== 'master' || x.enabled !== true) return { enabled: false };
+  const k = text(x.stateField, 31);
+  if (k) {
+    const f = def.fields.find(y => y.key === k);
+    if (!f || f.type !== 'choice') bad('Board: the state set by hand is a choice field (for example Cleaning, Out of order).');
+  }
+  return { enabled: true, stateField: k || '' };
 }
 
 // What the registry, Roles and Approval Configuration need of a published definition.
@@ -164,10 +208,13 @@ async function refresh(force) {
 
 // One published definition (after refresh), or null. A miss reads again at once
 // (each function is its own instance: one may have published a moment ago).
-async function publishedDef(id) {
+// fresh: read the firm's definitions now (the runtime's own calls: a version just
+// published elsewhere is used at once, not after the 30 s).
+async function publishedDef(id, fresh) {
+  if (fresh) return (await refresh(true)).find(d => d.id === id) || null;
   const found = (await refresh()).find(d => d.id === id);
   if (found || !ID.test(String(id))) return found || null;
   return (await refresh(true)).find(d => d.id === id) || null;
 }
 
-module.exports = { ID, KEY, TYPES, LINE_TYPES, LINK_TARGETS, RESERVED, cleanDefinition, capabilitiesOf, needsApproval, applyToRegistry, refresh, publishedDef };
+module.exports = { cleanSchedule, cleanBoard, ID, KEY, TYPES, LINE_TYPES, LINK_TARGETS, RESERVED, cleanDefinition, capabilitiesOf, needsApproval, applyToRegistry, refresh, publishedDef };

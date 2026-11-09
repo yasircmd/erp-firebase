@@ -31,7 +31,22 @@
         <button id="bm-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> <span id="bm-new-label">New</span></button>
       </div>
     </div>
-    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+    <!-- Phase 2 (Q470-Q473): List, Board (a master with a board), Calendar (a document with a schedule). -->
+    <div id="bm-tabs" class="hidden flex flex-wrap items-center gap-2">
+      <button data-tab="list" class="bm-tab text-xs px-3 py-1.5 rounded border border-slate-700">List</button>
+      <button data-tab="board" class="bm-tab hidden text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-table-columns"></i> Board</button>
+      <button data-tab="calendar" class="bm-tab hidden text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
+      <span id="bm-plan-controls" class="hidden flex flex-wrap items-center gap-2 ml-2">
+        <select id="bm-plan-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-xs"></select>
+        <button id="bm-plan-prev" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded" title="Back"><i class="fa-solid fa-chevron-left"></i></button>
+        <input id="bm-plan-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-xs entry-date">
+        <button id="bm-plan-next" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded" title="Forward"><i class="fa-solid fa-chevron-right"></i></button>
+        <button id="bm-plan-today" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded">Today</button>
+      </span>
+    </div>
+    <div id="bm-board" class="hidden grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"></div>
+    <div id="bm-calendar" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto"></div>
+    <div id="bm-list-table" class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
       <table class="w-full text-left text-sm"><thead><tr id="bm-head" class="text-xs text-slate-400 uppercase border-b border-slate-700"></tr></thead>
         <tbody id="bm-body" class="divide-y divide-slate-800"></tbody></table>
     </div>
@@ -123,7 +138,7 @@
   }
   function backToList() {
     $('bm-form-view').classList.add('hidden'); $('bm-list-view').classList.remove('hidden');
-    rec = null; return load();
+    rec = null; return load().then(() => (tab !== 'list' ? showTab(tab) : null));
   }
 
   // ---------- the form ----------
@@ -299,6 +314,71 @@
     window.print();
   }
 
+  // ---------- the board and the calendar (phase 2) ----------
+  let tab = 'list';
+  const COLOURS = ['bg-blue-600/70', 'bg-emerald-600/70', 'bg-amber-600/70', 'bg-violet-600/70', 'bg-rose-600/70', 'bg-cyan-600/70'];
+  const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const addDay = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+  const planCompany = () => (def.companyScoped ? $('bm-plan-company').value : '');
+  function openDoc(moduleId, id) { if (moduleId === def.id) openRecord(id); else openModule(moduleId, { OpenEntryId: id }); }
+  function showTab(t) {
+    tab = t;
+    document.querySelectorAll('.bm-tab').forEach(b => b.classList.toggle('bg-blue-600', b.dataset.tab === t));
+    $('bm-list-table').classList.toggle('hidden', t !== 'list');
+    $('bm-board').classList.toggle('hidden', t !== 'board');
+    $('bm-calendar').classList.toggle('hidden', t !== 'calendar');
+    $('bm-plan-controls').classList.toggle('hidden', t === 'list');
+    if (t === 'board') drawBoard(); else if (t === 'calendar') drawCalendar();
+  }
+  async function drawBoard() {
+    try {
+      const b = await call('getBuiltBoard', { moduleId: def.id, companyId: planCompany(), date: $('bm-plan-date').value });
+      const colour = st => (st === 'Free' ? 'bg-slate-700/60' : COLOURS[b.states.indexOf(st) % COLOURS.length]);
+      $('bm-board').innerHTML = b.states.map(st => {
+        const cards = b.cards.filter(c => c.state === st);
+        return '<div class="bg-slate-800/40 border border-slate-700 rounded-xl p-2 space-y-2"><div class="flex items-center justify-between text-xs font-semibold text-slate-300 uppercase"><span>' + esc(st) + '</span><span class="text-slate-500">' + cards.length + '</span></div>' +
+          cards.map(c => '<div class="rounded-lg p-2 ' + colour(st) + '" data-card="' + esc(c.id) + '"><div class="font-semibold text-sm text-white">' + esc(c.code) + ' · ' + esc(c.name) + '</div>' +
+            (c.doc ? '<button class="bm-card-doc text-xs text-white/90 underline" data-module="' + esc(c.doc.moduleId) + '" data-id="' + esc(c.doc.id) + '">' + esc(c.doc.number) + (c.doc.title ? ' · ' + esc(c.doc.title) : '') + '</button><div class="text-[11px] text-white/80">' + esc(c.doc.start) + ' → ' + esc(c.doc.end) + '</div>' : '') +
+            (b.stateField && b.canWrite ? '<select class="bm-card-state mt-1 w-full bg-slate-900/70 border border-slate-600 rounded py-0.5 px-1 text-xs" title="' + esc(b.stateField.label) + '"><option value="">' + esc(b.stateField.label) + ': none</option>' +
+              b.stateField.options.map(o => '<option' + (o === c.manual ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>' : '') + '</div>').join('') + '</div>';
+      }).join('');
+    } catch (err) { fail(err); }
+  }
+  async function drawCalendar() {
+    try {
+      const from = $('bm-plan-date').value || today();
+      const c = await call('getBuiltCalendar', { moduleId: def.id, companyId: planCompany(), from, days: 14 });
+      const days = Array.from({ length: c.days }, (_, i) => addDay(c.from, i));
+      const colour = st => COLOURS[c.states.indexOf(st) % COLOURS.length];
+      const head = '<tr class="text-[11px] text-slate-400 border-b border-slate-700"><th class="py-1 px-2 text-left sticky left-0 bg-slate-900">' + esc(c.resource) + '</th>' + days.map(d => '<th class="py-1 px-1 font-normal whitespace-nowrap" title="' + d + '">' + d + '</th>').join('') + '</tr>';
+      const body = c.rows.map(r => {
+        const bars = c.bars.filter(b => b.resourceId === r.id);
+        let cells = '', i = 0;
+        while (i < days.length) {
+          const d = days[i];
+          const bar = bars.find(b => b.start <= d && d < b.end);
+          if (!bar) { cells += '<td class="border-l border-slate-800"></td>'; i++; continue; }
+          let n = 0; while (i + n < days.length && days[i + n] < bar.end) n++;
+          cells += '<td colspan="' + n + '" class="px-0.5 py-0.5"><button class="bm-bar w-full text-left text-[11px] text-white rounded px-1 py-0.5 ' + colour(bar.state) + '" data-module="' + esc(bar.moduleId) + '" data-id="' + esc(bar.recordId) + '" title="' + esc(bar.number + ' · ' + bar.state + (bar.title ? ' · ' + bar.title : '')) + '">' + esc(bar.number) + (bar.title ? ' · ' + esc(bar.title) : '') + '</button></td>';
+          i += n;
+        }
+        return '<tr class="border-b border-slate-800"><td class="py-1 px-2 text-xs whitespace-nowrap sticky left-0 bg-slate-900">' + esc(r.label) + '</td>' + cells + '</tr>';
+      }).join('') || '<tr><td class="py-6 px-3 text-slate-500" colspan="' + (days.length + 1) + '">No ' + esc(c.resource) + ' yet.</td></tr>';
+      $('bm-calendar').innerHTML = '<table class="w-full text-sm">' + head + body + '</table><div class="flex flex-wrap gap-3 p-2 text-xs text-slate-400">' + c.states.map(st => '<span><span class="inline-block w-3 h-3 rounded ' + colour(st) + '"></span> ' + esc(st) + '</span>').join('') + '</div>';
+    } catch (err) { fail(err); }
+  }
+  function setupTabs() {
+    const hasBoard = def.kind === 'master' && def.board && def.board.enabled;
+    const hasCal = def.kind === 'document' && def.schedule && def.schedule.enabled;
+    $('bm-tabs').classList.toggle('hidden', !(hasBoard || hasCal));
+    document.querySelector('.bm-tab[data-tab="board"]').classList.toggle('hidden', !hasBoard);
+    document.querySelector('.bm-tab[data-tab="calendar"]').classList.toggle('hidden', !hasCal);
+    $('bm-plan-company').innerHTML = (M.companies || []).map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
+    $('bm-plan-company').classList.toggle('hidden', !def.companyScoped || (M.companies || []).length < 2);
+    $('bm-plan-date').value = today();
+    showTab('list');
+  }
+
   window.initModule = function () {
     pending = window.__pendingModuleParams; window.__pendingModuleParams = null;
     const id = window.__builtModuleId;
@@ -313,8 +393,22 @@
       $('bm-status-wrap').classList.toggle('hidden', !isDoc());
       if (isDoc()) $('bm-status').innerHTML = '<option value="">All</option>' + def.statuses.map(s => '<option>' + esc(s.name) + '</option>').join('');
       $('bm-loading').classList.add('hidden'); $('bm-list-view').classList.remove('hidden');
+      setupTabs();
       return load().then(() => { if (pending && pending.OpenEntryId) openRecord(pending.OpenEntryId); });
     }, err => { $('bm-loading').textContent = err.message || String(err); });
+    $('bm-tabs').addEventListener('click', e => { const b = e.target.closest('.bm-tab'); if (b) showTab(b.dataset.tab); });
+    const replan = () => (tab === 'board' ? drawBoard() : tab === 'calendar' ? drawCalendar() : null);
+    $('bm-plan-date').addEventListener('change', replan);
+    $('bm-plan-company').addEventListener('change', replan);
+    $('bm-plan-today').addEventListener('click', () => { $('bm-plan-date').value = today(); replan(); });
+    $('bm-plan-prev').addEventListener('click', () => { $('bm-plan-date').value = addDay($('bm-plan-date').value || today(), tab === 'calendar' ? -7 : -1); replan(); });
+    $('bm-plan-next').addEventListener('click', () => { $('bm-plan-date').value = addDay($('bm-plan-date').value || today(), tab === 'calendar' ? 7 : 1); replan(); });
+    $('bm-board').addEventListener('click', e => { const b = e.target.closest('.bm-card-doc'); if (b) openDoc(b.dataset.module, b.dataset.id); });
+    $('bm-board').addEventListener('change', e => {
+      const sel = e.target.closest('.bm-card-state'); if (!sel) return;
+      call('setBuiltBoardState', { moduleId: def.id, id: sel.closest('[data-card]').dataset.card, value: sel.value }).then(drawBoard, fail);
+    });
+    $('bm-calendar').addEventListener('click', e => { const b = e.target.closest('.bm-bar'); if (b) openDoc(b.dataset.module, b.dataset.id); });
     $('bm-search').addEventListener('input', () => def && renderList());
     $('bm-status').addEventListener('change', () => def && renderList());
     $('bm-copy').addEventListener('click', copyList);
