@@ -1996,3 +1996,12 @@ from, and how it was verified. The deploy procedure is in the
   builtModules.js (a required text field accepting spaces), so its
   fingerprint was behind the code. The page needed no change; re-stamped in
   PR #263. Rerun after it.
+- **2026-11-09, Module Builder phase 1 (PRs #262, #263, from `7ffae97`):**
+  "functions set, then screens" `module-builder`, run
+  [#350](https://github.com/yasircmd/erp-firebase/actions/runs/42627138931)
+  (13:37–16:08 UTC), success: all 708 functions, access granted to 707
+  (none for sweepTaskMail), screens released (BUILDER, BUILT). "hosting", run
+  [#351](https://github.com/yasircmd/erp-firebase/actions/runs/42652831086)
+  (16:15–16:16 UTC), success (the Built modules Help page, help.js sending
+  ?m=X_... to it, What's new). Next: link Module Builder in Corporate 100's
+  tree.
