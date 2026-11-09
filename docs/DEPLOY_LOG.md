@@ -1988,3 +1988,11 @@ from, and how it was verified. The deploy procedure is in the
   (10:48–10:49 UTC), success (Help, What's new). Live: a client corporate
   without its own mailbox (Company Master) gets no task emails; Corporate 100
   keeps the firm's mailbox until it sets its own.
+- **2026-11-09, Module Builder phase 1 (PR #262, from `faf16ea`):** "functions
+  set, then screens" `module-builder`, run
+  [#349](https://github.com/yasircmd/erp-firebase/actions/runs/42625356005)
+  (13:25–13:26 UTC), **failed at "Check help", nothing deployed**:
+  help/pages/built-modules.md was stamped before a last fix to
+  builtModules.js (a required text field accepting spaces), so its
+  fingerprint was behind the code. The page needed no change; re-stamped in
+  PR #263. Rerun after it.
