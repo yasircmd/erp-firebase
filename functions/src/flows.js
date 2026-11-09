@@ -246,6 +246,11 @@ exports.getDocumentLinks = onCallWithMessages(onCallOptions, async (request) => 
   if ((module === 'CBT' || module === 'JV') && !isLive(doc)) return { next: [], chain: [] };
 
   const links = await linksFor(module, id, doc);
+  // Made by a built module's action (MODULE_BUILDER.md, phase 3): its records, before it.
+  if (doc.BuiltSource && doc.BuiltSource.ModuleID) {
+    const bs = doc.BuiltSource;
+    listOf(bs.Records).slice(0, 20).forEach(r => links.chain.unshift({ module: bs.ModuleID, kind: bs.Label || bs.ModuleID, id: r.id, number: r.number || '', date: '', status: '', relation: 'before' }));
+  }
   const role = user.profile.role;
   const can = {};
   const allowed = async (m, cap) => (can[m + cap] === undefined ? (can[m + cap] = await moduleHasCapability(m, cap, role)) : can[m + cap]);

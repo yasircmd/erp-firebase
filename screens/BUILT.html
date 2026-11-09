@@ -36,6 +36,9 @@
       <button data-tab="list" class="bm-tab text-xs px-3 py-1.5 rounded border border-slate-700">List</button>
       <button data-tab="board" class="bm-tab hidden text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-table-columns"></i> Board</button>
       <button data-tab="calendar" class="bm-tab hidden text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
+      <button data-tab="runs" class="bm-tab hidden text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-repeat"></i> Runs</button>
+      <button data-tab="setup" class="bm-tab hidden text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-sliders"></i> Setup</button>
+      <select id="bm-books-company" class="hidden bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-xs ml-2"></select>
       <span id="bm-plan-controls" class="hidden flex flex-wrap items-center gap-2 ml-2">
         <select id="bm-plan-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-xs"></select>
         <button id="bm-plan-prev" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded" title="Back"><i class="fa-solid fa-chevron-left"></i></button>
@@ -46,6 +49,19 @@
     </div>
     <div id="bm-board" class="hidden grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"></div>
     <div id="bm-calendar" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto"></div>
+    <!-- Phase 3 (Q474-Q480): a bulk run (the due records proposed, ticked, run) and the past runs; the company's Setup for the books. -->
+    <div id="bm-runs" class="hidden space-y-3">
+      <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 flex flex-wrap items-end gap-3">
+        <div><label for="bm-run-action" class="block text-xs font-medium text-slate-300 mb-1">Run</label><select id="bm-run-action" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select></div>
+        <div><label for="bm-run-date" class="block text-xs font-medium text-slate-300 mb-1">Due on or before</label><input id="bm-run-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm entry-date"></div>
+        <button id="bm-run-propose" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-list-check"></i> Propose</button>
+        <button id="bm-run-go" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-play"></i> Run the ticked</button>
+        <span id="bm-run-note" class="text-xs text-slate-400"></span>
+      </div>
+      <div id="bm-run-list" class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto"></div>
+      <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4"><h3 class="font-semibold text-slate-200 mb-2">Past runs</h3><div id="bm-run-past" class="text-xs text-slate-300 space-y-2"></div></div>
+    </div>
+    <div id="bm-setup" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3"></div>
     <div id="bm-list-table" class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
       <table class="w-full text-left text-sm"><thead><tr id="bm-head" class="text-xs text-slate-400 uppercase border-b border-slate-700"></tr></thead>
         <tbody id="bm-body" class="divide-y divide-slate-800"></tbody></table>
@@ -77,6 +93,10 @@
       <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr id="bm-lines-head" class="text-xs text-slate-400 uppercase border-b border-slate-700"></tr></thead>
         <tbody id="bm-lines"></tbody><tfoot><tr id="bm-lines-total" class="text-sm font-semibold border-t border-slate-700"></tr></tfoot></table></div>
     </div>
+    <div id="bm-books-wrap" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-semibold text-slate-200">To the books</h3><span id="bm-book-buttons" class="flex flex-wrap gap-2"></span></div>
+      <ul id="bm-made" class="text-xs text-slate-300 space-y-1"></ul>
+    </div>
     <div id="bm-history-wrap" class="hidden bg-slate-800/40 border border-slate-700 rounded-xl p-4">
       <h3 class="font-semibold text-slate-200 mb-2">History</h3><ul id="bm-history" class="text-xs text-slate-400 space-y-1"></ul>
     </div>
@@ -92,7 +112,8 @@
   const fail = err => appAlert(err && err.message ? err.message : String(err));
   const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const inputCls = 'w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500';
-  let M = null, def = null, rows = [], rec = null, next = [], approval = null, lines = [], links = {}, pending = null;
+  let M = null, def = null, rows = [], rec = null, next = [], approval = null, lines = [], links = {}, pending = null, made = [];
+  const TARGET_LABELS = { CUSTOMERINVOICE: 'Customer Invoice', VENDORINVOICE: 'Vendor Invoice', JV: 'Journal' };
   const isDoc = () => def.kind === 'document';
   const companyName = id => ((M.companies || []).find(c => c.id === id) || {}).name || id || '';
 
@@ -240,11 +261,11 @@
     try {
       if (id) {
         const r = await call('getBuiltRecord', { moduleId: def.id, id });
-        rec = r.record; next = r.next || []; approval = r.approval || null;
+        rec = r.record; next = r.next || []; approval = r.approval || null; made = r.created || [];
       } else {
         rec = { CompanyID: M.companies.length === 1 ? M.companies[0].id : '', Fields: {}, Date: isDoc() ? new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : '' };
         def.fields.forEach(f => { if (f.default != null) rec.Fields[f.key] = f.default; });
-        next = []; approval = null;
+        next = []; approval = null; made = [];
       }
       lines = (rec.Lines || []).map(l => Object.assign({}, l));
       if (isDoc() && def.lines.enabled && !lines.length && editable()) lines.push({});
@@ -270,9 +291,98 @@
     $('bm-print-btn').classList.toggle('hidden', !rec.RecordID);
     note(rec.PendingStatus ? 'Waiting for approval to become ' + rec.PendingStatus + (approval ? ' (' + approval.decided + ' of ' + approval.levels + ' levels decided).' : '.') :
       rec.ApprovalRejected ? 'Rejected: ' + (rec.RejectionReason || '') + '. Correct it and send it again.' : '', rec.PendingStatus || rec.ApprovalRejected ? 'warn' : '');
+    drawBooks();
     const h = rec.History || [];
     $('bm-history-wrap').classList.toggle('hidden', !h.length);
     $('bm-history').innerHTML = h.slice().reverse().map(x => '<li><span class="text-slate-300">' + esc(String(x.At || '').slice(0, 10)) + '</span> ' + esc(x.By) + ': ' + esc(x.What) + (x.Reason ? ' (' + esc(x.Reason) + ')' : '') + '</li>').join('');
+  }
+
+  // Phase 3: the record's actions and what they made.
+  function drawBooks() {
+    const acts = def.actions || [];
+    $('bm-books-wrap').classList.toggle('hidden', !acts.length || !rec.RecordID);
+    if (!acts.length || !rec.RecordID) return;
+    const t = (M.rights.targets || {});
+    const runnable = a => M.rights.write && (t[a.target] || {}).draft && (a.state !== 'Submitted' || (t[a.target] || {}).post) &&
+      (isDoc() ? a.statuses.includes(rec.Status) && !rec.PendingStatus : rec.Active !== false) &&
+      (a.bulk.enabled || !made.some(c => c.action === a.key && c.live && !c.due));
+    $('bm-book-buttons').innerHTML = acts.filter(runnable).map(a => '<button data-action="' + esc(a.key) + '" class="bm-act bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-file-invoice"></i> ' + esc(a.label) + '</button>').join('');
+    const label = k => ((acts.find(a => a.key === k) || {}).label || k);
+    $('bm-made').innerHTML = made.map(c => '<li>' + esc(label(c.action)) + ': ' + esc(TARGET_LABELS[c.module] || c.module) + ' ' +
+      (c.live ? '<button class="bm-made-open text-blue-400 underline font-mono" data-module="' + esc(c.module) + '" data-id="' + esc(c.id) + '">' + esc(c.number || '(' + c.status + ')') + '</button> <span class="text-slate-500">' + esc(c.status) + '</span>' : '<span class="text-slate-500">' + esc(c.status) + '</span>') +
+      (c.due ? ' <span class="text-slate-500">(due ' + esc(c.due) + ')</span>' : '') + '</li>').join('') || '<li class="text-slate-500">Nothing made yet.</li>';
+  }
+  async function runAction(key) {
+    const a = def.actions.find(x => x.key === key);
+    const what = TARGET_LABELS[a.target] + (a.state === 'Submitted' ? ', posted (or sent to its approvers)' : ', as a draft');
+    if (!(await appConfirm(a.label + ' for ' + (rec.Number || rec.Code) + '? It makes a ' + what + (a.bulk.enabled ? ', and moves its next-due date on by its period.' : '.')))) return;
+    try {
+      const r = await call('runBuiltAction', { moduleId: def.id, id: rec.RecordID, action: key });
+      const m = r.made;
+      appAlert(TARGET_LABELS[m.module] + ' ' + (m.number || '') + ' made: ' + m.status + '.' + (m.note ? ' ' + m.note : ''));
+      await openRecord(rec.RecordID);
+    } catch (err) { fail(err); }
+  }
+
+  // ---------- runs and Setup (phase 3) ----------
+  const booksCompany = () => $('bm-books-company').value;
+  const bulkActions = () => (def.actions || []).filter(a => a.bulk && a.bulk.enabled);
+  let proposal = null;
+  async function drawRuns() {
+    $('bm-run-action').innerHTML = bulkActions().map(a => '<option value="' + esc(a.key) + '">' + esc(a.label) + '</option>').join('');
+    if (!$('bm-run-date').value) $('bm-run-date').value = today();
+    $('bm-run-list').innerHTML = ''; $('bm-run-go').classList.add('hidden'); $('bm-run-note').textContent = '';
+    $('bm-run-propose').classList.toggle('hidden', !M.rights.write);
+    try {
+      const r = await call('getBuiltRuns', { moduleId: def.id });
+      $('bm-run-past').innerHTML = r.runs.map(x => '<div class="border-b border-slate-800 pb-2"><span class="text-slate-400">' + esc(String(x.At).slice(0, 10)) + '</span> ' + esc(x.By) + ': ' + esc(x.ActionLabel || x.Action) + ', due by ' + esc(x.Date) + ' — ' +
+        (x.Made || []).length + ' made' + ((x.Refused || []).length ? ', <span class="text-amber-300">' + x.Refused.length + ' refused</span>' : '') +
+        '<div class="text-slate-400">' + (x.Made || []).map(m => esc(TARGET_LABELS[m.module] || m.module) + ' ' + '<button class="bm-made-open text-blue-400 underline font-mono" data-module="' + esc(m.module) + '" data-id="' + esc(m.id) + '">' + esc(m.number || '(' + m.status + ')') + '</button> (' + esc((m.records || []).join(', ')) + ')').join('; ') + '</div>' +
+        ((x.Refused || []).length ? '<div class="text-amber-300">' + x.Refused.map(f => esc((f.records || []).join(', ')) + ': ' + esc(f.reason)).join('; ') + '</div>' : '') + '</div>').join('') || '<span class="text-slate-500">No run yet.</span>';
+    } catch (err) { fail(err); }
+  }
+  async function propose() {
+    try {
+      proposal = await call('previewBuiltRun', { moduleId: def.id, action: $('bm-run-action').value, companyId: booksCompany(), date: $('bm-run-date').value });
+      const a = def.actions.find(x => x.key === $('bm-run-action').value);
+      $('bm-run-list').innerHTML = '<table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3"><input type="checkbox" id="bm-run-all" checked></th><th class="py-2 px-3">' + (isDoc() ? 'Number' : 'Code') + '</th><th class="py-2 px-3">Name</th><th class="py-2 px-3">' + (a.party ? 'Party' : '') + '</th><th class="py-2 px-3">Due</th><th class="py-2 px-3">Period</th><th class="py-2 px-3 text-right">Amount</th></tr></thead><tbody class="divide-y divide-slate-800">' +
+        proposal.records.map(r => '<tr><td class="py-1.5 px-3"><input type="checkbox" class="bm-run-tick" value="' + esc(r.id) + '" checked></td><td class="py-1.5 px-3 font-mono text-xs">' + esc(r.number) + '</td><td class="py-1.5 px-3">' + esc(r.name) + '</td><td class="py-1.5 px-3">' + esc(r.party) + '</td><td class="py-1.5 px-3">' + esc(r.due) + '</td><td class="py-1.5 px-3">' + esc(r.period) + '</td><td class="py-1.5 px-3 text-right">' + fmt(r.amount) + '</td></tr>').join('') +
+        '</tbody></table>' + (proposal.records.length ? '' : '<p class="py-6 text-center text-slate-500">Nothing due.</p>');
+      $('bm-run-go').classList.toggle('hidden', !proposal.records.length);
+      $('bm-run-note').textContent = proposal.records.length + ' due' + (proposal.more ? ' (the first ' + proposal.records.length + ')' : '') + '; one document ' + (proposal.group === 'party' ? 'per party' : 'per record') + '.';
+      if ($('bm-run-all')) $('bm-run-all').addEventListener('change', e => document.querySelectorAll('.bm-run-tick').forEach(x => { x.checked = e.target.checked; }));
+    } catch (err) { fail(err); }
+  }
+  async function runBulk() {
+    const ids = [...document.querySelectorAll('.bm-run-tick')].filter(x => x.checked).map(x => x.value);
+    if (!ids.length) return appAlert('Tick the records to run.');
+    if (!(await appConfirm('Run for ' + ids.length + ' record(s)? Each one\'s next-due date moves on by its period.'))) return;
+    try {
+      const r = await call('runBuiltBulk', { moduleId: def.id, action: $('bm-run-action').value, companyId: booksCompany(), date: $('bm-run-date').value, ids });
+      appAlert(r.made.length + ' document(s) made' + (r.refused.length ? '; ' + r.refused.length + ' refused (see Past runs).' : '.'));
+      await drawRuns();
+    } catch (err) { fail(err); }
+  }
+  const SETUP_LABELS = { SalesTypeID: ['Sales type', 'salesTypes'], AccountCode: ['Account', 'accounts'], DebitAccountCode: ['Debit account', 'accounts'], CreditAccountCode: ['Credit account', 'accounts'],
+    WarehouseID: ['Warehouse', 'warehouses'], CostCenterID: ['Cost centre', 'costCenters'], ProfitCenterID: ['Profit centre', 'profitCenters'], ProjectID: ['Project', 'projects'] };
+  let setupData = null;
+  async function drawSetup() {
+    try {
+      setupData = await call('getBuiltSetup', { moduleId: def.id, companyId: booksCompany() });
+      const S = setupData;
+      $('bm-setup').innerHTML = '<p class="text-xs text-slate-400">This company\'s books for each action: used when no field of the record gives them. The document\'s own screen checks them again.</p>' +
+        S.needs.map(n => '<div class="border border-slate-700 rounded-lg p-3" data-setup="' + esc(n.key) + '"><div class="text-sm font-semibold text-slate-200 mb-2">' + esc(n.label) + ' <span class="text-xs text-slate-500 font-normal">→ ' + esc(TARGET_LABELS[n.target]) + '</span></div><div class="grid grid-cols-1 md:grid-cols-3 gap-2">' +
+          n.fields.map(k => { const [lab, list] = SETUP_LABELS[k]; const v = ((S.setup || {})[n.key] || {})[k] || '';
+            return '<div><label class="block text-xs font-medium text-slate-300 mb-1">' + esc(lab) + '</label><select data-k="' + k + '" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm"' + (S.canEdit ? '' : ' disabled') + '><option value=""></option>' +
+              (S.options[list] || []).map(o => '<option value="' + esc(o.id) + '"' + (o.id === v ? ' selected' : '') + '>' + esc(o.label) + '</option>').join('') + '</select></div>'; }).join('') + '</div></div>').join('') +
+        (S.canEdit ? '<button id="bm-setup-save" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save Setup</button>' : '<p class="text-xs text-slate-500">Changing it needs the right to change ' + esc(def.label) + ' and to post its documents.</p>');
+      if ($('bm-setup-save')) $('bm-setup-save').addEventListener('click', saveSetup);
+    } catch (err) { fail(err); }
+  }
+  async function saveSetup() {
+    const actions = {};
+    document.querySelectorAll('[data-setup]').forEach(b => { const o = actions[b.dataset.setup] = {}; b.querySelectorAll('select[data-k]').forEach(x => { if (x.value) o[x.dataset.k] = x.value; }); });
+    try { await call('saveBuiltSetup', { moduleId: def.id, companyId: booksCompany(), actions }); appAlert('Setup saved.'); await drawSetup(); } catch (err) { fail(err); }
   }
 
   async function save() {
@@ -327,8 +437,11 @@
     $('bm-list-table').classList.toggle('hidden', t !== 'list');
     $('bm-board').classList.toggle('hidden', t !== 'board');
     $('bm-calendar').classList.toggle('hidden', t !== 'calendar');
-    $('bm-plan-controls').classList.toggle('hidden', t === 'list');
-    if (t === 'board') drawBoard(); else if (t === 'calendar') drawCalendar();
+    $('bm-runs').classList.toggle('hidden', t !== 'runs');
+    $('bm-setup').classList.toggle('hidden', t !== 'setup');
+    $('bm-plan-controls').classList.toggle('hidden', t !== 'board' && t !== 'calendar');
+    $('bm-books-company').classList.toggle('hidden', !(t === 'runs' || t === 'setup') || (M.companies || []).length < 2);
+    if (t === 'board') drawBoard(); else if (t === 'calendar') drawCalendar(); else if (t === 'runs') drawRuns(); else if (t === 'setup') drawSetup();
   }
   async function drawBoard() {
     try {
@@ -370,9 +483,13 @@
   function setupTabs() {
     const hasBoard = def.kind === 'master' && def.board && def.board.enabled;
     const hasCal = def.kind === 'document' && def.schedule && def.schedule.enabled;
-    $('bm-tabs').classList.toggle('hidden', !(hasBoard || hasCal));
+    const hasActions = (def.actions || []).length > 0, hasRuns = (def.actions || []).some(a => a.bulk && a.bulk.enabled);
+    $('bm-tabs').classList.toggle('hidden', !(hasBoard || hasCal || hasActions));
     document.querySelector('.bm-tab[data-tab="board"]').classList.toggle('hidden', !hasBoard);
     document.querySelector('.bm-tab[data-tab="calendar"]').classList.toggle('hidden', !hasCal);
+    document.querySelector('.bm-tab[data-tab="runs"]').classList.toggle('hidden', !hasRuns);
+    document.querySelector('.bm-tab[data-tab="setup"]').classList.toggle('hidden', !hasActions);
+    $('bm-books-company').innerHTML = (M.companies || []).map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
     $('bm-plan-company').innerHTML = (M.companies || []).map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
     $('bm-plan-company').classList.toggle('hidden', !def.companyScoped || (M.companies || []).length < 2);
     $('bm-plan-date').value = today();
@@ -409,6 +526,12 @@
       call('setBuiltBoardState', { moduleId: def.id, id: sel.closest('[data-card]').dataset.card, value: sel.value }).then(drawBoard, fail);
     });
     $('bm-calendar').addEventListener('click', e => { const b = e.target.closest('.bm-bar'); if (b) openDoc(b.dataset.module, b.dataset.id); });
+    $('bm-book-buttons').addEventListener('click', e => { const b = e.target.closest('.bm-act'); if (b) runAction(b.dataset.action); });
+    ['bm-made', 'bm-run-past'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('.bm-made-open'); if (b) openModule(b.dataset.module, { OpenEntryId: b.dataset.id }); }));
+    $('bm-run-propose').addEventListener('click', propose);
+    $('bm-run-go').addEventListener('click', runBulk);
+    $('bm-run-action').addEventListener('change', () => { $('bm-run-list').innerHTML = ''; $('bm-run-go').classList.add('hidden'); });
+    $('bm-books-company').addEventListener('change', () => (tab === 'runs' ? drawRuns() : tab === 'setup' ? drawSetup() : null));
     $('bm-search').addEventListener('input', () => def && renderList());
     $('bm-status').addEventListener('change', () => def && renderList());
     $('bm-copy').addEventListener('click', copyList);

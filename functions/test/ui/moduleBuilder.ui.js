@@ -15,7 +15,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
 (async () => {
   const f = baseFixture();
-  f.customers = { K1: { CustomerCode: 'C-001', CustomerName: 'Example Guest LLC', CompanyID: 'C1', Status: 'Active' } };
+  f.customers = { K1: { CustomerCode: 'C-001', CustomerName: 'Example Guest LLC', CompanyID: 'C1', Status: 'Active', TradeReceivablesAccountID: 'A-AR' } };
+  f.salesTypes = { ST1: { Name: 'Services', GLAccountID: 'A-REV', SalesReturnsAccountID: 'A-REV', Status: 'Active', CompanyID: 'C1' } };
   f.permissions.X_ROOM = { access: ['Admin'], write: ['Admin'] };
   f.permissions.X_STAY = { access: ['Admin'], write: ['Admin'], void: ['Admin'] };
   await reset(f);
@@ -161,6 +162,67 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await c.waitForFunction(() => /Hold HD-\d\d-000001/.test(document.getElementById('bm-title').textContent));
     assert.deepEqual(c.__errors, []);
     await c.close();
+  });
+
+  await check('phase 3: the builder adds a run action; Setup sets the books; a record\'s action makes its invoice; the Runs tab proposes and runs the due', async () => {
+    const day = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const first = day.slice(0, 8) + '01';
+    await call('u-admin', 'saveModuleDefinitionDraft', { isNew: true, definition: { id: 'X_SUBS', label: 'Subscription', kind: 'master', listColumns: ['fee'],
+      fields: [{ key: 'customer', label: 'Customer', type: 'link', target: 'CUSTOMER' }, { key: 'fee', label: 'Fee', type: 'amount' },
+        { key: 'nextDue', label: 'Next due', type: 'date' }, { key: 'every', label: 'Billed', type: 'choice', options: ['Monthly', 'Yearly'] }] } });
+    const p = await open('BUILDER');
+    await p.click('#bd-body tr[data-id="X_SUBS"]');
+    await p.waitForSelector('#bd-edit-view:not(.hidden)');
+    await p.click('#bd-add-action');
+    const card = '#bd-actions .bd-action[data-a="0"] ';
+    await p.fill(card + '[data-k="key"]', 'bill');
+    await p.fill(card + '[data-k="label"]', 'Bill');
+    await p.selectOption(card + '[data-k="party"]', 'customer');
+    await p.selectOption(card + '[data-k="amount"]', 'fee');
+    await p.fill(card + '[data-k="description"]', 'Subscription {code} {period}');
+    await p.check(card + '.bd-abulk');
+    await p.waitForSelector(card + '[data-k="b.nextDue"]');
+    await p.selectOption(card + '[data-k="b.nextDue"]', 'nextDue');
+    await p.selectOption(card + '[data-k="b.periodField"]', 'every');
+    await p.click('#bd-publish');
+    await p.waitForFunction(() => /Published v1/.test(document.getElementById('bd-version').textContent));
+    const pub = (await call('u-admin', 'getModuleDefinition', { id: 'X_SUBS' })).published.actions[0];
+    assert.deepEqual([pub.key, pub.target, pub.party, pub.amount, pub.account, pub.bulk.enabled, pub.bulk.nextDue, pub.bulk.periodField, pub.bulk.group], ['bill', 'CUSTOMERINVOICE', 'customer', 'fee', '', true, 'nextDue', 'every', 'party']);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+    await rtdb.ref('permissions/X_SUBS').set({ access: ['Admin'], write: ['Admin'] });
+    const a = (await call('u-admin', 'saveBuiltRecord', { moduleId: 'X_SUBS', record: { CompanyID: 'C1', Code: 'S1', Name: 'First', Fields: { customer: { id: 'K1' }, fee: 100, nextDue: first, every: 'Monthly' } } })).id;
+    await call('u-admin', 'saveBuiltRecord', { moduleId: 'X_SUBS', record: { CompanyID: 'C1', Code: 'S2', Name: 'Second', Fields: { customer: { id: 'K1' }, fee: 30, nextDue: first, every: 'Yearly' } } });
+
+    const r = await open('X_SUBS');
+    await r.waitForSelector('#bm-tabs:not(.hidden)');
+    await r.click('.bm-tab[data-tab="setup"]');
+    await r.waitForSelector('#bm-setup [data-setup="bill"] select[data-k="SalesTypeID"]');
+    await r.selectOption('#bm-setup [data-setup="bill"] select[data-k="SalesTypeID"]', 'ST1');
+    await r.selectOption('#bm-setup [data-setup="bill"] select[data-k="AccountCode"]', '4000');
+    await r.selectOption('#bm-setup [data-setup="bill"] select[data-k="CostCenterID"]', 'CC1');
+    await r.click('#bm-setup-save');
+    for (let i = 0; i < 40 && !r.__dialogs.some(m => /Setup saved/.test(m)); i++) await r.waitForTimeout(150);
+    assert.ok(r.__dialogs.some(m => /Setup saved/.test(m)), r.__dialogs.join(' | '));
+    // A record's action: its invoice made, listed with its link.
+    await r.click('.bm-tab[data-tab="list"]');
+    await r.click('#bm-body tr[data-id="' + a + '"]');
+    await r.waitForSelector('#bm-book-buttons .bm-act');
+    await r.click('#bm-book-buttons .bm-act');
+    await r.waitForSelector('#bm-made .bm-made-open');
+    assert.ok(r.__dialogs.some(m => /Customer Invoice .*made: Draft/.test(m)), r.__dialogs.join(' | '));
+    assert.match(await r.textContent('#bm-made'), /Bill: Customer Invoice \(Draft\) Draft \(due /);
+    // The Runs tab: the second is still due; ticked and run.
+    await r.click('#bm-back');
+    await r.click('.bm-tab[data-tab="runs"]');
+    await r.click('#bm-run-propose');
+    await r.waitForSelector('#bm-run-list .bm-run-tick');
+    assert.equal(await r.$$eval('#bm-run-list .bm-run-tick', x => x.length), 1, 'S1 was billed: only S2 is due');
+    await r.click('#bm-run-go');
+    await r.waitForFunction(() => /1 made/.test(document.getElementById('bm-run-past').textContent));
+    assert.match(await r.textContent('#bm-run-past'), /Bill, due by .* 1 made/);
+    assert.deepEqual(r.__errors, []);
+    await r.close();
   });
 
   await browser.close(); server.close(); await app.delete();

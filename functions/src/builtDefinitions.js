@@ -23,7 +23,11 @@ const KEY = /^[a-z][a-zA-Z0-9]{0,30}$/;
 // Phase 1's field types (Q465) and links (Q469).
 const TYPES = Object.freeze(['text', 'longtext', 'number', 'amount', 'date', 'datetime', 'yesno', 'choice', 'link']);
 const LINE_TYPES = Object.freeze(['text', 'number', 'amount', 'date', 'yesno', 'choice', 'link']);
-const LINK_TARGETS = Object.freeze({ CUSTOMER: 'Customer', VENDOR: 'Vendor', ITEM: 'Item', EMPLOYEE: 'Employee', COMPANY: 'Company' });
+const LINK_TARGETS = Object.freeze({ CUSTOMER: 'Customer', VENDOR: 'Vendor', ITEM: 'Item', EMPLOYEE: 'Employee', COMPANY: 'Company', ACCOUNT: 'Account', WAREHOUSE: 'Warehouse' });
+// Phase 3 (Q474-Q480): what an action creates, and a bulk run's periods (months).
+const TARGETS = Object.freeze({ CUSTOMERINVOICE: 'Customer Invoice', VENDORINVOICE: 'Vendor Invoice', JV: 'Journal' });
+const PERIODS = Object.freeze({ Monthly: 1, Quarterly: 3, 'Half-yearly': 6, Yearly: 12 });
+const MAX_ACTIONS = 5;
 // Fields every record has: never a definition's own key.
 const RESERVED = Object.freeze(['id', 'code', 'name', 'number', 'date', 'status', 'companyId', 'lines', 'totals', 'active']);
 const MAX_FIELDS = 60;
@@ -54,7 +58,7 @@ function cleanField(f, at, types, masters, selfId) {
   }
   if (type === 'link') {
     const target = text(f.target, 40);
-    if (!LINK_TARGETS[target] && !(ID.test(target) && (masters.includes(target) || target === selfId))) bad(at + ': choose what it links to (a customer, vendor, item, employee, company, or a built master).');
+    if (!LINK_TARGETS[target] && !(ID.test(target) && (masters.includes(target) || target === selfId))) bad(at + ': choose what it links to (a customer, vendor, item, employee, company, account, warehouse, or a built master).');
     out.target = target;
   }
   if (f.default != null && f.default !== '' && type !== 'link') out.default = type === 'yesno' ? f.default === true : text(f.default, 200);
@@ -110,6 +114,8 @@ function cleanDefinition(d, masters) {
   // Phase 2 (Q470-Q473): a document's schedule, a master's board.
   out.schedule = cleanSchedule(x.schedule, out);
   out.board = cleanBoard(x.board, out);
+  // Phase 3 (Q474-Q480): actions to the books.
+  out.actions = cleanActions(x.actions, out);
   const keys = fields.map(f => f.key);
   const columns = (Array.isArray(x.listColumns) ? x.listColumns : []).map(c => text(c, 31)).filter(c => keys.includes(c));
   out.listColumns = [...new Set(columns)].slice(0, 6);
@@ -156,6 +162,91 @@ function cleanBoard(bd, def) {
     if (!f || f.type !== 'choice') bad('Board: the state set by hand is a choice field (for example Cleaning, Out of order).');
   }
   return { enabled: true, stateField: k || '' };
+}
+
+// A module's actions (phase 3, Q474-Q480): each creates a Customer Invoice,
+// Vendor Invoice or Journal from the record, through that document's own save
+// (builtActions.js). The definition maps fields; what is the corporate's own
+// (an account, a sales type, a cost centre, a warehouse) is set per company in
+// the module's Setup when no field gives it. A bulk run (Q475) takes the
+// records due by a next-due date field and moves it on by the period.
+function cleanActions(list, def) {
+  const raw = Array.isArray(list) ? list : [];
+  if (!raw.length) return [];
+  if (raw.length > MAX_ACTIONS) bad('At most ' + MAX_ACTIONS + ' actions.');
+  if (!def.companyScoped) bad('Actions create documents in a company\'s books: the module must belong to a company.');
+  const head = k => def.fields.find(f => f.key === k);
+  const inLines = k => (def.lines.fields || []).find(f => f.key === k);
+  const out = raw.map((a, i) => {
+    const x = a || {};
+    const at = 'Action ' + (i + 1) + ': ';
+    const key = text(x.key, 31);
+    if (!KEY.test(key)) bad(at + 'its key starts with a small letter, then letters or digits (for example invoice).');
+    const label = text(x.label, 40);
+    if (!label) bad(at + 'give it a label (for example Create invoice).');
+    const target = TARGETS[x.target] ? x.target : bad(at + 'choose what it creates: a customer invoice, a vendor invoice or a journal.');
+    // A field of one of `types` (a link: to one of `to`), found by `find`; '' when not chosen.
+    const pick = (k, types, what, find, to) => {
+      const kk = text(k, 31);
+      if (!kk) return '';
+      const f = (find || head)(kk);
+      if (!f || !types.includes(f.type) || (to && !to.includes(f.target))) bad(at + what);
+      return kk;
+    };
+    const need = (v, what) => v || bad(at + what);
+    let statuses = [];
+    if (def.kind === 'document') {
+      statuses = [...new Set((Array.isArray(x.statuses) ? x.statuses : []).map(st => text(st, 30)).filter(Boolean))];
+      if (!statuses.length) bad(at + 'choose the statuses it may be used in (for example Checked out).');
+      statuses.forEach(st => { if (!def.statuses.some(y => y.name === st)) bad(at + '"' + st + '" is not one of its statuses.'); });
+    }
+    const partyTo = target === 'CUSTOMERINVOICE' ? ['CUSTOMER'] : target === 'VENDORINVOICE' ? ['VENDOR'] : ['CUSTOMER', 'VENDOR'];
+    const partyWhat = target === 'JV' ? 'its party is a link field to customers or vendors.' : 'its ' + (target === 'CUSTOMERINVOICE' ? 'customer is a link field to customers.' : 'vendor is a link field to vendors.');
+    const party = pick(x.party, ['link'], partyWhat, head, partyTo);
+    if (!party && target !== 'JV') bad(at + 'choose the field that gives the ' + (target === 'CUSTOMERINVOICE' ? 'customer.' : 'vendor.'));
+    const source = x.source === 'lines' ? 'lines' : 'header';
+    if (source === 'lines' && !def.lines.enabled) bad(at + 'the module has no lines to take.');
+    const from = source === 'lines' ? inLines : head;
+    const either = k => from(k) || head(k);
+    const kind = x.kind === 'item' ? 'item' : 'account';
+    if (kind === 'item' && target !== 'CUSTOMERINVOICE') bad(at + 'item lines are for a customer invoice (a vendor invoice takes stock in through a goods receipt).');
+    const o = {
+      key, label, target, state: x.state === 'Submitted' ? 'Submitted' : 'Draft', statuses, party,
+      partySide: target === 'JV' && party ? (x.partySide === 'credit' ? 'credit' : 'debit') : '',
+      date: pick(x.date, ['date'], 'its date is a date field.'),
+      reference: pick(x.reference, ['text'], 'its reference is a text field.'),
+      description: text(x.description, 200) || label + ' {number}',
+      source, kind,
+      lineText: pick(x.lineText, ['text', 'choice'], 'the line text is a text or choice field.', either)
+    };
+    const numberField = what => need(pick(x[what], ['number', 'amount'], 'its ' + what + ' is a number or amount field' + (source === 'lines' ? ' of the lines.' : '.'), from), 'choose the field that gives the ' + what + '.');
+    if (kind === 'item') {
+      o.item = need(pick(x.item, ['link'], 'its item is a link field to items.', either, ['ITEM']), 'choose the field that gives the item.');
+      o.quantity = numberField('quantity');
+      o.price = numberField('price');
+      o.warehouse = pick(x.warehouse, ['link'], 'its warehouse is a link field to warehouses.', either, ['WAREHOUSE']);
+    } else {
+      o.amount = numberField('amount');
+      const acct = (k, what) => pick(x[k], ['link'], what + ' is a link field to accounts.', either, ['ACCOUNT']);
+      if (target === 'JV') {
+        o.debitAccount = o.partySide === 'debit' ? '' : acct('debitAccount', 'its debit account');
+        o.creditAccount = o.partySide === 'credit' ? '' : acct('creditAccount', 'its credit account');
+      } else o.account = acct('account', 'its account');
+    }
+    const b = x.bulk || {};
+    if (b.enabled === true) {
+      const nextDue = need(pick(b.nextDue, ['date'], 'Run: its next-due date is a date field.'), 'Run: choose the next-due date field.');
+      let period = PERIODS[b.period] ? b.period : '';
+      const periodField = period ? '' : pick(b.periodField, ['choice'], 'Run: its period is a choice field.');
+      if (!period && !periodField) bad(at + 'Run: choose its period (Monthly, Quarterly, Half-yearly, Yearly), or the choice field that gives it.');
+      if (periodField) head(periodField).options.forEach(op => { if (!PERIODS[op]) bad(at + 'Run: the period field\'s options are Monthly, Quarterly, Half-yearly or Yearly ("' + op + '" is not).'); });
+      const group = target !== 'JV' && b.group === 'party' ? 'party' : 'record';
+      o.bulk = { enabled: true, nextDue, period, periodField, group };
+    } else o.bulk = { enabled: false };
+    return o;
+  });
+  uniqueKeys(out, 'Actions');
+  return out;
 }
 
 // What the registry, Roles and Approval Configuration need of a published definition.
@@ -217,4 +308,4 @@ async function publishedDef(id, fresh) {
   return (await refresh(true)).find(d => d.id === id) || null;
 }
 
-module.exports = { cleanSchedule, cleanBoard, ID, KEY, TYPES, LINE_TYPES, LINK_TARGETS, RESERVED, cleanDefinition, capabilitiesOf, needsApproval, applyToRegistry, refresh, publishedDef };
+module.exports = { cleanSchedule, cleanBoard, cleanActions, TARGETS, PERIODS, ID, KEY, TYPES, LINE_TYPES, LINK_TARGETS, RESERVED, cleanDefinition, capabilitiesOf, needsApproval, applyToRegistry, refresh, publishedDef };

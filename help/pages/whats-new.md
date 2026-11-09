@@ -13,6 +13,12 @@ screen.
 
 ## 09/11/2026
 
+- **Built modules to the books.** A built module can now make a Customer
+  Invoice, Vendor Invoice or Journal Entry from a record (as a draft, or
+  posted), and run billing in bulk, for example every subscription due this
+  month, one invoice per customer, each next-due date moved on. See
+  [Built modules](built-modules.html#to-the-books).
+
 - **Boards and calendars for built modules.** A built module can now show a
   **Board** (for example rooms by state today: Booked, Occupied, Cleaning,
   Free) and a **Calendar** (each booking a bar across the days), and refuses

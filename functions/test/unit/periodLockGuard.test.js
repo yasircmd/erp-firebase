@@ -63,7 +63,8 @@ const JOURNAL_WRITERS = {
   'fixedAssetsRetirement.js': 'entries from buildStockGlEntry',
   'stockPosting.js': 'entries from buildStockGlEntry: every stock posting, with its balances and documents in one batch (T1b)',
   'masterData.js': 'the Chart of Accounts recode: account codes only, no amount or date (decision 133)',
-  'periodClosing.js': 'the year-end closing entry and its reversal: the close itself, the one posting allowed into a closed month (step 2)'
+  'periodClosing.js': 'the year-end closing entry and its reversal: the close itself, the one posting allowed into a closed month (step 2)',
+  'builtActions.js': 'a built record\'s link (BuiltSource) on the journal it made: no amount or date; the journal is saved and posted through journal.js (MODULE_BUILDER.md, phase 3)'
 };
 const writesJournal = s => /(FIRESTORE_JOURNAL_ENTRIES_COLLECTION|'journalEntries')\)\.doc\([^)]*\)\.(set|update|create)\(|\.(set|create)\((firestore\.collection|col)\(FIRESTORE_JOURNAL_ENTRIES_COLLECTION\)|firestore(Set|Update)_\(FIRESTORE_JOURNAL_ENTRIES_COLLECTION|collection\((FIRESTORE_JOURNAL_ENTRIES_COLLECTION|'journalEntries')\)\.add\(/.test(s);
 

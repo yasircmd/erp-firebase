@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
-reviewed: 2026-11-08
-fingerprint: 6e624175afbdcf84
+reviewed: 2026-11-09
+fingerprint: 04a6a827d3ece153
 ---
 ## The page
 
@@ -160,7 +160,9 @@ documents** section sits just above the supporting documents:
 - **Comes from** and **Followed by** list the documents before and after
   it, for example on an invoice its Sales Order and Delivery Notes, and the
   receipts, cheques and credit notes settling it. Select a number to open
-  that document.
+  that document. A document made by a [built module's action](built-modules.html#to-the-books)
+  (a lease's invoice, a subscription run's invoice) also lists, under
+  **Comes from**, the records it was made from.
 
 You see a button or a link only for the screens you may open (and, for
 Create next, create documents in). When a document is fully delivered,

@@ -304,6 +304,157 @@ As designed (Q470-Q473), with these points:
   restored: a departure day counted as taken (overlaps with <=); a rental's
   last day not counted; the clash check returning nothing.
 
+## Phase 3: to the books and bulk runs (design 2026-11-09)
+
+### The owner's decisions (2026-11-09)
+
+| # | Question | Decision |
+|---|---|---|
+| Q474 | The state of the document a built record creates | **Set per module:** each action is Draft or Submitted, as the firm sets it. |
+| Q475 | Which records a bulk run takes | **Both:** the run proposes the records due (a next-due date and a period), and the user can untick any before running. |
+| Q476 | How a bulk run groups | **Set per module:** one invoice per customer (a line per record) or one per record, as the firm sets it. |
+| Q477 | One record, the same document twice | **Once, unless cancelled:** an action creates its document once; a second try is refused while the first exists and isn't cancelled or reversed. A deposit and a final invoice are two actions. |
+| Q478 | Item lines | **Item lines too:** a Customer Invoice action may have item lines (an item, a warehouse, quantity, price) that deliver the stock, as the invoice's own item lines do (the company must allow invoices to deliver stock). A Vendor Invoice takes stock in only through a GRN, so its lines stay account lines; a Journal has none. |
+| Q479 | "Submitted" | **The same as the document's Post button:** it posts, or goes to its approvers where Approval Configuration gates that document. It needs the post right too. |
+| Q480 | Build | **Yes**, as designed. |
+
+### The proposal (the firm's choices, per action, in the builder)
+
+- **An action** ("Create invoice", "Bill rent", "Accrue income") on a master
+  or document, up to 5 each. Its target: **Customer Invoice**, **Vendor
+  Invoice** or **Journal**.
+- **Through the existing functions, never around them (Q462).** The action
+  builds the target's draft and saves it with that document's own save
+  function (saveCustomerInvoiceDraft, saveVendorInvoiceDraft,
+  saveJournalDraft), as the user who runs it. So every check that document
+  has applies: the user's rights on it, the company, an active customer or
+  vendor, a postable account, the Sales Type and its classification, tax
+  codes, projects, the period lock. The record gives the values; the books'
+  rules don't change.
+- **The mapping**, all set in the builder and checked on Publish:
+  - the party: a link field to Customers (CI) or Vendors (VI); a Journal
+    takes none, or a party link for a party line;
+  - the date: a date field, or the day the action runs;
+  - the description: fixed text with the record's fields in it
+    ("Rent {Unit} {Period}");
+  - the lines, either one line from a header amount field, or one per row of
+    the record's line table;
+  - each line's account (fixed, or a link field to the chart of accounts),
+    amount (a number field or a line's total), its own description, Sales
+    Type (CI: fixed per action), tax code (fixed, or none), and cost centre,
+    profit centre and project (fixed, or from the record);
+  - a Journal: a debit account and a credit account per line (one may come
+    from the party).
+- **Lines (Q478)**: account lines (rent, fees, room nights, commission,
+  interest) on all three; on a Customer Invoice also item lines (an item
+  link, a warehouse link, quantity, price), which deliver the stock as the
+  invoice's own item lines do. New link targets for this: Warehouse and
+  Account (the chart of accounts' postable accounts).
+- **The state (Q474, Q479)**: Draft, or Submitted, which is the document's
+  own Post: it posts, or waits for its approvers.
+- **Linked both ways**: the record keeps the created document's id and
+  number per action, and the document keeps the record's (CreateFrom), so
+  Document Links shows the chain in both screens.
+- **Once (Q477)**: the action is refused while its document exists and isn't
+  cancelled or reversed (a deleted draft, a reversed invoice or a reversed
+  journal frees it).
+- **A bulk run (Q475, Q476)** on a master or a document with a run action: the
+  module gets a **next-due date** field and a **period** (monthly, quarterly,
+  half-yearly, yearly). "Run" on the list asks for a run date, proposes every
+  active record due on or before it, ticked; the user unticks any and runs.
+  Grouping is per action: one document per customer (a line per record), or
+  one per record. After the document is created, each record's next-due date
+  moves forward one period, in the same step, so nothing is billed twice. A
+  run is kept (who, when, the records, the documents made, any refused, with
+  the reason), and a refused record (an inactive customer) doesn't stop the
+  rest.
+- **Rights**: the action needs the module's write right and the target
+  document's access and draft rights (Submitted also its post right).
+
+### Build
+
+- builtDefinitions.js: cleanActions (the mapping's checks on Publish: a
+  field of the right type, an account that exists isn't checked until run).
+- builtActions.js: buildTargetDraft (pure, unit-tested), runBuiltAction,
+  previewBuiltRun, runBuiltBulk, getBuiltRuns; the CreateFrom link and the
+  "once" check; the next-due step.
+- flows.js: built records as a CreateFrom source of CI, VI and JV.
+- BUILDER.html: an Actions section; BUILT.html: action buttons on a record,
+  the Run dialog on the list, the Runs tab.
+- Tests: unit (the mapping, dates by period, grouping), emulator (each
+  target, refused checks from the target's own save, once, Submitted with
+  and without approval, a bulk run's grouping and next-due, a refused
+  record), ui (an action, a run). Help, What's new, docs, deploy set.
+
+### As built: phase 3 (2026-11-09)
+
+As designed (Q474-Q480), with these points:
+
+- **The firm's definition, the corporate's books.** A definition is the same
+  for every corporate (Q461, Q467), so it can't name an account, a sales
+  type, a cost centre or a warehouse: those are corporate ids. An action maps
+  the record's fields (a link field to Accounts, Items or Warehouses, new
+  link targets); what no field gives comes from the module's **Setup** tab,
+  per company (builtSetup/{X_ID}_{company}): the account (or a journal's
+  debit and credit accounts), the sales type (a customer invoice), the
+  warehouse (item lines), and the cost centre, profit centre and project.
+  Changing the Setup needs the module's write right and the post right of
+  every document type its actions make. A module with actions must belong
+  to a company (the books are a company's).
+- **builtActions.js** builds the target's draft (buildTargetDraft, pure) and
+  saves it with saveCustomerInvoiceDraft, saveVendorInvoiceDraft or
+  journal.saveJournalFor (new: the JV screen's own save and post for a
+  request), as the user. Submitted then calls that document's own post
+  (postCustomerInvoice, postVendorInvoice, journal.postJournalFor): posted,
+  or PendingApproval; a post refused leaves the draft, made and linked, with
+  the reason. Tax comes from the item's or the sales type's tax code, as on
+  the invoice's own lines.
+- **Lines**: one from the record's header, or one per row of its lines; a
+  zero amount (or quantity) is left out, a negative one refused. A journal
+  line pair per amount: the party (a customer or vendor link) on its side,
+  on the party's own receivable or payable account, as the JV screen
+  requires.
+- **Linked both ways**: the record's Created list ({ Action, Module, ID,
+  Due }) and History; the document's BuiltSource ({ ModuleID, Label,
+  Records }), which getDocumentLinks (flows.js) lists under Comes from. A
+  built document that made a live document can't be deleted.
+- **Once (Q477)**: a non-run action is refused while its document exists
+  and isn't reversed (a deleted draft or a reversal frees it). A record is
+  claimed (Claim, 10 minutes) while its document is made, so two runs or two
+  clicks never make two.
+- **Runs (Q475, Q476)**: previewBuiltRun proposes the records due on or
+  before the date (on, or in the action's statuses; a next-due date; a
+  period); runBuiltBulk makes one document per party or per record, moves
+  each record's next-due date on by its period in the same step as recording
+  what was made, and keeps the run (builtRuns: made, refused with the
+  reason). A refused group is released and stays due. The day is kept where
+  the month has it (31 Jan + 1 month = 28 or 29 Feb, after which the 28th
+  stays: a known limit, kept simple). The record's own action button on a
+  run action bills its current period now.
+- **Screens**: BUILDER.html, an Actions section (a card each: what it
+  creates, as draft or submitted, the statuses, the party, date, reference,
+  description with {number} {name} {period} {field}, the lines, the
+  accounts, a run's next-due, period and grouping). BUILT.html: a **To the
+  books** panel on a record (its action buttons and what was made, each
+  opening its document), the **Runs** tab (propose, untick, run; past runs)
+  and the **Setup** tab.
+- **Tests**: unit/builtActions (an action's checks; dates by period; the
+  description; a customer invoice's lines and grouping; item lines; a
+  journal with its party; due records); emulator/moduleBuilderActions (the
+  Setup and its rights, the new links; a lease's invoice once, linked both
+  ways, made again after its draft is deleted; a vendor invoice Submitted =
+  posted; a journal with its party; an order's item lines posted and the
+  stock delivered; the invoice's own stock rule and draft right; a
+  subscription run grouped per customer, next-due moved on, an inactive
+  customer refused without stopping the rest, the run kept); ui/moduleBuilder
+  (an action set in the builder; the Setup tab; a record's action button; a
+  run from the Runs tab). Negative controls, each caught then restored: the
+  month end not kept (addMonths); grouping per party ignored; the once check
+  removed (the second invoice made).
+- **Deploy set** `module-builder-p3`: the builder's and the runtime's
+  callables, the six new ones, getDocumentLinks, saveJournalDraft and
+  postJournalEntry's module (journal.js), with screens, then Hosting (Help).
+
 ## Open questions for the owner
 
-None for phase 2: Q470-Q473 decided.
+None: phase 2 Q470-Q473 and phase 3 Q474-Q480 decided.

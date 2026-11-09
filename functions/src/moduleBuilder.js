@@ -55,7 +55,7 @@ exports.getModuleDefinitions = onCallWithMessages(onCallOptions, async (request)
     return { id: d.id, label: def.label || d.id, kind: def.kind || '', version: x.Version || 0, publishedAt: x.PublishedAt || '', updatedAt: x.UpdatedAt || '',
       changed: Boolean(x.Published) && JSON.stringify(x.Draft) !== JSON.stringify(x.Published) };
   }).sort((a, b) => a.label.localeCompare(b.label));
-  return { definitions: list, masters: await publishedMasters(), types: B.TYPES, lineTypes: B.LINE_TYPES, linkTargets: B.LINK_TARGETS,
+  return { definitions: list, masters: await publishedMasters(), types: B.TYPES, lineTypes: B.LINE_TYPES, linkTargets: B.LINK_TARGETS, targets: B.TARGETS, periods: Object.keys(B.PERIODS),
     rights: { write: await moduleHasCapability('BUILDER', 'write', user.profile.role), publish: await moduleHasCapability('BUILDER', 'publish', user.profile.role) } };
 });
 

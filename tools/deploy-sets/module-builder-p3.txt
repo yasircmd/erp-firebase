@@ -1,0 +1,35 @@
+# Module Builder, phase 3: to the books and bulk runs (owner, 2026-11-09;
+# docs/modules/MODULE_BUILDER.md, Q474-Q480). The builder's and the runtime's
+# functions, the six new ones (runBuiltAction, previewBuiltRun, runBuiltBulk,
+# getBuiltRuns, getBuiltSetup, saveBuiltSetup) and getDocumentLinks (flows.js:
+# a document made by an action lists its records). Not every function:
+# builtDefinitions.js's part every call runs (refresh, applyToRegistry) is
+# unchanged; its definition checks (the actions, the Account and Warehouse
+# links) are used by these functions only. journal.js only gains two exports
+# that builtActions.js calls, deployed with it. Deploy WITH --screens
+# ("functions set, then screens": BUILDER, BUILT), then the "hosting" task
+# (the Help). No rules change.
+getModuleDefinitions
+getModuleDefinition
+saveModuleDefinitionDraft
+publishModuleDefinition
+deleteModuleDefinitionDraft
+getBuiltModule
+getBuiltLinkOptions
+listBuiltRecords
+getBuiltRecord
+saveBuiltRecord
+setBuiltActive
+setBuiltStatus
+decideBuiltApproval
+deleteBuiltRecord
+getBuiltBoard
+setBuiltBoardState
+getBuiltCalendar
+runBuiltAction
+previewBuiltRun
+runBuiltBulk
+getBuiltRuns
+getBuiltSetup
+saveBuiltSetup
+getDocumentLinks
