@@ -1,6 +1,6 @@
 # Task emails: users' tasks sent to their email
 
-Status: **built 2026-11-08**; phase 2 (each corporate's own sender, Q457-Q460) in design 2026-11-09 (decisions Q450-Q456; the owner's go-ahead the same day). See *As built* below: it differs from the proposal on four points, each said there.
+Status: **built 2026-11-08**; phase 2 (each corporate's own sender, Q457-Q460) built 2026-11-09 (decisions Q450-Q456; the owner's go-ahead the same day). See *As built* below: it differs from the proposal on four points, each said there.
 
 ## The request (owner, 2026-11-08)
 
@@ -284,9 +284,59 @@ emails go only from its own mailbox, or not at all.
 - **Rights**: Company Master's own "write" right (Q459); the corporate
   default needs the same right.
 
-### Open question
+### As built (2026-11-09)
 
-None. Building waits for the owner's go-ahead.
+The owner's go-ahead the same day ("Go on"). As proposed, with these points:
+
+- **Company Master is a hand-kept screen** (`handScreens` in
+  tools/legacy-port/modules.json), so the section was added to
+  screens/COMPANYMASTER.html directly: **Task emails mailbox** at the top (the
+  corporate default) and an **envelope** on each company's row (Company
+  Master write only), opening one dialog: the address, the app password
+  (blank keeps the saved one; a new address needs its own), **Send a test
+  email** (to the person's own ERP address; its result is kept as LastTest
+  and shown), **Remove** (after an in-app confirmation).
+- **`functions/src/mailAccounts.js`** (new): getMailAccounts (addresses, never
+  passwords; only the companies the user may open), saveMailAccount,
+  testMailAccount, all declaring the secret TASK_MAIL_KEY; the encryption
+  (AES-256-GCM, a fresh IV each time, the key SHA-256 of the secret); and
+  `accountFor`, which the sender asks: the company's mailbox, else the
+  corporate's, else (Corporate 100 only) the firm's TASK_MAIL_ACCOUNT, else
+  "not sent: no mail account set". A saved password that can't be read
+  (another key) is logged as such and **never** falls back to another
+  mailbox.
+- **The sender** (taskMail.js): `sweepAll` gives the firm's mailbox to
+  Corporate 100 only; each run looks up and connects each mailbox once. An
+  email's company is found **when it is sent**: an approval's from its
+  document (approvalDelegation's `companyOfApproval`, now exported), an
+  employee's from their record; a summary uses the corporate default. So
+  the queueing code (approvalChanged, portalUpdate) is unchanged, and only
+  the sender needs redeploying. The log now also records `From`.
+- **Tests**: unit/taskMail (the encryption: round trip, a fresh IV, another
+  key and tampering refused; the test email's outcomes); emulator/
+  mailAccounts (rights, the company's access, the address and password
+  checks, never sent back, stored encrypted, blank keeps it, a new address
+  needs its own; which mailbox sends: the company's, the corporate's, the
+  firm's in Corporate 100, none; an unreadable password never falls back);
+  emulator/taskMail updated; ui/companyMaster (the dialog: saved, the
+  password not shown again, removed, the corporate default). The emulator
+  reads TASK_MAIL_KEY from functions/.secret.local (git-ignored; README,
+  Testing). Negative controls, each caught then restored: the firm's
+  mailbox given to every corporate (unit/corporateContext); the fallback
+  past an unreadable password (emulator); the company not found when
+  sending (emulator).
+
+### Setting it up (the owner, once, before the deploy)
+
+1. **The mail key**, in Cloud Shell (one command, nothing to type in):
+   `openssl rand -base64 32 | gcloud secrets create TASK_MAIL_KEY --data-file=- --replication-policy=automatic --project=erp1-8f4cd`.
+   **Never change or delete it**: the saved passwords can only be read with
+   it (a new key means saving each mailbox's password again).
+2. Deploy (set `task-emails-own-sender`, with screens), then Hosting (Help).
+3. Each corporate: in Company Master, its **Task emails mailbox** (and a
+   company's own, if wanted), then **Send a test email**. A client
+   corporate without one gets no task emails. Corporate 100 keeps the
+   firm's mailbox until it sets its own.
 
 ## Open questions for the owner
 

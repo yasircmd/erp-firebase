@@ -44,7 +44,8 @@ test('every callable goes through callable.js; the one HTTP function sets its co
   const t = read(path.join(SRC, 'taskMail.js'));
   const sweep = t.slice(t.indexOf('async function sweepAll('), t.indexOf('\n}\n', t.indexOf('async function sweepAll(')));
   assert.match(sweep, /for \(const c of await require\('\.\/corporates'\)\.activeCorporates\(\)\) \{[\s\S]*runInCorporate\(c, /, 'the task-email sweep runs each corporate in its own');
-  assert.match(t, /onSchedule\(\{[^}]*\}, async \(\) => \{\n[^\n]*\n\s+const out = await sweepAll\(/, 'the scheduled function reaches data only through sweepAll');
+  assert.match(t, /onSchedule\(\{[^}]*\}, async \(\) => \{\n(?:\s+const (?:account|secret) = [^\n]*\n){1,2}\s+const out = await sweepAll\(/, 'the scheduled function reaches data only through sweepAll');
+  assert.match(sweep, /firmAccount: String\(c\.id\) === HOME_ID \? firmAccount : null/, 'the firm\'s mailbox sends for Corporate 100 only (TASK_EMAILS.md, Q458)');
 });
 
 test('only tests and tools work outside a request', () => {

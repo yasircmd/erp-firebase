@@ -22,13 +22,20 @@
 <h2 id="shareholders">Shareholders</h2>
 <p>Select <strong>Shareholders</strong> (the people icon) on a company to see and keep its shareholders: name, nationality, ID or passport number, shares held, and the dates they held them from and to.</p>
 <ul><li>Enter the company's <strong>Issued shares</strong>: each shareholder's <strong>%</strong> is worked out of them. If the current shareholders don't hold exactly the issued shares (100%), a warning says so; you can still save, for example while a transfer is being entered.</li><li>A shareholder who sold or left: <strong>edit</strong> them and enter the <strong>To</strong> date. They stay on the list as a past shareholder, so the history is kept. A record entered by mistake can be removed, with a reason.</li><li><strong>Changes</strong> lists every change: who made it and when.</li><li><strong>Print company profile</strong> prints the company's details with its current shareholders and their %.</li></ul>
+<h2 id="task-emails-sending-mailbox">Task emails: sending mailbox</h2>
+<p>The ERP emails users their tasks (<a href="getting-started.html#task-emails">Task emails</a>). Each corporate sends them <strong>from its own mailbox</strong>, so its emails never sit in anyone else's Sent items:</p>
+<ul><li><strong>Task emails mailbox</strong> (top of the screen): the corporate default. It sends every user's daily summary, and the task emails of any company without its own.</li><li>The <strong>envelope</strong> on a company's row: that company's own mailbox. It sends the emails about that company's documents (approvals, rejections, employees' requests and leave).</li></ul>
+<p>For each, enter the <strong>mailbox address</strong> and its <strong>app password</strong>: in that mailbox's Google Account, turn on 2-Step Verification, then open Security, App passwords, and create one (16 letters). The password is saved encrypted and never shown again; leave the box blank to keep the saved one. A new address needs its own password.</p>
+<p>Then <strong>Send a test email</strong>: it goes to your own address, and tells you whether the address and password work. If it arrives in spam, the mailbox's domain needs its email authentication set (DKIM, SPF and DMARC) by whoever manages the domain.</p>
+<p><strong>With no mailbox set</strong> (neither the company's nor the corporate default), task emails are <strong>not sent</strong>; they are never sent from another corporate's mailbox. <strong>Remove</strong> takes a mailbox away.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>Company Master is a setup record and not a posting document by itself. It provides the default company rules used by many other screens.</p>
 <h2 id="rights">Rights</h2>
 <p>Usually restricted to ERP admin or finance-support roles.</p>
 <p>Shareholders are personal data, so they have their own right: Company Master <strong>shareholders</strong> in Roles &amp; Permissions, to see them. Changing them also needs Company Master's <strong>write</strong> right.</p>
+<p>The task emails' sending mailbox needs Company Master's <strong>write</strong> right, and access to the company.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If a screen cannot find the company or accounts, the company profile may not be set correctly.</li></ul><p class="crumb">Last reviewed 24/10/2026</p></main>
+<ul><li>If a screen cannot find the company or accounts, the company profile may not be set correctly.</li></ul><p class="crumb">Last reviewed 09/11/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

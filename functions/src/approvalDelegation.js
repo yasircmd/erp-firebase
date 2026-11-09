@@ -181,3 +181,4 @@ exports.delegateApprovalsOf = onCallWithMessages(onCallOptions, async (request) 
 });
 
 module.exports.isAdminProfile = isAdmin;
+module.exports.companyOfApproval = companyOfApproval; // the task email's sender (TASK_EMAILS.md, phase 2)

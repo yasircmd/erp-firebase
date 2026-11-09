@@ -20,7 +20,7 @@ const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js')).concat(['legacy
 const NEVER = ['users', 'roles', 'permissions', 'tree', 'userFavorites', 'userPreferences', 'roleFavorites', 'approvalMigrations', 'appState', 'settings', 'system', 'screenReleases',
   'corporateDirectory', 'corporateGroups', 'corporateNotes', 'supportIssues', 'supportCounters', '__documentStorage',
   // Task emails (TASK_EMAILS.md): each user's and employee's choice, and the sender's own state.
-  'userEmailSettings', 'employeeEmailSettings', 'mailQueue', 'mailLog', 'mailSummaries'];
+  'userEmailSettings', 'employeeEmailSettings', 'mailQueue', 'mailLog', 'mailSummaries', 'mailAccounts'];
 
 // Sub-collections, cleared with their documents (recursive delete): a
 // payroll run's payslips, a request's or an issue's messages, the document

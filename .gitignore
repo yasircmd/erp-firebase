@@ -13,3 +13,6 @@ public/css/
 
 # Built at each functions deploy by tools/build-lazy-exports.js (docs/modules/PERFORMANCE.md)
 functions/lazy-exports.json
+
+# Test-only secrets for the functions emulator (TASK_MAIL_KEY): never committed
+functions/.secret.local

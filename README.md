@@ -130,6 +130,11 @@ docs/                           — see Documents above
 
 ## Testing
 
+- **Task emails' mail key in the emulator:** the functions emulator reads
+  `TASK_MAIL_KEY` from `functions/.secret.local` (git-ignored). Create it
+  once: `printf 'TASK_MAIL_KEY=emulator-test-key-not-secret\n' > functions/.secret.local`
+  (any value; emulator/mailAccounts reads the same file).
+
 ```bash
 # once per machine
 npm ci --prefix functions
