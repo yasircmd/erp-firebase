@@ -1,6 +1,6 @@
 # Task emails: users' tasks sent to their email
 
-Status: **built 2026-11-08** (decisions Q450-Q456; the owner's go-ahead the same day). See *As built* below: it differs from the proposal on four points, each said there.
+Status: **built 2026-11-08**; phase 2 (each corporate's own sender, Q457-Q460) in design 2026-11-09 (decisions Q450-Q456; the owner's go-ahead the same day). See *As built* below: it differs from the proposal on four points, each said there.
 
 ## The request (owner, 2026-11-08)
 
@@ -227,6 +227,66 @@ In Cloud Shell, project erp1-8f4cd:
 
 Then check `mailLog` (Firestore, Corporate 100) after the first approval:
 "sent", or why not.
+
+## Phase 2: each corporate's and company's own sender (design, 2026-11-09)
+
+### The request (owner, 2026-11-09)
+
+"Is it possible to use each corporate their own email ID that can saved in
+company master data"
+
+### The owner's decisions (2026-11-09)
+
+| # | Question | Decision |
+|---|---|---|
+| Q457 | Where the sender is set | **A corporate default, and a company's own in Company Master**, which then sends that company's task emails. |
+| Q458 | How it sends | **From their own mailbox** (its address and app password), so another corporate's emails never sit in anyone else's Sent items. The owner raised the privacy point: a mailbox keeps a copy of every email it sends. |
+| Q459 | Who sets it | **Company Master's own rights** (whoever may change a company there). |
+| Q460 | None set, or it fails | **Not sent**: logged "not sent: no mail account set" (or "failed" with Google's reason), never sent from another mailbox. |
+
+### The privacy point, and today's sender
+
+The firm's mailbox (the secret TASK_MAIL_ACCOUNT) sends today for **every**
+corporate, so its Sent items hold their task emails (document numbers,
+amounts, employees' names). Under Q458 and Q460 that stops: the firm's
+mailbox becomes **Corporate 100's** default only, and a client corporate's
+emails go only from its own mailbox, or not at all.
+
+### The proposal
+
+- **Company Master** gains a section, **Task emails: sending mailbox**:
+  - the address, and the app password, which is written once and never shown
+    again; leaving the password box blank keeps the saved one;
+  - **Send a test email** (to the person setting it), to prove the address
+    and password before anyone depends on them;
+  - the same section, opened from the screen's top, for the **corporate
+    default (all companies)**.
+
+  Company Master is a ported module, so its screen is changed through
+  `SCREEN_EDITS` (tools/legacy-port/generate.js), and the section calls new
+  hand-written functions; the ported saveCompany is untouched.
+- **Stored** in the corporate's own Firestore, `mailAccounts/{CORPORATE |
+  companyId}` { Address, Password (encrypted), UpdatedAt, UpdatedBy,
+  LastTest }. The password is encrypted with AES-256-GCM under a firm key,
+  a new secret **TASK_MAIL_KEY**, so a copy of the database alone never
+  reveals it. Rules stay deny-all; only the sender decrypts it.
+- **Which mailbox sends:**
+  - an email about a document (an approval, a rejection, an employee's
+    request or leave) uses its company's own mailbox, else the corporate
+    default;
+  - a user's summary covers several companies, so it uses the corporate
+    default;
+  - with neither, it is not sent (Q460).
+- **Corporate 100**: its default stays the secret TASK_MAIL_ACCOUNT unless set
+  in its own Company Master.
+- **Each corporate's own domain** needs DKIM/SPF/DMARC to stay out of spam,
+  as in step 5; the test email shows at once whether it lands in spam.
+- **Rights**: Company Master's own "write" right (Q459); the corporate
+  default needs the same right.
+
+### Open question
+
+None. Building waits for the owner's go-ahead.
 
 ## Open questions for the owner
 
