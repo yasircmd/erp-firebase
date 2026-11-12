@@ -31,6 +31,7 @@ function linkColumns(link, master, prefix) {
   const out = {};
   if (!master) return out;
   out[prefix + link.key + '__code'] = { label: link.label + ' · Code', type: 'text' };
+  out[prefix + link.key + '__name'] = { label: link.label + ' · Name', type: 'text' };
   master.fields.filter(f => f.type !== 'longtext').forEach(f => { out[prefix + link.key + '__' + f.key] = { label: link.label + ' · ' + f.label, type: typeOf(f) }; });
   return out;
 }
@@ -87,6 +88,7 @@ async function rowsOf(ds, defs, companyId, months) {
     if (m) {
       const linked = m[v && typeof v === 'object' ? v.id : v] || null;
       row[prefix + f.key + '__code'] = linked ? linked.Code || '' : '';
+      row[prefix + f.key + '__name'] = linked ? linked.Name || '' : '';
       byId[f.target].fields.filter(g => g.type !== 'longtext').forEach(g => { row[prefix + f.key + '__' + g.key] = valueOf(g, linked ? (linked.Fields || {})[g.key] : null); });
     }
   });

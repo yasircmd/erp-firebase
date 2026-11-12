@@ -13,6 +13,12 @@ screen.
 
 ## 12/11/2026
 
+- **Built modules in reports.** In MIS Reports, *Build a report* now lists
+  your built modules under their own heading: a master's records, a
+  document's documents and its lines, with a linked master's fields (for
+  example bookings by room type). Sales and Purchase lines have a Variant
+  column and the variant's extra fields, so a Room Invoice's revenue can be
+  shown on its own. See [Build a report](mis-report-builder.html#built-modules).
 - **Variants of the ERP's documents.** Your provider can now give you a
   document under your own name, for example a *Room Invoice* (a Customer
   Invoice), a *Utility Bill*, an *Event Order*, a *Tour Quote* or an

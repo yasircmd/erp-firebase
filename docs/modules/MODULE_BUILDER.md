@@ -631,6 +631,50 @@ As designed (Q481-Q488), with these points:
   built module's report built and pivoted); Help (MIS reports, Built
   modules), What's new, docs, deploy set.
 
+### As built: phase 5 (2026-11-12)
+
+- **builtMis.js** (new, hand-written): `datasetsOf(defs)` makes the data sets
+  from the published definitions: `x:<X_ID>` for each master and document,
+  and `xl:<X_ID>` for a document with lines (a variant has none of its own).
+  Columns: a master's code, name and active (Active / Off); a document's
+  number, date, month and status; the header fields as `f_<key>`; a
+  document set's line totals as `t_<key>`; the lines set's fields as
+  `l_<key>`. A link to a built master adds `<prefix><key>__code`, `__name`
+  and `__<field>` for each of that master's fields (one level, Q491); a link
+  to the ERP's records gives the label kept on the value (code · name).
+  Long text is left out; yes/no shows Yes / No. `rowsOf` reads builtRecords
+  by ModuleID (an equality query), keeps the report's company for a
+  company-scoped module, a document's rows by its Date in the report's
+  months (a master's: all of them, today), each linked master read once,
+  one row per line on the lines set with the header repeated.
+  `variantColumns(defs, base)` gives Sales lines (CUSTOMERINVOICE) and
+  Purchase lines (VENDORINVOICE) `variant` (the variant's name, blank for the
+  original's own documents; retail and returns blank) and
+  `v_<X_ID>__<key>` per published variant's extra field, blank (0) on
+  other rows (Q492).
+- **misBuilder.js:** `allDatasets()` is the four data sets (Sales and
+  Purchase with the variant columns) and the built ones, read from the
+  published definitions on each call; getMisDatasets, runMisBuilder and
+  runSavedMisBuilder use it, a built set's rows from `builtMis.rowsOf`.
+  Rights as the others (Q448): MIS access and the module's own access. A
+  data set id is up to 40 characters (it was 20). misReports.js checks a
+  saved builder report's data set against `allDatasets()`.
+- **MIS.html:** the built data sets under a "Built modules" heading in the
+  data set list; nothing else changed.
+- **Tests:** unit/builtMis (the data sets from definitions, link and
+  variant columns, values by type); emulator/moduleBuilderMis (a master's
+  rows with switched-off told apart, a document's by month and company,
+  the lines set grouped by the linked room's type and name, rights, a saved
+  builder report run as a tile, a Room Invoice's revenue and extra field on
+  Sales lines); ui/mis (a built master grouped from the screen). Negative
+  controls: the linked master's fields, its name, the months filter, the
+  variant's extra field, the module's right (emulator) and the heading (UI),
+  each caught and restored.
+- **Help:** Build a report (the built data sets, the Variant column),
+  Built modules (In reports), What's new. **Deploy set** `module-builder-p5`:
+  the 7 MIS builder and saved-report functions, with screens (MIS), then
+  Hosting; no rules change.
+
 ## Open questions for the owner
 
 None: phase 2 Q470-Q473, phase 3 Q474-Q480, phase 4 Q481-Q488 and phase 5 Q489-Q492 decided.

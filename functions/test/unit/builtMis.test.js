@@ -25,8 +25,8 @@ test('the data sets: a master; a document and its lines; a built master\'s field
   assert.deepEqual([doc.date.type, doc.month.type, doc.f_guest.type, doc.f_vip.type, doc['t_nights'].label, doc['t_amount'].type], ['date', 'month', 'text', 'text', 'Rooms · Nights (total)', 'number']);
   const lines = sets['xl:X_STAY'];
   assert.deepEqual([lines.title, lines.built.lines], ['Stay – rooms', true]);
-  assert.deepEqual(['l_room', 'l_room__code', 'l_room__roomType', 'l_room__rate', 'l_nights'].map(k => lines.fields[k] && lines.fields[k].label),
-    ['Room', 'Room · Code', 'Room · Room type', 'Room · Rate', 'Nights'], 'the room\'s own fields, one level');
+  assert.deepEqual(['l_room', 'l_room__code', 'l_room__name', 'l_room__roomType', 'l_room__rate', 'l_nights'].map(k => lines.fields[k] && lines.fields[k].label),
+    ['Room', 'Room · Code', 'Room · Name', 'Room · Room type', 'Room · Rate', 'Nights'], 'the room\'s own fields, one level');
   assert.equal(lines.fields.l_room__notes, undefined);
   assert.equal(lines.fields.t_nights, undefined, 'the lines set has the lines, not their totals');
 });

@@ -58,6 +58,8 @@ test('built modules as data sets: rows by period and company, lines, a master\'s
   // Its lines: by the room's own type, through the link (Q491).
   const byType = await build('xl:X_STAY', { view: 'group', groupBy: ['l_room__roomType'], measures: [{ field: 'l_amount', agg: 'sum' }, { field: 'l_nights', agg: 'sum' }] });
   assert.deepEqual(byType.rows, [['Double', 1850, 5], ['Single', 300, 1]]);
+  const byRoom = await build('xl:X_STAY', { view: 'group', groupBy: ['l_room__name'], measures: [{ field: 'l_nights', agg: 'sum' }] });
+  assert.deepEqual(byRoom.rows, [['Garden', 2], ['Park', 3], ['Sea', 1]], 'the linked room\'s own name');
   // Another company's: none.
   assert.equal((await build('x:X_STAY', { view: 'list', columns: ['number'] }, { companyId: 'C2' }, 'u-other').catch(e => ({ rows: [], err: e.message }))).rows.length, 0);
 
