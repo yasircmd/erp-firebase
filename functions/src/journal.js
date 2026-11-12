@@ -14,10 +14,35 @@
 // re-run always emits them.
 'use strict';
 const { onCallWithMessages } = require('./callable');
+const runtime = require('./legacy/runtime');
 const {
-  run, firestoreGet_, firestoreSet_, firestoreUpdate_, firestoreDelete_, firestoreQuery_,
-  firestoreCount_, requireUser_, LockService, Utilities, toFs
-} = require('./legacy/runtime');
+  run, firestoreCount_, requireUser_, LockService, Utilities, toFs
+} = runtime;
+// In a Journal Entry variant's request (MODULE_BUILDER.md, Q483, Q486), its
+// entries are the variant's: one opened by its id or listed here is the
+// variant's, one written is marked as it. Everything else as before.
+const VD = require('./variantDocuments');
+const JE = () => FIRESTORE_JOURNAL_ENTRIES_COLLECTION;
+const firestoreGet_ = async (c, id) => {
+  const doc = await runtime.firestoreGet_(c, id);
+  if (c !== JE()) return doc;
+  await VD.noteRead(c, doc); // a variant's entry, from the original's screen: its series and approvers
+  return VD.guardDoc(c, doc);
+};
+const firestoreQuery_ = async (...a) => (a[0] === JE() ? VD.guardAll(a[0], await runtime.firestoreQuery_(...a)) : runtime.firestoreQuery_(...a));
+async function firestoreSet_(c, id, data) {
+  if (c !== JE() || !VD.variantFor(c)) return runtime.firestoreSet_(c, id, data);
+  VD.assertOwn(c, await runtime.firestoreGet_(c, id));
+  return runtime.firestoreSet_(c, id, Object.assign({}, data, await VD.marksFor(c, data && data.CompanyID)));
+}
+async function firestoreUpdate_(c, id, data) {
+  if (c === JE() && VD.variantFor(c)) VD.assertOwn(c, await runtime.firestoreGet_(c, id));
+  return runtime.firestoreUpdate_(c, id, data);
+}
+async function firestoreDelete_(c, id) {
+  if (c === JE() && VD.variantFor(c)) VD.assertOwn(c, await runtime.firestoreGet_(c, id));
+  return runtime.firestoreDelete_(c, id);
+}
 const L = require('./legacy/codegs');
 const { moduleHasCapability } = require('./auth');
 const listPaging = require('./listPaging');

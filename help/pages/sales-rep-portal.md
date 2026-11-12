@@ -1,6 +1,6 @@
 ---
-fingerprint: 041e0d13b7bbc075
-reviewed: 2026-11-08
+fingerprint: 15670b9146f18884
+reviewed: 2026-11-12
 title: Sales reps in the Employee Portal
 area: sales
 order: 20

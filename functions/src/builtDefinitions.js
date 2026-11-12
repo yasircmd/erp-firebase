@@ -78,7 +78,8 @@ function cleanDefinition(d, masters) {
   if (!ID.test(id)) bad('Its id starts with X_, then capital letters, digits or _ (for example X_ROOM).');
   const label = text(x.label, 60);
   if (!label) bad('Give the module a name.');
-  const kind = x.kind === 'master' ? 'master' : x.kind === 'document' ? 'document' : bad('Choose a master (records like rooms) or a document (like a booking).');
+  if (x.kind === 'variant') return cleanVariant(x, id, label, masters);
+  const kind = x.kind === 'master' ? 'master' : x.kind === 'document' ? 'document' : bad('Choose a master (records like rooms) or a document (like a booking), or a variant of an ERP document.');
   const known = Array.isArray(masters) ? masters : [];
   const fields = (Array.isArray(x.fields) ? x.fields : []).map((f, i) => cleanField(f, 'Field ' + (i + 1), TYPES, known, id));
   if (fields.length > MAX_FIELDS) bad('At most ' + MAX_FIELDS + ' fields.');
@@ -249,6 +250,47 @@ function cleanActions(list, def) {
   return out;
 }
 
+// A variant (phase 4, Q481-Q488): a named copy of one of the five ERP
+// documents (variantSpec.BASES), running on the original's own screen and
+// code. Its own numbering prefix (Q482), labels, hidden fields (never a
+// required one) and defaults for the original's fields that may take them,
+// and extra fields of its own (kept on the document as VariantFields, printed
+// under the header, Q487).
+function cleanVariant(x, id, label, masters) {
+  const { BASES } = require('./variantSpec');
+  const base = text(x.base, 30).toUpperCase();
+  const spec = BASES[base];
+  if (!spec) bad('Choose the ERP document it is a variant of: ' + Object.values(BASES).map(b => b.label).join(', ') + '.');
+  const prefix = text((x.numbering || {}).prefix, 8).toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{1,7}$/.test(prefix)) bad('Give its numbering a prefix of 2 to 8 capital letters or digits, starting with a letter (for example RINV).');
+  if (prefix === String(spec.prefix()).toUpperCase()) bad('Its numbering prefix is its own (Q482): ' + prefix + ' is the ' + spec.label + '\'s.');
+  const keys = spec.fields.map(f => f.key);
+  const map = (o, what, fn) => {
+    const out = {};
+    Object.entries(o && typeof o === 'object' ? o : {}).forEach(([k, v]) => {
+      if (!keys.includes(k)) bad(what + ': "' + k + '" is not a field of the ' + spec.label + ' a variant may change.');
+      const c = fn(v, spec.fields.find(f => f.key === k));
+      if (c !== '' && c != null) out[k] = c;
+    });
+    return out;
+  };
+  const labels = map(x.labels, 'Labels', v => text(v, 40));
+  const hidden = [...new Set((Array.isArray(x.hidden) ? x.hidden : []).map(k => text(k, 31)))].filter(Boolean);
+  hidden.forEach(k => {
+    const f = spec.fields.find(y => y.key === k);
+    if (!f) bad('Hidden: "' + k + '" is not a field of the ' + spec.label + ' a variant may change.');
+    if (f.required) bad('Hidden: ' + f.label + ' is required on a ' + spec.label + ', so it stays.');
+  });
+  const defaults = map(x.defaults, 'Defaults', v => text(v, 200));
+  const fields = (Array.isArray(x.fields) ? x.fields : []).map((f, i) => cleanField(f, 'Extra field ' + (i + 1), TYPES, Array.isArray(masters) ? masters : [], id));
+  if (fields.length > 30) bad('At most 30 extra fields.');
+  if (fields.some(f => f.type === 'link' && f.target === 'COMPANY')) bad('Extra fields: the document already has its company.');
+  uniqueKeys(fields, 'Extra fields');
+  return { id, label, kind: 'variant', base, description: text(x.description, 300), companyScoped: true,
+    numbering: { prefix }, labels, hidden, defaults, fields, printTitle: text(x.printTitle, 60) || label,
+    lines: { enabled: false, label: '', fields: [] }, listColumns: [], schedule: { enabled: false }, board: { enabled: false }, actions: [] };
+}
+
 // What the registry, Roles and Approval Configuration need of a published definition.
 const capabilitiesOf = def => (def.kind === 'document' ? ['access', 'write', 'void'] : ['access', 'write']);
 const needsApproval = def => def.kind === 'document' && (def.statuses || []).some(s => s.approval);
@@ -263,6 +305,17 @@ function applyToRegistry(defs, registry, defaults, gateable, storage) {
   Object.keys(defaults).filter(k => ID.test(k)).forEach(k => { delete defaults[k]; });
   defs.forEach(def => {
     if (!def || !ID.test(def.id) || registry.some(m => m.id === def.id)) return;
+    if (def.kind === 'variant') {
+      // Its own module with the original's rights (Q484), its documents in the original's store,
+      // its own row in Approval Configuration where the original has one (Q485).
+      const orig = registry.find(m => m.id === def.base && !m.built);
+      if (!orig) return;
+      registry.push({ id: def.id, label: def.label, capabilities: orig.capabilities.slice(), built: true, kind: 'variant', base: def.base });
+      defaults[def.id] = orig.capabilities.reduce((o, c) => { o[c] = ['ADMIN']; return o; }, {});
+      if (storage[def.base]) storage[def.id] = storage[def.base];
+      if (gateable.some(g => g.ModuleID === def.base && !g.built)) gateable.push({ ModuleID: def.id, Label: def.label + ' (a variant of ' + ((gateable.find(g => g.ModuleID === def.base) || {}).Label || def.base) + ')', built: true });
+      return;
+    }
     registry.push({ id: def.id, label: def.label, capabilities: capabilitiesOf(def), built: true, kind: def.kind });
     defaults[def.id] = { access: ['ADMIN'], write: ['ADMIN'] };
     storage[def.id] = { type: 'firestore', collection: 'builtRecords' };
@@ -308,4 +361,4 @@ async function publishedDef(id, fresh) {
   return (await refresh(true)).find(d => d.id === id) || null;
 }
 
-module.exports = { cleanSchedule, cleanBoard, cleanActions, TARGETS, PERIODS, ID, KEY, TYPES, LINE_TYPES, LINK_TARGETS, RESERVED, cleanDefinition, capabilitiesOf, needsApproval, applyToRegistry, refresh, publishedDef };
+module.exports = { cleanVariant, cleanSchedule, cleanBoard, cleanActions, TARGETS, PERIODS, ID, KEY, TYPES, LINE_TYPES, LINK_TARGETS, RESERVED, cleanDefinition, capabilitiesOf, needsApproval, applyToRegistry, refresh, publishedDef };

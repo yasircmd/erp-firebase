@@ -31,6 +31,7 @@ const numbering = require('./numbering');
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'QUOTATION';
 const QUOTES = () => firestore.collection('quotations');
+const VD = require('./variantDocuments');
 const EDITABLE = ['Draft', 'Rejected'];
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 200);
 const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
@@ -62,7 +63,9 @@ async function requireServed(user, customerId, lead) {
 }
 async function load(user, id) {
   const snap = await QUOTES().doc(text(id, 80)).get();
-  if (!snap.exists) throw new HttpsError('not-found', 'Quotation not found.');
+  // In a Quotation variant's request, only its own quotations (MODULE_BUILDER.md, Q486).
+  if (!snap.exists || !VD.guardDoc('quotations', snap.data())) throw new HttpsError('not-found', 'Quotation not found.');
+  await VD.noteRead('quotations', snap.data()); // a variant's quotation, from the original's screen
   const q = Object.assign({ QuotationID: snap.id }, snap.data());
   requireCompany(user, q.CompanyID);
   if (!mine(user, q)) throw new HttpsError('permission-denied', 'That quotation is not yours.');
@@ -131,7 +134,7 @@ callable('getQuotations', async (user, request) => {
   requireCompany(user, companyId);
   const today = todayIn();
   const [list, canWrite, customers, leads, opps, setup, classes] = await Promise.all([
-    QUOTES().where('CompanyID', '==', companyId).get().then(s => s.docs.map(d => Object.assign({ QuotationID: d.id }, d.data()))),
+    QUOTES().where('CompanyID', '==', companyId).get().then(s => VD.guardAll('quotations', s.docs.map(d => Object.assign({ QuotationID: d.id }, d.data())))),
     moduleHasCapability(MODULE_ID, 'write', user.profile.role),
     rtdb.ref('customers').get().then(s => s.val() || {}),
     firestore.collection('crmLeads').where('CompanyID', '==', companyId).get().then(s => s.docs.map(d => Object.assign({ ID: d.id }, d.data())).filter(l => l.Status === 'Open')),
@@ -211,15 +214,17 @@ callable('saveQuotation', async (user, request) => {
     Lines: p.lines, Subtotal: p.Subtotal, TaxAmount: p.TaxAmount, TaxAdded: p.TaxAdded, TaxSummary: p.TaxSummary, Total: p.Total,
     UpdatedAt: nowIso(), UpdatedBy: actorOf(user)
   };
+  const marks = await VD.marksFor('quotations', companyId); // a variant's: Variant, VariantFields (MODULE_BUILDER.md, Q483)
   if (existing) {
-    await QUOTES().doc(id).update(Object.assign(fields, { Status: 'Draft', History: historyWith(existing, 'Saved', user) }));
+    await QUOTES().doc(id).update(Object.assign(fields, marks.VariantFields ? { VariantFields: marks.VariantFields } : {}, { Status: 'Draft', History: historyWith(existing, 'Saved', user) }));
     return { success: true, quotationId: id, number: existing.Number };
   }
   // The number under the lock, as the other documents': two first saves at once get two numbers.
   return withGlobalLock(user.uid, async () => {
-    const number = await numbering.next('doc:QT', { companyId, year: Number(quoteDate.slice(0, 4)) });
+    // voucherNumber: a variant's quotation takes its own series (MODULE_BUILDER.md, Q482).
+    const number = await numbering.voucherNumber('QT', Number(quoteDate.slice(0, 4)), companyId);
     const ref = QUOTES().doc();
-    await ref.set(Object.assign(fields, { Number: number, Revision: 1, PreviousID: '', Status: 'Draft', OwnerKey: ownerKeyOf(user),
+    await ref.set(Object.assign(fields, marks, { Number: number, Revision: 1, PreviousID: '', Status: 'Draft', OwnerKey: ownerKeyOf(user),
       CreatedAt: nowIso(), CreatedBy: actorOf(user), History: [{ At: nowIso(), By: actorOf(user), What: 'Created' }] }));
     return { success: true, quotationId: ref.id, number };
   });

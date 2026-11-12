@@ -5,8 +5,8 @@ order: 7
 modules: [VENDORINVOICE]
 sources: [functions/src/grn.js, functions/src/partyLedger.js, functions/src/purchaseTax.js]
 summary: Match the supplier bill to the received GRNs and post the payable amount to the company books.
-reviewed: 2026-11-03
-fingerprint: a3868c9d1035bd71
+reviewed: 2026-11-12
+fingerprint: 341a63d5b8264f6b
 ---
 ## What it is for
 
@@ -104,6 +104,15 @@ who may override the budget can, with a reason. See
 ## What happens in the books
 
 The vendor invoice records the supplier liability and clears the matched purchase value from the receiving side. This is the main point where the purchase becomes a balance in accounts payable.
+
+## Variants
+
+Your provider may give you a variant of this screen under its own name, for example a
+*Utility Bill*. It opens this same screen with its own name, labels and extra fields,
+numbers its documents in its own series, and has its own rights and approvals.
+Its documents are vendor invoices like any other: they show in this list marked with the
+variant's name, and every report includes them. See
+[Built modules](built-modules.html#variants).
 
 ## Rights
 

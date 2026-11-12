@@ -1,6 +1,6 @@
 ---
-fingerprint: 02e08bae1ad6e02e
-reviewed: 2026-11-09
+fingerprint: 5adfd577c117bc1d
+reviewed: 2026-11-12
 title: Built modules
 area: admin
 order: 20
@@ -115,6 +115,30 @@ run; run again for the next.
 project and warehouse an action uses when the record itself doesn't give
 them, set for each company. Changing it needs the right to change the module
 and to post the documents it makes.
+
+## Variants
+
+A **variant** is one of the ERP's own documents under another name, made for
+your business: for example a *Room Invoice* (a Customer Invoice), a *Utility
+Bill* (a Vendor Invoice), an *Event Order* (a Sales Order), a *Tour Quote* (a
+Quotation) or an *Accrual* (a Journal Entry). It has its own menu entry and
+opens the original's own screen, with:
+
+- its own name on the screen and on the print (a tax invoice keeps its own
+  heading, with the variant's name under it);
+- some of the original's fields renamed (for example *Guest* for Customer), a
+  few hidden, and defaults on a new document;
+- its own **extra fields** in a panel under the header (for example Room and
+  Nights), kept with each document and printed under the header;
+- its own **numbers** (for example RINV-26-01-000001), its own **rights** in
+  Roles & Permissions and its own row in
+  [Approval Configuration](approval-configuration.html).
+
+Everything else is the original's: the same checks, posting and reports. A
+Room Invoice is a customer invoice in the books, the customer's statement,
+ageing and the tax returns. Someone with only the variant's rights sees and
+opens only the variant's documents; someone with the original's rights sees
+all of them on the original's screen, each marked with its variant's name.
 
 ## Rights
 

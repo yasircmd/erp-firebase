@@ -53,6 +53,9 @@ const DECIDE = {
 // reversal of an invoice and a PO's reopening have their own functions,
 // told by the document's state, as their screens tell them.
 function decideOf(moduleId, doc) {
+  // A variant's approval (MODULE_BUILDER.md, Q485): its original's decide, in the variant's request.
+  const v = require('./moduleRegistry').MODULE_REGISTRY.find(m => m.id === moduleId && m.kind === 'variant');
+  if (v) { const b = decideOf(v.base, doc); return b ? Object.assign(b, { variant: v.id }) : null; }
   const d = DECIDE[moduleId];
   if (!d) return null;
   const s = doc || {};

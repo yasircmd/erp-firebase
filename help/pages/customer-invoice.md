@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-11-08
-fingerprint: 1fd0d9f1feb885f4
+reviewed: 2026-11-12
+fingerprint: a280cc8087e4f6d9
 ---
 ## What it is for
 
@@ -151,6 +151,15 @@ missing data, **Check again**. Nothing is sent until the company's ASP is
 connected. Under India GST it is the IRP's JSON instead (**Download JSON
 (IRP)**), for a registered business, an SEZ or a customer abroad: see
 [Sales Invoice Configuration](sales-invoice-setup.html).
+
+## Variants
+
+Your provider may give you a variant of this screen under its own name, for example a
+*Room Invoice*. It opens this same screen with its own name, labels and extra fields,
+numbers its documents in its own series, and has its own rights and approvals.
+Its documents are customer invoices like any other: they show in this list marked with the
+variant's name, and every report includes them. See
+[Built modules](built-modules.html#variants).
 
 ## Rights
 

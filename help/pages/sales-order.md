@@ -5,8 +5,8 @@ order: 4
 modules: [SALESORDER]
 sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js, functions/src/salesOrderClose.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-11-08
-fingerprint: 488140efbd762d17
+reviewed: 2026-11-12
+fingerprint: 211ff4b322bd5e68
 ---
 ## What it is for
 
@@ -137,6 +137,15 @@ in [Item Master](item-master.html).
 ## What happens in the books
 
 A sales order is a commercial document, not a financial journal. The accounting entry is created later when a delivery or invoice is posted.
+
+## Variants
+
+Your provider may give you a variant of this screen under its own name, for example a
+*Event Order*. It opens this same screen with its own name, labels and extra fields,
+numbers its documents in its own series, and has its own rights and approvals.
+Its documents are sales orders like any other: they show in this list marked with the
+variant's name, and every report includes them. See
+[Built modules](built-modules.html#variants).
 
 ## Rights
 

@@ -5,8 +5,8 @@ order: 4
 modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
-reviewed: 2026-11-09
-fingerprint: 12849c09830934ee
+reviewed: 2026-11-12
+fingerprint: 2072bc1b12c7ee3f
 ---
 ## What it is for
 
@@ -60,6 +60,15 @@ gets its numbers: the **JV number** (per company and year) and the **Txn
 Ref** (the finance reference, shared with other finance documents). It
 shows in the [General Ledger](general-ledger.html),
 [Trial Balance](trial-balance.html) and the statements.
+
+## Variants
+
+Your provider may give you a variant of this screen under its own name, for example a
+*Accrual*. It opens this same screen with its own name, labels and extra fields,
+numbers its documents in its own series, and has its own rights and approvals.
+Its documents are journal entries like any other: they show in this list marked with the
+variant's name, and every report includes them. See
+[Built modules](built-modules.html#variants).
 
 ## Rights
 

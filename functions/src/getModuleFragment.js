@@ -50,13 +50,20 @@ exports.getModuleFragment = onCallInCorporate(onCallOptions, async (request) => 
   const release = pointer.exists ? pointer.get('activeRelease') : null;
   if (release !== cachedRelease) { cache.clear(); cachedRelease = release; }
   // A built module (MODULE_BUILDER.md) runs on the one runtime screen, told which module it is.
-  const screenId = moduleDef.built ? 'BUILT' : id;
+  // A variant (phase 4) runs on its original's own screen, told its settings.
+  const variant = moduleDef.kind === 'variant' ? await require('./builtDefinitions').publishedDef(id) : null;
+  const screenId = variant ? variant.base : moduleDef.built ? 'BUILT' : id;
   let html = cache.get(screenId);
   if (html === undefined && release) {
     const snap = await firm.firestore.doc('screenReleases/' + release + '/screens/' + screenId).get();
     if (snap.exists) { html = snap.get('html'); cache.set(screenId, html); }
   }
-  if (html && moduleDef.built) html = '<script>window.__builtModuleId = ' + JSON.stringify(id) + ';</script>' + html;
+  if (html && variant) {
+    const spec = require('./variantSpec').BASES[variant.base];
+    const v = { id: variant.id, base: variant.base, label: variant.label, printTitle: variant.printTitle, labels: variant.labels, hidden: variant.hidden,
+      defaults: variant.defaults, fields: variant.fields, spec: spec.fields, original: spec.label };
+    html = '<script>window.__variant = ' + JSON.stringify(v).replace(/</g, '\\u003c') + ';</script>' + html;
+  } else if (html && moduleDef.built) html = '<script>window.__builtModuleId = ' + JSON.stringify(id) + ';</script>' + html;
   if (!html) {
     throw new HttpsError('not-found', 'Module "' + id + '" has no fragment file yet.');
   }

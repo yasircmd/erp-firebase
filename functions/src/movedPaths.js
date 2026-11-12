@@ -43,7 +43,28 @@ async function request(path, method, payload) {
   if (stockStore.isStockPath(p)) return stockStore.rtdbStyle(p, method, payload);
   const s = storeOf(p);
   if (!s) throw new Error('movedPaths: ' + p + ' is not a moved path.');
-  return s.rtdbStyle(p.slice(s.path.length).split('/').filter(Boolean), method, payload);
+  const rest = p.slice(s.path.length).split('/').filter(Boolean);
+  // In a variant's request, its original's documents are the variant's (MODULE_BUILDER.md, Q483, Q486).
+  const VD = require('./variantDocuments');
+  if (VD.variantFor(s.path)) return variantRequest(VD, s, rest, String(method || 'get').toLowerCase(), payload);
+  const out = await s.rtdbStyle(rest, method, payload);
+  if (rest.length === 1 && String(method || 'get').toLowerCase() === 'get' && VD.BASE_OF[s.path]) await VD.noteRead(s.path, out); // a variant's document, from the original's screen
+  return out;
+}
+async function variantRequest(VD, s, rest, m, payload) {
+  if (!rest.length) {
+    if (m === 'get') return VD.guardAll(s.path, await s.rtdbStyle(rest, m, payload));
+    throw new Error('movedPaths: a variant writes its documents one by one.');
+  }
+  const doc = await s.rtdbStyle(rest.slice(0, 1), 'get');
+  if (m === 'get') return VD.guardDoc(s.path, doc) == null ? null : s.rtdbStyle(rest, m, payload);
+  VD.assertOwn(s.path, doc);
+  if (rest.length === 1 && (m === 'put' || m === 'patch') && payload && typeof payload === 'object') {
+    const marks = await VD.marksFor(s.path, payload.CompanyID || (doc && doc.CompanyID));
+    // A new document is the variant's; an edit keeps it and takes the extra fields sent.
+    payload = Object.assign({}, payload, m === 'put' || !doc ? marks : (marks.VariantFields ? { VariantFields: marks.VariantFields } : {}));
+  }
+  return s.rtdbStyle(rest, m, payload);
 }
 
 // A path's value, set and update, wherever it lives now.

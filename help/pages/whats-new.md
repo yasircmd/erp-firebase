@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-09
+reviewed: 2026-11-12
 title: What's new
 area: start
 order: 3
@@ -10,6 +10,15 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 12/11/2026
+
+- **Variants of the ERP's documents.** Your provider can now give you a
+  document under your own name, for example a *Room Invoice* (a Customer
+  Invoice), a *Utility Bill*, an *Event Order*, a *Tour Quote* or an
+  *Accrual*. It opens the original's screen with its own name, labels, extra
+  fields, numbers, rights and approvals, and its documents are the
+  original's in every report. See [Built modules](built-modules.html#variants).
 
 ## 09/11/2026
 

@@ -1,6 +1,6 @@
 ---
-fingerprint: 31f2e00f56c40e8f
-reviewed: 2026-11-08
+fingerprint: 6c6de529f7ad5392
+reviewed: 2026-11-12
 title: Quotations
 area: crm
 order: 2
@@ -52,6 +52,15 @@ stays as it is. Only the company's active sales reps are offered. MIS Reports
   price times the quantity.
 - The tax is the same as a Sales Order's, by each item's tax code (see
   [Tax Configuration](tax-configuration.html)). It shows once you save.
+
+## Variants
+
+Your provider may give you a variant of this screen under its own name, for example a
+*Tour Quote*. It opens this same screen with its own name, labels and extra fields,
+numbers its documents in its own series, and has its own rights and approvals.
+Its documents are quotations like any other: they show in this list marked with the
+variant's name, and every report includes them. See
+[Built modules](built-modules.html#variants).
 
 ## Statuses
 

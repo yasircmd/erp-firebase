@@ -156,7 +156,7 @@
       if (st === 'open' ? !['Draft', 'PendingApproval', 'Approved', 'Rejected'].includes(status) : st && status !== st) return false;
       return !s || [numberOf(x), partyName(x)].join(' ').toLowerCase().includes(s);
     }).sort((a, b) => (b.QuoteDate || '').localeCompare(a.QuoteDate || '') || (b.Number || '').localeCompare(a.Number || '') || (b.Revision || 0) - (a.Revision || 0));
-    $('qt-body').innerHTML = rows.length ? rows.map(x => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(x.QuotationID) + '"><td class="py-2 px-3 text-slate-200 font-mono text-xs">' + esc(numberOf(x)) +
+    $('qt-body').innerHTML = rows.length ? rows.map(x => '<tr class="hover:bg-slate-800/40 cursor-pointer" data-id="' + esc(x.QuotationID) + '"><td class="py-2 px-3 text-slate-200 font-mono text-xs">' + esc(numberOf(x)) + (window.variantBadge ? variantBadge(x) : '') +
       '</td><td class="py-2 px-3 text-xs">' + esc(x.QuoteDate) + '</td><td class="py-2 px-3">' + esc(partyName(x)) + '</td><td class="py-2 px-3 text-xs">' + esc(x.ValidUntil) +
       '</td><td class="py-2 px-3 text-right">' + esc((x.CurrencyID ? x.CurrencyID + ' ' : '') + fmt(x.Total)) + '</td><td class="py-2 px-3">' + badge(statusOf(x)) + '</td></tr>').join('')
       : '<tr><td colspan="6" class="py-6 text-center text-slate-500">No quotations.</td></tr>';
@@ -177,6 +177,7 @@
     $('qt-opp').innerHTML = '<option value="">None</option>' + options(list, current);
   }
   function openQuote(x, preset) {
+    if (window.variantForm) window.variantForm.open(x || null); // VARIANTS (MODULE_BUILDER.md, phase 4)
     q = x || null;
     show('qt-list-view', false); show('qt-entry', true); window.scrollTo(0, 0);
     $('qt-title').textContent = q ? 'Quotation ' + numberOf(q) : 'New Quotation';
