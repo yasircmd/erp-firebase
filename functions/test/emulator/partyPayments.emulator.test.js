@@ -6,7 +6,7 @@
 // invoice reversal guard, and the invoice lists' Outstanding column.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, val, PROJECT } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -187,6 +187,52 @@ test('invoice reversal is refused while payments are allocated to it', async () 
   const r2 = ok(await call('u-admin', 'requestReverseVendorInvoice', { invoiceId: b1.id, reversalDate: D }));
   assert.equal(r2.status, 'Posted');
   assert.deepEqual(await openItems('Vendor', 'V1'), []);
+});
+
+// A call with no sign-in at all (call() always sends a token).
+async function callAnon(fn, data) {
+  const res = await fetch('http://127.0.0.1:5001/' + PROJECT + '/us-central1/' + fn, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data })
+  });
+  const body = await res.json();
+  if (body.error) { const e = new Error(body.error.message); e.status = body.error.status; throw e; }
+  return body.result;
+}
+
+// Who may ask is checked before the reversal guards run (2026-11-12): they
+// take the global lock and name the documents allocated to the invoice.
+test('invoice reversal guards: no sign-in, no post right or another company is refused first, naming nothing', async () => {
+  await reset(fixture());
+  const b1 = await vendorInvoice(200);
+  const pay = ok(await cbt('Bank Payment', '1100', [payable(50, [against(b1.ref, 50)])]));
+  const payPost = ok(await post(pay.jvId));
+  const args = { invoiceId: b1.id, reversalDate: D };
+  const decision = { invoiceId: b1.id, levelNumber: 1, decision: 'Approved', reason: '' };
+  const leaks = (msg) => msg.includes(payPost.jvNumber) || /allocated to it/.test(msg);
+
+  for (const fn of ['requestReverseVendorInvoice', 'decideVendorInvoiceReversalApproval']) {
+    const data = fn.startsWith('decide') ? decision : args;
+    await assert.rejects(callAnon(fn, data), (e) => e.status === 'UNAUTHENTICATED' && !leaks(e.message), fn + ' without sign-in');
+    const viewer = await call('u-viewer', fn, data).catch(e => ({ error: e.message }));
+    assert.match(viewer.error, /permission to post or reverse entries in VENDORINVOICE/, fn + ' as a viewer');
+    assert.ok(!leaks(viewer.error), fn + ' as a viewer names nothing');
+  }
+  const other = await call('u-other', 'requestReverseVendorInvoice', args).catch(e => ({ error: e.message }));
+  assert.match(other.error, /You do not have access to that company/);
+  assert.ok(!leaks(other.error));
+
+  await assert.rejects(callAnon('requestReverseCustomerInvoice', { invoiceId: 'CI1', reversalDate: D }),
+    (e) => e.status === 'UNAUTHENTICATED' && !leaks(e.message));
+  const cv = await call('u-viewer', 'requestReverseCustomerInvoice', { invoiceId: 'CI1', reversalDate: D }).catch(e => ({ error: e.message }));
+  assert.match(cv.error, /permission to post or reverse entries in CUSTOMERINVOICE/);
+
+  // The rightful user still gets the guard's reason, and nothing was reversed.
+  const r = await call('u-admin', 'requestReverseVendorInvoice', args);
+  assert.match(r.error, new RegExp('allocated to it \\(' + payPost.jvNumber + '\\)'));
+  assert.equal((await val('vendorInvoices/' + b1.id)).ReversedByInvoiceID || '', '');
+  // An unknown invoice: the generated function's own message, as before.
+  const missing = await call('u-admin', 'requestReverseVendorInvoice', { invoiceId: 'NOPE', reversalDate: D }).catch(e => ({ error: e.message }));
+  assert.match(missing.error, /Vendor Invoice not found/);
 });
 
 test('customer receipt through CBT plus a JV write-off of the balance', async () => {

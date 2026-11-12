@@ -15,7 +15,7 @@
 //     Invoice with a live Sales Return (docs/modules/SALES_RETURN.md).
 'use strict';
 const { onCallWithMessages } = require('./callable');
-const { run, LockService } = require('./legacy/runtime');
+const { run, LockService, requireUser_ } = require('./legacy/runtime');
 const L = require('./legacy/codegs');
 const { assertInvoiceHasNoAllocations, annotateInvoiceOutstanding } = require('./partyLedger');
 const { assertInvoiceHasNoLiveReturns } = require('./purchaseReturn');
@@ -31,10 +31,30 @@ function withEntries(invoiceType, fn) {
   };
 }
 
+// Who may ask, checked before the lock and before any guard reads the
+// invoice's allocations, returns or assets (2026-11-12: the guards ran first,
+// so a caller with no sign-in could take the global lock and read the
+// numbers of the documents allocated to an invoice). The same checks, in
+// the same order and with the same messages, as the wrapped generated
+// function, which still makes them again.
+async function requireReversalAccess(ctx, invoiceType, invoiceId, isDecision) {
+  const user = await requireUser_(ctx);
+  const moduleId = invoiceType.toUpperCase();
+  if (isDecision) await L.requirePostAccess_(ctx, user, moduleId);
+  const store = invoiceType === 'VendorInvoice' ? require('./purchaseStore').vendorInvoices : require('./salesStore').customerInvoices;
+  const invoice = await store.get(invoiceId);
+  // Not found: the generated function says so, with nothing to guard.
+  if (!invoice) return false;
+  if (!require('./glWriting').userCanAccessCompany(user.profile, invoice.CompanyID)) throw new Error('You do not have access to that company.');
+  if (!isDecision) await L.requirePostAccess_(ctx, user, moduleId);
+  return true;
+}
+
 // The generated functions report failure as { success: false, error },
 // so these do too.
 function guardedReversal(invoiceType, fn, isDecision) {
   return async (ctx, invoiceId, ...rest) => {
+    if (!(await requireReversalAccess(ctx, invoiceType, invoiceId, isDecision))) return fn(ctx, invoiceId, ...rest);
     const lock = LockService.getScriptLock();
     await lock.waitLock(10000);
     try {

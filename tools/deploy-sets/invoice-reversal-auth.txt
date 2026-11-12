@@ -1,0 +1,7 @@
+# Invoice reversal: who may ask is checked before the reversal guards
+# (2026-11-12, docs/modules/PARTY_PAYMENTS.md "Who may ask, first";
+# functions/src/invoiceAllocations.js). No screen change.
+requestReverseVendorInvoice          # sign-in, company, post right before the lock and guards
+decideVendorInvoiceReversalApproval  # sign-in, post right, company before the lock and guards
+requestReverseCustomerInvoice        # as requestReverseVendorInvoice
+decideCustomerInvoiceReversalApproval # as decideVendorInvoiceReversalApproval

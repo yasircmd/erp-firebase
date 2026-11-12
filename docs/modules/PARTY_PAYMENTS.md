@@ -232,6 +232,26 @@ Both need access to JV or CBT.
 - `decideJournalEntryApproval` now takes the global lock.
 - A reversal with vendor/customer lines can't itself be reversed.
 
+**Who may ask, first (fix, 2026-11-12).** The invoice reversal guards
+(rule 5, and the Purchase Return, Sales Return and Fixed Assets guards)
+ran before the wrapped generated function checked the caller. A call with
+no sign-in, or by a user without the post right or the invoice's company,
+took the global lock and was answered with the guard's reason, which names
+the allocated documents (JV numbers, return numbers, asset codes). Found
+by the external technical review of 2026-11-12. `requireReversalAccess`
+in `invoiceAllocations.js` now makes the generated function's own checks
+first, in its order and with its messages (a request: sign-in, the
+invoice, its company, the post right; a decision: sign-in, the post right,
+the invoice, its company). Only then does it take the lock and run the
+guards. An unknown invoice goes straight to the generated function, which
+says "not found" as before. The rightful user sees no change; anyone else
+now sees why they were refused instead of the guard's reason. Tests:
+partyPayments "invoice reversal guards: no sign-in, no post right or
+another company is refused first", with its negative control (the check
+removed: the call with no sign-in was answered with the allocation
+message). Deploy: `tools/deploy-functions.sh invoice-reversal-auth` (4
+functions, no screens).
+
 **Deploy:** 17 functions in `tools/deploy-sets/party-payments.txt`
 (2 new: `getPartyAccounts`, `getPartyOpenItems`), `getModuleFragment` last:
 `tools/deploy-functions.sh party-payments` from a clean checkout of this
