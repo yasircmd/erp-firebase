@@ -42,7 +42,16 @@ const DATASETS = Object.freeze({
     category: T('Category'), warehouse: T('Warehouse'), quantity: N('Quantity (in +, out −)'), value: N('Value (in +, out −)') }) }
 });
 
-async function names() {
+// The data sets: the four above (Sales and Purchase lines with their variants'
+// columns, MODULE_BUILDER.md Q492) and every published built module's (Q489-Q491).
+async function allDatasets() {
+  const defs = await require('./builtDefinitions').refresh();
+  const BMIS = require('./builtMis');
+  const withVariants = (ds, base) => Object.assign({}, ds, { fields: Object.assign({}, ds.fields, BMIS.variantColumns(defs, base).fields) });
+  return { defs, sets: Object.assign({}, DATASETS, { sales: withVariants(DATASETS.sales, 'CUSTOMERINVOICE'), purchases: withVariants(DATASETS.purchases, 'VENDORINVOICE') }, BMIS.datasetsOf(defs)) };
+}
+
+async function names(defs) {
   const [customers, vendors, items, coa, units] = await Promise.all(['customers', 'vendors', 'items', 'coa', 'orgUnits'].map(D.val));
   const unit = id => (units[id] ? [units[id].Code, units[id].Name].filter(Boolean).join(' ') : id || '');
   const itemOf = id => items[id] || {};
@@ -58,7 +67,10 @@ async function names() {
     account: id => (coa[id] ? coa[id].AccountCode + ' ' + coa[id].AccountName : id || ''),
     accountByCode: code => (acctByCode[code] ? code + ' ' + acctByCode[code].AccountName : code || ''),
     accountType: id => (coa[id] || {}).AccountType || '',
-    unit
+    unit,
+    // A document's variant and its extra fields (MODULE_BUILDER.md, Q492).
+    salesVariant: require('./builtMis').variantColumns(defs, 'CUSTOMERINVOICE').rowValues,
+    purchaseVariant: require('./builtMis').variantColumns(defs, 'VENDORINVOICE').rowValues
   };
 }
 
@@ -74,7 +86,7 @@ async function salesLines(companyId, months, n) {
     invs.forEach(i => {
       const sub = Number(i.Subtotal) || 0, f = (sub ? (sub - (Number(i.Discount) || 0)) / sub : 1) * (Number(i.ExchangeRate) || 1);
       const base = { date: i.InvoiceDate, month: m, number: i.TransactionNumber || '', kind: 'Invoice', customer: n.customer(i.CustomerID), rep: rep(i.SalesRepEmployeeID),
-        costCenter: n.unit(i.CostCenterID), project: n.unit(i.ProjectID), salesType: '', account: '' };
+        costCenter: n.unit(i.CostCenterID), project: n.unit(i.ProjectID), salesType: '', account: '', ...n.salesVariant(i) };
       listOf(i.SourceDeliveryNotes).forEach(d => listOf(d.Lines).forEach(l => out.push(Object.assign({}, base, { item: n.item('', l.ItemCode), category: n.category('', l.ItemCode),
         salesType: d.SalesTypeID || '', quantity: Number(l.Quantity) || 0, amount: r2((Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0) * f) }))));
       listOf(i.ItemLines).forEach(l => out.push(Object.assign({}, base, { item: n.item(l.ItemID, l.ItemCode), category: n.category(l.ItemID, l.ItemCode),
@@ -89,7 +101,7 @@ async function salesLines(companyId, months, n) {
         const gross = lines.reduce((s, l) => s + lineValue(l), 0);
         const net = type === 'SalesReturn' ? (Number(t.ReturnValue) || 0) - (Number(t.DiscountAmount) || 0) : (Number(t.Total) || 0) - (Number(t.TaxAmount) || 0);
         const f = gross ? net / gross : 0;
-        lines.forEach(l => out.push({ date: t.TransactionDate, month: m, number: t.TransactionNumber || '', kind, customer: n.customer(t.CustomerID), rep: rep(t.SalesRepEmployeeID),
+        lines.forEach(l => out.push({ ...n.salesVariant(null), date: t.TransactionDate, month: m, number: t.TransactionNumber || '', kind, customer: n.customer(t.CustomerID), rep: rep(t.SalesRepEmployeeID),
           item: n.item(l.ItemID), category: n.category(l.ItemID), account: '', salesType: t.SalesTypeName || t.SalesTypeID || '', costCenter: n.unit(l.CostCenterID || t.CostCenterID),
           project: n.unit(t.ProjectID), quantity: sign * (Number(l.Quantity) || 0), amount: r2(sign * lineValue(l) * f) }));
       });
@@ -111,7 +123,7 @@ async function purchaseLines(companyId, months, n) {
     const grns = grnIds.length ? await stockStore.getTxs(grnIds) : {};
     invs.forEach(i => {
       const sub = Number(i.Subtotal) || 0, f = (sub ? (sub - (Number(i.Discount) || 0)) / sub : 1) * (Number(i.ExchangeRate) || 1);
-      const base = { date: i.InvoiceDate, month: m, number: i.TransactionNumber || '', vendor: n.vendor(i.VendorID), costCenter: n.unit(i.CostCenterID), project: n.unit(i.ProjectID) };
+      const base = { date: i.InvoiceDate, month: m, number: i.TransactionNumber || '', vendor: n.vendor(i.VendorID), costCenter: n.unit(i.CostCenterID), project: n.unit(i.ProjectID), ...n.purchaseVariant(i) };
       listOf(i.SourceGRNs).forEach(g => {
         const grn = grns[g.GRNID] || {};
         listOf(grn.Lines).concat(listOf(grn.NonStockLines)).forEach(l => out.push(Object.assign({}, base, { item: n.item(l.ItemID, l.ItemCode), category: n.category(l.ItemID, l.ItemCode),
@@ -161,9 +173,9 @@ async function stockLines(companyId, months, n) {
 const LOADERS = { sales: salesLines, purchases: purchaseLines, gl: glLines, stock: stockLines };
 
 // ---------- the callables ----------
-async function rightsFor(user) {
+async function rightsFor(user, sets) {
   const out = {};
-  for (const [id, ds] of Object.entries(DATASETS)) out[id] = await moduleHasCapability(ds.module, 'access', user.profile.role);
+  for (const [id, ds] of Object.entries(sets)) out[id] = await moduleHasCapability(ds.module, 'access', user.profile.role);
   return out;
 }
 async function requireMis(user) {
@@ -174,16 +186,18 @@ async function requireMis(user) {
 exports.getMisDatasets = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireMis(user);
-  const can = await rightsFor(user);
-  return { datasets: Object.entries(DATASETS).filter(([id]) => can[id]).map(([id, ds]) => ({ id, title: ds.title, fields: Object.entries(ds.fields).map(([key, f]) => ({ key, label: f.label, type: f.type })) })),
+  const { sets } = await allDatasets();
+  const can = await rightsFor(user, sets);
+  return { datasets: Object.entries(sets).filter(([id]) => can[id]).map(([id, ds]) => ({ id, title: ds.title, built: Boolean(ds.built), fields: Object.entries(ds.fields).map(([key, f]) => ({ key, label: f.label, type: f.type })) })),
     ops: Q.OPS, aggs: Q.AGGS, maxMonths: MAX_MONTHS };
 });
 
 // Build: { dataset, companyId, month (the last), months (1-24), spec } → the result.
 async function build(user, d) {
   await requireMis(user);
-  const id = text(d.dataset, 20);
-  const ds = DATASETS[id];
+  const id = text(d.dataset, 40);
+  const { defs, sets } = await allDatasets();
+  const ds = sets[id];
   if (!ds) throw new HttpsError('invalid-argument', 'Choose a data set.');
   if (!(await moduleHasCapability(ds.module, 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to ' + ds.title.toLowerCase() + ' (it needs the ' + ds.module + ' module).');
   const companyId = text(d.companyId, 80);
@@ -194,7 +208,7 @@ async function build(user, d) {
   const months = M.monthsBetween(M.addMonths(month, 1 - span), month);
   let spec;
   try { spec = Q.cleanSpec(d.spec, ds.fields); } catch (e) { throw new HttpsError('invalid-argument', e.message); }
-  const lines = await LOADERS[id](companyId, months, await names());
+  const lines = ds.built ? await require('./builtMis').rowsOf(ds, defs, companyId, months) : await LOADERS[id](companyId, months, await names(defs));
   const result = Q.run(lines, spec, ds.fields);
   return Object.assign(result, { dataset: id, title: ds.title, period: months[0] + (months.length > 1 ? ' to ' + month : ''), lines: lines.length, linesTruncated: lines.length > MAX_LINES });
 }
@@ -214,4 +228,4 @@ exports.runSavedMisBuilder = onCallWithMessages(onCallOptions, async (request) =
   return { type: 'builder', title: rep.Name, period: { current: r.period }, rows: Q.asReportRows(r), result: r };
 });
 
-module.exports = Object.assign(exports, { DATASETS, MAX_MONTHS, LOADERS, build });
+module.exports = Object.assign(exports, { DATASETS, MAX_MONTHS, LOADERS, build, allDatasets });
