@@ -154,7 +154,7 @@ exports.publishModulePack = onCallWithMessages(onCallOptions, async (request) =>
   const id = text((request.data || {}).id, 33).toUpperCase();
   const entry = catalogue().find(e => e.pack && e.pack.id === id);
   if (!entry) throw new HttpsError('not-found', 'No such pack.');
-  const { compatible } = require('./moduleBuilder');
+  const { compatible, assertPrefixFree } = require('./moduleBuilder');
   const DEFS = firm.firestore.collection('moduleDefinitions');
   const docs = Object.fromEntries((await DEFS.get()).docs.map(d => [d.id, d.data()]));
   const masters = Object.values(docs).map(x => x.Published).filter(d => d && d.kind === 'master').map(d => d.id);
@@ -162,6 +162,7 @@ exports.publishModulePack = onCallWithMessages(onCallOptions, async (request) =>
   const pack = checked(() => cleanPack(entry.pack, defs));
   const { MODULE_REGISTRY } = require('./moduleRegistry');
   defs.forEach(d => { if (MODULE_REGISTRY.some(m => m.id === d.id && !m.built)) bad(d.id + ' is a module of the ERP\'s own.'); compatible(d, (docs[d.id] || {}).Published || null); });
+  for (const d of defs) await assertPrefixFree(d);
   const now = new Date().toISOString();
   const published = [];
   for (const def of defs) {

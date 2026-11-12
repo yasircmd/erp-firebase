@@ -227,6 +227,19 @@ function cleanActions(list, def) {
       // Phase 6: the project from the record (a link to the ERP's projects), else the Setup's.
       project: pick(x.project, ['link'], 'its project is a link field (of the header) to projects.', head, ['PROJECT'])
     };
+    // Phase 6: made as a variant of its target (a Room Invoice), its extra fields from the record's header.
+    o.variant = '';
+    o.variantFields = {};
+    if (x.variant) {
+      o.variant = text(x.variant, 33).toUpperCase();
+      if (!ID.test(o.variant)) bad(at + 'its variant is a variant module\'s id (for example X_RINV).');
+      const vf = x.variantFields && typeof x.variantFields === 'object' ? x.variantFields : {};
+      Object.entries(vf).forEach(([vk, fk]) => {
+        if (!KEY.test(vk)) bad(at + '"' + vk + '" is not a field key of the variant.');
+        if (!head(text(fk, 31))) bad(at + 'the variant\'s ' + vk + ' comes from "' + fk + '", not a header field.');
+        o.variantFields[vk] = text(fk, 31);
+      });
+    }
     const numberField = what => need(pick(x[what], ['number', 'amount', 'calc'], 'its ' + what + ' is a number, amount or calculated field' + (source === 'lines' ? ' of the lines.' : '.'), from), 'choose the field that gives the ' + what + '.');
     if (kind === 'item') {
       o.item = need(pick(x.item, ['link'], 'its item is a link field to items.', either, ['ITEM']), 'choose the field that gives the item.');
