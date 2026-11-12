@@ -2030,3 +2030,12 @@ from, and how it was verified. The deploy procedure is in the
   section, Working with screens, What's new). Live: a built record's actions
   to a Customer Invoice, Vendor Invoice or Journal, bulk runs, the module's
   Setup.
+- **2026-11-12, Module Builder phase 4 and the portal tests (PRs #269, #270, from
+  `8f64348`):** "functions set, then screens" `module-builder-p4`, run
+  [#358](https://github.com/yasircmd/erp-firebase/actions/runs/43257399928)
+  (16:19–18:48 UTC), success: all 717 functions, access granted to 716 (none
+  for sweepTaskMail), screens released (CUSTOMERINVOICE, VENDORINVOICE,
+  SALESORDER, QUOTATION, JV, BUILDER). "hosting", run
+  [#359](https://github.com/yasircmd/erp-firebase/actions/runs/43283716222)
+  (18:48–18:49 UTC), success (the shell's VARIANTS block, the Help). Live:
+  variants of the five ERP documents. #269 changed tests only.
