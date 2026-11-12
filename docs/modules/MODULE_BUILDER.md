@@ -588,6 +588,49 @@ As designed (Q481-Q488), with these points:
 - **Deploy set** `module-builder-p4`: every function (callable.js, auth.js),
   with screens, then Hosting (public/index.html, the Help).
 
+## Phase 5: built modules in MIS reports (design 2026-11-12)
+
+### The owner's decisions (2026-11-12)
+
+| # | Question | Decision |
+|---|---|---|
+| Q489 | Which built modules | **Every published one**, automatically, for users with its access right. |
+| Q490 | A document with lines | **Both, as two data sets:** one row per document (header fields and line totals), and one row per line (the header fields repeated). |
+| Q491 | A link to a built master | **The master's fields too**, one level deep (a Booking's Room gives Room type, Floor, Rate as columns); a link to a customer, vendor, item, employee, account or warehouse gives its code and name. |
+| Q492 | Variants in the existing data sets | **Yes:** Sales and Purchase lines get a Variant column, and a variant's extra fields as columns. |
+
+### The proposal
+
+- **The data sets** (misBuilder.js, next to sales, purchases, GL and stock):
+  for each published built module, *<Module>* and, for a document with
+  lines, *<Module> – lines*. The fields: code and name (a master), number,
+  date, status and month (a document), the company, every field of the
+  definition by its type (amounts and numbers summable, dates groupable by
+  month, a choice or a yes/no groupable), the line totals; the lines' own
+  fields on the lines' data set.
+- **Rights and scope as the others (Q448):** MIS access and the module's
+  own access right; one company per report. A document's rows are those
+  dated in the report's period (the same month limit); a master's rows are
+  all its records as they are today (it has no date), active and switched
+  off told apart by a column.
+- **Links (Q491):** a link to a built master brings that master's code, name
+  and fields as columns ("Room · Room type"), read once per report; links
+  to the ERP's records give their code and name.
+- **Variants (Q492):** the Sales and Purchase lines' rows get Variant (the
+  variant's name, blank for the original's own documents) and, for each
+  published variant of Customer or Vendor Invoice, its extra fields as
+  columns ("Room Invoice · Room"), blank on other rows.
+- **What comes free**: built modules' reports are made, saved, shared,
+  pivoted and put on dashboards as any MIS builder report, and a new
+  version of a definition (a field added) shows its new column at once.
+- **Build:** misBuilder.js (the data sets from the definitions, the link
+  columns, the variant columns), MIS.html only if the field list needs a
+  group heading; unit (the data sets built from definitions; the link and
+  variant columns), emulator (rows by period and company, rights, a master's
+  rows, the lines' set, a Room type grouping, a variant's revenue), UI (a
+  built module's report built and pivoted); Help (MIS reports, Built
+  modules), What's new, docs, deploy set.
+
 ## Open questions for the owner
 
-None: phase 2 Q470-Q473, phase 3 Q474-Q480 and phase 4 Q481-Q488 decided.
+None: phase 2 Q470-Q473, phase 3 Q474-Q480, phase 4 Q481-Q488 and phase 5 Q489-Q492 decided.
