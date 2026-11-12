@@ -455,6 +455,74 @@ As designed (Q474-Q480), with these points:
   callables, the six new ones, getDocumentLinks, saveJournalDraft and
   postJournalEntry's module (journal.js), with screens, then Hosting (Help).
 
+## Phase 4: variants (design 2026-11-12)
+
+### The owner's decisions (2026-11-12)
+
+| # | Question | Decision |
+|---|---|---|
+| Q481 | Which documents | **All five at once:** Customer Invoice, Vendor Invoice, Sales Order, Quotation, Journal Entry. |
+| Q482 | A variant's numbers | **Its own series** (for example RINV-26-000001), apart from the original's; set in Numbering like any document type. |
+| Q483 | Where its documents are kept | **With the original's:** a Room Invoice is a Customer Invoice marked with its variant, so every report, ageing, statement, tax return, e-invoice and allocation includes it. Lists filter by variant. |
+| Q484 | Its rights | **Its own module:** its own access, draft and post rights, menu entry (and approvals, see Q485); its documents post exactly as the original's. |
+| Q485 | Its approvals | **Its own:** its own row in Approval Configuration, with its own approvers and limits; none set, its documents post without approval. |
+| Q486 | Who sees its documents | **Variant users see only theirs:** with only the variant's rights, only that variant's documents are listed and opened. With the original's rights, every document, the variant's included, on the original's screen too. |
+| Q487 | Its extra fields on the print | **Yes:** with their labels under the header details, under the variant's own title. |
+| Q488 | Build | **Yes**, all five, in steps. |
+
+### The proposal
+
+- **A variant is a definition** in the builder (kind *variant*, id X_..., the
+  firm's, Q461): its original (one of the five), its name, its numbering
+  prefix, its labels (a fixed list of the original screen's fields for each
+  of the five), the fields it hides (only fields the original doesn't
+  require), its extra fields (the builder's field types; kept on the document
+  as VariantFields, shown in their own panel), and its defaults (for the same
+  fixed list). It never has code of its own (Q463): the original's screen
+  and functions run it, so every fix to the original reaches it.
+- **Its own module (Q484)**: X_... in the registry with the original's
+  capabilities (access, draft, post, and the original's others such as
+  taxcode), its own menu entry. The shell serves the original's screen for
+  it, with the variant's settings.
+- **Rights for one request**: a call from a variant's screen carries the
+  variant's id. callable.js checks it is a published variant of that
+  original; for that request only, the original's rights are the
+  variant's. Someone with Room Invoice rights alone can make and post Room
+  Invoices through the invoice's own code, and nothing else: a call without
+  the variant, or for a document of another variant, is checked as before.
+- **Kept with the original's (Q483)**: the document has Variant (the id) and
+  VariantFields. Saving keeps the variant it was made in; a document is
+  opened, changed and posted only in its own variant's screen (or the
+  original's, see Q486).
+- **Its own series (Q482)**: when the original numbers a document (on
+  posting, or on saving a Sales Order or Quotation), a variant's document
+  takes the variant's prefix, through numbering.js, so it has its own
+  format in Numbering and never takes the original's numbers.
+- **The screens**: the five get stable hooks (data-variant-key) on the
+  fields a variant may relabel, hide or default; a shell block applies the
+  variant's settings, draws its extra fields, and the print uses its name
+  and its extra fields (Q487).
+- **Lists and reports**: the original's list gains a Variant column and
+  filter; reports, ageing, tax returns and statements are unchanged (they
+  already include every document of the original).
+
+### Build (in steps)
+
+1. **Core**: the variant definition (checks, the fixed lists per original),
+   the registry (its module, its approvals row), the per-request rights in
+   callable.js and auth.js, numbering's variant series.
+2. **The five documents**: each keeps Variant and VariantFields on save,
+   numbers by the variant, asks the variant's approvals (Q485), and lists or
+   opens only the variant's documents for a variant-only user (Q486); the
+   ported four through legacy-port patches, Quotation in quotations.js.
+3. **Screens**: the hooks on the five, the shell's variant block, the print
+   (Q487), the builder's variant editor, the Variant column and filter.
+4. **Tests** (each document: rights for one request, a variant-only user
+   refused the original's other documents, its own series, its own
+   approvals, extra fields kept and printed), negative controls, Help, What's
+   new, docs, deploy set (a change to the registry and to callable.js: every
+   function).
+
 ## Open questions for the owner
 
-None: phase 2 Q470-Q473 and phase 3 Q474-Q480 decided.
+None: phase 2 Q470-Q473, phase 3 Q474-Q480 and phase 4 Q481-Q488 decided.
