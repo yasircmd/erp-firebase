@@ -40,10 +40,12 @@ const pkCssStart = find(/---------- SEARCH PICKER CSS ----------/);
 const pkCssEnd = find(/---------- END SEARCH PICKER CSS ----------/);
 const elCssStart = find(/---------- ENTRY LAYOUT CSS ----------/);
 const elCssEnd = find(/---------- END ENTRY LAYOUT CSS ----------/);
+const vfStart = find(/---------- VARIANTS ----------/);
+const vfEnd = find(/---------- END VARIANTS ----------/);
 const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
 const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
-    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !icStart || !icEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !dlStart || !dlEnd || !bdStart || !bdEnd || !srStart || !srEnd || !mtStart || !mtEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
+    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !icStart || !icEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !dlStart || !dlEnd || !bdStart || !bdEnd || !srStart || !srEnd || !mtStart || !mtEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd || !vfStart || !vfEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 ${require('./_cdnStyles').harnessHead()}
@@ -98,15 +100,18 @@ ${slice(bdStart, bdEnd)}
 ${slice(srStart, srEnd)}
 ${slice(mtStart, mtEnd)}
 ${slice(pkStart, pkEnd)}
+${slice(vfStart, vfEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
   window.openModule = function (moduleId, drillParams, returnChain) {
     window.__pendingModuleParams = drillParams || null;
     window.__pendingReturnChain = returnChain || [];
     const container = document.getElementById('module-container');
+    window.__variant = null; // as the shell's openModule (VARIANTS)
     rpc.withSuccessHandler(result => {
       injectHtmlWithScripts(container, result.html);
       if (typeof window.initModule === 'function') window.initModule(null, result.canWrite);
+      if (window.__variant && window.variantForm) variantForm.setup(container); // as the shell's openModule (VARIANTS)
       if (drillParams && drillParams.CreateFrom) window.documentLinks.start(moduleId, drillParams.CreateFrom); // as the shell's openModule
       window.__moduleReady = true;
     }).withFailureHandler(err => { container.textContent = 'LOAD FAILED: ' + err.message; })
