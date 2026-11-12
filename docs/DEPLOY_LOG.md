@@ -2018,3 +2018,15 @@ from, and how it was verified. The deploy procedure is in the
   (17:05–17:06 UTC), success (the Built modules Help page's Board and calendar
   section, What's new). Live: a master's board, a document's schedule with the
   timeline calendar, and the double-booking check.
+- **2026-11-09, Module Builder phase 3 (PRs #266, #267, from `1e14198`):**
+  "functions set, then screens" `module-builder-p3`, run
+  [#355](https://github.com/yasircmd/erp-firebase/actions/runs/42675088758)
+  (18:33–18:39 UTC), success: 24 functions (the 5 builder callables, the 12
+  runtime callables, runBuiltAction, previewBuiltRun, runBuiltBulk,
+  getBuiltRuns, getBuiltSetup, saveBuiltSetup, getDocumentLinks), access
+  granted to 24, screens released (BUILDER, BUILT). "hosting", run
+  [#356](https://github.com/yasircmd/erp-firebase/actions/runs/42678757403)
+  (18:57–18:58 UTC), success (the Built modules Help page's To the books
+  section, Working with screens, What's new). Live: a built record's actions
+  to a Customer Invoice, Vendor Invoice or Journal, bulk runs, the module's
+  Setup.
