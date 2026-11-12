@@ -2039,3 +2039,15 @@ from, and how it was verified. The deploy procedure is in the
   [#359](https://github.com/yasircmd/erp-firebase/actions/runs/43283716222)
   (18:48–18:49 UTC), success (the shell's VARIANTS block, the Help). Live:
   variants of the five ERP documents. #269 changed tests only.
+- **2026-11-12, Module Builder phase 5 (PR #272, from `19ec52c`):**
+  "functions set, then screens" `module-builder-p5`, run
+  [#360](https://github.com/yasircmd/erp-firebase/actions/runs/43290706886)
+  (19:29–19:33 UTC), success: `SUMMARY: functions deployed: 7
+  (deleteMisReport getMisDatasets getMyMisReports runMisBuilder
+  runSavedMisBuilder saveMisReport shareMisReport); access granted: 7;
+  screens released: yes` (release 20261112T193240Z-19ec52c, MIS; the styles
+  and Hosting redeployed with it). "hosting", run
+  [#361](https://github.com/yasircmd/erp-firebase/actions/runs/43291397029)
+  (19:33–19:34 UTC), success (the Help). No rules change. Live: built modules
+  as data sets in Build a report, a linked built master's fields, Variant and
+  its extra fields on Sales and Purchase lines.
