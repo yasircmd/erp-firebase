@@ -79,6 +79,13 @@ test('a pack published (its modules only where they changed), provided to a grou
   const kids = Object.values(tree).filter(n => n.ParentID === folder[0]).sort((a, b) => a.Order - b.Order);
   assert.deepEqual(kids.map(n => [n.Text, n.ModuleID, n.AllowedRoles.join()]), [['Pack setup', 'PACKSETUP', 'ADMIN'], ['Stays', 'X_DSTAY', 'ADMIN'], ['Rooms', 'X_DROOM', 'ADMIN']]);
   assert.equal(tree.N1.Text, 'Finance', 'the client\'s own menu kept');
+  // The pack's folder is the pack's: not the corporate's own layout, kept when it is given the main tree.
+  assert.deepEqual(developer._layout.layout(tree).map(l => l.text), ['Finance']);
+  await rtdb.ref('tree').set({ M1: { Text: 'Finance', ParentID: '', ModuleID: '', Order: 0, AllowedRoles: ['ADMIN'] }, M2: { Text: 'Journal Entry', ParentID: 'M1', ModuleID: 'JV', Order: 0, AllowedRoles: ['ADMIN'] } });
+  await run(developer, 'resetDeveloperTree', { CorporateID: '200' });
+  const given = await ctree();
+  assert.deepEqual([Object.values(given).filter(n => !n.PackID).map(n => n.Text).sort(), Object.values(given).filter(n => n.PackID).length], [['Finance', 'Journal Entry'], 4]);
+  tree = await ctree();
   const perms = (await client.database().ref('permissions').get()).val();
   assert.deepEqual([perms.X_DSTAY.access, perms.PACKSETUP.write], [['ADMIN'], ['ADMIN']]);
   const cfs = client.firestore();

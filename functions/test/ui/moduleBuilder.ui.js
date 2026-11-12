@@ -278,6 +278,31 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await s.close();
   });
 
+  await check('phase 6: the Packs tab lists the five packs and publishes one; Pack setup shows its checklist, a step ticked by hand, the starter reports added', async () => {
+    const p = await open('BUILDER');
+    await p.waitForSelector('#bd-packs tr[data-pack="P_HOTEL"] .bd-pack-publish');
+    assert.deepEqual(await p.$$eval('#bd-packs tr[data-pack]', r => r.map(x => x.dataset.pack)), ['P_HOTEL', 'P_SUBS', 'P_REALTY', 'P_INVEST', 'P_CONSTR']);
+    await p.click('#bd-packs tr[data-pack="P_HOTEL"] .bd-pack-publish');
+    await p.waitForFunction(() => /v1/.test(document.querySelector('#bd-packs tr[data-pack="P_HOTEL"]').textContent));
+    assert.ok(p.__dialogs.some(m => /Pack version 1 published with X_HROOM v1/.test(m)), p.__dialogs.join(' | '));
+    assert.equal(await p.$('#bd-packs tr[data-pack="P_HOTEL"] .bd-pack-publish'), null, 'nothing changed: no Publish');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+
+    const s = await open('PACKSETUP');
+    await s.waitForSelector('#ps-body [data-pack="P_HOTEL"] li[data-key="tax"]');
+    assert.match(await s.textContent('#app-title'), /Pack setup/);
+    assert.match(await s.textContent('#ps-body [data-pack="P_HOTEL"] .ps-progress'), /0 of 5 done/);
+    assert.ok(await s.isDisabled('#ps-body [data-pack="P_HOTEL"] li[data-key="bookBooks"] .ps-tick'), 'a Setup step is ticked by itself');
+    await s.check('#ps-body [data-pack="P_HOTEL"] li[data-key="tax"] .ps-tick');
+    await s.waitForFunction(() => /1 of 5 done/.test(document.querySelector('#ps-body [data-pack="P_HOTEL"] .ps-progress').textContent));
+    await s.click('#ps-body [data-pack="P_HOTEL"] .ps-reports');
+    await s.waitForFunction(() => /in your MIS reports/.test(document.querySelector('#ps-body [data-pack="P_HOTEL"]').textContent));
+    assert.ok(s.__dialogs.some(m => /3 report\(s\) are in your MIS reports/.test(m)), s.__dialogs.join(' | '));
+    assert.deepEqual(s.__errors, []);
+    await s.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   void rtdb;
   results.forEach(r => console.log(r.join('  ')));

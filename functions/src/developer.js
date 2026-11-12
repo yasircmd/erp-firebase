@@ -462,11 +462,14 @@ exports.deleteDeveloperNote = onCallWithMessages(onCallOptions, async (request) 
 //     it. (A module a release adds will go into its "New modules" folder:
 //     M3, decision 255.)
 
+// A pack's menu nodes (PackID, MODULE_BUILDER.md phase 6) are the pack's,
+// not the main tree's: left out of the layout, so a corporate with a pack
+// still follows the main tree, and kept when it is given the main tree.
 function layout(nodes) {
   const kids = {};
   Object.keys(nodes || {}).forEach(id => {
     const n = nodes[id];
-    if (!n || HOME_ONLY.has(n.ModuleID || '')) return;
+    if (!n || HOME_ONLY.has(n.ModuleID || '') || n.PackID) return;
     (kids[n.ParentID || ''] = kids[n.ParentID || ''] || []).push(id);
   });
   Object.values(kids).forEach(list => list.sort((a, b) => (nodes[a].Order || 0) - (nodes[b].Order || 0) || a.localeCompare(b)));
@@ -533,6 +536,10 @@ async function giveMainTree(c, user) {
         Text: n.Text || '', ParentID: n.ParentID || '', Order: i, ModuleID: n.ModuleID || '', AllowedRoles: allowed,
         CreatedAt: n.CreatedAt || now, CreatedBy: n.CreatedBy || 'SYSTEM', UpdatedAt: now, UpdatedBy: nameOf(user)
       };
+    });
+    // Its packs' folders and screens stay, after the main tree's.
+    Object.keys(own).filter(id => own[id] && own[id].PackID).forEach((id, i) => {
+      out[id] = Object.assign({}, own[id], own[id].ParentID ? {} : { Order: lines.length + i });
     });
     await db.ref('tree').set(out);
   });

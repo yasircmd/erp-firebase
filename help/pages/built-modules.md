@@ -1,5 +1,5 @@
 ---
-fingerprint: a4657d62f170e2b9
+fingerprint: 8f61bb73fd289494
 reviewed: 2026-11-12
 title: Built modules
 area: admin
@@ -36,7 +36,11 @@ that the accounts take as usual (see [To the books](#to-the-books)).
    the choices of a linked field (a customer, an item, an employee, a room …)
    are that company's.
 3. Fill in the fields. A field marked **\*** is required. A **link** field is
-   a list to choose from; something switched off is no longer offered.
+   a list to choose from (a customer, an item, a project, a room …);
+   something switched off or a closed project is no longer offered. A
+   **calculated** field (greyed, for example *Nights* or *Amount*) is worked
+   out as you type and again when you save: see
+   [Calculated fields](#calculated-fields).
 4. On a document, add its **lines** with **Add line**; number and amount
    columns are totalled at the bottom.
 5. **Save**. A new document gets its number when first saved.
@@ -75,6 +79,28 @@ date is the day the record is free again (a hotel: a guest may arrive on
 another's departure day) or its last day in use (a rental) is set for each
 module.
 
+## Calculated fields
+
+Some fields are worked out for you, from the record's other fields:
+
+- **a × b**, for example a line's *Amount* = *Qty* × *Rate*, or a booking's
+  *Room charges* = *Nights* × *Rate*;
+- **a sum** or **a − b**, for example *Net due* = *This claim* − *Retention*;
+- **a percentage**, for example *Retention* = 10 % of *This claim*;
+- **days between two dates**, for example *Nights* from *Arrival* to
+  *Departure*;
+- **earlier documents' total**, for example a progress claim's *Claimed
+  before*: the same field added up over the earlier documents of the same
+  contract (by date, then by when they were made), a cancelled one not
+  counted. On a line it adds up the earlier documents' lines of the same
+  item, so a line's *This claim* is its value to date less what was claimed
+  before.
+
+You can't type in them; amounts are rounded to 2 places. They are kept with
+the record when it is saved, and add up into the totals and the reports like
+any amount. An earlier document changed later doesn't change the documents
+after it until they are saved again.
+
 ## To the books
 
 A built module may have **actions** that make a document in the accounts
@@ -94,6 +120,11 @@ makes one **Customer Invoice**, **Vendor Invoice** or **Journal Entry**:
    item lines do (the company must allow invoices to deliver stock).
 3. The panel lists what was made; select a number to open it. The document's
    **Linked documents** show the record it came from.
+
+An action may make its invoice as a [variant](#variants), for example a
+booking's check-out makes a *Room Invoice*, with its own numbers and the
+room and nights in its extra fields. It may take the **project** from the
+record (a contract's project), else from the module's Setup.
 
 An action makes its document **once**. Doing it again is refused while that
 document is still there and not reversed; delete the draft or reverse the
@@ -139,6 +170,13 @@ Room Invoice is a customer invoice in the books, the customer's statement,
 ageing and the tax returns. Someone with only the variant's rights sees and
 opens only the variant's documents; someone with the original's rights sees
 all of them on the original's screen, each marked with its variant's name.
+
+## Packs
+
+Your provider may give you a **pack**: a set of built modules for your
+business, for example *Hotel* or *Construction*, switched on together with
+a menu folder, starter reports and a setup checklist. See
+[Packs](packs.html).
 
 ## In reports
 
