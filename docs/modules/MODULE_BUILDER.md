@@ -675,6 +675,146 @@ As designed (Q481-Q488), with these points:
   the 7 MIS builder and saved-report functions, with screens (MIS), then
   Hosting; no rules change.
 
+## Phase 6: packs (design 2026-11-12)
+
+### The owner's decisions (2026-11-12)
+
+| # | Question | Decision |
+|---|---|---|
+| Q493 | What a pack is | **A bundle provided as one:** a named set of the firm's definitions (masters, documents, variants) with starter reports and a dashboard, provided to a group or a corporate in one step. Clients can't change it (Q461); a new version reaches every corporate at once (Q467). |
+| Q494 | The first packs | **Five:** Hotel, Subscriptions, Real estate, Investments and Construction. |
+| Q495 | On switch-on | **A menu, reports and a checklist:** a menu folder with the pack's screens in Tree Management, its starter reports and a dashboard for Admin, rights for Admin only; the client gives other roles their rights and works through a setup checklist (accounts, sales type, numbering). No sample data. |
+| Q496 | A pack's taxes | **The client's Tax Configuration:** a pack adds no tax; its Help and checklist say which components to add (for example a hotel's tourism or municipality charge). |
+| Q497 | Calculated fields | **Yes, a fixed set first:** a calculated field type (a × b, a sum, a − b, a percentage of a field, days between two dates), worked out on the server and read-only on the screen. No scripts (as designed). |
+| Q498 | The order | **All five together:** one release. Built in internal steps (below), each tested before the next. |
+| Q499 | Construction's scope | **All four parts:** contracts and their bill of quantities; monthly progress claims; retention and advances; subcontractors and daily site reports. |
+
+### The proposal
+
+**The machinery (6a)**
+
+- **Calculated fields (Q497).** A new field type, `calc`, with an operation
+  (`product`, `sum`, `difference`, `percent`, `days`) and the fields it works
+  on. These are fields of the same record: for a line, its own fields or the
+  header's. The definition checks the operands (numbers or amounts, two dates
+  for `days`, no calc built on itself or in a loop). The server works the
+  value out on every save; the screen shows it as you type, read-only. A calc
+  on a line can total into the header like any amount. Rounding: amounts to
+  2 places. It is a field like the others in reports (phase 5) and actions
+  (phase 3).
+- **Project as a link target.** Construction (and Real estate's sites) link
+  to the ERP's own Projects (the dimension), so an action's invoice carries
+  the project.
+- **Packs (Q493).** A pack definition in the firm's Firestore,
+  `modulePacks/{id}`: its name, description, version, and its parts:
+  - the module definitions, which must be published;
+  - the menu folder's layout;
+  - starter reports (MIS builder specs on the pack's data sets);
+  - a starter dashboard;
+  - the setup checklist.
+
+  The builder gets a Packs tab: make a pack, check it (every part
+  published, every report's data set in the pack), publish a version.
+- **Providing a pack.** A pack is provided in the Developer screen like a
+  module, to a group or a corporate (M4). Providing it switches on every
+  module in it. Switching a pack on in a corporate, the first time:
+  - adds the menu folder (Tree Management);
+  - gives Admin the rights;
+  - saves the starter reports and dashboard as Admin's, shared with no one.
+
+  A later version does the same for whatever is new, and never removes
+  anything the client changed. Taking a pack away switches its modules off.
+  The data is kept, as for any module.
+- **The checklist (Q495, Q496).** A pack's Setup page shows its steps, each
+  ticked when it is done, read from the corporate where possible:
+  - the module's Setup (accounts, sales type);
+  - the tax components the pack's Help names;
+  - the roles to give rights.
+
+**The packs (6b-6f), built only with the builder**
+
+- **Hotel:**
+  - **Rooms** (type, floor, rate; status board);
+  - **Bookings** (guest, room, from and to dates, nights = `days`,
+    amount = nights × rate). The calendar refuses a double booking.
+  - **Room Invoice**, a variant of Customer Invoice, made from a booking at
+    check-out;
+  - **Table orders** (table, lines of items, qty × price), invoiced to a
+    guest or as a sale;
+  - reports: occupancy by room type, revenue by room.
+- **Subscriptions:**
+  - **Plans** (price, period);
+  - **Subscriptions** (customer, plan, quantity, fee = price × quantity,
+    next due, period);
+  - the bulk billing run, one invoice per customer;
+  - reports: recurring revenue by plan, due this month.
+- **Real estate:**
+  - **Properties**;
+  - **Units** (property, type, area, rent; let/vacant board);
+  - **Leases** (tenant, unit, start, end, rent, period, deposit);
+  - **Lease Invoice**, a variant of Customer Invoice, from the leases'
+    bulk rent run;
+  - reports: occupancy, rent roll, leases ending.
+- **Investments:**
+  - **Investments** (instrument, counterparty, dates, cost, rate,
+    income = a percentage of cost);
+  - documents **Buy**, **Sell**, **Income received** and **Revaluation**,
+    each to a Journal (or a Vendor or Customer Invoice);
+  - reports: holdings, income by instrument.
+- **Construction (Q499):**
+  - **Contracts** (customer, Project, value; the bill of quantities as
+    lines: item or description, qty, rate, amount = qty × rate);
+  - **Progress claims** (contract, period; lines with the qty done to date
+    and the amount to date; this claim = to date − previous claims;
+    retention = a percentage of this claim; advance recovered = a
+    percentage). Each claim creates a Customer Invoice for the claim, less
+    retention and advance recovered, to their own accounts.
+  - **Retention release** and **Advance received**, each to an invoice or
+    a Journal;
+  - **Subcontract orders** (vendor, Project, lines) and **subcontractor
+    claims**, each to a Vendor Invoice, with retention held;
+  - **Site reports** (date, Project, labour, equipment, progress notes);
+  - reports: contract status (value, claimed, retention held), cost and
+    billing by project.
+
+**Checks to make while building, which may change the design**
+
+- **Negative lines on the invoices.** A claim's retention and advance lines
+  are negative. Phase 3's actions refuse a line below zero. If the Customer
+  and Vendor Invoice (ported) refuse them too, the claim makes the invoice
+  for the net amount and a Journal moves the retention and advance. That is
+  the same in the books, in two documents.
+- **"Previous claims".** Billed to date needs a contract's earlier claims.
+  It is a read across records, not a formula of one record. Proposed: a
+  fixed `previous` operation on a line field, summing the same field over
+  the earlier records with the same link (the contract) and the same line
+  key. The builder checks it like the other calcs.
+- **A pack's starter reports per company.** A report is per company. The
+  starter reports are made for the corporate's first company, and saved
+  without a company where MIS allows it.
+
+### Build (in steps, one release)
+
+1. **6a-1:** calculated fields (the definition checks, server values, the
+   screen, totals, reports and actions), the `previous` operation, and
+   Project as a link target. Unit, emulator and UI tests.
+2. **6a-2:** packs:
+   - the definitions and their versions;
+   - the builder's Packs tab;
+   - providing a pack (Developer screen, entitlements), and switching it on
+     in a corporate (menu, rights, reports, dashboard);
+   - the checklist.
+
+   Tests.
+3. **6b-6f:** the five packs as definitions. Each gets an emulator test of
+   its flow (for example a booking to a Room Invoice, a claim to its
+   invoice, net of retention) and a Help page in a new "Packs" area.
+4. **Release:**
+   - full regression and negative controls;
+   - What's new and the docs;
+   - the deploy set: likely every function, since entitlements.js and the
+     registry reach everything.
+
 ## Open questions for the owner
 
-None: phase 2 Q470-Q473, phase 3 Q474-Q480, phase 4 Q481-Q488 and phase 5 Q489-Q492 decided.
+None: phase 2 Q470-Q473, phase 3 Q474-Q480, phase 4 Q481-Q488, phase 5 Q489-Q492 and phase 6 Q493-Q499 decided.
