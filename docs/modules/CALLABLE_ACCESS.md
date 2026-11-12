@@ -54,7 +54,7 @@ common argument names:
 |---|---|
 | Refused: UNAUTHENTICATED | 599 |
 | Refused in the result: "Please sign in again." (the generated functions' way) | 112 |
-| Refused before the sign-in check, on its own input only | 3 |
+| Refused on their input, with no sign-in check reached (`userIdSignIn`, `essPortal`, `saveJournalDraft`) | 3 |
 | Answered | 1 |
 
 - **Public by design (Q490):** `corporateSignIn` (the sign-in screen's
