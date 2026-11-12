@@ -33,7 +33,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   delete c.coa; // an empty chart, for the headings
   await clientApp.database().ref('/').set(c);
   // The emulator starts each function on its first call: start them before the browser times them.
-  for (const fn of ['getDeveloperCorporates', 'getDeveloperNotes', 'getDeveloperTree', 'testDeveloperCorporate']) await call('u-admin', fn, { CorporateID: '200' }).catch(() => {});
+  for (const fn of ['getDeveloperCorporates', 'getDeveloperNotes', 'getDeveloperTree', 'testDeveloperCorporate', 'saveDeveloperGroupModules', 'publishModulePack']) await call('u-admin', fn, { CorporateID: '200' }).catch(() => {});
 
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8191);
