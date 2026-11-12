@@ -1,7 +1,8 @@
 # Callable access: every function checks its caller, first
 
 Status: **design, waiting for the owner's decisions** (Q489-Q494). Nothing
-built yet beyond the one fix below.
+built yet beyond the one fix below; the no-sign-in probe of all 715
+callables found no other gap.
 
 ## The note raised (2026-11-12)
 
@@ -45,17 +46,29 @@ bind. Every callable is therefore the boundary. The review asked for:
 
 ## What may be called without sign-in
 
-A probe (2026-11-12, local emulators) calls every callable with no sign-in
-and seeded data. **In progress:** results so far are below, updated when
-it completes.
+A probe (2026-11-12, local emulators, after the fix above) called all 715
+callables with no sign-in, against seeded data, with plausible ids for the
+common argument names:
 
-- Answered with no sign-in, by design: `corporateSignIn` (the sign-in
-  screen's Corporate ID lookup) and `userIdSignIn` (sign-in by user ID; it
-  checks the password itself).
-- Every other function probed so far refuses: most with UNAUTHENTICATED,
-  the generated ones with "Please sign in again." in their result.
-  `saveJournalDraft` reads its own input before checking the caller (a code
-  error on an empty call), but touches no stored data first.
+| Answer | Count |
+|---|---|
+| Refused: UNAUTHENTICATED | 599 |
+| Refused in the result: "Please sign in again." (the generated functions' way) | 112 |
+| Refused before the sign-in check, on its own input only | 3 |
+| Answered | 1 |
+
+- **Public by design (Q490):** `corporateSignIn` (the sign-in screen's
+  Corporate ID lookup, answered) and `userIdSignIn` (sign-in by user ID; it
+  checks the password itself, refused here for a wrong one).
+- **Checks input before the caller, no stored data read:** `essPortal`
+  (an unknown action name, "Unknown request.") and `saveJournalDraft` (a
+  code error on an empty call). Harmless, but option A would refuse both
+  first.
+- **No other function answered or leaked anything with no sign-in.**
+
+What the probe does **not** show: that a signed-in user without the right,
+or from another company, is refused. That needs each module's data and is
+option C.
 
 ## The options
 
