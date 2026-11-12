@@ -1,6 +1,7 @@
 # Callable access: every function checks its caller, first
 
-Status: **design, waiting for the owner's decisions** (Q489-Q494). Nothing
+Status: **decisions made** (owner, 2026-11-12, Q489-Q494: all six as recommended);
+build after the module-builder-p4 deploy (owner). Nothing
 built yet beyond the one fix below; the no-sign-in probe of all 715
 callables found no other gap.
 
@@ -116,9 +117,11 @@ that needs each module's knowledge (which company a record belongs to).
 A + B now, C module by module (posting modules first), D only for the
 modules C has not reached after a quarter.
 
-## Questions for the owner
+## The owner's decisions (2026-11-12)
 
-| # | Question | Recommendation |
+All six agreed as recommended.
+
+| # | Question | Decision |
 |---|---|---|
 | Q489 | Should the wrapper require a sign-in by default (option A)? | **Yes.** It closes the whole class at no cost; a public function is declared. |
 | Q490 | Which functions may be called without sign-in? | **Only the two in "What may be called without sign-in" above** (`corporateSignIn`, `userIdSignIn`), each with its reason. |
