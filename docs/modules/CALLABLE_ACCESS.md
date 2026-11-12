@@ -1,7 +1,16 @@
 # Callable access: every function checks its caller, first
 
 Status: **decisions made** (owner, 2026-11-12, Q489-Q494: all six as recommended);
-build after the module-builder-p4 deploy (owner). Nothing
+build after the module-builder-p4 deploy (owner).
+**On hold** (owner, 2026-11-12) until all Module Builder work is complete.
+Where it stands: callable.js has the access levels (WIP, untested, commit
+9df16bc). A refinement of Q491 found while building: Employee Portal users
+have no ERP profile, so `essPortal` is `access: 'portal'` (signed in; its own
+`whoIsAsking` checks the employee) rather than `'user'`; the portal page calls
+only `corporateSignIn` and `essPortal`. Still to do: emulator tests (an
+inactive user, a leaver, the portal), unit/callableAccess with its negative
+controls, the suites in three parts, then a deploy of every function
+(Cloud Shell). Nothing
 built yet beyond the one fix below; the no-sign-in probe of all 715
 callables found no other gap.
 
