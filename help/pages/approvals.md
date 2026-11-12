@@ -4,8 +4,8 @@ area: start
 order: 3
 summary: How documents are submitted, approved, rejected and delegated.
 sources: [functions/src/approvals.js, functions/src/homeTasks.js]
-reviewed: 2026-11-09
-fingerprint: 2ecc47b63098fa66
+reviewed: 2026-11-12
+fingerprint: 3d797481844889a2
 ---
 ## When a document needs approval
 

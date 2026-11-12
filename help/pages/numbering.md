@@ -5,8 +5,8 @@ order: 8
 modules: [NUMBERING]
 sources: [functions/src/numbering.js]
 summary: Maintain the document prefixes, numbering format and automatic code generation across modules.
-reviewed: 2026-11-07
-fingerprint: 5978efdab68c782d
+reviewed: 2026-11-12
+fingerprint: cb37b29fc38e708a
 ---
 ## What it is for
 
@@ -29,6 +29,11 @@ fingerprint: 5978efdab68c782d
 ## What happens in the books
 
 Numbering configuration creates no journal and does not change existing records. At document creation, the selected format combines prefix, optional company/year, separator, and a zero-padded running counter. Customized formats are checked against other types to prevent overlapping number shapes; issued custom numbers are not reused.
+
+A [variant](built-modules.html#variants) of a document has its own series,
+listed here under its own name once it is published (for example *Room
+Invoice*, RINV), so it never takes the original's numbers. Its format is set
+here like any other.
 
 ## Rights
 

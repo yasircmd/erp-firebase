@@ -523,6 +523,64 @@ As designed (Q474-Q480), with these points:
    new, docs, deploy set (a change to the registry and to callable.js: every
    function).
 
+### As built: phase 4 (2026-11-12)
+
+As designed (Q481-Q488), with these points:
+
+- **One request in one variant, decided at the centre.** callable.js reads
+  data.__variant, checks it is a published variant and runs the handler
+  inside it (variantContext.js, per request). Four central places then
+  answer for the variant, only for its original's module and only in that
+  request: auth.moduleHasCapability (the variant's rights, Q484),
+  numbering.voucherNumber (its own series, Q482),
+  approvals.beginApprovalInstance and resolveApprovalScopeKeyForDocument (its
+  own Approval Configuration row; the instance's module is the variant, so
+  its Home tasks open the variant, Q485). Nothing in the generated legacy
+  code changes.
+- **Its documents (variantDocuments.js, Q483, Q486).** In a variant's request,
+  on its original's own store only: a document opened by its id is the
+  variant's or none; the whole store read for its list is the variant's
+  documents; a document written is marked Variant and VariantLabel, with the
+  extra fields sent (VariantFields, checked by their types, a link from its
+  choices for the document's company). Queries are never narrowed, so the
+  credit check, a party's open items, ageing and statements see every
+  document. Wired in movedPaths.js (Customer Invoice, Vendor Invoice, Sales
+  Order), journal.js (Journal Entry) and quotations.js (Quotation, now
+  numbered through voucherNumber, the same default series).
+- **The definition** (builtDefinitions.cleanVariant, variantSpec.js): one of
+  the five originals, a prefix of its own (refused when it is another
+  document type's or another variant's; kept once published), labels,
+  hidden fields (never one the original requires) and defaults for a fixed
+  list of each original's fields, extra fields of the builder's types (not a
+  company link). Its registry entry: the original's capabilities, storage,
+  and an approvals row where the original has one (a Sales Order has none,
+  so neither has its variant).
+- **The screens.** getModuleFragment serves the original's screen with
+  window.__variant. The shell's VARIANTS block: the title, the labels, the
+  hidden fields, the defaults on a new document, the extra fields' panel
+  under the header, the print (the variant's name and extra fields under
+  the original's own heading: a tax invoice stays one), and the rpc naming
+  the variant on every call and sending the extra fields with a save. The
+  five screens call variantForm.open when they show a document, and mark a
+  variant's document with its name on the original's list (a badge: the
+  "filter" of the design is the list's Find box, which matches it).
+  BUILDER.html: a variant editor (its original, the field changes, the
+  extra fields in Fields).
+- **Tests**: unit/builtVariants (the definition's checks; the registry
+  entry; the request's variant only for its original); emulator/
+  moduleBuilderVariants (the builder's checks and prefixes; a clerk with only
+  the Room Invoice's rights makes, lists, posts only Room Invoices, refused
+  the original's, numbered RINV-; its own approvers; Vendor Invoice, Journal,
+  Sales Order and Quotation variants: their own documents and series);
+  ui/moduleBuilderVariants (the Room Invoice on the invoice screen: title,
+  label, hidden field, extra fields saved from the screen, its list, the
+  print; the invoice screen's badge; the builder's variant editor).
+  Negative controls, each caught then restored: a required field hidden
+  (unit); the variant's rights not used (emulator, 3 tests fail); the
+  document guard off (2 fail); the series not swapped (2 fail).
+- **Deploy set** `module-builder-p4`: every function (callable.js, auth.js),
+  with screens, then Hosting (public/index.html, the Help).
+
 ## Open questions for the owner
 
 None: phase 2 Q470-Q473, phase 3 Q474-Q480 and phase 4 Q481-Q488 decided.

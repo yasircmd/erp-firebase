@@ -5,8 +5,8 @@ order: 6
 modules: [APPROVALCONFIG]
 sources: [functions/src/approvals.js, functions/src/followUps.js, functions/src/approvalRegistry.js]
 summary: Set the approval rules by module, level and company so documents flow to the right approvers.
-reviewed: 2026-11-07
-fingerprint: 65176655a92e587d
+reviewed: 2026-11-12
+fingerprint: c6e65d92fe4d26b4
 ---
 ## What it is for
 
@@ -39,6 +39,11 @@ fingerprint: 65176655a92e587d
 ## What happens in the books
 
 Configuration changes do not post to the general ledger. When a transaction is submitted, the module resolves its scope and amount, snapshots the required levels into an approval instance, and waits for every applicable approval. The transaction module performs the posting only after its own approval rules are satisfied. A module enabled with no applicable levels is not gated.
+
+A [variant](built-modules.html#variants) of a document (for example a Room
+Invoice of Customer Invoice) has its own row here, under its own name: its
+approvers and limits are its own. With none set, its documents post without
+approval.
 
 ## Rights
 
