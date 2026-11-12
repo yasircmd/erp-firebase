@@ -225,6 +225,59 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await r.close();
   });
 
+  await check('phase 6: the builder makes a calculated field; a claim\'s lines and header work out as typed; the saved values are the server\'s', async () => {
+    const p = await open('BUILDER');
+    await p.click('#bd-new');
+    await p.fill('#bd-id', 'x_calc');
+    await p.fill('#bd-label', 'Quick quote');
+    await p.selectOption('#bd-kind', 'document');
+    await p.fill('#bd-prefix', 'QQ');
+    for (const [i, key, label, type] of [[0, 'qty', 'Qty', 'number'], [1, 'rate', 'Rate', 'amount'], [2, 'amount', 'Amount', 'calc']]) {
+      await p.click('#bd-add-field');
+      await p.fill('#bd-fields tr[data-i="' + i + '"] .bd-key', key);
+      await p.fill('#bd-fields tr[data-i="' + i + '"] .bd-flabel', label);
+      await p.selectOption('#bd-fields tr[data-i="' + i + '"] .bd-type', type);
+    }
+    await p.waitForSelector('#bd-fields tr[data-i="2"] .bd-cop');
+    assert.equal(await p.$('#bd-fields tr[data-i="2"] .bd-required'), null, 'a calculated field is never required');
+    await p.selectOption('#bd-fields tr[data-i="2"] .bd-cop', 'percent');
+    await p.waitForSelector('#bd-fields tr[data-i="2"] .bd-cvalue');
+    await p.selectOption('#bd-fields tr[data-i="2"] .bd-cop', 'product');
+    await p.fill('#bd-fields tr[data-i="2"] .bd-cof', 'qty, rate');
+    await p.click('#bd-save');
+    await p.waitForFunction(() => /Not published yet/.test(document.getElementById('bd-version').textContent));
+    const d = (await call('u-admin', 'getModuleDefinition', { id: 'X_CALC' })).draft;
+    assert.deepEqual([d.fields[2].type, d.fields[2].op, d.fields[2].of, d.fields[2].money], ['calc', 'product', ['qty', 'rate'], true]);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+
+    // A claim (by the server calls): lines qty × rate, header retention 10% of the lines' total.
+    await call('u-admin', 'saveModuleDefinitionDraft', { isNew: true, definition: { id: 'X_CLAIM', label: 'Claim', kind: 'document', numbering: { prefix: 'PC' },
+      fields: [{ key: 'retPct', label: 'Retention %', type: 'number' }, { key: 'retention', label: 'Retention', type: 'calc', op: 'percent', of: ['t:amount', 'retPct'] }],
+      lines: { enabled: true, label: 'Work', fields: [{ key: 'qty', label: 'Qty', type: 'number' }, { key: 'rate', label: 'Rate', type: 'amount' }, { key: 'amount', label: 'Amount', type: 'calc', op: 'product', of: ['qty', 'rate'] }] },
+      statuses: [{ name: 'Draft' }, { name: 'Certified' }] } });
+    await call('u-admin', 'publishModuleDefinition', { id: 'X_CLAIM' });
+    await rtdb.ref('permissions/X_CLAIM').set({ access: ['Admin'], write: ['Admin'], void: ['Admin'] });
+    const s = await open('X_CLAIM');
+    await s.waitForSelector('#bm-list-view:not(.hidden)');
+    await s.click('#bm-new');
+    await s.waitForSelector('#bm-lines tr[data-line="0"] [data-calc="amount"]');
+    await s.fill('#bm-fields input[data-key="retPct"]', '10');
+    await s.fill('#bm-lines tr[data-line="0"] input[data-key="qty"]', '12');
+    await s.fill('#bm-lines tr[data-line="0"] input[data-key="rate"]', '25.50');
+    await s.waitForFunction(() => document.querySelector('#bm-lines tr[data-line="0"] [data-calc="amount"]').textContent === '306.00');
+    assert.equal(await s.textContent('#bm-fields [data-calc="retention"]'), '30.60');
+    assert.match(await s.textContent('#bm-lines-total'), /306\.00/);
+    await s.click('#bm-save');
+    await s.waitForFunction(() => /Claim PC-\d\d-000001/.test(document.getElementById('bm-title').textContent));
+    const list = await call('u-admin', 'listBuiltRecords', { moduleId: 'X_CLAIM' });
+    const saved = (await call('u-admin', 'getBuiltRecord', { moduleId: 'X_CLAIM', id: list.records[0].RecordID })).record;
+    assert.deepEqual([saved.Lines[0].amount, saved.Totals.amount, saved.Fields.retention], [306, 306, 30.6]);
+    assert.equal(await s.textContent('#bm-fields [data-calc="retention"]'), '30.60');
+    assert.deepEqual(s.__errors, []);
+    await s.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   void rtdb;
   results.forEach(r => console.log(r.join('  ')));
