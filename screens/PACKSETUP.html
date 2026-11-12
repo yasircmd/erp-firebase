@@ -1,0 +1,55 @@
+<!-- Pack setup (owner, 2026-11-12; docs/modules/MODULE_BUILDER.md, phase 6,
+     Q493-Q496): the packs this corporate has, each with its setup checklist.
+     A module's Setup and the roles' rights are ticked by themselves when
+     done; a tax component or another step is ticked by hand. The pack's
+     starter reports can be added to the user's own MIS reports. -->
+<div class="space-y-4">
+  <div class="border-b border-slate-800 pb-3">
+    <div class="text-xs font-semibold text-blue-400 uppercase mb-1">Packs</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-box-open text-blue-500"></i> Pack setup</h2>
+    <p class="text-xs text-slate-400 mt-1">What each pack needs before it is used. A pack adds no tax of its own: add the components it names in Tax Configuration.</p>
+  </div>
+  <div id="ps-body" class="space-y-4"><div class="text-sm text-slate-400">Loading…</div></div>
+</div>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const KIND = { setup: 'Setup', tax: 'Tax', rights: 'Rights', manual: 'To do' };
+  let S = null;
+
+  function draw() {
+    if (!S.packs.length) { $('ps-body').innerHTML = '<div class="text-sm text-slate-400">This corporate has no pack yet.</div>'; return; }
+    $('ps-body').innerHTML = S.packs.map(p => {
+      const done = p.checklist.filter(c => c.done).length;
+      return '<div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3" data-pack="' + esc(p.id) + '">' +
+        '<div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-semibold text-slate-100">' + esc(p.label) + ' <span class="text-xs text-slate-500">v' + p.version + '</span></h3>' +
+        '<p class="text-xs text-slate-400">' + esc(p.description) + '</p></div>' +
+        '<div class="text-xs ps-progress ' + (done === p.checklist.length ? 'text-emerald-400' : 'text-amber-300') + '">' + done + ' of ' + p.checklist.length + ' done</div></div>' +
+        '<ul class="space-y-1">' + p.checklist.map(c => '<li class="flex items-start gap-2 text-sm" data-key="' + esc(c.key) + '">' +
+          '<input type="checkbox" class="ps-tick mt-1"' + (c.done ? ' checked' : '') + (c.auto || !S.canEdit ? ' disabled' : '') + '>' +
+          '<span class="text-xs text-slate-500 w-14 shrink-0 mt-0.5">' + esc(KIND[c.kind] || '') + '</span><span class="' + (c.done ? 'text-slate-400 line-through' : '') + '">' + esc(c.text) +
+          (c.auto ? ' <span class="text-xs text-slate-500">(ticked when done)</span>' : '') + '</span></li>').join('') + '</ul>' +
+        (p.reports.length ? '<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400 border-t border-slate-700 pt-2">Starter reports: ' + p.reports.map(r => esc(r.name)).join(', ') +
+          (p.haveReports ? ' <span class="text-emerald-400">(in your MIS reports)</span>' : S.canEdit ? ' <button class="ps-reports bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded">Add to my reports</button>' : '') + '</div>' : '') +
+        '</div>';
+    }).join('');
+  }
+  const load = () => call('getPackSetup', {}).then(r => { S = r; draw(); }, e => { $('ps-body').innerHTML = '<div class="text-sm text-rose-400">' + esc(e.message) + '</div>'; });
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-box-open"></i> Pack setup';
+    $('ps-body').addEventListener('change', e => {
+      const t = e.target.closest('.ps-tick'); if (!t) return;
+      const pack = t.closest('[data-pack]').dataset.pack, key = t.closest('[data-key]').dataset.key;
+      call('tickPackItem', { pack, key, done: t.checked }).then(load, err => { t.checked = !t.checked; appAlert(err.message); });
+    });
+    $('ps-body').addEventListener('click', e => {
+      const b = e.target.closest('.ps-reports'); if (!b) return;
+      b.disabled = true;
+      call('addPackReports', { pack: b.closest('[data-pack]').dataset.pack }).then(r => { appAlert(r.reports + ' report(s) are in your MIS reports.'); return load(); }, err => { b.disabled = false; appAlert(err.message); });
+    });
+    load();
+  };
+})();
+</script>

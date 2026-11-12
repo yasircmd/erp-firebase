@@ -21,6 +21,14 @@
         <th class="py-2 px-3">Module</th><th class="py-2 px-3">Id</th><th class="py-2 px-3">Kind</th><th class="py-2 px-3">Version</th><th class="py-2 px-3">Published</th><th class="py-2 px-3"></th></tr></thead>
         <tbody id="bd-body" class="divide-y divide-slate-800"></tbody></table>
     </div>
+    <!-- Packs (phase 6, Q493): the firm's packs in the code, published with their modules. -->
+    <div class="pt-2"><h3 class="font-semibold text-slate-200"><i class="fa-solid fa-box-open text-blue-400"></i> Packs</h3>
+      <p class="text-xs text-slate-400">A pack is a set of modules with a menu, starter reports and a setup checklist, provided to corporates as one in the Developer screen. Publishing one publishes its modules where they changed, then the pack.</p></div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Pack</th><th class="py-2 px-3">Modules</th><th class="py-2 px-3">Reports</th><th class="py-2 px-3">Checklist</th><th class="py-2 px-3">Version</th><th class="py-2 px-3"></th></tr></thead>
+        <tbody id="bd-packs" class="divide-y divide-slate-800"></tbody></table>
+    </div>
   </div>
 
   <div id="bd-edit-view" class="hidden space-y-4">
@@ -127,7 +135,18 @@
       '</td><td class="py-2 px-3 text-xs">' + esc(String(d.publishedAt || '').slice(0, 10)) + '</td><td class="py-2 px-3 text-xs">' + (d.changed ? '<span class="text-amber-400">Draft changed</span>' : '') + '</td></tr>').join('') ||
       '<tr><td colspan="6" class="py-6 text-center text-slate-500">No module yet: New module.</td></tr>';
   }
-  const load = () => call('getModuleDefinitions', {}).then(r => { L = r; renderList(); }, fail);
+  const load = () => call('getModuleDefinitions', {}).then(r => { L = r; renderList(); loadPacks(); }, fail);
+  // ---------- packs (phase 6) ----------
+  let P = null;
+  function renderPacks() {
+    $('bd-packs').innerHTML = (P.packs || []).map(p => '<tr data-pack="' + esc(p.id) + '"><td class="py-2 px-3"><div class="font-medium">' + esc(p.label) + '</div><div class="text-xs text-slate-500 font-mono">' + esc(p.id) + '</div>' +
+      (p.problem ? '<div class="text-xs text-rose-400">' + esc(p.problem) + '</div>' : '') + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + p.modules.map(m => esc(m.label)).join(', ') + '</td><td class="py-2 px-3">' + p.reports + '</td><td class="py-2 px-3">' + p.checklist + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + (p.version ? 'v' + p.version : 'Not published') + (p.changed && p.version ? ' <span class="text-amber-400">changed</span>' : '') + '</td>' +
+      '<td class="py-2 px-3 text-right">' + (P.rights.publish && !p.problem && p.changed ? '<button class="bd-pack-publish bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Publish</button>' : '') + '</td></tr>').join('') ||
+      '<tr><td colspan="6" class="py-6 text-center text-slate-500">No pack in the code.</td></tr>';
+  }
+  const loadPacks = () => call('getModulePacks', {}).then(r => { P = r; renderPacks(); }, fail);
 
   // One field row (header or line).
   function fieldRow(f, i, line) {
@@ -358,6 +377,17 @@
     load();
     $('bd-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) open(tr.dataset.id); });
     $('bd-new').addEventListener('click', () => open(null));
+    $('bd-packs').addEventListener('click', async e => {
+      const b = e.target.closest('.bd-pack-publish'); if (!b) return;
+      const id = b.closest('tr').dataset.pack;
+      if (!(await appConfirm('Publish the pack ' + id + '? Its changed modules get a new version for every corporate, and the corporates that have the pack get what is new in it.'))) return;
+      b.disabled = true;
+      try {
+        const r = await call('publishModulePack', { id });
+        appAlert(r.unchanged ? 'Nothing changed: no new version.' : 'Pack version ' + r.version + ' published' + (r.modules.length ? ' with ' + r.modules.map(m => m.id + ' v' + m.version).join(', ') : '') + (r.corporates.length ? '; brought up to date in ' + r.corporates.length + ' corporate(s).' : '.'));
+      } catch (err) { fail(err); }
+      load();
+    });
     $('bd-back').addEventListener('click', () => { $('bd-edit-view').classList.add('hidden'); $('bd-list-view').classList.remove('hidden'); load(); });
     $('bd-save').addEventListener('click', save);
     $('bd-publish').addEventListener('click', publish);

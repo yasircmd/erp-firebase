@@ -252,18 +252,30 @@
   }
 
   // ---------- modules ----------
+  // Packs (MODULE_BUILDER.md, phase 6): a pack brings its modules and Pack setup; those are its, not ticked one by one.
+  const packModulesOf = ids => new Set((data.packs || []).filter(p => ids.includes(p.id)).flatMap(p => p.modules.concat(['PACKSETUP'])));
   function renderModules() {
     const off = current.Modules || {};
-    el('dv-modules').innerHTML = data.modules.map(m =>
+    const myPacks = Object.keys(current.Packs || {}).filter(k => current.Packs[k]);
+    const inPack = packModulesOf(myPacks);
+    el('dv-modules').innerHTML = ((data.packs || []).length ? '<div class="col-span-full text-xs font-semibold text-slate-300 mt-1">Packs</div>' + data.packs.map(p =>
+      '<label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/40"><input type="checkbox" data-pack="' + escapeHtml(p.id) + '"' + (myPacks.includes(p.id) ? ' checked' : '') + (data.canWrite ? '' : ' disabled') + '> <span>' + escapeHtml(p.label) + '</span> <span class="text-xs text-slate-500">(pack, v' + p.version + ')</span></label>').join('') +
+      '<div class="col-span-full text-xs font-semibold text-slate-300 mt-1">Modules</div>' : '') + data.modules.map(m =>
       '<label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/40"><input type="checkbox" data-mod="' + escapeHtml(m.id) + '"' +
-      ((m.alwaysOn || (m.baseline ? off[m.id] !== false : off[m.id] === true)) ? ' checked' : '') + (m.alwaysOn || !data.canWrite ? ' disabled' : '') + '> <span>' + escapeHtml(m.label) + '</span>' +
-      (m.alwaysOn ? ' <span class="text-xs text-slate-500">(always on)</span>' : m.baseline ? '' : ' <span class="text-xs text-amber-300">(later module)</span>') + '</label>').join('');
+      ((m.alwaysOn || inPack.has(m.id) || (m.baseline ? off[m.id] !== false : off[m.id] === true)) ? ' checked' : '') + (m.alwaysOn || inPack.has(m.id) || !data.canWrite ? ' disabled' : '') + (inPack.has(m.id) ? ' data-inpack="1"' : '') + '> <span>' + escapeHtml(m.label) + '</span>' +
+      (m.alwaysOn ? ' <span class="text-xs text-slate-500">(always on)</span>' : inPack.has(m.id) ? ' <span class="text-xs text-blue-300">(in a pack)</span>' : m.baseline ? '' : ' <span class="text-xs text-amber-300">(later module)</span>') + '</label>').join('');
   }
   const tickAll = on => el('dv-modules').querySelectorAll('input[data-mod]:not(:disabled)').forEach(i => { i.checked = on; });
   function saveModules() {
     const modules = {};
-    el('dv-modules').querySelectorAll('input[data-mod]').forEach(i => { modules[i.dataset.mod] = i.checked; });
-    call('saveDeveloperModules', { CorporateID: current.CorporateID, modules }).then(r => { appAlert(r.off.length ? r.off.length + ' module(s) switched off.' : 'Every module is on.'); return load(current.CorporateID); }, fail('save the modules'));
+    el('dv-modules').querySelectorAll('input[data-mod]').forEach(i => { modules[i.dataset.mod] = i.dataset.inpack ? false : i.checked; });
+    const packs = Array.from(el('dv-modules').querySelectorAll('input[data-pack]:checked')).map(i => i.dataset.pack);
+    call('saveDeveloperModules', { CorporateID: current.CorporateID, modules, packs }).then(r => {
+      const failed = (r.packs || []).filter(x => x.failed || x.skipped);
+      appAlert((r.off.length ? r.off.length + ' module(s) switched off.' : 'Every module is on.') + ((r.packs || []).length ? ' Packs set up: ' + r.packs.filter(x => !x.failed && !x.skipped).map(x => x.pack).join(', ') + '.' : '') +
+        (failed.length ? ' Not set up: ' + failed.map(x => x.pack + ' (' + (x.failed || x.skipped) + ')').join(', ') + '.' : ''));
+      return load(current.CorporateID);
+    }, fail('save the modules'));
   }
 
   // ---------- notes ----------
@@ -350,8 +362,10 @@
       return '<div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3" data-group="' + escapeHtml(g.GroupID) + '">' +
         '<div class="flex flex-wrap items-center gap-2"><b class="text-slate-100">' + escapeHtml(g.Name) + '</b><span class="text-xs text-slate-400">' + (members.length ? escapeHtml(members.join(', ')) : 'no corporate yet') + '</span>' +
         (data.canWrite ? '<button class="dv-group-rename text-xs text-blue-300 hover:underline ml-auto">Rename</button>' : '') + '</div>' +
-        (later.length ? '<div class="flex flex-wrap gap-3 mt-2">' + later.map(m => '<label class="text-xs flex items-center gap-1"><input type="checkbox" data-gmod="' + escapeHtml(m.id) + '"' +
-          ((g.Modules || []).includes(m.id) ? ' checked' : '') + (data.canWrite ? '' : ' disabled') + '> ' + escapeHtml(m.label) + '</label>').join('') +
+        ((data.packs || []).length ? '<div class="flex flex-wrap gap-3 mt-2"><span class="text-xs text-slate-400">Packs:</span>' + data.packs.map(p => '<label class="text-xs flex items-center gap-1"><input type="checkbox" data-gpack="' + escapeHtml(p.id) + '"' +
+          ((g.Packs || []).includes(p.id) ? ' checked' : '') + (data.canWrite ? '' : ' disabled') + '> ' + escapeHtml(p.label) + '</label>').join('') + '</div>' : '') +
+        (later.length ? '<div class="flex flex-wrap gap-3 mt-2">' + later.map(m => { const inPack = packModulesOf(g.Packs || []).has(m.id); return '<label class="text-xs flex items-center gap-1"><input type="checkbox" data-gmod="' + escapeHtml(m.id) + '"' +
+          ((g.Modules || []).includes(m.id) || inPack ? ' checked' : '') + (data.canWrite && !inPack ? '' : ' disabled') + (inPack ? ' data-inpack="1"' : '') + '> ' + escapeHtml(m.label) + (inPack ? ' <span class="text-blue-300">(in a pack)</span>' : '') + '</label>'; }).join('') +
           (data.canWrite ? '<button class="dv-group-save text-xs bg-blue-600 text-white px-3 py-1 rounded">Save</button>' : '') + '</div>'
           : '<div class="text-xs text-slate-500 mt-1">No module has come after the groups yet.</div>') + '</div>';
     }).join('') : '<div class="text-xs text-slate-500">No groups yet.</div>';
@@ -363,8 +377,13 @@
         if (name) call('saveDeveloperGroup', { GroupID: id, Name: name }).then(() => load(current && current.CorporateID), fail('rename the group'));
       });
       if (sv) sv.addEventListener('click', () => {
-        const modules = Array.from(box.querySelectorAll('input[data-gmod]:checked')).map(i => i.dataset.gmod);
-        call('saveDeveloperGroupModules', { GroupID: id, modules }).then(r => { appAlert('Provided to ' + (r.corporates.join(', ') || 'no corporate yet') + '.'); return load(current && current.CorporateID); }, fail('save the group'));
+        const modules = Array.from(box.querySelectorAll('input[data-gmod]:checked')).filter(i => !i.dataset.inpack).map(i => i.dataset.gmod);
+        const packs = Array.from(box.querySelectorAll('input[data-gpack]:checked')).map(i => i.dataset.gpack);
+        call('saveDeveloperGroupModules', { GroupID: id, modules, packs }).then(r => {
+          const failed = (r.packs || []).filter(x => x.failed || x.skipped);
+          appAlert('Provided to ' + (r.corporates.join(', ') || 'no corporate yet') + '.' + (failed.length ? ' Packs not set up in: ' + failed.map(x => x.corporate + ' ' + x.pack + ' (' + (x.failed || x.skipped) + ')').join(', ') + '.' : ''));
+          return load(current && current.CorporateID);
+        }, fail('save the group'));
       });
     });
   }
