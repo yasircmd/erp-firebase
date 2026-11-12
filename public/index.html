@@ -1124,6 +1124,10 @@
             // A client corporate's call carries its corporate and its own
             // Auth's token (functions/src/corporates.js); Corporate 100's
             // goes as always.
+            // VARIANTS: a variant's screen names it on every call it makes, and sends its extra fields with a save.
+            if (fromScreen && window.__variant && arg && typeof arg === 'object' && !Array.isArray(arg) && prop !== 'getModuleFragment') {
+              arg = Object.assign({}, arg, { __variant: window.__variant.id }, window.variantForm && variantForm.SAVES.includes(prop) ? { __variantFields: variantForm.values() } : {});
+            }
             const corp = sdk.corporateId && sdk.corporateId !== '100' ? sdk.corporateId : null;
             const user = corp && sdk.auth && sdk.auth.currentUser;
             Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
@@ -3521,6 +3525,113 @@
     })();
     // ---------- END DOCUMENT LINKS ----------
 
+    // ---------- VARIANTS ----------
+    // Module Builder, phase 4 (docs/modules/MODULE_BUILDER.md, Q481-Q488): a
+    // variant of an ERP document runs on its original's own screen.
+    // getModuleFragment puts window.__variant on it: { id, base, label,
+    // printTitle, labels, hidden, defaults, fields, spec, original }. Here:
+    // the title and the labels it renames, the fields it hides, its defaults
+    // on a new document, its extra fields in a panel under the header (kept
+    // with the document, VariantFields), and its name and extra fields on the
+    // print (Q487). The five screens call variantForm.open(doc) when they show
+    // a document (null: a new one). Every call the screen makes names the
+    // variant (the rpc above); its saves send the extra fields.
+    // On the original's list, a variant's document carries its name (in the variant's own screen every row is its own).
+    window.variantBadge = doc => (doc && doc.Variant && !window.__variant ? ' <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-sans">' + escapeHtml(doc.VariantLabel || doc.Variant) + '</span>' : '');
+    window.variantForm = (function () {
+      const SAVES = ['saveCustomerInvoiceDraft', 'saveVendorInvoiceDraft', 'saveDraftSalesOrder', 'saveJournalDraft', 'saveQuotation'];
+      let V = null, panel = null, links = {};
+      const el = id => document.getElementById(id);
+      const box = f => { const e = el(f.el); return e ? (e.closest('div') || e.parentElement) : null; };
+      const inputCls = 'w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm';
+      function relabel(root) {
+        // The title: wherever the original's name shows on its screen.
+        const t = el('app-title');
+        if (t) t.innerHTML = '<i class="fa-solid fa-clone"></i> ' + escapeHtml(V.label);
+        root.querySelectorAll('h1, h2, h3').forEach(h => { if (h.textContent.trim() === V.original || h.textContent.indexOf(V.original) >= 0 && h.children.length === 0) h.textContent = h.textContent.replace(V.original, V.label); });
+        V.spec.forEach(f => {
+          const b = box(f); if (!b) return;
+          if ((V.hidden || []).includes(f.key)) { b.classList.add('hidden'); b.dataset.variantHidden = '1'; return; }
+          const lab = (V.labels || {})[f.key];
+          const l = b.querySelector('label');
+          if (lab && l) { const first = [...l.childNodes].find(n => n.nodeType === 3 && n.textContent.trim()); if (first) first.textContent = lab + ' '; else l.textContent = lab; }
+        });
+      }
+      function fieldInput(f, v) {
+        const a = ' data-vkey="' + escapeHtml(f.key) + '"';
+        if (f.type === 'longtext') return '<textarea rows="2"' + a + ' class="' + inputCls + '">' + escapeHtml(v || '') + '</textarea>';
+        if (f.type === 'yesno') return '<label class="inline-flex items-center gap-2 py-2"><input type="checkbox"' + a + (v ? ' checked' : '') + '> Yes</label>';
+        if (f.type === 'choice') return '<select' + a + ' class="' + inputCls + '"><option value=""></option>' + (f.options || []).map(o => '<option' + (o === v ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') + '</select>';
+        if (f.type === 'link') {
+          const id = v && v.id, opts = (links[f.target] || []).slice();
+          if (id && !opts.some(o => o.id === id)) opts.unshift({ id, label: v.label || id });
+          return '<select' + a + ' class="' + inputCls + '"><option value=""></option>' + opts.map(o => '<option value="' + escapeHtml(o.id) + '"' + (o.id === id ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>').join('') + '</select>';
+        }
+        const type = f.type === 'date' ? 'date' : f.type === 'datetime' ? 'datetime-local' : 'text';
+        return '<input type="' + type + '"' + a + (f.type === 'number' || f.type === 'amount' ? ' inputmode="decimal"' : '') + ' value="' + escapeHtml(v == null ? '' : v) + '" class="' + inputCls + '">';
+      }
+      function draw(values) {
+        if (!panel) return;
+        panel.innerHTML = '<div class="text-xs font-semibold text-blue-400 uppercase mb-2">' + escapeHtml(V.label) + '</div><div class="grid grid-cols-1 md:grid-cols-3 gap-3">' +
+          V.fields.map(f => '<div><label class="block text-xs font-medium text-slate-300 mb-1">' + escapeHtml(f.label) + (f.required ? ' <span class="text-rose-400">*</span>' : '') + '</label>' + fieldInput(f, (values || {})[f.key]) + '</div>').join('') + '</div>';
+      }
+      function values() {
+        const out = {};
+        if (!panel) return out;
+        panel.querySelectorAll('[data-vkey]').forEach(x => { const f = V.fields.find(y => y.key === x.dataset.vkey); out[f.key] = f.type === 'yesno' ? x.checked : f.type === 'link' ? (x.value ? { id: x.value } : null) : x.value; });
+        return out;
+      }
+      function setup(root) {
+        V = window.__variant; links = {}; panel = null;
+        relabel(root);
+        if ((V.fields || []).length) {
+          const anchor = V.spec.map(box).find(Boolean);
+          const form = anchor && (anchor.closest('.grid') || anchor.parentElement);
+          panel = document.createElement('div');
+          panel.id = 'variant-fields';
+          panel.className = 'bg-slate-800/40 border border-blue-500/30 rounded-xl p-4 mt-3';
+          if (form && form.parentElement) form.parentElement.insertBefore(panel, form.nextSibling); else root.prepend(panel);
+          draw({});
+          // A link field's choices (the variant's company is the screen's; refreshed when a document opens).
+          [...new Set(V.fields.filter(f => f.type === 'link').map(f => f.target))].forEach(t =>
+            rpc.withSuccessHandler(r => { links[t] = r.options || []; draw(values()); }).withFailureHandler(() => {}).getBuiltLinkOptions({ moduleId: V.id, target: t, companyId: '' }));
+        }
+      }
+      // The screen shows a document (or a new one, null).
+      function open(doc) {
+        if (!V || !window.__variant) return;
+        if (!doc) {
+          V.spec.forEach(f => { const d = (V.defaults || {})[f.key]; const e = el(f.el); if (d != null && e && !e.value) { e.value = d; e.dispatchEvent(new Event('change', { bubbles: true })); } });
+          draw({});
+        } else draw(doc.VariantFields || {});
+      }
+      // The print: the variant's title, and its extra fields under the header (Q487).
+      function printBlock(doc) {
+        if (!V || !window.__variant) return '';
+        const vf = (doc && doc.VariantFields) || values();
+        const show = (f, v) => (v == null || v === '' ? '' : f.type === 'link' ? (v.label || v.id || '') : f.type === 'yesno' ? (v ? 'Yes' : 'No') : String(v));
+        const rows = V.fields.map(f => [f.label, show(f, vf[f.key])]).filter(r => r[1] !== '');
+        return rows.length ? '<table style="margin:6px 0;font-size:11px;border-collapse:collapse">' + rows.map(r => '<tr><th style="text-align:left;padding:2px 8px 2px 0">' + escapeHtml(r[0]) + '</th><td style="padding:2px 0">' + escapeHtml(r[1]) + '</td></tr>').join('') + '</table>' : '';
+      }
+      const title = fallback => (V && window.__variant ? V.printTitle || V.label : fallback);
+      // Every print of the five builds its document in #...-print-document just
+      // before printing: the variant's title and extra fields go under its
+      // first heading (the original's own heading stays: a tax invoice is still one).
+      window.addEventListener('beforeprint', () => {
+        if (!V || !window.__variant) return;
+        const doc = [...document.querySelectorAll('[id$="-print-document"]')].find(d => d.innerHTML.trim());
+        if (!doc) return;
+        const old = doc.querySelector('#variant-print-block'); if (old) old.remove();
+        const block = document.createElement('div');
+        block.id = 'variant-print-block';
+        block.innerHTML = '<div style="font-size:13px;font-weight:bold;margin:4px 0;text-transform:uppercase">' + escapeHtml(title('')) + '</div>' + printBlock(null);
+        const head = doc.querySelector('h1, h2, h3');
+        if (head && head.parentElement) head.parentElement.insertBefore(block, head.nextSibling); else doc.prepend(block);
+      });
+      return { SAVES, setup, open, values, printBlock, title, active: () => Boolean(V && window.__variant) };
+    })();
+    // ---------- END VARIANTS ----------
+
     function applyTreeTitle() {
       const titleEl = document.getElementById('app-title');
       // Only touch the title when the tree nav itself is showing — a
@@ -3854,6 +3965,7 @@
       // new one — otherwise a stale reference could point at DOM elements
       // that no longer exist once this module's fragment replaces it.
       window.hasUnsavedChanges = undefined;
+      window.__variant = null; // VARIANTS: the next screen says if it is one
       if (favoriteConfigMode) setFavoriteConfigMode(false);
       document.getElementById('back-to-tree-btn').classList.remove('hidden');
       document.getElementById('tree-controls').classList.add('hidden');
@@ -3905,6 +4017,7 @@
           if (typeof window.initModule === 'function') {
             try { window.initModule(null, result.canWrite); } catch (e) { console.error(e); }
           }
+          if (window.__variant && window.variantForm) variantForm.setup(container); // VARIANTS: a variant of an ERP document
           // Opened by Create next: start the new document from its source (DOCUMENT LINKS).
           if (drillParams && drillParams.CreateFrom) window.documentLinks.start(moduleId, drillParams.CreateFrom);
         })

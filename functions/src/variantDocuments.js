@@ -50,7 +50,7 @@ function assertOwn(store, doc) {
 async function marksFor(store, companyId) {
   const v = variantFor(store);
   if (!v) return {};
-  const out = { Variant: v.id };
+  const out = { Variant: v.id, VariantLabel: v.label };
   if (v.fields && typeof v.fields === 'object') {
     const def = await require('./builtDefinitions').publishedDef(v.id);
     const BM = require('./builtModules');

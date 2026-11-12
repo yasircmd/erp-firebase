@@ -549,7 +549,7 @@
       const tr = document.createElement('tr'); tr.dataset.docId = e.CustomerInvoiceID;
       tr.className = 'hover:bg-slate-700/30 cursor-pointer';
       tr.innerHTML = `
-        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
+        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}${window.variantBadge ? variantBadge(e) : ''}</td>
         <td class="py-2.5 px-4 text-sm">${escapeHtml(customer ? customer.CustomerName : '')}</td>
         <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.InvoiceDate || '')}</td>
         <td class="py-2.5 px-4 text-right font-mono text-sm">${formatMoney(e.Total)}</td>
@@ -1218,6 +1218,7 @@
     document.getElementById('cinv-fx-rate').value = inv.ExchangeRate || '';
     setTimeout(loadFxRate, 0);
     document.getElementById('cinv-form-description').value = inv.Description || '';
+    if (window.variantForm) window.variantForm.open(inv); // VARIANTS (MODULE_BUILDER.md, phase 4)
     document.getElementById('cinv-form-division').value = inv.DivisionID || '';
     document.getElementById('cinv-form-branch').value = inv.BranchID || '';
     document.getElementById('cinv-form-costcenter').value = inv.CostCenterID || '';
@@ -1275,6 +1276,7 @@
     document.getElementById('cinv-dn-picker-section').classList.add('hidden');
     document.getElementById('cinv-form-date').value = today();
     document.getElementById('cinv-form-description').value = '';
+    if (window.variantForm) window.variantForm.open(null); // VARIANTS (MODULE_BUILDER.md, phase 4)
     document.getElementById('cinv-form-division').value = '';
     document.getElementById('cinv-form-branch').value = '';
     document.getElementById('cinv-form-costcenter').value = '';

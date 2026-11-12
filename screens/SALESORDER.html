@@ -300,7 +300,7 @@
       const customer = customerById(so.CustomerID);
       const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer'; row.dataset.docId = so.SOID;
       row.innerHTML = `
-        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(so.SONumber || 'DRAFT')}</td>
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(so.SONumber || 'DRAFT')}${window.variantBadge ? variantBadge(so) : ''}</td>
         <td class="py-2 px-4 text-slate-200">${customer ? escapeHtml(customer.CustomerName) : '—'}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(so.SODate || '')}</td>
         <td class="py-2 px-4 text-right font-mono">${formatMoney(so.Total)}</td>
@@ -473,6 +473,7 @@
     document.getElementById('so-form-date').value = currentSo.SODate || '';
     document.getElementById('so-form-deliverydate').value = currentSo.RequestedDeliveryDate || '';
     document.getElementById('so-form-description').value = currentSo.Description || '';
+    if (window.variantForm) window.variantForm.open(currentSo); // VARIANTS (MODULE_BUILDER.md, phase 4)
     document.getElementById('so-form-division').value = currentSo.DivisionID || '';
     document.getElementById('so-form-branch').value = currentSo.BranchID || '';
     document.getElementById('so-form-costcenter').value = currentSo.CostCenterID || '';
@@ -494,6 +495,7 @@
     document.getElementById('so-form-date').value = today();
     document.getElementById('so-form-deliverydate').value = '';
     document.getElementById('so-form-description').value = '';
+    if (window.variantForm) window.variantForm.open(null); // VARIANTS (MODULE_BUILDER.md, phase 4)
     document.getElementById('so-form-division').value = '';
     document.getElementById('so-form-branch').value = '';
     document.getElementById('so-form-costcenter').value = '';

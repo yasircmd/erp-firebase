@@ -37,11 +37,21 @@
       <div><label for="bd-id" class="block text-xs font-medium text-slate-300 mb-1">Id <span class="text-slate-500">(X_ then capitals; fixed once saved)</span></label><input id="bd-id" placeholder="X_ROOM" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"></div>
       <div><label for="bd-label" class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="bd-label" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       <div><label for="bd-kind" class="block text-xs font-medium text-slate-300 mb-1">Kind</label><select id="bd-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
-        <option value="master">Master (records: rooms, properties, investments…)</option><option value="document">Document (bookings, orders, leases…)</option></select></div>
+        <option value="master">Master (records: rooms, properties, investments…)</option><option value="document">Document (bookings, orders, leases…)</option><option value="variant">Variant of an ERP document (a Room Invoice of Customer Invoice…)</option></select></div>
       <div class="md:col-span-2"><label for="bd-description" class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(shown under its title)</span></label><input id="bd-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Companies</label><label class="inline-flex items-center gap-2 text-sm py-2"><input type="checkbox" id="bd-company" checked> Each record belongs to a company</label></div>
-      <div class="bd-doc"><label for="bd-prefix" class="block text-xs font-medium text-slate-300 mb-1">Number prefix <span class="text-slate-500">(e.g. BK → BK-26-000001)</span></label><input id="bd-prefix" maxlength="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono uppercase"></div>
+      <div id="bd-company-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Companies</label><label class="inline-flex items-center gap-2 text-sm py-2"><input type="checkbox" id="bd-company" checked> Each record belongs to a company</label></div>
+      <div id="bd-prefix-wrap" class="bd-doc"><label for="bd-prefix" class="block text-xs font-medium text-slate-300 mb-1">Number prefix <span class="text-slate-500">(e.g. BK → BK-26-000001)</span></label><input id="bd-prefix" maxlength="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono uppercase"></div>
       <div><label for="bd-print-title" class="block text-xs font-medium text-slate-300 mb-1">Print title</label><input id="bd-print-title" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+
+    <!-- Phase 4 (Q481-Q488): a variant of an ERP document, on the original's screen and code. -->
+    <div id="bd-var" class="hidden bg-slate-800/40 border border-blue-500/30 rounded-xl p-4 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div><label for="bd-var-base" class="block text-xs font-medium text-slate-300 mb-1">A variant of</label><select id="bd-var-base" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <p class="md:col-span-2 text-xs text-slate-400 self-end">It runs on the original's own screen and code: every fix to the original reaches it. Its own rights, menu entry, numbers and approvals; its documents are the original's (every report includes them). Its extra fields are the Fields below.</p>
+      </div>
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 px-1">The original's field</th><th class="py-1 px-1">Its label here</th><th class="py-1 px-1">Hidden</th><th class="py-1 px-1">Default (new documents)</th></tr></thead>
+        <tbody id="bd-var-fields"></tbody></table>
     </div>
 
     <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2">
@@ -87,7 +97,7 @@
     </div>
 
     <!-- Phase 3 (Q474-Q480): actions to the books (a Customer Invoice, Vendor Invoice or Journal from a record) and bulk runs. -->
-    <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
+    <div id="bd-actions-wrap" class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
       <div class="flex items-center justify-between"><h3 class="font-semibold text-slate-200">Actions to the books <span class="text-xs text-slate-500 font-normal">(each makes a document through its own screen's checks; the company's accounts, sales type and cost centre are set in the module's Setup when no field gives them)</span></h3>
         <button id="bd-add-action" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded whitespace-nowrap"><i class="fa-solid fa-plus"></i> Add action</button></div>
       <div id="bd-actions" class="space-y-3"></div>
@@ -153,7 +163,8 @@
       listColumns: fields.filter(f => f._col).map(f => f.key),
       lines: { enabled: $('bd-lines-on').checked, label: $('bd-lines-label').value.trim(), fields: readFields('bd-line-fields').map(f => { const x = Object.assign({}, f); delete x._col; return x; }) },
       statuses: [...$('bd-statuses').querySelectorAll('tr[data-i]')].map(tr => ({ name: tr.querySelector('.bd-sname').value.trim(), editable: tr.querySelector('.bd-editable').checked, approval: tr.querySelector('.bd-approval').checked, final: tr.querySelector('.bd-final').checked })),
-      actions: readActions(),
+      actions: def.kind === 'variant' ? [] : readActions(),
+      base: $('bd-var-base').value, labels: readVariant().labels, hidden: readVariant().hidden, defaults: readVariant().defaults,
       board: { enabled: $('bd-board-on').checked, stateField: $('bd-board-field').value },
       schedule: { enabled: $('bd-sched-on').checked, resourceField: $('bd-sched-res').value, startField: $('bd-sched-start').value, endField: $('bd-sched-end').value,
         endIsFree: $('bd-sched-endfree').value === 'free',
@@ -196,11 +207,41 @@
         '<td class="py-1"><input class="bd-state bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" placeholder="e.g. Booked" value="' + esc(h ? h.state : '') + '"></td></tr>'; }).join('');
     document.querySelectorAll('.bd-sched-only').forEach(el => el.classList.toggle('hidden', !sc.enabled));
     drawActions();
+    drawVariant();
     const can = L.rights.write;
     $('bd-save').classList.toggle('hidden', !can);
     $('bd-publish').classList.toggle('hidden', !L.rights.publish || isNew);
     $('bd-delete').classList.toggle('hidden', !can || isNew || Boolean(published));
   }
+  // Phase 4: a variant's original, and its changes to the original's fields.
+  function drawVariant() {
+    const isVar = def.kind === 'variant';
+    $('bd-var').classList.toggle('hidden', !isVar);
+    ['bd-actions-wrap', 'bd-company-wrap'].forEach(id => $(id).classList.toggle('hidden', isVar));
+    if (isVar) document.querySelectorAll('.bd-doc, .bd-master').forEach(el => el.classList.add('hidden'));
+    $('bd-prefix-wrap').classList.toggle('hidden', !(isVar || def.kind === 'document'));
+    if (!isVar) return;
+    const bases = L.variantBases || {};
+    if (!def.base || !bases[def.base]) def.base = Object.keys(bases)[0];
+    $('bd-var-base').innerHTML = Object.entries(bases).map(([id, b]) => '<option value="' + esc(id) + '"' + (id === def.base ? ' selected' : '') + '>' + esc(b.label) + ' (its own numbers: ' + esc(b.prefix) + ')</option>').join('');
+    $('bd-var-base').disabled = Boolean(published);
+    $('bd-fields-note').textContent = 'Extra fields of this variant: kept on each of its documents, shown under the header, printed (Q487).';
+    $('bd-var-fields').innerHTML = bases[def.base].fields.map(f => '<tr data-vk="' + esc(f.key) + '" class="border-b border-slate-800"><td class="py-1 px-1 text-xs">' + esc(f.label) + (f.required ? ' <span class="text-slate-500">(required)</span>' : '') + '</td>' +
+      '<td class="py-1 px-1"><input class="bd-vlabel bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + esc((def.labels || {})[f.key] || '') + '" placeholder="' + esc(f.label) + '"></td>' +
+      '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-vhide"' + ((def.hidden || []).includes(f.key) ? ' checked' : '') + (f.required ? ' disabled title="Required on the original"' : '') + '></td>' +
+      '<td class="py-1 px-1"><input class="bd-vdefault bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + esc((def.defaults || {})[f.key] || '') + '"></td></tr>').join('');
+  }
+  function readVariant() {
+    const out = { labels: {}, hidden: [], defaults: {} };
+    $('bd-var-fields').querySelectorAll('tr[data-vk]').forEach(tr => {
+      const k = tr.dataset.vk, l = tr.querySelector('.bd-vlabel').value.trim(), d = tr.querySelector('.bd-vdefault').value.trim();
+      if (l) out.labels[k] = l;
+      if (tr.querySelector('.bd-vhide').checked) out.hidden.push(k);
+      if (d) out.defaults[k] = d;
+    });
+    return out;
+  }
+
   // Phase 3: the actions, one card each; every choice is a field of the right type.
   function drawActions() {
     const head = def.fields || [], lf = (def.lines || {}).fields || [];
@@ -303,6 +344,7 @@
       call('deleteModuleDefinitionDraft', { id: def.id }).then(() => { $('bd-back').click(); }, fail);
     });
     $('bd-kind').addEventListener('change', () => { capture(); draw(); });
+    $('bd-var-base').addEventListener('change', () => { capture(); def.labels = {}; def.hidden = []; def.defaults = {}; draw(); });
     ['bd-board-on', 'bd-sched-on'].forEach(id => $(id).addEventListener('change', () => { capture(); draw(); }));
     $('bd-add-field').addEventListener('click', () => { capture(); def.fields.push({ key: '', label: '', type: 'text' }); draw(); });
     $('bd-add-line-field').addEventListener('click', () => { capture(); def.lines.enabled = true; def.lines.fields.push({ key: '', label: '', type: 'text' }); draw(); });

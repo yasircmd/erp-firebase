@@ -409,7 +409,7 @@
       const tr = document.createElement('tr'); tr.dataset.docId = e.VendorInvoiceID;
       tr.className = 'hover:bg-slate-700/30 cursor-pointer';
       tr.innerHTML = `
-        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
+        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}${window.variantBadge ? variantBadge(e) : ''}</td>
         <td class="py-2.5 px-4 text-sm">${escapeHtml(vendor ? vendor.VendorName : '')}</td>
         <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.InvoiceDate || '')}</td>
         <td class="py-2.5 px-4 text-xs text-slate-400 font-mono">${escapeHtml(e.VendorRefNumber || '')}</td>
@@ -908,6 +908,7 @@
     setTimeout(loadFxRate, 0);
     document.getElementById('vinv-form-vendorref').value = inv.VendorRefNumber || '';
     document.getElementById('vinv-form-description').value = inv.Description || '';
+    if (window.variantForm) window.variantForm.open(inv); // VARIANTS (MODULE_BUILDER.md, phase 4)
     document.getElementById('vinv-form-division').value = inv.DivisionID || '';
     document.getElementById('vinv-form-branch').value = inv.BranchID || '';
     document.getElementById('vinv-form-costcenter').value = inv.CostCenterID || '';
@@ -957,6 +958,7 @@
     document.getElementById('vinv-form-date').value = today();
     document.getElementById('vinv-form-vendorref').value = '';
     document.getElementById('vinv-form-description').value = '';
+    if (window.variantForm) window.variantForm.open(null); // VARIANTS (MODULE_BUILDER.md, phase 4)
     document.getElementById('vinv-form-division').value = '';
     document.getElementById('vinv-form-branch').value = '';
     document.getElementById('vinv-form-costcenter').value = '';
