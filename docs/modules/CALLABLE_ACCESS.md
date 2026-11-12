@@ -121,7 +121,7 @@ modules C has not reached after a quarter.
 | # | Question | Recommendation |
 |---|---|---|
 | Q489 | Should the wrapper require a sign-in by default (option A)? | **Yes.** It closes the whole class at no cost; a public function is declared. |
-| Q490 | Which functions may be called without sign-in? | **Only the list in "What may be called without sign-in" below**, each with its reason. |
+| Q490 | Which functions may be called without sign-in? | **Only the two in "What may be called without sign-in" above** (`corporateSignIn`, `userIdSignIn`), each with its reason. |
 | Q491 | Should the wrapper also check the profile is Active and within its access date? | **Yes, once per request**, reused by the handler's own `requireUser`, so no extra read. |
 | Q492 | Should each callable declare its module, so the test can check a right is required? | **Later.** A and B first; declaring 715 modules is a larger change, worth it once the Module Builder settles. |
 | Q493 | The order for C, the per-module negative tests | **Posting modules first** (listed in C), then payroll and HR reads, then masters. |
