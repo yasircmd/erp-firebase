@@ -159,7 +159,7 @@
   }
   function readFields(tbody) {
     return [...$(tbody).querySelectorAll('tr[data-i]')].map(tr => {
-      const f = { key: tr.querySelector('.bd-key').value.trim(), label: tr.querySelector('.bd-flabel').value.trim(), type: tr.querySelector('.bd-type').value, required: tr.querySelector('.bd-required').checked };
+      const f = { key: tr.querySelector('.bd-key').value.trim(), label: tr.querySelector('.bd-flabel').value.trim(), type: tr.querySelector('.bd-type').value, required: Boolean(tr.querySelector('.bd-required') && tr.querySelector('.bd-required').checked) };
       const o = tr.querySelector('.bd-options'); if (o) f.options = o.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
       const t = tr.querySelector('.bd-target'); if (t) f.target = t.value;
       const d = tr.querySelector('.bd-default'); if (d && d.value !== '') f.default = d.value;
