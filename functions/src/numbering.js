@@ -217,6 +217,14 @@ function itemCategoryKind(id, c) {
 async function loadItemCategoryKinds() {
   const all = (await val('itemCategories')) || {};
   Object.keys(all).forEach(id => { if (all[id] && all[id].Prefix) itemCategoryKind(id, all[id]); });
+  // The published variants' own series (MODULE_BUILDER.md, Q482), in the same tree as their original's.
+  const { BASES } = require('./variantSpec');
+  (await require('./builtDefinitions').refresh()).filter(d => d.kind === 'variant' && BASES[d.base]).forEach(d => {
+    const base = kindOf('doc:' + BASES[d.base].prefix());
+    const k = kindOf('doc:' + d.numbering.prefix);
+    if (!k) kinds().push(Object.assign(docKind(d.numbering.prefix, d.label, base ? base.root : STOCK), { variant: d.id }));
+    else if (k.variant === d.id) k.label = d.label;
+  });
 }
 const customItemCode = (id, c) => { itemCategoryKind(id, c); return next(customItemKey(id), {}); };
 // A new category's prefix would give the numbers another type gives (as saveNumberingFormat refuses): that type's name.
@@ -229,6 +237,14 @@ async function prefixClash(prefix) {
 
 // The generators the system already had, by their old signatures.
 const voucherNumber = (prefix, year, companyId) => {
+  // In a variant's request, its original's numbers are the variant's own series (MODULE_BUILDER.md, Q482).
+  const v = require('./variantContext').current();
+  const { BASES } = require('./variantSpec');
+  if (v && BASES[v.base] && prefix === BASES[v.base].prefix()) {
+    const baseKind = kindOf('doc:' + prefix);
+    prefix = v.prefix;
+    if (!kindOf('doc:' + prefix)) kinds().push(Object.assign(docKind(prefix, v.label, baseKind ? baseKind.root : STOCK), { variant: v.id }));
+  }
   // A prefix added later by new development: numbered by the default.
   if (!kindOf('doc:' + prefix)) kinds().push(docKind(prefix, prefix, STOCK));
   return next('doc:' + prefix, { year, companyId });

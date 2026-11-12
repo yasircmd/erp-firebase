@@ -70,6 +70,7 @@ test('no module keeps data between requests, except these', () => {
     'numbering.js': ['KINDS'], // the document kinds, static
     'periodLock.js': ['consentStore', 'ADJUSTABLE_TYPES'], // per request; static
     'budgetConsent.js': ['store'], // per request (the budget consent, docs/modules/BUDGET.md B3)
+    'variantContext.js': ['store'], // per request (the variant a call runs in, docs/modules/MODULE_BUILDER.md phase 4)
     'developer.js': ['HOME_ONLY'], // static: the registry's Corporate-100-only modules
     'legacy/runtime.js': ['als'], // per request
     'lock.js': ['heldStore'], // per request: the lock the request holds (LOCKING.md step 2)

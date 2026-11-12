@@ -33,6 +33,8 @@ const by = user => user.profile.username || user.uid;
 function compatible(next, prev) {
   if (!prev) return;
   if (next.kind !== prev.kind) bad('A published module stays a ' + prev.kind + '.');
+  if (next.kind === 'variant' && next.base !== prev.base) bad('A published variant stays a variant of ' + prev.base + '.');
+  if (next.kind === 'variant' && next.numbering.prefix !== prev.numbering.prefix) bad('A published variant keeps its numbering prefix (' + prev.numbering.prefix + '): its documents carry it.');
   const types = (list, at) => list.forEach(f => {
     const was = (at === 'line' ? (prev.lines || {}).fields || [] : prev.fields).find(p => p.key === f.key);
     if (was && was.type !== f.type) bad((at === 'line' ? 'Line field' : 'Field') + ' "' + f.label + '" was ' + was.type + ': a published field keeps its type (add a new field instead).');
@@ -40,6 +42,17 @@ function compatible(next, prev) {
   });
   types(next.fields, 'header');
   types((next.lines || {}).fields || [], 'line');
+}
+
+// A variant's prefix is its own series (Q482): not another document type's, nor another variant's.
+async function assertPrefixFree(def) {
+  if (def.kind !== 'variant') return;
+  const p = def.numbering.prefix;
+  const numbering = require('./numbering');
+  const other = (await B.refresh(true)).find(d => d.kind === 'variant' && d.id !== def.id && d.numbering.prefix === p);
+  if (other) bad('The prefix ' + p + ' is the variant ' + other.label + '\'s.');
+  const taken = numbering._test.kinds().find(k => k.key === 'doc:' + p && !k.variant);
+  if (taken) bad('The prefix ' + p + ' is ' + taken.label + '\'s numbering.');
 }
 
 const publishedMasters = async () => (await B.refresh(true)).filter(d => d.kind === 'master').map(d => d.id);
@@ -83,6 +96,7 @@ exports.saveModuleDefinitionDraft = onCallWithMessages(onCallOptions, async (req
   if (!s.exists && (request.data || {}).isNew !== true) throw new HttpsError('not-found', 'No such module: create it first.');
   if (s.exists && (request.data || {}).isNew === true) bad('A module with the id ' + def.id + ' already exists.');
   compatible(def, s.exists ? s.data().Published : null);
+  await assertPrefixFree(def);
   await ref.set({ Draft: def, UpdatedAt: new Date().toISOString(), UpdatedBy: by(user) }, { merge: true });
   return { success: true, id: def.id };
 });
@@ -98,6 +112,7 @@ exports.publishModuleDefinition = onCallWithMessages(onCallOptions, async (reque
   const masters = await publishedMasters();
   const def = checked(() => B.cleanDefinition(s.data().Draft, masters));
   compatible(def, s.data().Published || null);
+  await assertPrefixFree(def);
   const version = (s.data().Version || 0) + 1;
   const now = new Date().toISOString();
   await ref.collection('versions').doc(String(version)).set({ def, PublishedAt: now, PublishedBy: by(user) });

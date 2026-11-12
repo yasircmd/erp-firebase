@@ -67,6 +67,9 @@ async function ensurePermissionsSeeded() {
 // A module the current corporate may not use (entitlements.js) has no
 // capability for anyone.
 async function moduleHasCapability(moduleId, capability, roleId) {
+  // In a variant's request, its original's rights are the variant's own (MODULE_BUILDER.md, Q484).
+  const variant = require('./variantContext').forBase(moduleId);
+  if (variant) moduleId = variant.id;
   if (!require('./entitlements').moduleAvailable(moduleId)) return false;
   const permissions = await ensurePermissionsSeeded();
   const modulePerm = permissions[moduleId] || {};
