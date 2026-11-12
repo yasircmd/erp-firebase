@@ -151,6 +151,21 @@ let ALI, SARA, TYPE, AUG;
     await p.context().close();
   });
 
+  // The leave applied below must still be ahead when the line manager's check
+  // cancels it (it was fixed at 02/11/2026, which then passed): days after the
+  // first Monday of the month two months from today in the company's time zone
+  // (always ahead, and its week within one month), as in the emulator suite;
+  // dmy shows a date as the portal does.
+  const SOON = (() => {
+    const t = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dubai' });
+    const d = new Date(Date.UTC(Number(t.slice(0, 4)), Number(t.slice(5, 7)) + 1, 1));
+    while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  const soon = n => { const d = new Date(SOON + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const dmy = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
+  const re = t => t.replace(/[/.]/g, '\\$&');
+
   await check('apply for leave: the days and the balance counted live; sent to the line manager; followed in My leave with its timeline', async () => {
     const p = await portal();
     await signIn(p, 'EMP-0001', 'Sunrise#2026');
@@ -159,18 +174,18 @@ let ALI, SARA, TYPE, AUG;
     await visible(p, '#lv-type');
     assert.match(await p.textContent('#lv-submit'), /Send to Sara/);
     await p.selectOption('#lv-type', TYPE.ANNUAL);
-    await p.fill('#lv-from', '2026-11-02');
+    await p.fill('#lv-from', soon(0));
     await p.dispatchEvent('#lv-from', 'change');
-    await p.fill('#lv-to', '2026-11-06');
+    await p.fill('#lv-to', soon(4));
     await p.dispatchEvent('#lv-to', 'change');
     await until(p, () => /5 days/.test(document.getElementById('lv-preview').textContent));
     const prev = await p.textContent('#lv-preview');
-    assert.match(prev, /back on 09\/11\/2026/, 'dates shown dd/mm/yyyy');
+    assert.match(prev, new RegExp('back on ' + re(dmy(soon(7)))), 'dates shown dd/mm/yyyy');
     assert.match(prev, new RegExp('Balance: [\\d.]+ → '));
     await p.click('#lv-submit');
-    assert.match(await toast(p, /LV-2026/), /LV-2026-0001: Sent to Sara Khan for approval\./);
+    assert.match(await toast(p, /LV-\d{4}/), /LV-\d{4}-0001: Sent to Sara Khan for approval\./);
     await until(p, () => location.hash === '#leave/history' && document.querySelector('.lv-row'));
-    assert.match(await p.textContent('.lv-row'), /Annual Leave\s*LV-2026-0001[\s\S]*02\/11\/2026 – 06\/11\/2026 · 5 days[\s\S]*With manager/);
+    assert.match(await p.textContent('.lv-row'), new RegExp('Annual Leave\\s*LV-\\d{4}-0001[\\s\\S]*' + re(dmy(soon(0))) + ' – ' + re(dmy(soon(4))) + ' · 5 days[\\s\\S]*With manager'));
     await p.click('.lv-row');
     assert.match(await p.textContent('.lv-detail'), /Applied in the portal\s*Ali Hassan/);
     assert.equal(await p.textContent('.lv-cancel'), 'Withdraw this request');
@@ -188,7 +203,7 @@ let ALI, SARA, TYPE, AUG;
     await signIn(a, 'EMP-0001', 'Sunrise#2026');
     await visible(a, '#home-leave-left');
     // A second request, to be rejected.
-    await a.evaluate(t => window.__ess.call('essPortal', { action: 'applyLeave', leave: { LeaveTypeID: t, FromDate: '2026-12-07', ToDate: '2026-12-07' } }), TYPE.ANNUAL);
+    await a.evaluate(x => window.__ess.call('essPortal', { action: 'applyLeave', leave: { LeaveTypeID: x.t, FromDate: x.d, ToDate: x.d } }), { t: TYPE.ANNUAL, d: soon(35) });
     // Ali is also away today (approved leave): Sara sees it in the portal, not on ERP Home (owner, 2026-10-10).
     const T = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dubai' });
     const awayRef = await firestore.collection('leaveRequests').add({ Status: 'Approved', Kind: 'Leave', EmployeeID: ALI, EmployeeNo: 'EMP-0001', EmployeeName: 'Ali Hassan', LeaveTypeName: 'Annual Leave',
@@ -202,7 +217,7 @@ let ALI, SARA, TYPE, AUG;
     await s.click('#bottom-nav a[data-nav="team"]');
     await until(s, () => document.querySelectorAll('.tm-decide').length === 4);
     const first = await s.textContent('#page .ess-card');
-    assert.match(first, /Ali Hassan\s*EMP-0001[\s\S]*Annual Leave · 5 days[\s\S]*02\/11\/2026 – 06\/11\/2026[\s\S]*Balance: [\d.]+ → [\d.]+ days[\s\S]*Approved when you approve/);
+    assert.match(first, new RegExp('Ali Hassan\\s*EMP-0001[\\s\\S]*Annual Leave · 5 days[\\s\\S]*' + re(dmy(soon(0))) + ' – ' + re(dmy(soon(4))) + '[\\s\\S]*Balance: [\\d.]+ → [\\d.]+ days[\\s\\S]*Approved when you approve'));
     await s.click('.tm-decide[data-decision="Approved"]');
     assert.equal(await toast(s, /^Approved/), 'Approved.');
     await until(s, () => document.querySelectorAll('.tm-decide').length === 2);
@@ -221,7 +236,7 @@ let ALI, SARA, TYPE, AUG;
     await a.click('a[data-tab="history"]');
     await until(a, () => document.querySelectorAll('.lv-row').length === 2);
     const rows = await a.$$eval('.lv-row', r => r.map(x => x.textContent.replace(/\s+/g, ' ')));
-    assert.match(rows.join(' | '), /07\/12\/2026 · 1 day\s*Rejected/);
+    assert.match(rows.join(' | '), new RegExp(re(dmy(soon(35))) + ' · 1 day\\s*Rejected'));
     assert.match(rows.join(' | '), /5 days\s*Approved/);
     await a.click('.lv-row >> nth=0');
     assert.match(await a.textContent('.lv-detail >> nth=0'), /Year-end closing/);

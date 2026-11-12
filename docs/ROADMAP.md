@@ -721,6 +721,17 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   two days back, not today's). Checked with the clock shifted to 31 Oct,
   1 Nov, 15 Nov, 31 Dec, 1 Jan and 28 Feb: the old tests fail on those
   dates and the fixed ones pass on all of them.
+- [x] **Employee Portal tests' leave dates made relative** (owner, 2026-11-12):
+  essPortal's emulator suite and UI test fixed their leave at November 2026 to
+  February 2027. Once those days passed, an approved leave "not started yet"
+  could no longer be cancelled, and approved leaves became overdue returns in
+  the manager's Team, so "cancel approved leave not started", "who is away
+  today" and the UI's line-manager check failed on every branch. The dates
+  are now days after the first Monday of the month two months from today
+  (Dubai), with their old spacing; the leave number's year and the pay month
+  follow from it. Tests only, no code change. Passed on main's code today and
+  with the clock shifted to 30 Nov, 31 Dec, 1 Jan and 28 Feb (emulator 8/8,
+  UI 7/7 today).
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
