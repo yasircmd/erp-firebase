@@ -104,16 +104,30 @@ test('accounts: switched off (signed out and refused), on again (the password ke
   await firestore.collection('employees').doc(BEN).update({ Status: 'Active' });
 });
 
+// The leave below must stay ahead whenever the suite runs (it was fixed at
+// November 2026 to February 2027, and an approved leave once past is a return
+// due, one not started yet can be cancelled): every date is days after BASE, the
+// first Monday of the month two months from today in the company's time zone
+// (always ahead, and a week from it within one month), with the spacing it had.
+const BASE = (() => {
+  const { todayIn } = require('../../src/recurringSchedule');
+  const t = todayIn('Asia/Dubai');
+  const d = new Date(Date.UTC(Number(t.slice(0, 4)), Number(t.slice(5, 7)) + 1, 1));
+  while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+})();
+const on = n => { const d = new Date(BASE + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
 test('leave with a line manager: applied (With manager, counted in the balance), the manager approves, then as Submit: approved, or to Approval Configuration', async () => {
   const form = await ess(UID.ALI, 'leaveForm');
   assert.equal(form.manager, 'Sara Khan');
   assert.ok(form.types.some(t => t.Code === 'ANNUAL') && !form.types.some(t => t.Code === 'MATERNITY') && !form.types.some(t => t.Code === 'TRAVEL'), 'leave kinds for his gender only');
-  const l = { LeaveTypeID: TYPE.ANNUAL, FromDate: '2026-11-02', ToDate: '2026-11-06', Reason: 'Family visit' };
+  const l = { LeaveTypeID: TYPE.ANNUAL, FromDate: on(0), ToDate: on(4), Reason: 'Family visit' };
   const p = (await ess(UID.ALI, 'previewLeave', { leave: l })).preview;
   assert.equal(p.Days, 5);
   const before = (await ess(UID.ALI, 'balances')).balances.find(b => b.Code === 'ANNUAL');
   const a = await ess(UID.ALI, 'applyLeave', { leave: l });
-  assert.deepEqual([a.status, a.leaveNumber], ['PendingManager', 'LV-2026-0001']);
+  assert.deepEqual([a.status, a.leaveNumber], ['PendingManager', 'LV-' + BASE.slice(0, 4) + '-0001']);
   const after = (await ess(UID.ALI, 'balances')).balances.find(b => b.Code === 'ANNUAL');
   assert.deepEqual([after.Pending, after.Available], [5, Math.round((before.Available - 5) * 100) / 100]);
   const mine = (await ess(UID.ALI, 'leaves')).leaves[0];
@@ -124,14 +138,14 @@ test('leave with a line manager: applied (With manager, counted in the balance),
   await assert.rejects(ess(UID.BEN, 'decideLeave', { leaveId: a.leaveId, decision: 'Approved' }), /Only the employee's line manager/);
   const t = await ess(UID.SARA, 'team');
   assert.equal(t.isManager, true);
-  assert.deepEqual(t.pending.map(x => [x.LeaveNumber, x.EmployeeName, x.Days, x.NextStep]), [['LV-2026-0001', 'Ali Hassan', 5, 'Approved when you approve']]);
+  assert.deepEqual(t.pending.map(x => [x.LeaveNumber, x.EmployeeName, x.Days, x.NextStep]), [['LV-' + BASE.slice(0, 4) + '-0001', 'Ali Hassan', 5, 'Approved when you approve']]);
   assert.equal((await ess(UID.SARA, 'home')).teamPending, 1);
   assert.equal((await ess(UID.BEN, 'team')).isManager, false);
   await assert.rejects(ess(UID.SARA, 'decideLeave', { leaveId: a.leaveId, decision: 'Rejected' }), /reason for rejecting/);
   const ok = await ess(UID.SARA, 'decideLeave', { leaveId: a.leaveId, decision: 'Approved' });
   assert.equal(ok.status, 'Approved');
   const d = await leaveDoc(a.leaveId);
-  assert.deepEqual([d.Status, d.ManagerDecision, d.Lines.every(x => x.PayMonth === '2026-11'), d.History.map(h => h.Event)],
+  assert.deepEqual([d.Status, d.ManagerDecision, d.Lines.every(x => x.PayMonth === BASE.slice(0, 7)), d.History.map(h => h.Event)],
     ['Approved', 'Approved', true, ['Applied in the portal', 'Approved by the line manager', 'Submitted (no approval needed)']]);
   await assert.rejects(ess(UID.SARA, 'decideLeave', { leaveId: a.leaveId, decision: 'Approved' }), /no longer waiting for you \(approved\)/);
   assert.equal((await ess(UID.SARA, 'team')).decided[0].ManagerDecision, 'Approved');
@@ -139,7 +153,7 @@ test('leave with a line manager: applied (With manager, counted in the balance),
   // With Approval Configuration set up for Leave: the manager, then the approver.
   await rtdb.ref('approvalConfigurations/LEAVE').set({ Enabled: true, ScopeType: 'Global' });
   await rtdb.ref('approvalLevels/LEAVE').set({ GLOBAL: { Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] } });
-  const b = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: '2026-12-07', ToDate: '2026-12-08' } });
+  const b = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: on(35), ToDate: on(36) } });
   assert.equal((await ess(UID.SARA, 'team')).pending[0].NextStep, 'Then to HR\'s approval');
   assert.equal((await ess(UID.SARA, 'decideLeave', { leaveId: b.leaveId, decision: 'Approved' })).status, 'PendingApproval');
   assert.equal((await ess(UID.ALI, 'leaves')).leaves.find(x => x.LeaveID === b.leaveId).StatusText, 'With HR');
@@ -147,7 +161,7 @@ test('leave with a line manager: applied (With manager, counted in the balance),
   assert.equal(inst.CreatedBy, UID.ALI, 'the employee asked');
   assert.equal((await call('u-approver', 'decideLeaveApproval', { leaveId: b.leaveId, levelNumber: 1, decision: 'Approved' })).status, 'Approved');
   // Rejected by the manager, with the reason, shown to the employee.
-  const c = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: '2027-01-04', ToDate: '2027-01-04' } });
+  const c = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: on(63), ToDate: on(63) } });
   await ess(UID.SARA, 'decideLeave', { leaveId: c.leaveId, decision: 'Rejected', reason: 'Year-end closing' });
   const rej = (await ess(UID.ALI, 'leaves')).leaves.find(x => x.LeaveID === c.leaveId);
   assert.deepEqual([rej.Status, rej.RejectionReason, rej.CanCancel], ['Rejected', 'Year-end closing', false]);
@@ -155,20 +169,20 @@ test('leave with a line manager: applied (With manager, counted in the balance),
 });
 
 test('leave without a line manager: submitted at once; one expecting a document nobody would see is refused, nothing saved', async () => {
-  const r = await ess(UID.SARA, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: '2026-11-09', ToDate: '2026-11-10' } });
+  const r = await ess(UID.SARA, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: on(7), ToDate: on(8) } });
   assert.equal(r.status, 'Approved');
   assert.deepEqual((await leaveDoc(r.leaveId)).History.map(h => [h.Event, h.By]), [['Applied in the portal', 'Sara Khan'], ['Submitted (no approval needed)', 'Sara Khan']]);
   const n = (await firestore.collection('leaveRequests').get()).size;
-  await assert.rejects(ess(UID.SARA, 'applyLeave', { leave: { LeaveTypeID: TYPE.SICK, FromDate: '2026-11-16', ToDate: '2026-11-18' } }), /Sick Leave over 1 day needs a supporting document .* hand it to HR/);
+  await assert.rejects(ess(UID.SARA, 'applyLeave', { leave: { LeaveTypeID: TYPE.SICK, FromDate: on(14), ToDate: on(16) } }), /Sick Leave over 1 day needs a supporting document .* hand it to HR/);
   assert.equal((await firestore.collection('leaveRequests').get()).size, n);
   // The Leave Register's own rules apply: an overlap.
-  await assert.rejects(ess(UID.SARA, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: '2026-11-10', ToDate: '2026-11-11' } }), /already has leave/);
+  await assert.rejects(ess(UID.SARA, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: on(8), ToDate: on(9) } }), /already has leave/);
   // Another employee's type, gender: not offered, refused.
-  await assert.rejects(ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.MATERNITY, FromDate: '2026-11-16', ToDate: '2026-11-18' } }), /Choose the leave type/);
+  await assert.rejects(ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.MATERNITY, FromDate: on(14), ToDate: on(16) } }), /Choose the leave type/);
 });
 
 test('withdraw a request not yet approved (with the manager, or with HR); cancel approved leave not started; never another employee\'s', async () => {
-  const a = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: '2027-02-01', ToDate: '2027-02-02' } });
+  const a = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: on(91), ToDate: on(92) } });
   await assert.rejects(ess(UID.SARA, 'cancelLeave', { leaveId: a.leaveId }), /not your leave/);
   assert.equal((await ess(UID.ALI, 'cancelLeave', { leaveId: a.leaveId, reason: 'Plans changed' })).status, 'Withdrawn');
   assert.equal((await ess(UID.SARA, 'team')).pending.length, 0);
@@ -176,7 +190,7 @@ test('withdraw a request not yet approved (with the manager, or with HR); cancel
   // With HR: the approval is withdrawn too.
   await rtdb.ref('approvalConfigurations/LEAVE').set({ Enabled: true, ScopeType: 'Global' });
   await rtdb.ref('approvalLevels/LEAVE').set({ GLOBAL: { Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] } });
-  const b = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: '2027-02-03', ToDate: '2027-02-03' } });
+  const b = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: on(93), ToDate: on(93) } });
   await ess(UID.SARA, 'decideLeave', { leaveId: b.leaveId, decision: 'Approved' });
   await ess(UID.ALI, 'cancelLeave', { leaveId: b.leaveId });
   const inst = (await val('approvalInstances/' + (await leaveDoc(b.leaveId)).ApprovalInstanceID));
@@ -184,7 +198,7 @@ test('withdraw a request not yet approved (with the manager, or with HR); cancel
   await assert.rejects(call('u-approver', 'decideLeaveApproval', { leaveId: b.leaveId, levelNumber: 1, decision: 'Approved' }), /not awaiting approval/);
   await rtdb.ref('approvalConfigurations/LEAVE').remove();
   // Approved, not started: cancelled with a reason; the days return.
-  const s = (await ess(UID.SARA, 'leaves')).leaves.find(x => x.FromDate === '2026-11-09');
+  const s = (await ess(UID.SARA, 'leaves')).leaves.find(x => x.FromDate === on(7));
   assert.equal(s.CanCancel, true);
   await assert.rejects(ess(UID.SARA, 'cancelLeave', { leaveId: s.LeaveID }), /reason for cancelling/);
   assert.equal((await ess(UID.SARA, 'cancelLeave', { leaveId: s.LeaveID, reason: 'Trip postponed' })).status, 'Cancelled');
@@ -192,7 +206,7 @@ test('withdraw a request not yet approved (with the manager, or with HR); cancel
   // Started leave: not from the portal.
   await firestore.collection('leaveRequests').doc(s.LeaveID).update({ Status: 'Approved', FromDate: '2026-01-05' });
   await assert.rejects(ess(UID.SARA, 'cancelLeave', { leaveId: s.LeaveID, reason: 'x' }), /The leave has started/);
-  await firestore.collection('leaveRequests').doc(s.LeaveID).update({ Status: 'Cancelled', FromDate: '2026-11-09' });
+  await firestore.collection('leaveRequests').doc(s.LeaveID).update({ Status: 'Cancelled', FromDate: on(7) });
 });
 
 test('an ERP user linked to an employee uses the portal with the ERP sign-in; an unlinked one is told; the month lock names leave with the manager', async () => {
