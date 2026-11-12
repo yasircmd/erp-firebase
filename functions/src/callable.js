@@ -13,13 +13,17 @@ const perf = require('./perf');
 // corporate (the task-email summary asks Home's task readers for a user,
 // docs/modules/TASK_EMAILS.md); the corporate is the caller's, never the request's.
 // The variant a call names, when it is a published variant (MODULE_BUILDER.md,
-// Q484): { id, base, label, prefix }; none named, null; named but unknown, refused.
-async function variantOf(id) {
+// Q484): { id, base, label, prefix, fields }; none named, null; named but
+// unknown, refused. fields: the variant's extra fields the call sends
+// (__variantFields; variantDocuments checks them when the document is written).
+async function variantOf(data) {
+  const id = data && data.__variant;
   if (id == null || id === '') return null;
   const vid = String(id).trim().toUpperCase().slice(0, 33);
   const def = await require('./builtDefinitions').publishedDef(vid);
   if (!def || def.kind !== 'variant') throw new HttpsError('invalid-argument', 'Unknown variant: ' + vid);
-  return { id: def.id, base: def.base, label: def.label, prefix: def.numbering.prefix };
+  const f = data.__variantFields;
+  return { id: def.id, base: def.base, label: def.label, prefix: def.numbering.prefix, fields: f && typeof f === 'object' && !Array.isArray(f) ? f : null };
 }
 
 function onCallInCorporate(options, handler) {
@@ -29,7 +33,7 @@ function onCallInCorporate(options, handler) {
     // The published built modules join the registry (MODULE_BUILDER.md; the firm's, at most every 30 s).
     await require('./builtDefinitions').refresh();
     // A call from a variant's screen (MODULE_BUILDER.md, phase 4): checked, then the request runs in it.
-    const variant = await variantOf(request.data && request.data.__variant);
+    const variant = await variantOf(request.data);
     return runInCorporate(corporate, () => require('./variantContext').runWithVariant(variant, () => handler(request)));
   }));
   fn.inCorporate = handler;

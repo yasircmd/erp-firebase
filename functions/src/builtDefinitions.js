@@ -284,6 +284,7 @@ function cleanVariant(x, id, label, masters) {
   const defaults = map(x.defaults, 'Defaults', v => text(v, 200));
   const fields = (Array.isArray(x.fields) ? x.fields : []).map((f, i) => cleanField(f, 'Extra field ' + (i + 1), TYPES, Array.isArray(masters) ? masters : [], id));
   if (fields.length > 30) bad('At most 30 extra fields.');
+  if (fields.some(f => f.type === 'link' && f.target === 'COMPANY')) bad('Extra fields: the document already has its company.');
   uniqueKeys(fields, 'Extra fields');
   return { id, label, kind: 'variant', base, description: text(x.description, 300), companyScoped: true,
     numbering: { prefix }, labels, hidden, defaults, fields, printTitle: text(x.printTitle, 60) || label,

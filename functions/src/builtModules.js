@@ -564,4 +564,4 @@ exports.deleteBuiltRecord = onCallWithMessages(onCallOptions, async (request) =>
   return { success: true };
 });
 
-module.exports = Object.assign(exports, { moduleFor, loadRecord, cleanValue, cleanFields, cleanLines, nextStatuses, amountOf, periodOf, resourcesOf, overlaps, holdingState, addDay });
+module.exports = Object.assign(exports, { moduleFor, loadRecord, linkOptions, cleanValue, cleanFields, cleanLines, nextStatuses, amountOf, periodOf, resourcesOf, overlaps, holdingState, addDay });
