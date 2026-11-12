@@ -80,8 +80,9 @@ const linkId = v => (v && typeof v === 'object' ? text(v.id, 120) : '');
 // one party's records (a grouped run). ctx: { date, dueOf(rec), accounts
 // { accountId: code }, items { itemId: code }, partyAccounts { partyId: code } }.
 function buildTargetDraft(def, a, recs, setup, ctx) {
-  const s = setup || {};
   const first = recs[0];
+  // Phase 6: the record's own project, when the action takes it from a field.
+  const s = a.project ? Object.assign({}, setup || {}, { ProjectID: linkId((first.Fields || {})[a.project]) }) : (setup || {});
   const at = r => recNo(r) + ': ';
   const grouped = recs.length > 1;
   const date = a.date ? (first.Fields || {})[a.date] : ctx.date;
@@ -451,7 +452,7 @@ function needsOf(a) {
     if (a.partySide !== 'debit' && !a.debitAccount) out.push('DebitAccountCode');
     if (a.partySide !== 'credit' && !a.creditAccount) out.push('CreditAccountCode');
   } else if (!a.account) out.push('AccountCode');
-  return out.concat(['CostCenterID', 'ProfitCenterID', 'ProjectID']);
+  return out.concat(a.project ? ['CostCenterID', 'ProfitCenterID'] : ['CostCenterID', 'ProfitCenterID', 'ProjectID']);
 }
 // The books' settings are set by someone who changes the module and may post its documents.
 async function canEditSetup(user, def) {

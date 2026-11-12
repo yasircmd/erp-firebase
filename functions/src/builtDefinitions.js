@@ -21,9 +21,11 @@
 const ID = /^X_[A-Z][A-Z0-9_]{1,30}$/;
 const KEY = /^[a-z][a-zA-Z0-9]{0,30}$/;
 // Phase 1's field types (Q465) and links (Q469).
-const TYPES = Object.freeze(['text', 'longtext', 'number', 'amount', 'date', 'datetime', 'yesno', 'choice', 'link']);
-const LINE_TYPES = Object.freeze(['text', 'number', 'amount', 'date', 'yesno', 'choice', 'link']);
-const LINK_TARGETS = Object.freeze({ CUSTOMER: 'Customer', VENDOR: 'Vendor', ITEM: 'Item', EMPLOYEE: 'Employee', COMPANY: 'Company', ACCOUNT: 'Account', WAREHOUSE: 'Warehouse' });
+// Phase 6 (Q497): 'calc', a calculated field (builtCalc.js); a Project link.
+const TYPES = Object.freeze(['text', 'longtext', 'number', 'amount', 'date', 'datetime', 'yesno', 'choice', 'link', 'calc']);
+const LINE_TYPES = Object.freeze(['text', 'number', 'amount', 'date', 'yesno', 'choice', 'link', 'calc']);
+const LINK_TARGETS = Object.freeze({ CUSTOMER: 'Customer', VENDOR: 'Vendor', ITEM: 'Item', EMPLOYEE: 'Employee', COMPANY: 'Company', ACCOUNT: 'Account', WAREHOUSE: 'Warehouse', PROJECT: 'Project' });
+const C = require('./builtCalc');
 // Phase 3 (Q474-Q480): what an action creates, and a bulk run's periods (months).
 const TARGETS = Object.freeze({ CUSTOMERINVOICE: 'Customer Invoice', VENDORINVOICE: 'Vendor Invoice', JV: 'Journal' });
 const PERIODS = Object.freeze({ Monthly: 1, Quarterly: 3, 'Half-yearly': 6, Yearly: 12 });
@@ -58,9 +60,10 @@ function cleanField(f, at, types, masters, selfId) {
   }
   if (type === 'link') {
     const target = text(f.target, 40);
-    if (!LINK_TARGETS[target] && !(ID.test(target) && (masters.includes(target) || target === selfId))) bad(at + ': choose what it links to (a customer, vendor, item, employee, company, account, warehouse, or a built master).');
+    if (!LINK_TARGETS[target] && !(ID.test(target) && (masters.includes(target) || target === selfId))) bad(at + ': choose what it links to (a customer, vendor, item, employee, company, account, warehouse, project, or a built master).');
     out.target = target;
   }
+  if (type === 'calc') { Object.assign(out, C.cleanCalc(f, at)); out.required = false; return out; }
   if (f.default != null && f.default !== '' && type !== 'link') out.default = type === 'yesno' ? f.default === true : text(f.default, 200);
   return out;
 }
@@ -112,6 +115,8 @@ function cleanDefinition(d, masters) {
     if (statuses[0].final) bad('The first status (where a document starts) can\'t be final.');
     out.statuses = statuses;
   }
+  // Phase 6 (Q497): every calculated field's fields checked, in order.
+  C.checkDefinition(out);
   // Phase 2 (Q470-Q473): a document's schedule, a master's board.
   out.schedule = cleanSchedule(x.schedule, out);
   out.board = cleanBoard(x.board, out);
@@ -218,9 +223,11 @@ function cleanActions(list, def) {
       reference: pick(x.reference, ['text'], 'its reference is a text field.'),
       description: text(x.description, 200) || label + ' {number}',
       source, kind,
-      lineText: pick(x.lineText, ['text', 'choice'], 'the line text is a text or choice field.', either)
+      lineText: pick(x.lineText, ['text', 'choice'], 'the line text is a text or choice field.', either),
+      // Phase 6: the project from the record (a link to the ERP's projects), else the Setup's.
+      project: pick(x.project, ['link'], 'its project is a link field (of the header) to projects.', head, ['PROJECT'])
     };
-    const numberField = what => need(pick(x[what], ['number', 'amount'], 'its ' + what + ' is a number or amount field' + (source === 'lines' ? ' of the lines.' : '.'), from), 'choose the field that gives the ' + what + '.');
+    const numberField = what => need(pick(x[what], ['number', 'amount', 'calc'], 'its ' + what + ' is a number, amount or calculated field' + (source === 'lines' ? ' of the lines.' : '.'), from), 'choose the field that gives the ' + what + '.');
     if (kind === 'item') {
       o.item = need(pick(x.item, ['link'], 'its item is a link field to items.', either, ['ITEM']), 'choose the field that gives the item.');
       o.quantity = numberField('quantity');
@@ -282,7 +289,7 @@ function cleanVariant(x, id, label, masters) {
     if (f.required) bad('Hidden: ' + f.label + ' is required on a ' + spec.label + ', so it stays.');
   });
   const defaults = map(x.defaults, 'Defaults', v => text(v, 200));
-  const fields = (Array.isArray(x.fields) ? x.fields : []).map((f, i) => cleanField(f, 'Extra field ' + (i + 1), TYPES, Array.isArray(masters) ? masters : [], id));
+  const fields = (Array.isArray(x.fields) ? x.fields : []).map((f, i) => cleanField(f, 'Extra field ' + (i + 1), TYPES.filter(t => t !== 'calc'), Array.isArray(masters) ? masters : [], id));
   if (fields.length > 30) bad('At most 30 extra fields.');
   if (fields.some(f => f.type === 'link' && f.target === 'COMPANY')) bad('Extra fields: the document already has its company.');
   uniqueKeys(fields, 'Extra fields');

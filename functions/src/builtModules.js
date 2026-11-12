@@ -20,6 +20,7 @@ const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const B = require('./builtDefinitions');
+const C = require('./builtCalc');
 
 const onCallOptions = { region: 'us-central1' };
 const RECORDS = () => firestore.collection('builtRecords');
@@ -37,6 +38,7 @@ const MAX_LINES = 500;
 
 // One value of a field; ctx.links: { target: Map(id -> label) } of what may be chosen.
 function cleanValue(f, v, ctx, at) {
+  if (f.type === 'calc') return 0; // worked out on the server (builtCalc.apply), never taken from the screen
   const empty = v == null || (typeof v === 'string' && !v.trim()) || (typeof v === 'object' && !Array.isArray(v) && !v.id);
   if (empty) {
     if (f.required && f.type !== 'yesno') bad(at + f.label + ' is required.');
@@ -80,12 +82,7 @@ function cleanLines(def, lines, ctx) {
   // A line left wholly blank is dropped (the grid's empty rows).
   const filled = list.filter(l => l && def.lines.fields.some(f => { const x = l[f.key]; return x != null && x !== '' && x !== false && !(typeof x === 'object' && !x.id); }));
   const out = filled.map((l, i) => cleanFields(def.lines.fields, l, ctx, 'Line ' + (i + 1) + ': '));
-  const totals = {};
-  def.lines.fields.filter(f => f.type === 'number' || f.type === 'amount').forEach(f => {
-    totals[f.key] = out.reduce((s, l) => s + (Number(l[f.key]) || 0), 0);
-    if (f.type === 'amount') totals[f.key] = round2(totals[f.key]);
-  });
-  return { lines: out, totals };
+  return { lines: out, totals: C.totalsOf(def, out) };
 }
 
 // Which statuses a document in `status` may move to: any other, unless it is final.
@@ -97,9 +94,9 @@ function nextStatuses(def, status) {
 
 // The document's amount for Approval Configuration's thresholds: its first amount total, else its first amount field.
 function amountOf(def, rec) {
-  const lineAmt = ((def.lines || {}).fields || []).find(f => f.type === 'amount');
+  const lineAmt = ((def.lines || {}).fields || []).find(C.isMoney);
   if (lineAmt) return Number((rec.Totals || {})[lineAmt.key]) || 0;
-  const head = def.fields.find(f => f.type === 'amount');
+  const head = def.fields.find(C.isMoney);
   return head ? Number((rec.Fields || {})[head.key]) || 0 : 0;
 }
 
@@ -176,6 +173,14 @@ async function linkOptions(target, companyId, user) {
     const m = new Map();
     Object.entries((await rtdb.ref('orgUnits').get()).val() || {}).forEach(([id, u]) => {
       if (u && u.Type === 'Warehouse' && u.Status !== 'Inactive' && (!u.CompanyID || !companyId || u.CompanyID === companyId)) m.set(id, [u.Code, u.Name].filter(Boolean).join(' · ') || id);
+    });
+    return m;
+  }
+  if (target === 'PROJECT') {
+    // Phase 6: the ERP's projects (orgUnits, Type Project), open ones (not Closed or Inactive).
+    const m = new Map();
+    Object.entries((await rtdb.ref('orgUnits').get()).val() || {}).forEach(([id, u]) => {
+      if (u && u.Type === 'Project' && u.Status !== 'Inactive' && u.Status !== 'Closed' && (!u.CompanyID || !companyId || u.CompanyID === companyId)) m.set(id, [u.Code, u.Name].filter(Boolean).join(' · ') || id);
     });
     return m;
   }
@@ -319,6 +324,22 @@ exports.getBuiltRecord = onCallWithMessages(onCallOptions, async (request) => {
   return out;
 });
 
+// What a document's `previous` calcs add: its module's earlier documents with
+// the same link (an equality query on each link; MODULE_BUILDER.md Q497).
+async function previousFor(def, me) {
+  const pc = C.previousCalcs(def);
+  const all = pc.head.concat(pc.lines);
+  if (!all.length) return null;
+  const records = new Map();
+  for (const by of [...new Set(all.map(f => f.by))]) {
+    const linkId = C.matchValue((me.Fields || {})[by]);
+    if (!linkId) continue;
+    (await RECORDS().where('ModuleID', '==', def.id).where('Fields.' + by + '.id', '==', linkId).get()).docs
+      .forEach(x => records.set(x.id, Object.assign({ RecordID: x.id }, x.data())));
+  }
+  return C.previousFrom(def, me, [...records.values()]);
+}
+
 // The document's next number, in a transaction: PREFIX-YY-000001.
 async function nextNumber(def, date) {
   const year = String(date).slice(0, 4);
@@ -357,6 +378,7 @@ exports.saveBuiltRecord = onCallWithMessages(onCallOptions, async (request) => {
     const clash = (await RECORDS().where('ModuleID', '==', def.id).where('Code', '==', code).get()).docs
       .some(x => x.id !== id && (x.data().CompanyID || '') === companyId);
     if (clash) bad('The code ' + code + ' is already used' + (companyId ? ' in this company.' : '.'));
+    base.Fields = C.apply(def, fields, [], null).fields;
     const doc = Object.assign(base, { Code: code, Name: name, Active: old ? old.Active !== false : true });
     if (old) { await RECORDS().doc(id).set(doc, { merge: true }); return { success: true, id }; }
     const ref = await RECORDS().add(Object.assign(doc, { CreatedAt: now, CreatedBy: by(user) }));
@@ -371,7 +393,12 @@ exports.saveBuiltRecord = onCallWithMessages(onCallOptions, async (request) => {
   }
   const date = text(rec.Date, 10);
   if (!isDate(date)) bad('Choose the date.');
-  const { lines, totals } = cleanLines(def, rec.Lines, ctx);
+  const cleaned = cleanLines(def, rec.Lines, ctx);
+  // Phase 6 (Q497): the calculated fields, with what earlier documents add.
+  const prev = await previousFor(def, { RecordID: id, Date: date, CreatedAt: old ? old.CreatedAt : '', Fields: fields });
+  const calc = C.apply(def, fields, cleaned.lines, prev);
+  base.Fields = calc.fields;
+  const lines = calc.lines, totals = calc.totals;
   const doc = Object.assign(base, { Date: date, Lines: lines, Totals: totals });
   if (old) {
     // A document holding its resource is checked again as changed (Q472).

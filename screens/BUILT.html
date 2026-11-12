@@ -122,14 +122,47 @@
     if (v == null || v === '') return '';
     if (f.type === 'link') return v.label || v.id || '';
     if (f.type === 'yesno') return v ? 'Yes' : 'No';
-    if (f.type === 'amount') return fmt(v);
+    if (f.type === 'amount' || (f.type === 'calc' && f.money)) return fmt(v);
     return String(v);
+  }
+  const numeric = f => f.type === 'number' || f.type === 'amount' || f.type === 'calc';
+  const money = f => f.type === 'amount' || (f.type === 'calc' && f.money);
+
+  // ---------- calculated fields (phase 6, Q497) ----------
+  // As the server works them out (builtCalc.js), shown as you type; the saved
+  // value is the server's. Earlier documents' total keeps its saved value here.
+  const nval = v => Number(String(v == null ? '' : v).replace(/,/g, '')) || 0;
+  const dayNo = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? Date.parse(v + 'T00:00:00Z') / 86400000 : null);
+  function calcValue(f, row, headRow, totals, saved) {
+    const vals = f.of.map(r => (r.startsWith('h:') ? (headRow || {})[r.slice(2)] : r.startsWith('t:') ? (totals || {})[r.slice(2)] : row[r]));
+    let v = 0;
+    if (f.op === 'product') v = vals.reduce((p, x) => p * nval(x), 1);
+    else if (f.op === 'sum') v = vals.reduce((s, x) => s + nval(x), 0);
+    else if (f.op === 'difference') v = nval(vals[0]) - nval(vals[1]);
+    else if (f.op === 'percent') v = nval(vals[0]) * (vals.length > 1 ? nval(vals[1]) : f.value) / 100;
+    else if (f.op === 'days') { const a = dayNo(vals[0]), b = dayNo(vals[1]); v = a == null || b == null ? 0 : b - a; }
+    else if (f.op === 'previous') v = nval(saved);
+    return f.money ? Math.round(v * 100) / 100 : Math.round(v * 1e6) / 1e6;
+  }
+  function recalc() {
+    const head = rec.Fields || {};
+    const savedLines = (rec.Saved && rec.Saved.Lines) || [];
+    const lf = isDoc() && def.lines.enabled ? def.lines.fields : [];
+    lines.forEach((l, i) => lf.forEach(f => { if (f.type === 'calc') l[f.key] = calcValue(f, l, head, null, (savedLines[i] || {})[f.key]); }));
+    const totals = {};
+    lf.filter(numeric).forEach(f => { totals[f.key] = lines.reduce((s, l) => s + nval(l[f.key]), 0); });
+    def.fields.forEach(f => { if (f.type === 'calc') head[f.key] = calcValue(f, head, null, totals, ((rec.Saved && rec.Saved.Fields) || {})[f.key]); });
+    document.querySelectorAll('#bm-fields [data-calc], #bm-lines [data-calc]').forEach(el => {
+      const tr = el.closest('tr[data-line]');
+      const f = (tr ? lf : def.fields).find(x => x.key === el.dataset.calc);
+      el.textContent = show(f, tr ? (lines[Number(tr.dataset.line)] || {})[f.key] : head[f.key]) || '0';
+    });
   }
 
   // ---------- the list ----------
   function columns() {
     const cols = def.listColumns.map(k => def.fields.find(f => f.key === k)).filter(Boolean);
-    const amountTotal = isDoc() && def.lines.enabled ? def.lines.fields.find(f => f.type === 'amount') : null;
+    const amountTotal = isDoc() && def.lines.enabled ? def.lines.fields.find(money) : null;
     return { cols, amountTotal };
   }
   function renderList() {
@@ -169,6 +202,7 @@
     return links[k];
   }
   function inputFor(f, v, opts, extra) {
+    if (f.type === 'calc') return '<div data-calc="' + esc(f.key) + '" class="py-2 px-1 text-right font-mono text-slate-300" title="Worked out when saved">' + esc(show(f, v) || '0') + '</div>';
     const a = ' data-key="' + esc(f.key) + '"' + (extra || '');
     if (f.type === 'longtext') return '<textarea rows="3"' + a + ' class="' + inputCls + '">' + esc(v || '') + '</textarea>';
     if (f.type === 'yesno') return '<label class="inline-flex items-center gap-2 py-2"><input type="checkbox"' + a + (v ? ' checked' : '') + '> Yes</label>';
@@ -231,11 +265,12 @@
         '<td class="py-1 px-2">' + (can ? '<button class="bm-del-line text-slate-500 hover:text-red-400" title="Remove the line"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>').join('');
       drawTotals();
     }
+    recalc();
   }
   function drawTotals() {
     const sum = k => lines.reduce((s, l) => s + (Number(String(l[k] == null ? '' : l[k]).replace(/,/g, '')) || 0), 0);
-    $('bm-lines-total').innerHTML = '<td class="py-2 px-2">Total</td>' + def.lines.fields.map(f => '<td class="py-2 px-2 ' + (f.type === 'amount' || f.type === 'number' ? 'text-right' : '') + '">' +
-      (f.type === 'amount' ? fmt(sum(f.key)) : f.type === 'number' ? String(Math.round(sum(f.key) * 10000) / 10000) : '') + '</td>').join('') + '<td></td>';
+    $('bm-lines-total').innerHTML = '<td class="py-2 px-2">Total</td>' + def.lines.fields.map(f => '<td class="py-2 px-2 ' + (numeric(f) ? 'text-right' : '') + '">' +
+      (money(f) ? fmt(sum(f.key)) : numeric(f) ? String(Math.round(sum(f.key) * 10000) / 10000) : '') + '</td>').join('') + '<td></td>';
   }
   function captureLines() {
     $('bm-lines').querySelectorAll('tr[data-line]').forEach(tr => {
@@ -268,6 +303,7 @@
         next = []; approval = null; made = [];
       }
       lines = (rec.Lines || []).map(l => Object.assign({}, l));
+      rec.Saved = { Fields: Object.assign({}, rec.Fields || {}), Lines: (rec.Lines || []).map(l => Object.assign({}, l)) }; // earlier documents' totals as saved
       if (isDoc() && def.lines.enabled && !lines.length && editable()) lines.push({});
       $('bm-list-view').classList.add('hidden'); $('bm-form-view').classList.remove('hidden');
       $('bm-title').textContent = rec.RecordID ? (isDoc() ? def.label + ' ' + rec.Number : rec.Code + ' · ' + rec.Name) : 'New ' + def.label;
@@ -417,8 +453,8 @@
   function print() {
     const fields = def.fields.map(f => '<tr><th>' + esc(f.label) + '</th><td>' + esc(show(f, (rec.Fields || {})[f.key])) + '</td></tr>').join('');
     const lt = def.lines.enabled && isDoc() ? '<h3 style="font-size:12px;margin:10px 0 4px;">' + esc(def.lines.label) + '</h3><table><thead><tr><th>#</th>' + def.lines.fields.map(f => '<th>' + esc(f.label) + '</th>').join('') + '</tr></thead><tbody>' +
-      (rec.Lines || []).map((l, i) => '<tr><td>' + (i + 1) + '</td>' + def.lines.fields.map(f => '<td' + (f.type === 'amount' || f.type === 'number' ? ' style="text-align:right"' : '') + '>' + esc(show(f, l[f.key])) + '</td>').join('') + '</tr>').join('') +
-      '<tr style="font-weight:bold"><td>Total</td>' + def.lines.fields.map(f => '<td style="text-align:right">' + (f.type === 'amount' ? fmt((rec.Totals || {})[f.key]) : f.type === 'number' ? esc((rec.Totals || {})[f.key]) : '') + '</td>').join('') + '</tr></tbody></table>' : '';
+      (rec.Lines || []).map((l, i) => '<tr><td>' + (i + 1) + '</td>' + def.lines.fields.map(f => '<td' + (numeric(f) ? ' style="text-align:right"' : '') + '>' + esc(show(f, l[f.key])) + '</td>').join('') + '</tr>').join('') +
+      '<tr style="font-weight:bold"><td>Total</td>' + def.lines.fields.map(f => '<td style="text-align:right">' + (money(f) ? fmt((rec.Totals || {})[f.key]) : numeric(f) ? esc((rec.Totals || {})[f.key]) : '') + '</td>').join('') + '</tr></tbody></table>' : '';
     $('bm-print').innerHTML = '<h1 style="font-size:16px;font-weight:bold;">' + esc(companyName(rec.CompanyID)) + '</h1><h2 style="font-size:14px;margin:6px 0;">' + esc(def.printTitle) + ' ' + esc(isDoc() ? rec.Number : rec.Code) + '</h2>' +
       (isDoc() ? '<p style="font-size:11px;">Date: ' + esc(rec.Date) + ' · Status: ' + esc(rec.Status) + '</p>' : '<p style="font-size:11px;">' + esc(rec.Name) + '</p>') + '<table><tbody>' + fields + '</tbody></table>' + lt;
     window.print();
@@ -550,7 +586,9 @@
     $('bm-print-btn').addEventListener('click', print);
     $('bm-add-line').addEventListener('click', () => { captureForm(); lines.push({}); drawForm(); });
     $('bm-lines').addEventListener('click', e => { const b = e.target.closest('.bm-del-line'); if (!b) return; captureForm(); lines.splice(Number(b.closest('tr').dataset.line), 1); drawForm(); });
-    $('bm-lines').addEventListener('input', () => { captureLines(); drawTotals(); });
+    $('bm-lines').addEventListener('input', () => { captureForm(); recalc(); drawTotals(); });
+    $('bm-fields').addEventListener('input', () => { captureForm(); recalc(); if (isDoc() && def.lines.enabled) drawTotals(); });
+    $('bm-fields').addEventListener('change', () => { captureForm(); recalc(); if (isDoc() && def.lines.enabled) drawTotals(); });
   };
 })();
 </script>
