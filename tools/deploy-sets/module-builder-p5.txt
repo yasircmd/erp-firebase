@@ -1,0 +1,14 @@
+# Module Builder, phase 5: built modules in the MIS report builder (owner,
+# 2026-11-12; docs/modules/MODULE_BUILDER.md, Q489-Q492). The closure of
+# misBuilder.js, misReports.js and the new builtMis.js: the data sets list,
+# the builder's run, and the saved reports (a dashboard tile runs a saved
+# builder report through runSavedMisBuilder). Deploy WITH --screens
+# ("functions set, then screens": MIS), then the "hosting" task (the Help).
+# No rules change; builtRecords is read by ModuleID equality (no index needed).
+deleteMisReport
+getMisDatasets
+getMyMisReports
+runMisBuilder
+runSavedMisBuilder
+saveMisReport
+shareMisReport

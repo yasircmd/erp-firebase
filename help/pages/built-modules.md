@@ -1,11 +1,11 @@
 ---
-fingerprint: 5adfd577c117bc1d
+fingerprint: a4657d62f170e2b9
 reviewed: 2026-11-12
 title: Built modules
 area: admin
 order: 20
 summary: Modules your provider built for your business (rooms, bookings, investments, subscriptions …): their lists, records, documents, statuses and approvals.
-sources: [screens/BUILT.html, functions/src/builtModules.js, functions/src/builtActions.js]
+sources: [screens/BUILT.html, functions/src/builtModules.js, functions/src/builtActions.js, functions/src/builtMis.js]
 ---
 ## What they are
 
@@ -139,6 +139,16 @@ Room Invoice is a customer invoice in the books, the customer's statement,
 ageing and the tax returns. Someone with only the variant's rights sees and
 opens only the variant's documents; someone with the original's rights sees
 all of them on the original's screen, each marked with its variant's name.
+
+## In reports
+
+Each built module is a data set in [Build a report](mis-report-builder.html#built-modules)
+(MIS Reports): a master's records, a document's documents by month and, for
+a document with lines, its lines. A link to another built master brings that
+master's fields, for example bookings by room type. A variant's documents
+are in Sales or Purchase lines, with a Variant column and the variant's
+extra fields. Saved reports from them can go on the
+[MIS Dashboard](mis-dashboard.html).
 
 ## Rights
 

@@ -1,6 +1,6 @@
 ---
-fingerprint: 377a9dad65bf83d9
-reviewed: 2026-11-08
+fingerprint: ce21459a822e26a1
+reviewed: 2026-11-12
 title: MIS Reports
 area: mis
 order: 2

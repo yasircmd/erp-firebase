@@ -1,12 +1,12 @@
 ---
-fingerprint: fe5f5d3474fc7c49
-reviewed: 2026-11-08
+fingerprint: c1b35eaaa7980a1e
+reviewed: 2026-11-12
 title: Build a report
 area: mis
 order: 3
 modules: []
-sources: [functions/src/misBuilder.js, functions/src/misQuery.js, screens/MIS.html]
-summary: Your own report from sales, purchase, GL or stock lines: filtered, grouped with totals, as a pivot or a list; saved and shared.
+sources: [functions/src/misBuilder.js, functions/src/builtMis.js, functions/src/misQuery.js, screens/MIS.html]
+summary: Your own report from sales, purchase, GL or stock lines, or a built module's records: filtered, grouped with totals, as a pivot or a list; saved and shared.
 ---
 ## What it is for
 
@@ -20,7 +20,8 @@ stock movements by warehouse.
   - **Sales lines**: Customer Invoice;
   - **Purchase lines**: Vendor Invoice;
   - **GL lines**: General Ledger;
-  - **Stock movements**: Stock Ledger.
+  - **Stock movements**: Stock Ledger;
+  - a **built module**: that module.
 
 ## The data sets
 
@@ -34,6 +35,30 @@ stock movements by warehouse.
 - **Stock movements:** each stock line as the
   [Stock Ledger](stock-ledger.html) shows it: type, in or out, item,
   category, warehouse, quantity and value (in +, out −).
+
+Sales lines and Purchase lines also have a **Variant** column (for example
+*Room Invoice*, blank for an ordinary invoice) and each variant's extra
+fields (for example *Room Invoice · Room*), so a variant's revenue can be
+shown on its own.
+
+### Built modules
+
+Under **Built modules** in the data set list, each of your
+[built modules](built-modules.html) is a data set of its own:
+
+- **A master** (for example Rooms): one row per record, as it is today,
+  whatever months are chosen: its code, name, whether it is switched off,
+  and its fields.
+- **A document** (for example Stays): one row per document dated in the
+  months chosen: its number, date, month, status, fields, and the totals of
+  its lines.
+- **A document with lines** is also a second data set (for example
+  *Stay – rooms*): one row per line, the document's own fields repeated on
+  each.
+
+A field that links to another built master brings that master's fields too,
+for example a stay's room brings *Room · Room type*, so bookings can be
+grouped by room type. Long text fields are not in reports.
 
 Amounts are in the base currency, before tax, after each document's discount.
 In GL lines a discount is its own line, so an invoice's revenue there is the
@@ -60,5 +85,8 @@ full amount.
 ## Questions and mistakes
 
 - **Too many lines.** Choose fewer months or add a filter.
+- **A built module is missing from the list.** It is not published yet, it
+  is a variant (its documents are in Sales or Purchase lines), or you do not
+  have its access right.
 - **"is not a number: count it instead".** Totals need a number field; for
   any other field choose *Count of lines*.

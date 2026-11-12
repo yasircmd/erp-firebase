@@ -28,11 +28,16 @@ async function jv(date, lines) {
 (async () => {
   const f = baseFixture();
   f.coa['A-RENT'] = { AccountCode: '6000', AccountName: 'Rent', AccountType: 'Expense', Status: 'Active', IsPostable: true };
+  f.permissions.X_ROOM = { access: ['Admin'], write: ['Admin'] };
   await reset(f);
   await jv(M1 + '-05', [['1000', 2000, 0], ['4000', 0, 2000]]);
   await jv(M1 + '-06', [['6000', 500, 0], ['1000', 0, 500]]);
   await jv(M0 + '-01', [['1000', 3000, 0], ['4000', 0, 3000]]);
   await jv(M0 + '-01', [['6000', 400, 0], ['1000', 0, 400]]);
+  // Phase 5 (Module Builder): a built master, a data set of its own.
+  ok(await call('u-admin', 'saveModuleDefinitionDraft', { isNew: true, definition: { id: 'X_ROOM', label: 'Room', kind: 'master', fields: [{ key: 'roomType', label: 'Room type', type: 'choice', options: ['Single', 'Double'] }, { key: 'rate', label: 'Rate', type: 'amount' }] } }));
+  ok(await call('u-admin', 'publishModuleDefinition', { id: 'X_ROOM' }));
+  for (const [code, roomType, rate] of [['101', 'Double', 400], ['102', 'Single', 300], ['103', 'Double', 350]]) ok(await call('u-admin', 'saveBuiltRecord', { moduleId: 'X_ROOM', record: { CompanyID: 'C1', Code: code, Name: 'Room ' + code, Fields: { roomType, rate } } }));
 
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const chartJs = fs.readFileSync(path.join(__dirname, '../../../public/vendor/chart-4.4.4.umd.js'));
@@ -186,6 +191,22 @@ async function jv(date, lines) {
     await p.waitForFunction(() => /Saved report: GL by type and month/.test(document.getElementById('mis-saved-note').textContent), null, T);
     const saved = (await firestore.collection('misReports').where('Name', '==', 'GL by type and month').get()).docs[0].data();
     assert.deepEqual([saved.Type, saved.Builder.dataset, saved.Builder.months, saved.Builder.spec.view, saved.Builder.spec.pivot.cols], ['builder', 'gl', 2, 'pivot', 'month']);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('phase 5: a built module is a data set under "Built modules": rooms grouped by their type', async () => {
+    const p = await open('u-admin');
+    await p.selectOption('#mis-type', '__builder');
+    await p.waitForFunction(() => [...document.querySelectorAll('#mb-dataset optgroup[label="Built modules"] option')].some(o => o.value === 'x:X_ROOM'), null, T);
+    await p.selectOption('#mb-dataset', 'x:X_ROOM');
+    await p.selectOption('#mb-view', 'group');
+    await p.selectOption('#mb-by1', 'f_roomType');
+    await p.selectOption('#mb-a1', 'sum'); await p.selectOption('#mb-m1', 'f_rate');
+    await p.click('#mis-run');
+    await p.waitForFunction(() => /Room/.test(document.getElementById('mis-period').textContent) && document.querySelectorAll('#mis-body tr').length === 3, null, T);
+    const rows = await p.locator('#mis-body tr').evaluateAll(r => r.map(x => [...x.cells].map(c => c.innerText.trim())));
+    assert.deepEqual(rows, [['Double', '750.00'], ['Single', '300.00'], ['Total', '1,050.00']]);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

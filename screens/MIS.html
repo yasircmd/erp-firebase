@@ -298,7 +298,10 @@
   async function loadBuilder() {
     if (B) return;
     B = await call('getMisDatasets', {});
-    $('mb-dataset').innerHTML = B.datasets.map(d => '<option value="' + esc(d.id) + '">' + esc(d.title) + '</option>').join('');
+    // Built modules' data sets (Module Builder, phase 5) under their own heading.
+    const opt = d => '<option value="' + esc(d.id) + '">' + esc(d.title) + '</option>';
+    const built = B.datasets.filter(d => d.built);
+    $('mb-dataset').innerHTML = B.datasets.filter(d => !d.built).map(opt).join('') + (built.length ? '<optgroup label="Built modules">' + built.map(opt).join('') + '</optgroup>' : '');
     fields(); view();
   }
 

@@ -72,9 +72,10 @@ exports.saveMisReport = onCallWithMessages(onCallOptions, async (request) => {
   let builder = null;
   if (type === 'builder') {
     const b = d.builder || {};
-    const ds = require('./misBuilder').DATASETS[text(b.dataset, 20)];
+    // The built modules' data sets too (MODULE_BUILDER.md, phase 5).
+    const ds = (await require('./misBuilder').allDatasets()).sets[text(b.dataset, 40)];
     if (!ds) bad('Choose a data set.');
-    try { builder = { dataset: text(b.dataset, 20), months: Math.min(24, Math.max(1, Math.floor(Number(b.months) || 1))), spec: require('./misQuery').cleanSpec(b.spec, ds.fields) }; }
+    try { builder = { dataset: text(b.dataset, 40), months: Math.min(24, Math.max(1, Math.floor(Number(b.months) || 1))), spec: require('./misQuery').cleanSpec(b.spec, ds.fields) }; }
     catch (e) { bad(e.message); }
   } else if (!CATALOGUE.some(c => c.type === type)) bad('Unknown report.');
   const companyId = text(d.companyId, 80);
