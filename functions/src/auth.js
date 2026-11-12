@@ -5,6 +5,10 @@ const { DEFAULT_PERMISSIONS } = require('./moduleRegistry');
 // leaverAccess.js itself needs this file).
 const accessEnded = until => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()) > until;
 
+// The request's checked profile (requireUser, below): a symbol, so it never
+// reaches the data a handler reads or returns.
+const SEEN = Symbol('requireUser');
+
 // Callable functions verify the caller's Firebase ID token automatically,
 // before this code ever runs — context.auth.uid is already trustworthy
 // by the time we see it. That's what actually replaces Code.gs's old
@@ -19,6 +23,11 @@ async function requireUser(context) {
     throw new HttpsError('unauthenticated', 'Please sign in again.');
   }
   const uid = context.auth.uid;
+  // Read once per request: callable.js checks every 'user' call before its
+  // handler (docs/modules/CALLABLE_ACCESS.md, Q491), and the handler's own
+  // requireUser then reuses that read. Each caller gets its own copy.
+  const seen = context[SEEN];
+  if (seen && seen.uid === uid) return { uid, profile: structuredClone(seen.profile) };
   const snap = await rtdb.ref('users/' + uid).get();
   const profile = snap.val();
   if (!profile || profile.status !== 'Active') {
@@ -28,6 +37,7 @@ async function requireUser(context) {
   if (profile.AccessUntil && accessEnded(profile.AccessUntil)) {
     throw new HttpsError('permission-denied', 'Your access ended on ' + profile.AccessUntil + ' (after leaving): ask HR if you still need it.');
   }
+  if (Object.isExtensible(context)) Object.defineProperty(context, SEEN, { value: { uid, profile: structuredClone(profile) }, configurable: true });
   return { uid, profile };
 }
 

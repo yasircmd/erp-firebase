@@ -26,17 +26,35 @@ async function variantOf(data) {
   return { id: def.id, base: def.base, label: def.label, prefix: def.numbering.prefix, fields: f && typeof f === 'object' && !Array.isArray(f) ? f : null };
 }
 
+// Who may call (docs/modules/CALLABLE_ACCESS.md, Q489-Q491), options.access:
+//   'user' (the default): signed in, with an Active ERP profile within its
+//     AccessUntil (requireUser), checked before the handler runs;
+//   'portal': signed in; the handler checks the employee itself (essPortal,
+//     whose users have no ERP profile);
+//   'public': anyone (the sign-in screen's own calls; the list is in
+//     unit/callableAccess, which checks it both ways).
+// The sign-in check comes before anything is read; fn.access says which.
+const ACCESS = ['user', 'portal', 'public'];
+
 function onCallInCorporate(options, handler) {
-  const fn = onCall(options, (request) => perf.timed(async () => {
+  const { access = 'user', ...onCallOpts } = options || {};
+  if (!ACCESS.includes(access)) throw new Error('Unknown access: ' + access);
+  const fn = onCall(onCallOpts, (request) => perf.timed(async () => {
     const corporate = await resolveCorporate(request);
     perf.setCorporate(corporate && corporate.id);
+    if (access !== 'public' && !(request.auth && request.auth.uid)) throw new HttpsError('unauthenticated', 'Please sign in again.');
     // The published built modules join the registry (MODULE_BUILDER.md; the firm's, at most every 30 s).
     await require('./builtDefinitions').refresh();
     // A call from a variant's screen (MODULE_BUILDER.md, phase 4): checked, then the request runs in it.
     const variant = await variantOf(request.data);
-    return runInCorporate(corporate, () => require('./variantContext').runWithVariant(variant, () => handler(request)));
+    return runInCorporate(corporate, async () => {
+      // Once per request: the handler's own requireUser reuses it (auth.js).
+      if (access === 'user') await require('./auth').requireUser(request);
+      return require('./variantContext').runWithVariant(variant, () => handler(request));
+    });
   }));
   fn.inCorporate = handler;
+  fn.access = access;
   return fn;
 }
 

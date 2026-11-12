@@ -469,7 +469,9 @@ const ACTIONS = {
   saveEmailSetting: { run: (me, d) => require('./taskMail').saveEmployeeSetting(me.emp.EmployeeID, d.on === true) }
 };
 
-exports.essPortal = onCallWithMessages(onCallOptions, async (request) => {
+// Signed in, but no ERP profile needed: whoIsAsking checks the employee
+// (portal users have none; CALLABLE_ACCESS.md, Q491).
+exports.essPortal = onCallWithMessages({ ...onCallOptions, access: 'portal' }, async (request) => {
   const d = request.data || {};
   // The ERP shell asks whether to show My Portal: never an error.
   if (d.action === 'link') {
