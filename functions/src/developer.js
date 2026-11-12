@@ -139,6 +139,8 @@ function activeRefusal(isNew, was, e) {
 // The corporates, with their open notes counted.
 exports.getDeveloperCorporates = onCallWithMessages(onCallOptions, async (request) => {
   const user = await developer(request, 'access');
+  // The built modules published a moment ago (a pack's) are listed at once (MODULE_BUILDER.md).
+  await require('./builtDefinitions').refresh(true);
   const [dir, notes, groups] = await Promise.all([firm.firestore.collection(DIRECTORY).get(), firm.firestore.collection(NOTES).where('Status', 'in', ['Open', 'In progress']).get(),
     firm.firestore.collection(GROUPS).get()]);
   const open = {};
@@ -354,6 +356,7 @@ exports.saveDeveloperGroupModules = onCallWithMessages(onCallOptions, async (req
   const ref = firm.firestore.doc(GROUPS + '/' + (str(d.GroupID, 40) || '-'));
   const snap = await ref.get();
   if (!snap.exists) throw new HttpsError('not-found', 'That group is not there any more.');
+  await require('./builtDefinitions').refresh(true);
   const later = MODULE_REGISTRY.filter(m => !isBaseline(m.id) && !m.homeOnly).map(m => m.id);
   // Packs (phase 6, Q493): when given, the group's packs; each brings its modules and Pack setup.
   const allPacks = await publishedPacks();
