@@ -157,22 +157,20 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   });
 
   await check('phase 6: a pack provided to a group from the screen: its modules marked as the pack\'s, installed in the member (its menu folder)', async () => {
-    p.__dialogs = [];
     await call('u-admin', 'publishModulePack', { id: 'P_SUBS' });
-    await p.reload();
-    await p.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
-    await p.click('#dv-pages [data-page="groups"]');
-    await until(p, () => document.querySelector('#dv-groups input[data-gpack="P_SUBS"]'));
-    await p.check('#dv-groups input[data-gpack="P_SUBS"]');
-    await p.click('#dv-groups .dv-group-save');
-    await until(p, () => document.querySelector('#dv-groups input[data-gmod="X_SUBSCR"][data-inpack]'));
-    assert.ok(p.__dialogs.some(m => /Provided to 200/.test(m)), p.__dialogs.join(' | '));
+    const q = await open('u-admin');
+    await q.click('#dv-pages [data-page="groups"]');
+    await until(q, () => document.querySelector('#dv-groups input[data-gpack="P_SUBS"]'));
+    await q.check('#dv-groups input[data-gpack="P_SUBS"]');
+    await q.click('#dv-groups .dv-group-save');
+    await until(q, () => document.querySelector('#dv-groups input[data-gmod="X_SUBSCR"][data-inpack]'));
+    assert.ok(q.__dialogs.some(m => /Provided to 200/.test(m)), q.__dialogs.join(' | '));
     assert.deepEqual((await entry('200')).Packs, { P_SUBS: true });
-    assert.ok(await p.isDisabled('#dv-groups input[data-gmod="X_SUBSCR"]'), 'a pack\'s module is the pack\'s, not ticked one by one');
+    assert.ok(await q.isDisabled('#dv-groups input[data-gmod="X_SUBSCR"]'), 'a pack\'s module is the pack\'s, not ticked one by one');
     const tree = Object.values((await clientApp.database().ref('tree').get()).val());
     assert.ok(tree.some(n => n.Text === 'Subscriptions' && !n.ModuleID) && tree.some(n => n.ModuleID === 'PACKSETUP'), JSON.stringify(tree.map(n => n.Text)));
-    await p.click('#dv-pages [data-page="corporates"]');
-    assert.deepEqual(p.__errors, []);
+    assert.deepEqual(q.__errors, []);
+    await q.close();
   });
 
   await check('set up: the steps, the chart headings and the first Admin', async () => {
