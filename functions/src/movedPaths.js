@@ -47,7 +47,9 @@ async function request(path, method, payload) {
   // In a variant's request, its original's documents are the variant's (MODULE_BUILDER.md, Q483, Q486).
   const VD = require('./variantDocuments');
   if (VD.variantFor(s.path)) return variantRequest(VD, s, rest, String(method || 'get').toLowerCase(), payload);
-  return s.rtdbStyle(rest, method, payload);
+  const out = await s.rtdbStyle(rest, method, payload);
+  if (rest.length === 1 && String(method || 'get').toLowerCase() === 'get' && VD.BASE_OF[s.path]) await VD.noteRead(s.path, out); // a variant's document, from the original's screen
+  return out;
 }
 async function variantRequest(VD, s, rest, m, payload) {
   if (!rest.length) {

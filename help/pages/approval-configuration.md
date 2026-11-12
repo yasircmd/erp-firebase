@@ -6,7 +6,7 @@ modules: [APPROVALCONFIG]
 sources: [functions/src/approvals.js, functions/src/followUps.js, functions/src/approvalRegistry.js]
 summary: Set the approval rules by module, level and company so documents flow to the right approvers.
 reviewed: 2026-11-12
-fingerprint: c6e65d92fe4d26b4
+fingerprint: 6ff7551cfa02dfc0
 ---
 ## What it is for
 
@@ -43,7 +43,8 @@ Configuration changes do not post to the general ledger. When a transaction is s
 A [variant](built-modules.html#variants) of a document (for example a Room
 Invoice of Customer Invoice) has its own row here, under its own name: its
 approvers and limits are its own. With none set, its documents post without
-approval.
+approval. Its approvers need the variant's access right (Roles &
+Permissions): its documents open on the variant's screen.
 
 ## Rights
 

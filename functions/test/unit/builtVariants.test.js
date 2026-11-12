@@ -58,3 +58,14 @@ test('the variant a request runs in: only for its original, only inside the requ
   assert.equal(V.current(), null);
   assert.equal(await V.runWithVariant(null, async () => V.current()), null);
 });
+
+test('the phone approval card: a variant\'s approval decided by its original\'s function, named with the variant', () => {
+  const card = require('../../src/approvalCard');
+  const { MODULE_REGISTRY } = require('../../src/moduleRegistry');
+  MODULE_REGISTRY.push({ id: 'X_CARDV', kind: 'variant', base: 'VENDORINVOICE', built: true, capabilities: [] });
+  try {
+    assert.deepEqual(card.decideOf('X_CARDV', { Status: 'PendingApproval' }), Object.assign({}, card.decideOf('VENDORINVOICE', { Status: 'PendingApproval' }), { variant: 'X_CARDV' }));
+    assert.equal(card.decideOf('X_CARDV', { Status: 'PendingReversalApproval' }).fn, 'decideVendorInvoiceReversalApproval');
+    assert.equal(card.decideOf('VENDORINVOICE', {}).variant, undefined);
+  } finally { MODULE_REGISTRY.splice(MODULE_REGISTRY.findIndex(m => m.id === 'X_CARDV'), 1); }
+});

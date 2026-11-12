@@ -61,4 +61,12 @@ async function marksFor(store, companyId) {
   return out;
 }
 
-module.exports = { STORE_OF, BASE_OF, variantFor, guardDoc, guardAll, assertOwn, marksFor };
+// A document read by its id in a request that names no variant: when it is a
+// variant's, the request notes it (its series and approvers, variantContext).
+async function noteRead(store, doc) {
+  if (!doc || !doc.Variant || !BASE_OF[store] || V.current()) return;
+  const def = await require('./builtDefinitions').publishedDef(String(doc.Variant));
+  if (def && def.kind === 'variant' && def.base === BASE_OF[store]) V.noteDocument({ id: def.id, base: def.base, label: def.label, prefix: def.numbering.prefix });
+}
+
+module.exports = { noteRead, STORE_OF, BASE_OF, variantFor, guardDoc, guardAll, assertOwn, marksFor };

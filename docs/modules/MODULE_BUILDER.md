@@ -537,6 +537,13 @@ As designed (Q481-Q488), with these points:
   own Approval Configuration row; the instance's module is the variant, so
   its Home tasks open the variant, Q485). Nothing in the generated legacy
   code changes.
+- **A variant's document from the original's screen.** Someone with the
+  original's rights posting a Room Invoice on the Customer Invoice screen
+  (Q486): when the request opens a variant's document by its id
+  (variantDocuments.noteRead), the request notes its variant, so the
+  document still takes the variant's series and approvers (seriesFor); the
+  rights stay the user's own. The phone approval card decides a variant's
+  approval through its original's decide function, naming the variant.
 - **Its documents (variantDocuments.js, Q483, Q486).** In a variant's request,
   on its original's own store only: a document opened by its id is the
   variant's or none; the whole store read for its list is the variant's

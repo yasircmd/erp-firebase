@@ -65,6 +65,7 @@ async function load(user, id) {
   const snap = await QUOTES().doc(text(id, 80)).get();
   // In a Quotation variant's request, only its own quotations (MODULE_BUILDER.md, Q486).
   if (!snap.exists || !VD.guardDoc('quotations', snap.data())) throw new HttpsError('not-found', 'Quotation not found.');
+  await VD.noteRead('quotations', snap.data()); // a variant's quotation, from the original's screen
   const q = Object.assign({ QuotationID: snap.id }, snap.data());
   requireCompany(user, q.CompanyID);
   if (!mine(user, q)) throw new HttpsError('permission-denied', 'That quotation is not yours.');

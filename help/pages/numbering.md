@@ -6,7 +6,7 @@ modules: [NUMBERING]
 sources: [functions/src/numbering.js]
 summary: Maintain the document prefixes, numbering format and automatic code generation across modules.
 reviewed: 2026-11-12
-fingerprint: cb37b29fc38e708a
+fingerprint: 13c9c098b312ae2b
 ---
 ## What it is for
 

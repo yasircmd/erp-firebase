@@ -238,9 +238,10 @@ async function prefixClash(prefix) {
 // The generators the system already had, by their old signatures.
 const voucherNumber = (prefix, year, companyId) => {
   // In a variant's request, its original's numbers are the variant's own series (MODULE_BUILDER.md, Q482).
-  const v = require('./variantContext').current();
   const { BASES } = require('./variantSpec');
-  if (v && BASES[v.base] && prefix === BASES[v.base].prefix()) {
+  const baseOfPrefix = Object.keys(BASES).find(b => BASES[b].prefix() === prefix);
+  const v = baseOfPrefix ? require('./variantContext').seriesFor(baseOfPrefix) : null;
+  if (v) {
     const baseKind = kindOf('doc:' + prefix);
     prefix = v.prefix;
     if (!kindOf('doc:' + prefix)) kinds().push(Object.assign(docKind(prefix, v.label, baseKind ? baseKind.root : STOCK), { variant: v.id }));

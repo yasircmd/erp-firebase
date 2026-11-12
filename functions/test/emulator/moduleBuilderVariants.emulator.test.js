@@ -82,6 +82,9 @@ test('a Customer Invoice variant: the clerk\'s rights for one request, its docum
   assert.match(p.invoiceNumber, /^RINV-/);
   const pb = ok(await call('u-admin', 'postCustomerInvoice', { invoiceId: base.invoiceId }));
   assert.doesNotMatch(pb.invoiceNumber, /^RINV/);
+  // A Room Invoice posted from the Customer Invoice screen (the original's rights, Q486) still takes its own series (Q482).
+  const other = ok(await ci('u-clerk', {}, RINV({ room: '305' })));
+  assert.match(ok(await call('u-admin', 'postCustomerInvoice', { invoiceId: other.invoiceId })).invoiceNumber, /^RINV-/);
   // Kept with the original's: the customer's statement and ageing see both.
   const posted = await val('customerInvoices/' + mine.invoiceId);
   assert.deepEqual([posted.Status, posted.Variant, posted.VariantFields.room], ['Posted', 'X_RINV', '101']);
@@ -103,6 +106,11 @@ test('a variant\'s own approvals: its own Approval Configuration row, its tasks 
   } else {
     assert.fail('expected the Room Invoice approvers to be asked: ' + JSON.stringify(p) + ' (check the approval configuration shape)');
   }
+  // Posted from the Customer Invoice screen, a Room Invoice still asks the Room Invoice approvers (Q485).
+  const s2 = ok(await ci('u-clerk', {}, RINV({ room: '306' })));
+  assert.equal(ok(await call('u-approver', 'postCustomerInvoice', { invoiceId: s2.invoiceId })).status, 'PendingApproval');
+  const inst2 = (await firestore.collection('approvalInstances').doc((await val('customerInvoices/' + s2.invoiceId)).ApprovalInstanceID).get()).data();
+  assert.equal(inst2.ModuleID, 'X_RINV', 'its task opens the Room Invoice');
   // The original's approvals are untouched: a plain invoice posts straight away.
   const b = ok(await ci('u-admin'));
   assert.equal(ok(await call('u-admin', 'postCustomerInvoice', { invoiceId: b.invoiceId })).status, 'Posted');

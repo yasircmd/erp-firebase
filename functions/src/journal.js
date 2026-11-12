@@ -23,7 +23,12 @@ const {
 // variant's, one written is marked as it. Everything else as before.
 const VD = require('./variantDocuments');
 const JE = () => FIRESTORE_JOURNAL_ENTRIES_COLLECTION;
-const firestoreGet_ = async (c, id) => (c === JE() ? VD.guardDoc(c, await runtime.firestoreGet_(c, id)) : runtime.firestoreGet_(c, id));
+const firestoreGet_ = async (c, id) => {
+  const doc = await runtime.firestoreGet_(c, id);
+  if (c !== JE()) return doc;
+  await VD.noteRead(c, doc); // a variant's entry, from the original's screen: its series and approvers
+  return VD.guardDoc(c, doc);
+};
 const firestoreQuery_ = async (...a) => (a[0] === JE() ? VD.guardAll(a[0], await runtime.firestoreQuery_(...a)) : runtime.firestoreQuery_(...a));
 async function firestoreSet_(c, id, data) {
   if (c !== JE() || !VD.variantFor(c)) return runtime.firestoreSet_(c, id, data);

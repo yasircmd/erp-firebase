@@ -66,7 +66,7 @@ async function resolveRequiredApprovalLevels(moduleId, scopeKey, amount) {
 // Ported from resolveApprovalScopeKeyForDocument_.
 async function resolveApprovalScopeKeyForDocument(moduleId, dimensions) {
   // A variant's own Approval Configuration entry decides its scope (MODULE_BUILDER.md, Q485).
-  const variant = require('./variantContext').forBase(moduleId);
+  const variant = require('./variantContext').seriesFor(moduleId);
   if (variant) moduleId = variant.id;
   if (isCbtKey(moduleId)) await ensureCbtSplit();
   const configSnap = await rtdb.ref('approvalConfigurations/' + moduleId).get();
@@ -93,7 +93,7 @@ async function beginApprovalInstance(moduleId, documentId, documentNumber, scope
   // a document dated in a closed month stops here (docs/modules/PERIOD_CLOSING.md, decision 132).
   await require('./periodLock').assertDocumentOpen(moduleId, documentId, documentNumber);
   // A variant's document asks the variant's own approvers, and its tasks open the variant (MODULE_BUILDER.md, Q485).
-  const variant = require('./variantContext').forBase(moduleId);
+  const variant = require('./variantContext').seriesFor(moduleId);
   if (variant) { configKey = variant.id; moduleId = variant.id; }
   const levels = await resolveRequiredApprovalLevels(configKey || moduleId, scopeKey, amount);
   if (!levels.length) return { required: false };
