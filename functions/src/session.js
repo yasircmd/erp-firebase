@@ -60,7 +60,7 @@ exports.completeLogin = onCallInCorporate(onCallOptions, async (request) => {
 // Corporate ID (this project's Auth for 100, else the corporate's public
 // web config). An unknown or inactive ID is refused as completeLogin
 // refuses it.
-// Anyone may call it: the sign-in screen, before a sign-in (CALLABLE_ACCESS.md, Q490).
+// Anyone may call it: the sign-in screen, before a sign-in (CALLABLE_ACCESS.md, Q494).
 exports.corporateSignIn = onCallInCorporate({ ...onCallOptions, access: 'public' }, async (request) => {
   return signInConfig(request.data && request.data.corporateId);
 });
@@ -74,7 +74,7 @@ exports.corporateSignIn = onCallInCorporate({ ...onCallOptions, access: 'public'
 // nothing tells which user IDs exist. A Username two users share signs in
 // by email only.
 const ID_FAILED = 'Invalid user ID or password. A user ID shared by two users signs in by email.';
-// Anyone may call it: it is the sign-in, and checks the password itself (Q490).
+// Anyone may call it: it is the sign-in, and checks the password itself (Q494).
 exports.userIdSignIn = onCallInCorporate({ ...onCallOptions, access: 'public' }, async (request) => {
   const d = request.data || {};
   const userId = String(d.userId || '').trim().toLowerCase();

@@ -24,7 +24,7 @@ async function requireUser(context) {
   }
   const uid = context.auth.uid;
   // Read once per request: callable.js checks every 'user' call before its
-  // handler (docs/modules/CALLABLE_ACCESS.md, Q491), and the handler's own
+  // handler (docs/modules/CALLABLE_ACCESS.md, Q495), and the handler's own
   // requireUser then reuses that read. Each caller gets its own copy.
   const seen = context[SEEN];
   if (seen && seen.uid === uid) return { uid, profile: structuredClone(seen.profile) };

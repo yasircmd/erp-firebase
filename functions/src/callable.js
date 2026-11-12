@@ -26,7 +26,7 @@ async function variantOf(data) {
   return { id: def.id, base: def.base, label: def.label, prefix: def.numbering.prefix, fields: f && typeof f === 'object' && !Array.isArray(f) ? f : null };
 }
 
-// Who may call (docs/modules/CALLABLE_ACCESS.md, Q489-Q491), options.access:
+// Who may call (docs/modules/CALLABLE_ACCESS.md, Q493-Q495), options.access:
 //   'user' (the default): signed in, with an Active ERP profile within its
 //     AccessUntil (requireUser), checked before the handler runs;
 //   'portal': signed in; the handler checks the employee itself (essPortal,

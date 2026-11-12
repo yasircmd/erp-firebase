@@ -1,10 +1,10 @@
 # Callable access: every function checks its caller, first
 
-Status: **decisions made** (owner, 2026-11-12, Q489-Q494: all six as recommended);
+Status: **decisions made** (owner, 2026-11-12, Q493-Q498: all six as recommended);
 build after the module-builder-p4 deploy (owner).
 **On hold** (owner, 2026-11-12) until all Module Builder work is complete.
 Where it stands: callable.js has the access levels (WIP, untested, commit
-9df16bc). A refinement of Q491 found while building: Employee Portal users
+9df16bc). A refinement of Q495 found while building: Employee Portal users
 have no ERP profile, so `essPortal` is `access: 'portal'` (signed in; its own
 `whoIsAsking` checks the employee) rather than `'user'`; the portal page calls
 only `corporateSignIn` and `essPortal`. Still to do: emulator tests (an
@@ -67,7 +67,7 @@ common argument names:
 | Refused on their input, with no sign-in check reached (`userIdSignIn`, `essPortal`, `saveJournalDraft`) | 3 |
 | Answered | 1 |
 
-- **Public by design (Q490):** `corporateSignIn` (the sign-in screen's
+- **Public by design (Q494):** `corporateSignIn` (the sign-in screen's
   Corporate ID lookup, answered) and `userIdSignIn` (sign-in by user ID; it
   checks the password itself, refused here for a wrong one).
 - **Checks input before the caller, no stored data read:** `essPortal`
@@ -87,12 +87,12 @@ option C.
 `onCallWithMessages` / `onCallInCorporate` refuse a call with no signed-in
 user before the handler runs, unless the function is declared public
 (`{ public: true }` in its options, kept out of what goes to `onCall`). The
-public list is short and named in this doc (Q490). Cost: none (no database
+public list is short and named in this doc (Q494). Cost: none (no database
 read). It closes the whole "no sign-in" class at once, including any
 handler that reads before it checks, and any written later.
 
 Optionally, the wrapper also checks the profile is Active and within
-`AccessUntil` (Q491). That is one more RTDB read per call, unless the
+`AccessUntil` (Q495). That is one more RTDB read per call, unless the
 handler's own `requireUser` reuses it within the request.
 
 ### B. The inventory test (recommended, with A)
@@ -104,7 +104,7 @@ A unit test, no emulators, so it runs in the Deploy workflow in seconds:
 - every public function is on the list with a reason, and the list matches
   the code both ways (a new public function needs a line here);
 - a function's module is known: the file declares which module ids it
-  serves, so a right can be checked (B2, later: see Q492).
+  serves, so a right can be checked (B2, later: see Q496).
 
 ### C. Negative tests per module (gradual)
 
@@ -132,12 +132,12 @@ All six agreed as recommended.
 
 | # | Question | Decision |
 |---|---|---|
-| Q489 | Should the wrapper require a sign-in by default (option A)? | **Yes.** It closes the whole class at no cost; a public function is declared. |
-| Q490 | Which functions may be called without sign-in? | **Only the two in "What may be called without sign-in" above** (`corporateSignIn`, `userIdSignIn`), each with its reason. |
-| Q491 | Should the wrapper also check the profile is Active and within its access date? | **Yes, once per request**, reused by the handler's own `requireUser`, so no extra read. |
-| Q492 | Should each callable declare its module, so the test can check a right is required? | **Later.** A and B first; declaring 715 modules is a larger change, worth it once the Module Builder settles. |
-| Q493 | The order for C, the per-module negative tests | **Posting modules first** (listed in C), then payroll and HR reads, then masters. |
-| Q494 | Run the new unit test in the Deploy workflow? | **Yes.** No emulators, seconds, within the Actions minutes. The emulator suites stay in Cloud Shell before a release. |
+| Q493 | Should the wrapper require a sign-in by default (option A)? | **Yes.** It closes the whole class at no cost; a public function is declared. |
+| Q494 | Which functions may be called without sign-in? | **Only the two in "What may be called without sign-in" above** (`corporateSignIn`, `userIdSignIn`), each with its reason. |
+| Q495 | Should the wrapper also check the profile is Active and within its access date? | **Yes, once per request**, reused by the handler's own `requireUser`, so no extra read. |
+| Q496 | Should each callable declare its module, so the test can check a right is required? | **Later.** A and B first; declaring 715 modules is a larger change, worth it once the Module Builder settles. |
+| Q497 | The order for C, the per-module negative tests | **Posting modules first** (listed in C), then payroll and HR reads, then masters. |
+| Q498 | Run the new unit test in the Deploy workflow? | **Yes.** No emulators, seconds, within the Actions minutes. The emulator suites stay in Cloud Shell before a release. |
 
 ## The review's other items (for later designs)
 
