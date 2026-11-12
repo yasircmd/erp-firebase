@@ -14,8 +14,10 @@ const engine = require('../../src/taxEngine');
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r && r.success, true, r && r.error); return r; };
 const err = async p => { const r = await p.then(x => ({ ok: true, x }), e => ({ ok: false, error: e.message })); assert.equal(r.ok, false, 'expected a refusal: ' + JSON.stringify(r.x)); return r.error; };
-const today = new Date().toISOString().slice(0, 10);
-const daysFrom = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+// The company's own date (Asia/Dubai), as the server's: the UTC date is a day behind from 20:00 UTC.
+const S = require('../../src/recurringSchedule');
+const today = S.todayIn(S.TIME_ZONE);
+const daysFrom = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const yy = today.slice(2, 4) + '-01'; // the year, then company C1's code
 
 async function ready(o) {
