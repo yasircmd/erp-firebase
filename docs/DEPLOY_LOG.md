@@ -2051,3 +2051,16 @@ from, and how it was verified. The deploy procedure is in the
   (19:33–19:34 UTC), success (the Help). No rules change. Live: built modules
   as data sets in Build a report, a linked built master's fields, Variant and
   its extra fields on Sales and Purchase lines.
+- **2026-11-13, Module Builder phase 6: packs and calculated fields (PR #274,
+  from `be26bf2`):** "functions set, then screens" `module-builder-p6`, run
+  [#362](https://github.com/yasircmd/erp-firebase/actions/runs/43349914786)
+  (02:07–04:36 UTC), success: `SUMMARY: functions deployed: 722 …; access
+  granted: 721 (none for: sweepTaskMail); screens released: yes` (the five new
+  functions among them: getModulePacks, publishModulePack, getPackSetup,
+  tickPackItem, addPackReports; screens BUILDER, BUILT, DEVELOPER, PACKSETUP).
+  "hosting", run
+  [#363](https://github.com/yasircmd/erp-firebase/actions/runs/43366833273)
+  (04:38–04:39 UTC), success (the Help: the Packs area). No rules change.
+  Live: calculated fields, Project links, actions as a variant and on the
+  record's project, packs, Pack setup. To do in the app: publish the packs
+  (Module Builder → Packs), then provide them in the Developer screen.
