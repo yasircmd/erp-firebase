@@ -6,7 +6,7 @@ modules: [GRN]
 sources: [functions/src/grn.js, functions/src/stockMovement.js]
 summary: Receive the purchased goods into stock and match the supplier receipt against the order.
 reviewed: 2026-11-13
-fingerprint: d298614e49028327
+fingerprint: bee0a66f3fb7ac9b
 ---
 ## What it is for
 
@@ -28,6 +28,11 @@ fingerprint: d298614e49028327
 
 
 From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+
+## Descriptions and cost centers
+
+- **The description is optional.** Left blank, the entry saves *Goods receipt from PO-26-000123 (its purchase orders)*, and a blank line takes the item's name (a non-stock line, its category's) ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
+- **A warehouse's cost center.** When a warehouse has a default cost center ([Organizational Units](org-units.html)), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.
 
 ## What happens in the books
 

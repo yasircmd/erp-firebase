@@ -6,7 +6,7 @@ modules: [PHYSICALCOUNT]
 sources: []
 summary: Count stock physically and post the difference between the counted quantity and the system balance.
 reviewed: 2026-11-13
-fingerprint: ca6a111c9357dad3
+fingerprint: 7dfd74401a159815
 ---
 ## What it is for
 
@@ -26,6 +26,11 @@ fingerprint: ca6a111c9357dad3
 3. Compare the count with the displayed System Qty and review the calculated variance for every line. Exact-match lines are allowed and have no GL impact.
 4. Save as Draft, investigate material differences, then post. If approval is configured, the count remains pending and does not adjust stock until approved; rejected counts can be edited and resubmitted.
 5. After posting, review the GL Impact and Stock Ledger. Reverse a posted count with a reason if it was wrong. A reversal entry cannot itself be reversed; enter a new count to correct that situation.
+
+## Descriptions and cost centers
+
+- **The description is optional.** Left blank, the entry saves *Physical count*, and a blank line takes the item's name ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
+- **A warehouse's cost center.** When a warehouse has a default cost center ([Organizational Units](org-units.html)), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.
 
 ## What happens in the books
 

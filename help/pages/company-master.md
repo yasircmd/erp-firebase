@@ -87,4 +87,5 @@ access to the company.
 
 ## Questions and mistakes
 
+- **"Your subscription allows N active companies"**: your organisation's plan sets the most active companies, and all are in use. Make one inactive, or ask your provider to raise the limit. Inactive companies don't count.
 - If a screen cannot find the company or accounts, the company profile may not be set correctly.

@@ -6,7 +6,7 @@ modules: [PURCHASERETURN]
 sources: [functions/src/purchaseReturn.js, functions/src/grn.js, functions/src/purchaseTax.js]
 summary: Return goods to the supplier, reverse the stock and capture the debit note for the vendor return.
 reviewed: 2026-11-13
-fingerprint: 1ceba400496ca409
+fingerprint: 8f61910e5cacea2c
 ---
 ## What it is for
 
@@ -25,6 +25,10 @@ fingerprint: 1ceba400496ca409
 3. Enter the return quantity and the reason for the return.
 4. Post the return. The system updates the stock and the supplier return ledger.
 5. Review the resulting value and any variance entries created by the return.
+
+## Descriptions
+
+- **The description is optional.** Left blank, the entry saves *Purchase return from the vendor invoice's number* ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
 
 ## What happens in the books
 

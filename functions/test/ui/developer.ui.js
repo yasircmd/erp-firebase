@@ -212,6 +212,19 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await q.close();
   });
 
+  await check('UX4: the firm\'s Help inside Client Management (onboarding, Cloud Shell, limits, packs), never public (Q507)', async () => {
+    const q = await open('u-admin');
+    await q.click('#dv-pages [data-page="help"]');
+    await q.waitForSelector('#dv-help:not(.hidden)');
+    const t = await q.textContent('#dv-help');
+    for (const want of [/Onboarding a client/, /Test connection/, /deploy-functions\.sh <set> --screens/, /deploy-rules\.sh/, /Most companies \/ users/, /Packs/]) assert.match(t, want);
+    assert.equal(await q.isVisible('[data-page-pane="corporates"]'), false);
+    const helpFiles = require('fs').readdirSync(require('path').join(__dirname, '../../../help/pages'));
+    assert.ok(!helpFiles.some(f => /client-management|developer/i.test(f)), 'no public Help page for it');
+    assert.deepEqual(q.__errors, []);
+    await q.close();
+  });
+
   await check('set up: the steps, the chart headings and the first Admin', async () => {
     p.__dialogs = [];
     await rtdb.ref('coa/H1').set({ AccountCode: '100000', AccountName: 'Assets', AccountType: 'Asset', NormalBalance: 'Debit', IsPostable: false, Status: 'Active', CompanyID: '' });

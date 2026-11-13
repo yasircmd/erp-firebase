@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
 reviewed: 2026-11-13
-fingerprint: 19ca9a175c07e821
+fingerprint: 253c84ea1d4432fe
 ---
 ## The page
 
@@ -46,6 +46,20 @@ fixed, so the lines keep the whole screen.
   count.
 - **Esc** with a list, a search or a pop-up open only closes that, as
   before.
+
+## Descriptions on stock entries
+
+On the stock entries (Goods Receipt Note, Material Issue, Stock Adjustment,
+Warehouse Movement, Physical Count, Production, Delivery Note, Purchase
+Return and Sales Return) the description is optional:
+
+- a blank header saves one naming the entry and what it came from, for
+  example *Goods receipt from PO-26-000123* or *Sales return from
+  CI-26-000045*;
+- a blank line takes the item's name (a GRN's non-stock line, its
+  category's).
+
+Journals, invoices and payments still need their description.
 
 ## Company first
 

@@ -6,7 +6,7 @@ modules: [DELIVERYNOTE]
 sources: [functions/src/stockMovement.js]
 summary: Deliver the ordered goods and record the stock movement out of the warehouse to the customer.
 reviewed: 2026-11-13
-fingerprint: b156a32ec4cce30d
+fingerprint: 593740f190bc7fcf
 ---
 ## What it is for
 
@@ -45,6 +45,11 @@ The Delivery Note has a **Sales Rep** field. It takes the rep of the first Sales
 it, or choose **No rep**, while the Delivery Note is a draft; once it is posted it
 stays as it is. Only the company's active sales reps are offered. MIS Reports
 → **Sales by rep** counts each document's own rep.
+
+## Descriptions and cost centers
+
+- **The description is optional.** Left blank, the entry saves *Delivery note from SO-… (its sales orders)*, and a blank line takes the item's name ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
+- **A warehouse's cost center.** When a warehouse has a default cost center ([Organizational Units](org-units.html)), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.
 
 ## What happens in the books
 

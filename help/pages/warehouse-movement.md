@@ -6,7 +6,7 @@ modules: [WAREHOUSEMOVEMENT]
 sources: [functions/src/warehouseMovement.js, functions/src/stockMovement.js]
 summary: Transfer stock between warehouses or locations while keeping the ledger and balances in step.
 reviewed: 2026-11-13
-fingerprint: aedf40cc1588b411
+fingerprint: 2bc652e6e7b9c38a
 ---
 ## What it is for
 
@@ -27,6 +27,11 @@ fingerprint: aedf40cc1588b411
 4. Save as Draft or post. If approval is configured, posting submits the document and no stock moves until approval; a rejected movement can be corrected and resubmitted.
 5. After posting, verify source and destination quantities in Stock Ledger/Availability. If incorrect, use Reverse Movement with a reason rather than editing posted lines.
 
+## Descriptions and cost centers
+
+- **The description is optional.** Left blank, the entry saves *Warehouse movement*, and a blank line takes the item's name ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
+- **A warehouse's cost center.** When a warehouse has a default cost center ([Organizational Units](org-units.html)), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.
+
 ## What happens in the books
 
 No GL journal is created: moving stock within the company does not change its total value. The stock ledger records an Out at the source and an In at the destination at the same resolved cost; batch and receipt-age information move with the stock. Newly available stock at the destination can be allocated to open Sales Order shortfalls.
@@ -37,7 +42,7 @@ WAREHOUSEMOVEMENT **access** controls viewing, **draft** creates/edits/deletes D
 
 ## Questions and mistakes
 
-- **Movement is refused:** check source quantity, valid Warehouse/Rack locations, different From/To, UOM conversion, positive quantity, description, and required batch number.
+- **Movement is refused:** check source quantity, valid Warehouse/Rack locations, different From/To, UOM conversion, positive quantity, and required batch number.
 - **No quantity moved while pending approval:** this is expected; approval gates the stock ledger update.
 - **No GL voucher appears:** this transaction has no GL entry by design; inspect stock ledger balances at both locations.
 - **Destination Sales Order reservation changed:** inbound stock may automatically fill open order shortfalls at the destination.
