@@ -21,6 +21,14 @@
         <th class="py-2 px-3">Module</th><th class="py-2 px-3">Id</th><th class="py-2 px-3">Kind</th><th class="py-2 px-3">Version</th><th class="py-2 px-3">Published</th><th class="py-2 px-3"></th></tr></thead>
         <tbody id="bd-body" class="divide-y divide-slate-800"></tbody></table>
     </div>
+    <!-- Packs (phase 6, Q493): the firm's packs in the code, published with their modules. -->
+    <div class="pt-2"><h3 class="font-semibold text-slate-200"><i class="fa-solid fa-box-open text-blue-400"></i> Packs</h3>
+      <p class="text-xs text-slate-400">A pack is a set of modules with a menu, starter reports and a setup checklist, provided to corporates as one in the Developer screen. Publishing one publishes its modules where they changed, then the pack.</p></div>
+    <div class="bg-slate-800/40 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Pack</th><th class="py-2 px-3">Modules</th><th class="py-2 px-3">Reports</th><th class="py-2 px-3">Checklist</th><th class="py-2 px-3">Version</th><th class="py-2 px-3"></th></tr></thead>
+        <tbody id="bd-packs" class="divide-y divide-slate-800"></tbody></table>
+    </div>
   </div>
 
   <div id="bd-edit-view" class="hidden space-y-4">
@@ -115,7 +123,9 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const fail = err => appAlert(err && err.message ? err.message : String(err));
-  const TYPE_LABELS = { text: 'Text', longtext: 'Long text', number: 'Number', amount: 'Amount', date: 'Date', datetime: 'Date and time', yesno: 'Yes / no', choice: 'Choice list', link: 'Link' };
+  const TYPE_LABELS = { text: 'Text', longtext: 'Long text', number: 'Number', amount: 'Amount', date: 'Date', datetime: 'Date and time', yesno: 'Yes / no', choice: 'Choice list', link: 'Link', calc: 'Calculated' };
+  // Phase 6 (Q497): what a calculated field works out.
+  const CALC_OPS = { product: 'a × b', sum: 'a + b', difference: 'a − b', percent: 'a percentage', days: 'days between dates', previous: 'earlier documents\' total' };
   let L = null, def = null, isNew = false, published = null;
 
   function renderList() {
@@ -125,30 +135,60 @@
       '</td><td class="py-2 px-3 text-xs">' + esc(String(d.publishedAt || '').slice(0, 10)) + '</td><td class="py-2 px-3 text-xs">' + (d.changed ? '<span class="text-amber-400">Draft changed</span>' : '') + '</td></tr>').join('') ||
       '<tr><td colspan="6" class="py-6 text-center text-slate-500">No module yet: New module.</td></tr>';
   }
-  const load = () => call('getModuleDefinitions', {}).then(r => { L = r; renderList(); }, fail);
+  const load = () => call('getModuleDefinitions', {}).then(r => { L = r; renderList(); loadPacks(); }, fail);
+  // ---------- packs (phase 6) ----------
+  let P = null;
+  function renderPacks() {
+    $('bd-packs').innerHTML = (P.packs || []).map(p => '<tr data-pack="' + esc(p.id) + '"><td class="py-2 px-3"><div class="font-medium">' + esc(p.label) + '</div><div class="text-xs text-slate-500 font-mono">' + esc(p.id) + '</div>' +
+      (p.problem ? '<div class="text-xs text-rose-400">' + esc(p.problem) + '</div>' : '') + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + p.modules.map(m => esc(m.label)).join(', ') + '</td><td class="py-2 px-3">' + p.reports + '</td><td class="py-2 px-3">' + p.checklist + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + (p.version ? 'v' + p.version : 'Not published') + (p.changed && p.version ? ' <span class="text-amber-400">changed</span>' : '') + '</td>' +
+      '<td class="py-2 px-3 text-right">' + (P.rights.publish && !p.problem && p.changed ? '<button class="bd-pack-publish bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Publish</button>' : '') + '</td></tr>').join('') ||
+      '<tr><td colspan="6" class="py-6 text-center text-slate-500">No pack in the code.</td></tr>';
+  }
+  const loadPacks = () => call('getModulePacks', {}).then(r => { P = r; renderPacks(); }, fail);
 
   // One field row (header or line).
   function fieldRow(f, i, line) {
     const types = line ? L.lineTypes : L.types;
     const targets = Object.entries(L.linkTargets).map(([k, v]) => [k, v]).concat(L.masters.filter(m => m !== def.id).map(m => [m, m]), def.kind === 'master' && def.id ? [[def.id, def.id + ' (this module)']] : []);
     const extra = f.type === 'choice' ? '<textarea rows="2" class="bd-options bg-slate-900 border border-slate-700" placeholder="One option per line">' + esc((f.options || []).join('\n')) + '</textarea>'
-      : f.type === 'link' ? '<select class="bd-target bg-slate-900 border border-slate-700"><option value=""></option>' + targets.map(([k, v]) => '<option value="' + esc(k) + '"' + (k === f.target ? ' selected' : '') + '>' + esc(v) + '</option>').join('') + '</select>' : '';
+      : f.type === 'link' ? '<select class="bd-target bg-slate-900 border border-slate-700"><option value=""></option>' + targets.map(([k, v]) => '<option value="' + esc(k) + '"' + (k === f.target ? ' selected' : '') + '>' + esc(v) + '</option>').join('') + '</select>'
+      : f.type === 'calc' ? calcBox(f, line) : '';
     return '<tr data-i="' + i + '" class="border-b border-slate-800">' +
       '<td class="py-1 px-1"><input class="bd-key bg-slate-900 border border-slate-700 font-mono" value="' + esc(f.key || '') + '" placeholder="roomType"></td>' +
       '<td class="py-1 px-1"><input class="bd-flabel bg-slate-900 border border-slate-700" value="' + esc(f.label || '') + '"></td>' +
       '<td class="py-1 px-1"><select class="bd-type bg-slate-900 border border-slate-700">' + types.map(t => '<option value="' + t + '"' + (t === f.type ? ' selected' : '') + '>' + TYPE_LABELS[t] + '</option>').join('') + '</select></td>' +
       '<td class="py-1 px-1">' + extra + '</td>' +
-      '<td class="py-1 px-1">' + (f.type === 'link' ? '' : '<input class="bd-default bg-slate-900 border border-slate-700" value="' + esc(f.default == null ? '' : f.default) + '">') + '</td>' +
-      '<td class="py-1 px-1 text-center"><input type="checkbox" class="bd-required"' + (f.required ? ' checked' : '') + '></td>' +
+      '<td class="py-1 px-1">' + (f.type === 'link' || f.type === 'calc' ? '' : '<input class="bd-default bg-slate-900 border border-slate-700" value="' + esc(f.default == null ? '' : f.default) + '">') + '</td>' +
+      '<td class="py-1 px-1 text-center">' + (f.type === 'calc' ? '' : '<input type="checkbox" class="bd-required"' + (f.required ? ' checked' : '') + '>') + '</td>' +
       '<td class="py-1 px-1 text-center">' + (line ? '' : '<input type="checkbox" class="bd-col"' + ((def.listColumns || []).includes(f.key) ? ' checked' : '') + '>') + '</td>' +
       '<td class="py-1 px-1 whitespace-nowrap"><button class="bd-up text-slate-500 hover:text-slate-200" title="Move up"><i class="fa-solid fa-arrow-up"></i></button><button class="bd-remove text-slate-500 hover:text-red-400 ml-1" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>';
   }
+  // A calculated field's settings: what it works out, the fields it uses
+  // (comma separated keys; h:key a header field on a line, t:key a line total
+  // on the header), a fixed percentage, and for earlier documents' total the
+  // link it totals by, the line field it matches by and the statuses skipped.
+  function calcBox(f, line) {
+    const inp = (cls, v, ph, w) => '<input class="' + cls + ' bg-slate-900 border border-slate-700 ' + (w || 'w-24') + '" value="' + esc(v == null ? '' : v) + '" placeholder="' + esc(ph) + '">';
+    return '<div class="flex flex-wrap gap-1 items-center"><select class="bd-cop bg-slate-900 border border-slate-700">' + Object.entries(CALC_OPS).map(([k, v]) => '<option value="' + k + '"' + (k === f.op ? ' selected' : '') + '>' + esc(v) + '</option>').join('') + '</select>' +
+      inp('bd-cof', (f.of || []).join(', '), line ? 'qty, rate (h:key)' : 'nights, rate (t:key)', 'w-40') +
+      (f.op === 'percent' ? inp('bd-cvalue', f.value, '% (or a 2nd field)', 'w-28') : '') +
+      (f.op === 'previous' ? inp('bd-cby', f.by, 'by link (contract)') + (line ? inp('bd-cmatch', f.match, 'match line field') : '') + inp('bd-cskip', (f.skip || []).join(', '), 'skip statuses', 'w-28') : '') + '</div>';
+  }
   function readFields(tbody) {
     return [...$(tbody).querySelectorAll('tr[data-i]')].map(tr => {
-      const f = { key: tr.querySelector('.bd-key').value.trim(), label: tr.querySelector('.bd-flabel').value.trim(), type: tr.querySelector('.bd-type').value, required: tr.querySelector('.bd-required').checked };
+      const f = { key: tr.querySelector('.bd-key').value.trim(), label: tr.querySelector('.bd-flabel').value.trim(), type: tr.querySelector('.bd-type').value, required: Boolean(tr.querySelector('.bd-required') && tr.querySelector('.bd-required').checked) };
       const o = tr.querySelector('.bd-options'); if (o) f.options = o.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
       const t = tr.querySelector('.bd-target'); if (t) f.target = t.value;
       const d = tr.querySelector('.bd-default'); if (d && d.value !== '') f.default = d.value;
+      const op = tr.querySelector('.bd-cop');
+      if (op) {
+        const v = c => { const x = tr.querySelector(c); return x ? x.value.trim() : ''; };
+        Object.assign(f, { op: op.value, of: v('.bd-cof').split(',').map(x => x.trim()).filter(Boolean) });
+        if (v('.bd-cvalue') !== '') f.value = Number(v('.bd-cvalue'));
+        if (op.value === 'previous') Object.assign(f, { by: v('.bd-cby'), match: v('.bd-cmatch'), skip: v('.bd-cskip').split(',').map(x => x.trim()).filter(Boolean) });
+      }
       f._col = Boolean(tr.querySelector('.bd-col') && tr.querySelector('.bd-col').checked);
       return f;
     });
@@ -268,13 +308,14 @@
         (t === 'JV' ? box('Party on the', sel('partySide', a.partySide || 'debit', [['debit', 'debit side'], ['credit', 'credit side']])) : '') +
         box('Date', sel('date', a.date, fieldsOf(head, ['date']), 'the day it runs')) +
         (t === 'CUSTOMERINVOICE' ? '' : box(t === 'JV' ? 'Reference' : 'Vendor\'s invoice no', sel('reference', a.reference, fieldsOf(head, ['text']), 'the record\'s number'))) +
+        box('Project', sel('project', a.project, fieldsOf(head, ['link'], ['PROJECT']), 'set per company in Setup')) +
         box('Description <span class="text-slate-500">({number}, {name}, {period}, {field})</span>', '<input data-k="description" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + esc(a.description || '') + '" placeholder="Rent {number} {period}">', 'md:col-span-2') + '</div>' +
         '<div class="grid grid-cols-2 md:grid-cols-5 gap-2">' +
         box('Takes', sel('source', a.source || 'header', [['header', 'one line from the record'], ['lines', 'a line per row of its lines']].filter(o => o[0] === 'header' || (def.lines || {}).enabled))) +
         (t === 'CUSTOMERINVOICE' ? box('Lines are', sel('kind', a.kind || 'account', [['account', 'account lines'], ['item', 'item lines (deliver the stock)']])) : '') +
-        (item ? box('Item', sel('item', a.item, fieldsOf(either, ['link'], ['ITEM']), '')) + box('Quantity', sel('quantity', a.quantity, fieldsOf(from, ['number', 'amount']), '')) +
-          box('Price', sel('price', a.price, fieldsOf(from, ['number', 'amount']), '')) + box('Warehouse', sel('warehouse', a.warehouse, fieldsOf(either, ['link'], ['WAREHOUSE']), 'set per company in Setup'))
-          : box('Amount', sel('amount', a.amount, fieldsOf(from, ['number', 'amount']), '')) +
+        (item ? box('Item', sel('item', a.item, fieldsOf(either, ['link'], ['ITEM']), '')) + box('Quantity', sel('quantity', a.quantity, fieldsOf(from, ['number', 'amount', 'calc']), '')) +
+          box('Price', sel('price', a.price, fieldsOf(from, ['number', 'amount', 'calc']), '')) + box('Warehouse', sel('warehouse', a.warehouse, fieldsOf(either, ['link'], ['WAREHOUSE']), 'set per company in Setup'))
+          : box('Amount', sel('amount', a.amount, fieldsOf(from, ['number', 'amount', 'calc']), '')) +
           (t === 'JV' ? (a.partySide === 'debit' && a.party ? '' : acct('debitAccount', 'Debit account')) + (a.partySide !== 'debit' && a.party ? '' : acct('creditAccount', 'Credit account')) : acct('account', t === 'VENDORINVOICE' ? 'Expense account' : 'Revenue account'))) +
         box('Line text', sel('lineText', a.lineText, fieldsOf(either, ['text', 'choice']), 'the description')) + '</div>' +
         '<div class="text-xs text-slate-300"><label class="inline-flex items-center gap-2"><input type="checkbox" class="bd-abulk"' + (b.enabled ? ' checked' : '') + '> A bulk run (subscriptions, rent): the records due by a next-due date, moved on by their period</label></div>' +
@@ -336,6 +377,17 @@
     load();
     $('bd-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) open(tr.dataset.id); });
     $('bd-new').addEventListener('click', () => open(null));
+    $('bd-packs').addEventListener('click', async e => {
+      const b = e.target.closest('.bd-pack-publish'); if (!b) return;
+      const id = b.closest('tr').dataset.pack;
+      if (!(await appConfirm('Publish the pack ' + id + '? Its changed modules get a new version for every corporate, and the corporates that have the pack get what is new in it.'))) return;
+      b.disabled = true;
+      try {
+        const r = await call('publishModulePack', { id });
+        appAlert(r.unchanged ? 'Nothing changed: no new version.' : 'Pack version ' + r.version + ' published' + (r.modules.length ? ' with ' + r.modules.map(m => m.id + ' v' + m.version).join(', ') : '') + (r.corporates.length ? '; brought up to date in ' + r.corporates.length + ' corporate(s).' : '.'));
+      } catch (err) { fail(err); }
+      load();
+    });
     $('bd-back').addEventListener('click', () => { $('bd-edit-view').classList.add('hidden'); $('bd-list-view').classList.remove('hidden'); load(); });
     $('bd-save').addEventListener('click', save);
     $('bd-publish').addEventListener('click', publish);
@@ -351,7 +403,7 @@
     $('bd-add-status').addEventListener('click', () => { capture(); def.statuses.push({ name: '' }); draw(); });
     const rowsOf = id => ({ 'bd-fields': () => def.fields, 'bd-line-fields': () => def.lines.fields })[id]();
     ['bd-fields', 'bd-line-fields'].forEach(id => {
-      $(id).addEventListener('change', e => { if (e.target.matches('.bd-type')) { capture(); draw(); } });
+      $(id).addEventListener('change', e => { if (e.target.matches('.bd-type, .bd-cop')) { capture(); draw(); } });
       $(id).addEventListener('click', e => {
         const tr = e.target.closest('tr[data-i]'); if (!tr) return;
         const i = Number(tr.dataset.i);

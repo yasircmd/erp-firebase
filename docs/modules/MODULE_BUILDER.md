@@ -675,6 +675,283 @@ As designed (Q481-Q488), with these points:
   the 7 MIS builder and saved-report functions, with screens (MIS), then
   Hosting; no rules change.
 
+## Phase 6: packs (design 2026-11-12)
+
+### The owner's decisions (2026-11-12)
+
+| # | Question | Decision |
+|---|---|---|
+| Q493 | What a pack is | **A bundle provided as one:** a named set of the firm's definitions (masters, documents, variants) with starter reports and a dashboard, provided to a group or a corporate in one step. Clients can't change it (Q461); a new version reaches every corporate at once (Q467). |
+| Q494 | The first packs | **Five:** Hotel, Subscriptions, Real estate, Investments and Construction. |
+| Q495 | On switch-on | **A menu, reports and a checklist:** a menu folder with the pack's screens in Tree Management, its starter reports and a dashboard for Admin, rights for Admin only; the client gives other roles their rights and works through a setup checklist (accounts, sales type, numbering). No sample data. |
+| Q496 | A pack's taxes | **The client's Tax Configuration:** a pack adds no tax; its Help and checklist say which components to add (for example a hotel's tourism or municipality charge). |
+| Q497 | Calculated fields | **Yes, a fixed set first:** a calculated field type (a × b, a sum, a − b, a percentage of a field, days between two dates), worked out on the server and read-only on the screen. No scripts (as designed). |
+| Q498 | The order | **All five together:** one release. Built in internal steps (below), each tested before the next. |
+| Q499 | Construction's scope | **All four parts:** contracts and their bill of quantities; monthly progress claims; retention and advances; subcontractors and daily site reports. |
+
+### The proposal
+
+**The machinery (6a)**
+
+- **Calculated fields (Q497).** A new field type, `calc`, with an operation
+  (`product`, `sum`, `difference`, `percent`, `days`) and the fields it works
+  on. These are fields of the same record: for a line, its own fields or the
+  header's. The definition checks the operands (numbers or amounts, two dates
+  for `days`, no calc built on itself or in a loop). The server works the
+  value out on every save; the screen shows it as you type, read-only. A calc
+  on a line can total into the header like any amount. Rounding: amounts to
+  2 places. It is a field like the others in reports (phase 5) and actions
+  (phase 3).
+- **Project as a link target.** Construction (and Real estate's sites) link
+  to the ERP's own Projects (the dimension), so an action's invoice carries
+  the project.
+- **Packs (Q493).** A pack definition in the firm's Firestore,
+  `modulePacks/{id}`: its name, description, version, and its parts:
+  - the module definitions, which must be published;
+  - the menu folder's layout;
+  - starter reports (MIS builder specs on the pack's data sets);
+  - a starter dashboard;
+  - the setup checklist.
+
+  The builder gets a Packs tab: make a pack, check it (every part
+  published, every report's data set in the pack), publish a version.
+- **Providing a pack.** A pack is provided in the Developer screen like a
+  module, to a group or a corporate (M4). Providing it switches on every
+  module in it. Switching a pack on in a corporate, the first time:
+  - adds the menu folder (Tree Management);
+  - gives Admin the rights;
+  - saves the starter reports and dashboard as Admin's, shared with no one.
+
+  A later version does the same for whatever is new, and never removes
+  anything the client changed. Taking a pack away switches its modules off.
+  The data is kept, as for any module.
+- **The checklist (Q495, Q496).** A pack's Setup page shows its steps, each
+  ticked when it is done, read from the corporate where possible:
+  - the module's Setup (accounts, sales type);
+  - the tax components the pack's Help names;
+  - the roles to give rights.
+
+**The packs (6b-6f), built only with the builder**
+
+- **Hotel:**
+  - **Rooms** (type, floor, rate; status board);
+  - **Bookings** (guest, room, from and to dates, nights = `days`,
+    amount = nights × rate). The calendar refuses a double booking.
+  - **Room Invoice**, a variant of Customer Invoice, made from a booking at
+    check-out;
+  - **Table orders** (table, lines of items, qty × price), invoiced to a
+    guest or as a sale;
+  - reports: occupancy by room type, revenue by room.
+- **Subscriptions:**
+  - **Plans** (price, period);
+  - **Subscriptions** (customer, plan, quantity, fee = price × quantity,
+    next due, period);
+  - the bulk billing run, one invoice per customer;
+  - reports: recurring revenue by plan, due this month.
+- **Real estate:**
+  - **Properties**;
+  - **Units** (property, type, area, rent; let/vacant board);
+  - **Leases** (tenant, unit, start, end, rent, period, deposit);
+  - **Lease Invoice**, a variant of Customer Invoice, from the leases'
+    bulk rent run;
+  - reports: occupancy, rent roll, leases ending.
+- **Investments:**
+  - **Investments** (instrument, counterparty, dates, cost, rate,
+    income = a percentage of cost);
+  - documents **Buy**, **Sell**, **Income received** and **Revaluation**,
+    each to a Journal (or a Vendor or Customer Invoice);
+  - reports: holdings, income by instrument.
+- **Construction (Q499):**
+  - **Contracts** (customer, Project, value; the bill of quantities as
+    lines: item or description, qty, rate, amount = qty × rate);
+  - **Progress claims** (contract, period; lines with the qty done to date
+    and the amount to date; this claim = to date − previous claims;
+    retention = a percentage of this claim; advance recovered = a
+    percentage). Each claim creates a Customer Invoice for the claim, less
+    retention and advance recovered, to their own accounts.
+  - **Retention release** and **Advance received**, each to an invoice or
+    a Journal;
+  - **Subcontract orders** (vendor, Project, lines) and **subcontractor
+    claims**, each to a Vendor Invoice, with retention held;
+  - **Site reports** (date, Project, labour, equipment, progress notes);
+  - reports: contract status (value, claimed, retention held), cost and
+    billing by project.
+
+**Checks to make while building, which may change the design**
+
+- **Negative lines on the invoices.** A claim's retention and advance lines
+  are negative. Phase 3's actions refuse a line below zero. If the Customer
+  and Vendor Invoice (ported) refuse them too, the claim makes the invoice
+  for the net amount and a Journal moves the retention and advance. That is
+  the same in the books, in two documents.
+- **"Previous claims".** Billed to date needs a contract's earlier claims.
+  It is a read across records, not a formula of one record. Proposed: a
+  fixed `previous` operation on a line field, summing the same field over
+  the earlier records with the same link (the contract) and the same line
+  key. The builder checks it like the other calcs.
+- **A pack's starter reports per company.** A report is per company. The
+  starter reports are made for the corporate's first company, and saved
+  without a company where MIS allows it.
+
+### Build (in steps, one release)
+
+1. **6a-1:** calculated fields (the definition checks, server values, the
+   screen, totals, reports and actions), the `previous` operation, and
+   Project as a link target. Unit, emulator and UI tests.
+2. **6a-2:** packs:
+   - the definitions and their versions;
+   - the builder's Packs tab;
+   - providing a pack (Developer screen, entitlements), and switching it on
+     in a corporate (menu, rights, reports, dashboard);
+   - the checklist.
+
+   Tests.
+3. **6b-6f:** the five packs as definitions. Each gets an emulator test of
+   its flow (for example a booking to a Room Invoice, a claim to its
+   invoice, net of retention) and a Help page in a new "Packs" area.
+4. **Release:**
+   - full regression and negative controls;
+   - What's new and the docs;
+   - the deploy set: likely every function, since entitlements.js and the
+     registry reach everything.
+
+### As built: phase 6 (2026-11-12)
+
+**Where it differs from the design, and why**
+
+- **The packs are written in the code, not made in a pack editor.** Each
+  pack is `functions/src/packs/<name>.js`, its definitions and the pack,
+  read and tested like code (unit/builtPacks, emulator/packFlows). The
+  builder's **Packs** section lists them and publishes one. Publishing gives
+  each changed definition a new version, then the pack a version; an
+  unchanged pack gets none. A pack's modules can still be changed in the
+  builder afterwards (a new module version), and a later code change to the
+  pack publishes over it. The five packs are the firm's fixed content, so an
+  editor screen would have cost more than it gave.
+- **A claim's invoice is gross, its retention and advance by journals** (the
+  check the design named): the Customer Invoice refuses a line below zero (a
+  ported rule, kept). The claim's three actions are *Invoice the claim* (the
+  gross), *Hold retention* and *Recover advance*, each a Journal moving the
+  amount off the customer. The books come out the same.
+- **Added, not in the design:**
+  - an action can make its document **as a variant** (`variant`, with
+    `variantFields` mapping the variant's extra fields from the record's
+    header). Hotel's check-out makes a Room Invoice, Real estate's rent run
+    Lease Invoices, each with its own numbers, rights and approvals
+    (phase 4);
+  - an action can take its **project** from a record's link to the ERP's
+    projects (`project`), else the Setup's.
+- **A pack's menu nodes** carry `PackID` and are left out of the
+  menu's fingerprint (developer.js `layout`). So a corporate with a pack
+  still follows the main tree, and giving it the main tree (a release, or
+  Developer → Back to the main tree) keeps its packs' folders after the main
+  tree's items. Without this, a release would have removed a follower's pack
+  folder.
+
+**What was built**
+
+- **builtCalc.js** (new): the `calc` field type.
+  - **Operations:** `product`, `sum`, `difference`, `percent` (of a field,
+    or a fixed value), `days`, and `previous`.
+  - **`previous`** sums a field over the module's earlier documents with the
+    same header link. "Earlier" means by date, then by when made; the
+    `skip` statuses are not counted. On a line, it matches the earlier
+    documents' lines by a line field.
+  - **Refs:** a same-table field defined before the calc. A line may also use
+    `h:key`, a header field that is not calculated; the header may use
+    `t:key`, a line total. `previous` reads stored values, so it may name
+    any field of its table but itself.
+  - **money:** set for amounts and for calcs worked out from one; rounded to
+    2 places, other numbers to 6.
+  - **Where values come from:** `apply` works them out on the server at
+    every save (lines, then totals, then the header), whatever the screen
+    sent. BUILT.html shows the same values as you type, read only (a
+    `previous` value shows as last saved).
+  - **Not done:** an earlier document changed later is not carried forward
+    to the documents after it; they are worked out again only when saved.
+- **The rest of the builder:**
+  - calc counts as a number field everywhere (totals, approval amount,
+    reports through builtMis, an action's amount);
+  - a variant's extra fields are never calculated;
+  - PROJECT is a link target: the company's projects, not Closed or
+    Inactive.
+  - BUILDER.html has the calc settings, and the action's Project choice.
+- **builtPacks.js** (new):
+  - `cleanPack`: the modules must be the pack's own definitions, each in the
+    menu once; the reports must be on the pack's data sets (or Sales or
+    Purchase lines) and pass the builder's spec check; checklist items are
+    setup, tax, rights or manual.
+  - The firm's `modulePacks/{P_ID}`, with versions.
+  - Callables:
+    - getModulePacks and publishModulePack (Corporate 100, BUILDER rights);
+    - getPackSetup, tickPackItem and addPackReports (PACKSETUP, a new
+      module; a later module, so off until a pack brings it).
+  - **Installing** (`installIn`, in the corporate):
+    - the menu folder with Pack setup first, Admin only;
+    - each module's default rights where the corporate has none;
+    - the starter reports in the first company, for the first active Admin,
+      and their tiles on that Admin's dashboard (after the starter tiles
+      when they had none);
+    - `packInstalls/{P_ID}` records what was offered, so a later version
+      only adds and never puts back what the client removed.
+  - **Checklist:** a setup item is ticked when some company's Setup gives
+    every action of the module what it needs (centres and project are
+    optional); a rights item when a role other than Admin has access to one
+    of the pack's modules; tax and manual items by hand.
+  - Corporate 100 sees every published pack in Pack setup.
+- **developer.js:**
+  - a pack is provided to a group (`saveDeveloperGroupModules` packs) or a
+    corporate (`saveDeveloperModules` packs). It brings its modules and Pack
+    setup; the group keeps `Packs`, the entry `Packs: {P_ID: true}`.
+  - The pack is installed in each Active member (within reach), and a
+    corporate that joins the group gets the group's packs.
+  - A new pack version is installed in every corporate that has the pack.
+  - Taking a pack away switches its modules off and keeps the data.
+  - The Developer screen marks a pack's modules "(in a pack)", not to be
+    ticked one by one.
+  - The firm's definitions are read fresh in these calls, so a pack
+    published a moment ago lists its modules.
+- **The five packs:**
+  - **Hotel:** Rooms with a housekeeping board, Bookings, Room Invoice
+    (variant), Table orders.
+  - **Subscriptions:** Plans, and Subscriptions with a billing run.
+  - **Real estate:** Properties, Units with a board, Leases (schedule and
+    rent run), Lease Invoice (variant).
+  - **Investments:** Investments, and the Purchase, Sale, Income and
+    Revaluation documents, each to Journals.
+  - **Construction:**
+    - Contracts, BOQ items, Progress claims (lines against BOQ items, with
+      `previous`), Advances billed and Retention releases;
+    - Subcontracts, Subcontractor claims (a vendor invoice on the project,
+      retention by journal) and Site reports.
+- **Tests and controls:**
+  - **Tests:**
+    - unit: builtCalc, builtPacks;
+    - emulator: moduleBuilderCalc, modulePacks (in-process, with a client
+      corporate), packFlows (each pack's flow to the books);
+    - UI: moduleBuilder (calc in the builder and a claim on screen; the
+      Packs section and Pack setup), developer (a pack provided to a group).
+  - **Negative controls, each caught and restored:**
+    - calc: the skip, earlier-than, the server's own value, an action's
+      project, rounding;
+    - packs: what was offered, Pack setup brought along, reports made once,
+      setup done, an unchanged pack, the pack nodes kept and left out of
+      the layout;
+    - flows: an action as a variant, the line match, a booking holding its
+      room;
+    - UI: the screen's calc, the Developer's pack marking, Pack setup's
+      tick.
+- **Help:**
+  - a new **Packs** area (Packs and Pack setup, and a page per pack);
+  - Built modules (Calculated fields, variants and projects from actions,
+    Packs);
+  - Build a report (calculated fields);
+  - What's new.
+- **Deploy set** `module-builder-p6`: every function (722; the registry
+  changed), with screens (BUILDER, BUILT, DEVELOPER, PACKSETUP), then
+  Hosting. No rules change. After it: publish the packs from the builder,
+  then provide them in the Developer screen.
+
 ## Open questions for the owner
 
-None: phase 2 Q470-Q473, phase 3 Q474-Q480, phase 4 Q481-Q488 and phase 5 Q489-Q492 decided.
+None: phase 2 Q470-Q473, phase 3 Q474-Q480, phase 4 Q481-Q488, phase 5 Q489-Q492 and phase 6 Q493-Q499 decided.

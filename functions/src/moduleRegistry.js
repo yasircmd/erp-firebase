@@ -186,6 +186,9 @@ const MODULE_REGISTRY = [
   { id: 'TECHREF', label: 'Technical Reference', capabilities: ['access'], internal: true, homeOnly: true },
   // Module Builder (MODULE_BUILDER.md, Q461): the firm defines and publishes modules; Corporate 100 only.
   { id: 'BUILDER', label: 'Module Builder', capabilities: ['access', 'write', 'publish'], internal: true, homeOnly: true },
+  // Pack setup (MODULE_BUILDER.md, phase 6, Q495): a pack's checklist in a
+  // corporate; switched on with the pack (a later module, off until then).
+  { id: 'PACKSETUP', label: 'Pack setup', capabilities: ['access', 'write'] },
   // Support (MULTI_CORPORATE.md, M3; decisions 252-254, 256): a client
   // corporate's Admin sends issues to the firm. clientOnly: never Corporate
   // 100's own (it is the firm), though its tree can hold the item for the
@@ -337,6 +340,7 @@ const DEFAULT_PERMISSIONS = {
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   TECHREF:            { access: ['ADMIN'] },
   BUILDER:            { access: ['ADMIN'], write: ['ADMIN'], publish: ['ADMIN'] },
+  PACKSETUP:          { access: ['ADMIN'], write: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };
 

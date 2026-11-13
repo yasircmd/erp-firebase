@@ -56,6 +56,39 @@ async function developer(request, cap) {
 // ---------- the directory ----------
 
 const entryRef = id => firm.firestore.doc(DIRECTORY + '/' + id);
+
+// ---------- packs (MODULE_BUILDER.md, phase 6, Q493-Q495) ----------
+// A pack is provided like a module: its modules and Pack setup switched on,
+// and the pack installed in the corporate (builtPacks.installIn).
+const PACK_SETUP = 'PACKSETUP';
+async function publishedPacks() {
+  return (await firm.firestore.collection('modulePacks').get()).docs.map(d => d.data().Published).filter(Boolean);
+}
+// The modules the packs ids bring (with Pack setup).
+const packModules = (packs, ids) => [...new Set(packs.filter(p => ids.includes(p.id)).flatMap(p => p.modules).concat(ids.length ? [PACK_SETUP] : []))];
+// Install the packs ids in a corporate (its fresh entry): each result, or the reason it could not.
+async function installPacks(corpId, ids, byName) {
+  if (!ids.length) return [];
+  const all = await publishedPacks();
+  const snap = await entryRef(corpId).get();
+  if (!snap.exists || snap.get('Status') !== 'Active') return ids.map(id => ({ corporate: corpId, pack: id, skipped: 'not Active' }));
+  const c = { id: corpId, entry: snap.data() };
+  const out = [];
+  for (const id of ids) {
+    const pack = all.find(p => p.id === id);
+    if (!pack) { out.push({ corporate: corpId, pack: id, skipped: 'not published' }); continue; }
+    try { out.push(Object.assign({ corporate: corpId, pack: id }, await withinReach(c, () => runInCorporate(c, () => require('./builtPacks').installIn(pack, byName))))); }
+    catch (err) { out.push({ corporate: corpId, pack: id, failed: String(err && err.message || err).slice(0, 200) }); }
+  }
+  return out;
+}
+// A new version of a pack to every Active corporate that has it.
+async function installPackInCorporates(packId) {
+  const dir = await firm.firestore.collection(DIRECTORY).where('Status', '==', 'Active').get();
+  const out = [];
+  for (const d of dir.docs) if ((d.get('Packs') || {})[packId]) out.push(...await installPacks(d.id, [packId], 'SYSTEM'));
+  return out;
+}
 async function entryOf(id) {
   const key = str(id, 20);
   if (!VALID_ID.test(key) || key === HOME_ID) throw new HttpsError('invalid-argument', 'Unknown corporate.');
@@ -106,6 +139,8 @@ function activeRefusal(isNew, was, e) {
 // The corporates, with their open notes counted.
 exports.getDeveloperCorporates = onCallWithMessages(onCallOptions, async (request) => {
   const user = await developer(request, 'access');
+  // The built modules published a moment ago (a pack's) are listed at once (MODULE_BUILDER.md).
+  await require('./builtDefinitions').refresh(true);
   const [dir, notes, groups] = await Promise.all([firm.firestore.collection(DIRECTORY).get(), firm.firestore.collection(NOTES).where('Status', 'in', ['Open', 'In progress']).get(),
     firm.firestore.collection(GROUPS).get()]);
   const open = {};
@@ -117,6 +152,7 @@ exports.getDeveloperCorporates = onCallWithMessages(onCallOptions, async (reques
     corporates,
     modules: MODULE_REGISTRY.filter(m => !m.homeOnly).map(m => ({ id: m.id, label: m.label, alwaysOn: ALWAYS_ON.includes(m.id), baseline: isBaseline(m.id) })),
     groups: groups.docs.map(g => Object.assign({ GroupID: g.id }, g.data())).sort((a, b) => String(a.Name).localeCompare(String(b.Name))),
+    packs: (await publishedPacks()).map(p => ({ id: p.id, label: p.label, version: p.version || 0, modules: p.modules })),
     keepAfterLeavingDays: KEEP_AFTER_LEAVING_DAYS,
     noteTypes: NOTE_TYPES, noteStatuses: NOTE_STATUSES,
     fxSheetUrl: await require('./fxSheet').sheetUrl()
@@ -163,6 +199,7 @@ exports.saveDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
     e.Group = groupGiven ? groupId : (was.Group || '');
     const modules = Object.assign({}, was.Modules || {});
     if (group && was.Group !== groupId) (group.get('Modules') || []).forEach(m => { modules[m] = true; });
+    if (group && was.Group !== groupId && (group.get('Packs') || []).length) e.Packs = Object.assign({}, was.Packs || {}, Object.fromEntries(group.get('Packs').map(p => [p, true])));
     // When it stopped being Active: what the firm holds about it is deleted
     // KEEP_AFTER_LEAVING_DAYS later (decision 265).
     const inactiveSince = e.Status === 'Inactive' ? (was.Status === 'Inactive' && was.InactiveSince ? was.InactiveSince : now) : '';
@@ -170,7 +207,9 @@ exports.saveDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
     if (snap.exists) tx.update(ref, e);
     else tx.set(ref, Object.assign(e, { CreatedAt: now, CreatedBy: nameOf(user) }));
   });
-  return { success: true, CorporateID: id };
+  // The group's packs installed in it (phase 6), once it is Active.
+  const packs = group && (group.get('Packs') || []).length ? await installPacks(id, group.get('Packs'), nameOf(user)) : [];
+  return { success: true, CorporateID: id, packs };
 });
 
 // Reaches the corporate's database, Firestore and Auth through the grant,
@@ -268,9 +307,20 @@ exports.saveDeveloperModules = onCallWithMessages(onCallOptions, async (request)
     if (HOME_ONLY.has(m.id) || ALWAYS_ON.includes(m.id)) return;
     if (isBaseline(m.id)) { if (given[m.id] === false) set[m.id] = false; } else if (given[m.id] === true) set[m.id] = true;
   });
+  // Packs (phase 6, Q493): when given, its packs, each bringing its modules and Pack setup.
+  const update = { ModulesUpdatedAt: new Date().toISOString(), ModulesUpdatedBy: nameOf(user) };
+  let newPacks = [];
+  if (Array.isArray(d.packs)) {
+    const all = await publishedPacks();
+    const wanted = [...new Set(d.packs.map(p => str(p, 33)))].filter(p => all.some(x => x.id === p));
+    packModules(all, wanted).forEach(m => { set[m] = true; });
+    update.Packs = Object.fromEntries(wanted.map(p => [p, true]));
+    newPacks = wanted;
+  }
   // The whole map is replaced (a set, not a merge of fields).
-  await entryRef(id).update({ Modules: set, ModulesUpdatedAt: new Date().toISOString(), ModulesUpdatedBy: nameOf(user) });
-  return { success: true, off: Object.keys(set).filter(k => set[k] === false), on: Object.keys(set).filter(k => set[k] === true) };
+  await entryRef(id).update(Object.assign(update, { Modules: set }));
+  const installed = await installPacks(id, newPacks, nameOf(user));
+  return { success: true, off: Object.keys(set).filter(k => set[k] === false), on: Object.keys(set).filter(k => set[k] === true), packs: installed };
 });
 
 // ---------- groups (decision 259) ----------
@@ -306,21 +356,34 @@ exports.saveDeveloperGroupModules = onCallWithMessages(onCallOptions, async (req
   const ref = firm.firestore.doc(GROUPS + '/' + (str(d.GroupID, 40) || '-'));
   const snap = await ref.get();
   if (!snap.exists) throw new HttpsError('not-found', 'That group is not there any more.');
+  await require('./builtDefinitions').refresh(true);
   const later = MODULE_REGISTRY.filter(m => !isBaseline(m.id) && !m.homeOnly).map(m => m.id);
-  const wanted = (Array.isArray(d.modules) ? d.modules : []).filter(m => later.includes(m));
+  // Packs (phase 6, Q493): when given, the group's packs; each brings its modules and Pack setup.
+  const allPacks = await publishedPacks();
+  const packsGiven = Array.isArray(d.packs);
+  const packs = packsGiven ? [...new Set(d.packs.map(p => str(p, 33)))].filter(p => allPacks.some(x => x.id === p)) : (snap.get('Packs') || []);
+  const own = (Array.isArray(d.modules) ? d.modules : []).filter(m => later.includes(m));
+  const wanted = [...new Set(own.concat(packModules(allPacks, packs)))];
   const before = snap.get('Modules') || [];
+  const packsBefore = snap.get('Packs') || [];
   const now = new Date().toISOString();
   const members = await firm.firestore.collection(DIRECTORY).where('Group', '==', snap.id).get();
   const batch = firm.firestore.batch();
-  batch.update(ref, { Modules: wanted, UpdatedAt: now, UpdatedBy: nameOf(user) });
+  batch.update(ref, { Modules: wanted, Packs: packs, UpdatedAt: now, UpdatedBy: nameOf(user) });
   members.forEach(c => {
     const modules = Object.assign({}, c.get('Modules') || {});
     wanted.forEach(m => { modules[m] = true; });
     before.filter(m => !wanted.includes(m)).forEach(m => { delete modules[m]; });
-    batch.update(c.ref, { Modules: modules, ModulesUpdatedAt: now, ModulesUpdatedBy: nameOf(user) });
+    const cp = Object.assign({}, c.get('Packs') || {});
+    packs.forEach(p => { cp[p] = true; });
+    packsBefore.filter(p => !packs.includes(p)).forEach(p => { delete cp[p]; });
+    batch.update(c.ref, { Modules: modules, Packs: cp, ModulesUpdatedAt: now, ModulesUpdatedBy: nameOf(user) });
   });
   await batch.commit();
-  return { success: true, corporates: members.docs.map(c => c.id), modules: wanted };
+  // Installed in each member (a version already there gets only what is new).
+  const installed = [];
+  for (const c of members.docs) installed.push(...await installPacks(c.id, packs, nameOf(user)));
+  return { success: true, corporates: members.docs.map(c => c.id), modules: wanted, packs: installed };
 });
 
 // ---------- notes ----------
@@ -402,11 +465,14 @@ exports.deleteDeveloperNote = onCallWithMessages(onCallOptions, async (request) 
 //     it. (A module a release adds will go into its "New modules" folder:
 //     M3, decision 255.)
 
+// A pack's menu nodes (PackID, MODULE_BUILDER.md phase 6) are the pack's,
+// not the main tree's: left out of the layout, so a corporate with a pack
+// still follows the main tree, and kept when it is given the main tree.
 function layout(nodes) {
   const kids = {};
   Object.keys(nodes || {}).forEach(id => {
     const n = nodes[id];
-    if (!n || HOME_ONLY.has(n.ModuleID || '')) return;
+    if (!n || HOME_ONLY.has(n.ModuleID || '') || n.PackID) return;
     (kids[n.ParentID || ''] = kids[n.ParentID || ''] || []).push(id);
   });
   Object.values(kids).forEach(list => list.sort((a, b) => (nodes[a].Order || 0) - (nodes[b].Order || 0) || a.localeCompare(b)));
@@ -473,6 +539,10 @@ async function giveMainTree(c, user) {
         Text: n.Text || '', ParentID: n.ParentID || '', Order: i, ModuleID: n.ModuleID || '', AllowedRoles: allowed,
         CreatedAt: n.CreatedAt || now, CreatedBy: n.CreatedBy || 'SYSTEM', UpdatedAt: now, UpdatedBy: nameOf(user)
       };
+    });
+    // Its packs' folders and screens stay, after the main tree's.
+    Object.keys(own).filter(id => own[id] && own[id].PackID).forEach((id, i) => {
+      out[id] = Object.assign({}, own[id], own[id].ParentID ? {} : { Order: lines.length + i });
     });
     await db.ref('tree').set(out);
   });
@@ -670,6 +740,7 @@ exports.purgeDeveloperLeavers = onCallWithMessages(onCallOptions, async (request
   return { success: true, purged: await purgeLeavers() };
 });
 
+module.exports.installPackInCorporates = installPackInCorporates;
 module.exports._layout = { layout, fingerprint, treeStatus };
 // Swappable in the tests: the emulators cannot switch password sign-in off.
 module.exports._auth = { passwordSignIn };

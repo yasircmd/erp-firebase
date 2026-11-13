@@ -16,13 +16,14 @@
 const { firestore } = require('./firebaseAdmin');
 
 const ID = /^xl?:X_[A-Z][A-Z0-9_]{1,30}$/;
-const typeOf = f => (f.type === 'number' || f.type === 'amount' ? 'number' : f.type === 'date' ? 'date' : 'text');
+const { isNumeric } = require('./builtCalc');
+const typeOf = f => (isNumeric(f) ? 'number' : f.type === 'date' ? 'date' : 'text');
 // A built value as a report value, by its field's type.
 function valueOf(f, v) {
-  if (v == null || v === '') return f.type === 'number' || f.type === 'amount' ? 0 : '';
+  if (v == null || v === '') return isNumeric(f) ? 0 : '';
   if (f.type === 'link') return typeof v === 'object' ? String(v.label || v.id || '') : String(v);
   if (f.type === 'yesno') return v ? 'Yes' : 'No';
-  if (f.type === 'number' || f.type === 'amount') return Number(v) || 0;
+  if (isNumeric(f)) return Number(v) || 0;
   return String(v);
 }
 
@@ -56,7 +57,7 @@ function datasetsOf(defs) {
     const fields = Object.assign({}, head, fieldColumns(d.fields, 'f_', byId));
     if (d.kind === 'document' && d.lines && d.lines.enabled) {
       const totals = {};
-      d.lines.fields.filter(f => f.type === 'number' || f.type === 'amount').forEach(f => { totals['t_' + f.key] = { label: d.lines.label + ' · ' + f.label + ' (total)', type: 'number' }; });
+      d.lines.fields.filter(isNumeric).forEach(f => { totals['t_' + f.key] = { label: d.lines.label + ' · ' + f.label + ' (total)', type: 'number' }; });
       out['x:' + d.id] = { title: d.label, module: d.id, built: { id: d.id, lines: false }, fields: Object.assign({}, fields, totals) };
       out['xl:' + d.id] = { title: d.label + ' – ' + (d.lines.label || 'lines').toLowerCase(), module: d.id, built: { id: d.id, lines: true },
         fields: Object.assign({}, fields, fieldColumns(d.lines.fields, 'l_', byId)) };
@@ -98,7 +99,7 @@ async function rowsOf(ds, defs, companyId, months) {
       : { number: r.Number || '', date: r.Date || '', month: String(r.Date || '').slice(0, 7), status: r.Status || '' };
     put(head, def.fields, r.Fields, 'f_');
     if (!ds.built.lines) {
-      if (def.kind === 'document' && def.lines && def.lines.enabled) def.lines.fields.filter(f => f.type === 'number' || f.type === 'amount').forEach(f => { head['t_' + f.key] = Number((r.Totals || {})[f.key]) || 0; });
+      if (def.kind === 'document' && def.lines && def.lines.enabled) def.lines.fields.filter(isNumeric).forEach(f => { head['t_' + f.key] = Number((r.Totals || {})[f.key]) || 0; });
       out.push(head);
       return;
     }

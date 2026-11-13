@@ -424,3 +424,5 @@ const support = require('./src/support');
 ['getModuleDefinitions', 'getModuleDefinition', 'saveModuleDefinitionDraft', 'publishModuleDefinition', 'deleteModuleDefinitionDraft'].forEach(n => { exports[n] = require('./src/moduleBuilder')[n]; });
 ['getBuiltModule', 'getBuiltLinkOptions', 'listBuiltRecords', 'getBuiltRecord', 'saveBuiltRecord', 'setBuiltActive', 'setBuiltStatus', 'decideBuiltApproval', 'deleteBuiltRecord', 'getBuiltBoard', 'setBuiltBoardState', 'getBuiltCalendar'].forEach(n => { exports[n] = require('./src/builtModules')[n]; });
 ['runBuiltAction', 'previewBuiltRun', 'runBuiltBulk', 'getBuiltRuns', 'getBuiltSetup', 'saveBuiltSetup'].forEach(n => { exports[n] = require('./src/builtActions')[n]; });
+// Module Builder phase 6: packs (MODULE_BUILDER.md, Q493-Q499).
+['getModulePacks', 'publishModulePack', 'getPackSetup', 'tickPackItem', 'addPackReports'].forEach(n => { exports[n] = require('./src/builtPacks')[n]; });

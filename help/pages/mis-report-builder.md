@@ -1,5 +1,5 @@
 ---
-fingerprint: c1b35eaaa7980a1e
+fingerprint: ab7f6a0389a60f69
 reviewed: 2026-11-12
 title: Build a report
 area: mis
@@ -58,7 +58,8 @@ Under **Built modules** in the data set list, each of your
 
 A field that links to another built master brings that master's fields too,
 for example a stay's room brings *Room · Room type*, so bookings can be
-grouped by room type. Long text fields are not in reports.
+grouped by room type. A calculated field (for example *Nights* or *Net due*)
+is a number like any amount. Long text fields are not in reports.
 
 Amounts are in the base currency, before tax, after each document's discount.
 In GL lines a discount is its own line, so an invoice's revenue there is the

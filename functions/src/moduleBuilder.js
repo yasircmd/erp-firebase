@@ -135,4 +135,4 @@ exports.deleteModuleDefinitionDraft = onCallWithMessages(onCallOptions, async (r
   return { success: true };
 });
 
-module.exports = Object.assign(exports, { compatible });
+module.exports = Object.assign(exports, { compatible, assertPrefixFree });

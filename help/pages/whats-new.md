@@ -13,6 +13,17 @@ screen.
 
 ## 12/11/2026
 
+- **Packs for your kind of business.** Your provider can now switch on a
+  whole set of modules in one step: *Hotel* (rooms, bookings with no double
+  booking, Room Invoices, table orders), *Subscriptions*, *Real estate*
+  (units, leases, rent runs), *Investments* and *Construction* (contracts,
+  bills of quantities, progress claims with retention and advance recovery,
+  subcontracts, site reports). Each comes with a menu folder, starter reports
+  and a setup checklist in *Pack setup*. See [Packs](packs.html).
+- **Calculated fields in built modules.** Amounts such as *Nights × Rate*, a
+  retention percentage, the days between two dates or what earlier claims
+  already claimed are now worked out for you. See
+  [Built modules](built-modules.html#calculated-fields).
 - **Built modules in reports.** In MIS Reports, *Build a report* now lists
   your built modules under their own heading: a master's records, a
   document's documents and its lines, with a linked master's fields (for

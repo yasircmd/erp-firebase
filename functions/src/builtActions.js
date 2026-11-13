@@ -80,8 +80,9 @@ const linkId = v => (v && typeof v === 'object' ? text(v.id, 120) : '');
 // one party's records (a grouped run). ctx: { date, dueOf(rec), accounts
 // { accountId: code }, items { itemId: code }, partyAccounts { partyId: code } }.
 function buildTargetDraft(def, a, recs, setup, ctx) {
-  const s = setup || {};
   const first = recs[0];
+  // Phase 6: the record's own project, when the action takes it from a field.
+  const s = a.project ? Object.assign({}, setup || {}, { ProjectID: linkId((first.Fields || {})[a.project]) }) : (setup || {});
   const at = r => recNo(r) + ': ';
   const grouped = recs.length > 1;
   const date = a.date ? (first.Fields || {})[a.date] : ctx.date;
@@ -201,7 +202,16 @@ async function liveCreatedFor(rec, actionKey) {
   return null;
 }
 
-async function createTarget(request, a, payload, source) {
+async function createTarget(request, a, payload, source, rec) {
+  // Phase 6: made as the action's variant (its numbers, rights, approvals; MODULE_BUILDER.md phase 4).
+  if (a.variant) {
+    const v = await B.publishedDef(a.variant);
+    if (!v || v.kind !== 'variant' || v.base !== a.target) failed('The action\'s variant ' + a.variant + ' is not a published variant of ' + B.TARGETS[a.target] + '.');
+    const f = (rec && rec.Fields) || {};
+    const fields = Object.fromEntries(Object.entries(a.variantFields || {}).map(([vk, fk]) => [vk, f[fk] && typeof f[fk] === 'object' ? valueText(f[fk]) : f[fk]]));
+    const variant = { id: v.id, base: v.base, label: v.label, prefix: v.numbering.prefix, fields };
+    return require('./variantContext').runWithVariant(variant, () => createTarget(request, Object.assign({}, a, { variant: '' }), payload, source));
+  }
   const L = require('./legacy/codegs');
   const { run } = require('./legacy/runtime');
   const journal = require('./journal');
@@ -313,7 +323,7 @@ async function makeFor(request, user, def, a, recs, date, setup) {
   let made;
   try {
     const ctx = Object.assign(await resolve(def, a, recs), { date, dueOf });
-    made = await createTarget(request, a, buildTargetDraft(def, a, recs, setup, ctx), source(def, recs));
+    made = await createTarget(request, a, buildTargetDraft(def, a, recs, setup, ctx), source(def, recs), recs[0]);
   } catch (e) {
     await releaseAll(recs, user);
     if (!(e instanceof HttpsError)) console.error('builtActions: not made', e);
@@ -451,7 +461,7 @@ function needsOf(a) {
     if (a.partySide !== 'debit' && !a.debitAccount) out.push('DebitAccountCode');
     if (a.partySide !== 'credit' && !a.creditAccount) out.push('CreditAccountCode');
   } else if (!a.account) out.push('AccountCode');
-  return out.concat(['CostCenterID', 'ProfitCenterID', 'ProjectID']);
+  return out.concat(a.project ? ['CostCenterID', 'ProfitCenterID'] : ['CostCenterID', 'ProfitCenterID', 'ProjectID']);
 }
 // The books' settings are set by someone who changes the module and may post its documents.
 async function canEditSetup(user, def) {

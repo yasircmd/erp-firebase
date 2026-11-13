@@ -33,7 +33,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   delete c.coa; // an empty chart, for the headings
   await clientApp.database().ref('/').set(c);
   // The emulator starts each function on its first call: start them before the browser times them.
-  for (const fn of ['getDeveloperCorporates', 'getDeveloperNotes', 'getDeveloperTree', 'testDeveloperCorporate']) await call('u-admin', fn, { CorporateID: '200' }).catch(() => {});
+  for (const fn of ['getDeveloperCorporates', 'getDeveloperNotes', 'getDeveloperTree', 'testDeveloperCorporate', 'saveDeveloperGroupModules', 'publishModulePack']) await call('u-admin', fn, { CorporateID: '200' }).catch(() => {});
 
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8191);
@@ -154,6 +154,23 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.click('#dv-save');
     await until(p, () => /Retail\s*200/.test(document.getElementById('dv-groups').textContent));
     assert.ok((await entry('200')).Group);
+  });
+
+  await check('phase 6: a pack provided to a group from the screen: its modules marked as the pack\'s, installed in the member (its menu folder)', async () => {
+    await call('u-admin', 'publishModulePack', { id: 'P_SUBS' });
+    const q = await open('u-admin');
+    await q.click('#dv-pages [data-page="groups"]');
+    await until(q, () => document.querySelector('#dv-groups input[data-gpack="P_SUBS"]'));
+    await q.check('#dv-groups input[data-gpack="P_SUBS"]');
+    await q.click('#dv-groups .dv-group-save');
+    await until(q, () => document.querySelector('#dv-groups input[data-gmod="X_SUBSCR"][data-inpack]'));
+    assert.ok(q.__dialogs.some(m => /Provided to 200/.test(m)), q.__dialogs.join(' | '));
+    assert.deepEqual((await entry('200')).Packs, { P_SUBS: true });
+    assert.ok(await q.isDisabled('#dv-groups input[data-gmod="X_SUBSCR"]'), 'a pack\'s module is the pack\'s, not ticked one by one');
+    const tree = Object.values((await clientApp.database().ref('tree').get()).val());
+    assert.ok(tree.some(n => n.Text === 'Subscriptions' && !n.ModuleID) && tree.some(n => n.ModuleID === 'PACKSETUP'), JSON.stringify(tree.map(n => n.Text)));
+    assert.deepEqual(q.__errors, []);
+    await q.close();
   });
 
   await check('set up: the steps, the chart headings and the first Admin', async () => {

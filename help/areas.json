@@ -32,6 +32,9 @@
       "modules": ["COMPANYMASTER", "ORGUNITS", "USERMGMT", "ROLES", "TREEMGMT", "APPROVALCONFIG", "APPROVALTRACKER", "NUMBERING", "MASTERIMPORT", "DOCUMENTSTORAGE", "COMPANYDOCS", "DATARESET", "SUPPORT"] },
     { "id": "mis", "title": "Management reports (MIS)", "written": true,
       "intro": "Management reports, the dashboard and the report builder.",
-      "modules": ["MISDASHBOARD", "MIS"] }
+      "modules": ["MISDASHBOARD", "MIS"] },
+    { "id": "packs", "title": "Packs", "written": true,
+      "intro": "Sets of modules for a kind of business, switched on together: hotel, subscriptions, real estate, investments and construction.",
+      "modules": ["PACKSETUP"] }
   ]
 }
