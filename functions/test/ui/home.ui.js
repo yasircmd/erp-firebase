@@ -241,6 +241,19 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('UX4: a module\'s short code shown in the menu; typed, Enter opens it however many others match', async () => {
+    const page = await open();
+    await page.fill('#module-search', 'so');
+    const hits = await visibleModules(page);
+    assert.ok(hits.length > 1 && hits.includes('SALESORDER'), 'several match "so": ' + hits.join(','));
+    assert.equal((await page.textContent('#tree-container [data-module-id="SALESORDER"] .mod-short')).trim(), 'SO');
+    await page.press('#module-search', 'Enter');
+    await page.waitForSelector('#stub-module');
+    assert.match(await page.textContent('#stub-module'), /SALESORDER/);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await check('Expand/Collapse is one icon button', async () => {
     const page = await open();
     assert.equal((await page.textContent('#toggle-expand-btn')).trim(), '');

@@ -782,7 +782,7 @@
         <div id="tree-controls" class="flex items-center gap-2">
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500"></i>
-            <input type="search" id="module-search" placeholder="Search modules" autocomplete="off" title="F2: type to filter the menu; ↓ to the matches, Enter opens; Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
+            <input type="search" id="module-search" placeholder="Search modules or a code (COA)" autocomplete="off" title="F2: type to filter the menu, or a module's code (COA, JV, GRN…); ↓ to the matches, Enter opens; Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
           </div>
           <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" title="Expand all" aria-label="Expand all" class="bg-slate-800 hover:bg-slate-700 text-xs w-8 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-angles-down"></i></button>
           <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
@@ -2096,6 +2096,10 @@
     document.getElementById('module-search').addEventListener('keydown', e => {
       if (e.key === 'Escape') { clearModuleSearch(); e.target.blur(); }
       if (e.key === 'Enter') {
+        // A module's short code typed exactly (COA, JV, GRN…) opens it, however many others match (UX4.md item 8).
+        const code = e.target.value.trim().toUpperCase();
+        const exact = code && document.querySelector('#tree-container [data-short="' + code.replace(/[^A-Z0-9]/g, '') + '"]');
+        if (exact) { openModule(exact.getAttribute('data-module-id')); return; }
         const hits = visibleSearchModules();
         if (hits.length === 1) openModule(hits[0].getAttribute('data-module-id'));
       }
@@ -3666,8 +3670,9 @@
           details.append(summary, children); li.appendChild(details); stack[stack.length - 1].container.appendChild(li); stack.push({ depth: item.depth, container: children });
         } else {
           li.className = 'py-1.5 pl-7 pr-2 flex items-center justify-between gap-2 text-sm text-slate-400 hover:text-blue-400 hover:bg-slate-800 cursor-pointer';
-          li.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-[6px] text-slate-500"></i><span>${escapeHtml(item.text)}</span></span>`;
+          li.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-[6px] text-slate-500"></i><span>${escapeHtml(item.text)}</span>${item.short ? `<span class="mod-short text-[10px] font-mono text-slate-500 border border-slate-700 rounded px-1">${escapeHtml(item.short)}</span>` : ''}</span>`;
           if (item.moduleId) {
+            if (item.short) li.setAttribute('data-short', item.short); // UX4.md item 8: the module's short code
             li.classList.add('text-blue-400', 'font-medium');
             li.setAttribute('data-module-id', item.moduleId);
             li.addEventListener('click', () => openModule(item.moduleId));
