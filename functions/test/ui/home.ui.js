@@ -187,7 +187,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await visibleStars(page), 0, 'hovering no longer shows a star');
 
     await menu(page, '#fav-config-btn');
-    assert.equal(await visibleStars(page), 5);
+    assert.equal(await visibleStars(page), 6);
     assert.deepEqual(await visibleModules(page), ['PURCHASEORDER', 'PURCHASERETURN', 'VENDORINVOICE', 'CUSTOMERINVOICE', 'SALESRETURN']);
     assert.ok(await page.isVisible('#fav-config-banner'));
     assert.match(await page.getAttribute('[data-favorite-module-id="VENDORINVOICE"] i', 'class'), /fa-solid fa-star/);
@@ -195,7 +195,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForFunction(() => document.querySelectorAll('#favorites-list button').length === 2);
     assert.match(await page.getAttribute('[data-favorite-module-id="SALESRETURN"] i', 'class'), /fa-solid fa-star/);
     assert.ok(await page.isHidden('#stub-module'), 'a star click does not open the module');
-    assert.equal(await visibleStars(page), 5, 'still in the mode after a change');
+    assert.equal(await visibleStars(page), 6, 'still in the mode after a change');
 
     await page.click('#fav-config-done-btn');
     assert.equal(await visibleStars(page), 0);
@@ -260,7 +260,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal((await page.textContent('#toggle-expand-btn')).trim(), '');
     assert.equal(await page.getAttribute('#toggle-expand-btn', 'title'), 'Expand all');
     await page.click('#toggle-expand-btn');
-    assert.equal((await visibleModules(page)).length, 5);
+    assert.equal((await visibleModules(page)).length, 6);
     assert.equal(await page.getAttribute('#toggle-expand-btn', 'title'), 'Collapse all');
     assert.equal(await page.locator('#toggle-expand-btn i.fa-angles-up').count(), 1);
     await page.click('#toggle-expand-btn');
