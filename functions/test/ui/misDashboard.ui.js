@@ -122,8 +122,9 @@ async function jv(date, lines) {
     await tile(p, 4).locator('.mis-size').selectOption('4|normal');
     await p.waitForFunction(() => document.querySelectorAll('#misd-grid .mis-tile')[4].dataset.w === '4', null, T);
     await p.click('#misd-save');
-    for (let i = 0; i < 100 && !(await firestore.collection('misDashboards').doc('u-admin').get()).exists; i++) await p.waitForTimeout(100);
-    const saved = (await firestore.collection('misDashboards').doc('u-admin').get()).data().Tiles;
+    const tilesNow = async () => ((await firestore.collection('misDashboards').doc('u-admin').get()).data() || {}).Tiles;
+    for (let i = 0; i < 100 && !((await tilesNow()) || [])[4]; i++) await p.waitForTimeout(100);
+    const saved = await tilesNow();
     assert.deepEqual([saved[4].w, saved[4].h], [4, 'normal']);
     await p.click('#misd-reset');
     await p.waitForFunction(() => /starter dashboard/.test(document.getElementById('misd-source').textContent), null, T);
