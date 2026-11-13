@@ -1,6 +1,6 @@
 # Audit log (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-13** (QA1–QA7, all as recommended; see *The owner's decisions*). Build next, in the three steps below.
+Status: **design agreed 2026-11-13** (QA1–QA7, all as recommended; see *The owner's decisions*). **Step 1 built 2026-11-13** (see *As built: step 1*); steps 2 and 3 next.
 Item 14 of UX batch 4 (docs/modules/UX4.md). Already decided:
 
 - **Q508:** it records actions and changed fields. Every save, submit,
@@ -112,3 +112,34 @@ auditLog/{time-ordered id}
 
 Each step is its own PR. Step 1 deploys every function (callable.js is in
 every one), and step 3 adds the module to moduleRegistry.js.
+
+## As built: step 1 (2026-11-13)
+
+- **functions/src/audit.js** is the only writer of the `auditLog`
+  Firestore collection, and it only adds (no update, no delete; the unit
+  test auditLog checks both). Ids are time-ordered. A failed audit write
+  is logged and never fails the request.
+- **The request hook.** callable.js runs every callable inside
+  `audit.runWithRequest` (an AsyncLocalStorage store, so nothing is kept
+  in module scope between corporates). After the handler, `afterCall`
+  records the action: Function, Module (the longest module id the
+  function's name carries), Action (create, save, post, approve, reject,
+  delete …; reads and sign-in helpers are not actions, QA1), RecordId
+  (the first `…Id` field of the request or the result), User (read once
+  per request from users/<uid>), Outcome done or refused. A refusal is
+  recorded only for rights and limits (QA4); any other failure records
+  nothing.
+- **The document hook.** docStore's `told` (every Firestore store write)
+  calls `audit.documentChanged`: a create, a delete, or a Status change,
+  with Totals {Status 'A → B', Amount, Currency} and the document's
+  number as RecordLabel. A write inside a `postStock` batch is queued and
+  recorded only once the request succeeds, so a rolled-back posting
+  leaves no entry.
+- **Tests:** unit auditLog (6), emulator auditLog (3: GRN save and post
+  with the Draft → Posted change; reads and a failed validation not
+  recorded, a viewer's refusal recorded; a PO approval rejected).
+  Negative controls: removing the request hook, the batch flush, or the
+  refusal check each failed a test.
+- **Deploy:** set audit-log-1, every function (callable.js and docStore.js
+  are in each). No new function, screen or rule. No screen yet, so no
+  Help change; the Audit Log module and its Help come in step 3.
