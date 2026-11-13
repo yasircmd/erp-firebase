@@ -45,6 +45,10 @@ test('the starter set, the role default, one\'s own, Reset, the Home choice and 
   ok(await call('u-admin', 'saveMisDashboard', { tiles: [kpi('netProfit'), { kind: 'gauge', type: 'ratios', key: 'current', low: 1, high: 2 }, { kind: 'top', type: 'receivables' }], showOnHome: true }));
   let mine = await get('u-admin');
   assert.deepEqual([mine.source, mine.tiles.map(t => t.kind), mine.showOnHome], ['mine', ['kpi', 'gauge', 'top'], true]);
+  // Sizes (UX4 item 9, Q505): each kind's own unless given; a width other than 1, 2 or 4 is its kind's.
+  assert.deepEqual(mine.tiles.map(t => [t.w, t.h]), [[1, 'normal'], [1, 'normal'], [2, 'normal']]);
+  ok(await call('u-admin', 'saveMisDashboard', { tiles: [Object.assign(kpi('netProfit'), { w: 4, h: 'tall' }), { kind: 'chart', type: 'trend', w: 3, h: 'huge' }] }));
+  assert.deepEqual((await get('u-admin')).tiles.map(t => [t.w, t.h]), [[4, 'tall'], [2, 'tall']]);
   ok(await call('u-admin', 'resetMisDashboard', {}));
   mine = await get('u-admin');
   assert.deepEqual([mine.source, mine.showOnHome], ['starter', true]);

@@ -3256,10 +3256,13 @@
     // phase 2, Q439-Q442), drawn on the MIS Dashboard screen and, when the
     // user chooses, on Home. Each tile's figures come from runMisReport when
     // shown (Q442); tiles asking the same report share one call.
-    //   misTiles.render(el, tiles, { companyId, month, editable, onRemove, onMove })
+    //   misTiles.render(el, tiles, { companyId, month, editable, onRemove, onMove, onSize })
+    //   misTiles.sizeOf(tile) → { w: 1|2|4, h: 'normal'|'tall' } (its own, else its kind's, Q505)
     //   misTiles.chart(canvas, report, 'bar'|'line') → Promise of the drawn Chart
     //   misTiles.loadChart() → Promise of Chart.js (shipped with the app, Q430)
     window.misTiles = (function () {
+      const SIZES = { kpi: { w: 1, h: 'normal' }, gauge: { w: 1, h: 'normal' }, top: { w: 2, h: 'normal' }, chart: { w: 2, h: 'tall' } };
+      const sizeOf = t => { const d = SIZES[t && t.kind] || SIZES.kpi; return { w: [1, 2, 4].includes(Number(t && t.w)) ? Number(t.w) : d.w, h: t && (t.h === 'tall' || t.h === 'normal') ? t.h : d.h }; };
       let chartLib = null;
       const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
@@ -3307,7 +3310,7 @@
             '<div class="absolute -top-1 h-4 w-1 rounded bg-white" style="left:calc(' + at(v) + '% - 2px)"></div></div>' +
             '<div class="text-[11px] text-slate-500 mt-1 mis-band">Good: ' + val(row, lo) + ' to ' + val(row, hi) + (inBand ? '' : ' · outside') + '</div>';
         }
-        return '<div class="relative h-48"><canvas></canvas></div><p class="mis-chart-note hidden text-xs text-slate-500"></p>';
+        return '<div class="relative ' + (sizeOf(t).h === 'tall' ? 'h-72' : 'h-48') + '"><canvas></canvas></div><p class="mis-chart-note hidden text-xs text-slate-500"></p>';
       }
       // A report as a chart on a canvas (the dashboard's tiles, the MIS Reports screen).
       async function chart(canvas, r, style) {
@@ -3351,13 +3354,20 @@
           if (/^saved:/.test(t.type)) return cache[k] || (cache[k] = call('runSavedMisBuilder', { id: t.type.slice(6), companyId: opt.companyId, month: opt.month })); // a built report (MIS.md, Q449)
           return cache[k] || (cache[k] = call('runMisReport', { type: t.type, companyId: opt.companyId, month: opt.month, mode: t.mode }));
         };
-        el.innerHTML = (tiles || []).map((t, i) => '<div class="mis-tile bg-slate-800/40 border border-slate-700 rounded-xl p-3 ' + (t.kind === 'chart' ? 'md:col-span-2' : '') + '" data-id="' + esc(t.id) + '" data-kind="' + esc(t.kind) + '">' +
+        // Each tile's size (UX4.md item 9, Q505): 1, 2 or 4 columns, normal or tall (2 rows); the grid packs
+        // densely, so a tall tile sits beside two normal ones and nothing in its row is stretched.
+        el.classList.add('md:grid-flow-row-dense');
+        const W = { 1: 'md:col-span-1', 2: 'md:col-span-2', 4: 'md:col-span-4' };
+        el.innerHTML = (tiles || []).map((t, i) => { const s = sizeOf(t); return '<div class="mis-tile bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-col ' + W[s.w] + (s.h === 'tall' ? ' md:row-span-2' : '') + '" data-id="' + esc(t.id) + '" data-kind="' + esc(t.kind) + '" data-w="' + s.w + '" data-h="' + s.h + '">' +
           '<div class="flex items-start justify-between gap-2 mb-2"><div class="text-xs font-semibold text-slate-300 uppercase">' + esc(t.title || t.type) + '</div>' +
-          (opt.editable ? '<div class="flex gap-1 text-slate-500"><button class="mis-up hover:text-slate-200" title="Move earlier"' + (i ? '' : ' disabled') + '><i class="fa-solid fa-arrow-left"></i></button><button class="mis-down hover:text-slate-200" title="Move later"' + (i < tiles.length - 1 ? '' : ' disabled') + '><i class="fa-solid fa-arrow-right"></i></button><button class="mis-remove hover:text-red-400" title="Remove the tile"><i class="fa-solid fa-xmark"></i></button></div>' : '') +
-          '</div><div class="mis-body text-xs text-slate-500">Working…</div></div>').join('') ||
+          (opt.editable ? '<div class="flex gap-1 text-slate-500"><select class="mis-size bg-slate-900 border border-slate-700 rounded text-[11px]" title="Size">' +
+            [[1, 'normal'], [2, 'normal'], [4, 'normal'], [1, 'tall'], [2, 'tall'], [4, 'tall']].map(([w, h]) => '<option value="' + w + '|' + h + '"' + (s.w === w && s.h === h ? ' selected' : '') + '>' + w + ' wide' + (h === 'tall' ? ', tall' : '') + '</option>').join('') + '</select>' +
+            '<button class="mis-up hover:text-slate-200" title="Move earlier"' + (i ? '' : ' disabled') + '><i class="fa-solid fa-arrow-left"></i></button><button class="mis-down hover:text-slate-200" title="Move later"' + (i < tiles.length - 1 ? '' : ' disabled') + '><i class="fa-solid fa-arrow-right"></i></button><button class="mis-remove hover:text-red-400" title="Remove the tile"><i class="fa-solid fa-xmark"></i></button></div>' : '') +
+          '</div><div class="mis-body text-xs text-slate-500 flex-1">Working…</div></div>'; }).join('') ||
           '<p class="text-sm text-slate-500">No tiles yet.</p>';
         if (opt.editable) el.querySelectorAll('.mis-tile').forEach((card, i) => {
           card.querySelector('.mis-remove').addEventListener('click', () => opt.onRemove && opt.onRemove(i));
+          card.querySelector('.mis-size').addEventListener('change', e => { const [w, h] = e.target.value.split('|'); if (opt.onSize) opt.onSize(i, Number(w), h); });
           card.querySelector('.mis-up').addEventListener('click', () => opt.onMove && opt.onMove(i, -1));
           card.querySelector('.mis-down').addEventListener('click', () => opt.onMove && opt.onMove(i, 1));
         });
@@ -3392,7 +3402,7 @@
         box.classList.remove('hidden');
         return draw();
       }
-      return { render, loadChart, chart, home };
+      return { render, loadChart, chart, home, sizeOf };
     })();
     // ---------- END MIS TILES ----------
     // ---------- DOCUMENT LINKS ----------

@@ -107,6 +107,30 @@ async function jv(date, lines) {
     await p.close();
   });
 
+  await check('UX4: tile sizes: the tall 12-month trend beside the top list and the gauge stacked, nothing stretched; a size changed in Edit and saved', async () => {
+    const p = await open('u-admin');
+    const box = i => tile(p, i).boundingBox();
+    const [kpi, trend, top, gauge] = [await box(0), await box(4), await box(5), await box(6)];
+    assert.ok(trend.y > kpi.y, 'the trend below the key figures');
+    assert.ok(Math.abs(top.y - trend.y) < 2 && top.x >= trend.x + trend.width - 2, 'the top list beside the trend, at its top');
+    assert.ok(gauge.y > top.y + top.height - 2 && gauge.x >= trend.x + trend.width - 2, 'the gauge under the top list, still beside the trend');
+    assert.ok(top.height < trend.height * 0.75, 'the top list not stretched to the trend\'s height: ' + top.height + ' / ' + trend.height);
+    assert.ok(Math.abs(trend.width - 2 * kpi.width) < 20, 'the trend two columns wide');
+    // Edit: the trend made 4 wide and normal, saved.
+    await p.click('#misd-edit');
+    await p.waitForSelector('#misd-editbar:not(.hidden)', T);
+    await tile(p, 4).locator('.mis-size').selectOption('4|normal');
+    await p.waitForFunction(() => document.querySelectorAll('#misd-grid .mis-tile')[4].dataset.w === '4', null, T);
+    await p.click('#misd-save');
+    for (let i = 0; i < 100 && !(await firestore.collection('misDashboards').doc('u-admin').get()).exists; i++) await p.waitForTimeout(100);
+    const saved = (await firestore.collection('misDashboards').doc('u-admin').get()).data().Tiles;
+    assert.deepEqual([saved[4].w, saved[4].h], [4, 'normal']);
+    await p.click('#misd-reset');
+    await p.waitForFunction(() => /starter dashboard/.test(document.getElementById('misd-source').textContent), null, T);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('a role\'s default: made by the admin, seen by the Viewer, who cannot edit', async () => {
     const p = await open('u-admin');
     await p.click('#misd-edit');

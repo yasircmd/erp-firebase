@@ -30,6 +30,9 @@ const ROLE = role => firestore.collection('misRoleDashboards').doc(role);
 const KINDS = Object.freeze(['kpi', 'chart', 'top', 'gauge']);
 const CHARTS = Object.freeze(['bar', 'line']);
 const MAX_TILES = 24;
+// A tile's size by default (Q505): a key figure or gauge 1 wide, a top list 2, a chart 2 wide and tall.
+const WIDTHS = Object.freeze([1, 2, 4]);
+const SIZES = Object.freeze({ kpi: { w: 1, h: 'normal' }, gauge: { w: 1, h: 'normal' }, top: { w: 2, h: 'normal' }, chart: { w: 2, h: 'tall' } });
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 80);
 const bad = msg => { throw new HttpsError('invalid-argument', msg); };
 
@@ -62,6 +65,10 @@ function cleanTile(t, i) {
     if (!out.key) bad(at + 'choose the figure it shows.');
   }
   if (kind === 'chart') out.chart = CHARTS.includes(t.chart) ? t.chart : 'bar';
+  // Its size (UX4.md item 9, Q505): 1, 2 or 4 of the 4 columns wide, normal or tall (2 rows).
+  const size = SIZES[kind];
+  out.w = WIDTHS.includes(Number(t.w)) ? Number(t.w) : size.w;
+  out.h = t.h === 'tall' || t.h === 'normal' ? t.h : size.h;
   if (kind === 'gauge') {
     const low = Number(t.low), high = Number(t.high);
     if (!Number.isFinite(low) || !Number.isFinite(high) || !(low < high)) bad(at + 'the good band needs a low under its high.');
@@ -153,4 +160,4 @@ exports.saveMisRoleDashboard = onCallWithMessages(onCallOptions, async (request)
   return { success: true };
 });
 
-module.exports = Object.assign(exports, { cleanTile, cleanTiles, STARTER, KINDS, MAX_TILES });
+module.exports = Object.assign(exports, { cleanTile, cleanTiles, STARTER, KINDS, MAX_TILES, SIZES });
