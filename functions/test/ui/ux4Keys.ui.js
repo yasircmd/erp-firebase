@@ -55,6 +55,24 @@ const T = { timeout: 30000 };
     await p.close();
   });
 
+  await check('a screen with no check of its own (Purchase Order): a form field changed is unsaved, asked on Esc', async () => {
+    const p = await open('PURCHASEORDER');
+    await p.waitForSelector('#po-new-btn:not(.hidden)', T);
+    await p.locator('body').click({ position: { x: 5, y: 5 } });
+    await p.keyboard.press('Enter');
+    await p.waitForSelector('#po-form-date', { state: 'visible', timeout: 30000 });
+    assert.equal(await p.evaluate(() => window.screenKeys.unsaved()), false, 'nothing typed yet');
+    await p.fill('#po-form-date', '2026-11-20');
+    assert.equal(await p.evaluate(() => window.screenKeys.unsaved()), true);
+    await p.locator('body').click({ position: { x: 5, y: 5 } });
+    answer = true;
+    await p.keyboard.press('Escape');
+    await p.waitForFunction(() => window.__wentHome === 1, null, T);
+    assert.match(p.__dialogs[0] || '', /Leave without saving\?/);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('Esc on a list with nothing typed goes Home at once; a filter typed is not unsaved', async () => {
     const p = await open('JV');
     await p.waitForSelector('#jv-new-btn:not(.hidden)', T);

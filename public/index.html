@@ -3886,7 +3886,7 @@
         const t = e.target;
         if (!t || !/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.type === 'search') return;
         if (t.closest('[data-no-dirty]') || /search|filter/i.test((t.id || '') + ' ' + (t.name || ''))) return;
-        let inForm = Boolean(t.closest('form'));
+        let inForm = Boolean(t.closest('form')) || FORM_AREA.test(t.id || '');
         for (let n = t.parentElement; !inForm && n && n !== container(); n = n.parentElement) if (n.id && FORM_AREA.test(n.id)) inForm = true;
         if (inForm) window.__screenEdited = true;
       }
