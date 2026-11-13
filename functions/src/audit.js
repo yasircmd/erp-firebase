@@ -262,6 +262,7 @@ function masterEntry(c) {
 }
 
 const PROVIDER = { UserID: '', UserName: 'The provider', Role: 'Provider' };
+const CLIENT_FIELDS = /^(Modules|Packs|MaxCompanies|MaxUsers|Status|Name|Group)$/;
 // In another corporate's log (QA6): never fails, never waits long.
 async function recordIn(corporate, entry) {
   try {
@@ -287,9 +288,13 @@ async function recordMaster(c, who, fn) {
     return;
   }
   await record(c.client ? Object.assign({}, entry, { ClientCorporate: String(c.client) }) : entry);
-  if (c.client) {
+  // The client's copy: only what is the client's business (its modules,
+  // limits, status), not the firm's own notes on it (a connection test, a
+  // release's result).
+  const theirs = c.client && (entry.Changes || []).filter(x => CLIENT_FIELDS.test(String(x.Field).split('.')[0]));
+  if (theirs && theirs.length) {
     const dir = (c.after && typeof c.after === 'object' ? c.after : c.before) || {};
-    await recordIn({ id: String(c.client), entry: dir }, Object.assign({}, entry, PROVIDER));
+    await recordIn({ id: String(c.client), entry: dir }, Object.assign({}, entry, PROVIDER, { Changes: theirs }));
   }
 }
 
