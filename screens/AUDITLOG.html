@@ -1,0 +1,178 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-shoe-prints text-blue-500"></i> Audit Log</h2></div>
+    <button id="al-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
+  </div>
+
+  <p id="al-intro" class="text-xs text-slate-500 max-w-3xl">Who changed what, and when: every save, post, approval and status change, every change to a master or a setting with its fields before and after, sign-ins and sign-outs, and refusals for rights and limits. Read only; nothing here can be changed or deleted.</p>
+
+  <div class="flex flex-wrap items-end gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">User</label><select id="al-user" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All users</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Module</label><select id="al-module" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All modules</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Action</label><select id="al-action" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All actions</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Record</label><input id="al-record" type="text" placeholder="Number or ID" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm w-40"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input id="al-from" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input id="al-to" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <button id="al-run" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Show</button>
+  </div>
+  <p id="al-note" class="text-xs text-slate-500"></p>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">When</th>
+            <th class="py-3 px-4">User</th>
+            <th class="py-3 px-4">Action</th>
+            <th class="py-3 px-4">Module</th>
+            <th class="py-3 px-4">Record</th>
+            <th class="py-3 px-4">Details</th>
+            <th class="py-3 px-4"></th>
+          </tr>
+        </thead>
+        <tbody id="al-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+  <textarea id="al-copy-staging" class="hidden"></textarea>
+</div>
+
+<!-- One entry: its changes, field by field. -->
+<div id="al-entry-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-start justify-between gap-4">
+      <h3 id="al-entry-title" class="text-lg font-bold text-slate-100"></h3>
+      <button id="al-entry-close" class="text-slate-400 hover:text-slate-200" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="al-entry-meta" class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm"></div>
+    <div id="al-entry-changes"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Audit Log (owner, 2026-11-13; docs/modules/AUDIT_LOG.md step 3, Q509):
+  // the newest entries for the filters, newest first; an entry opens with
+  // its changes; Copy to Excel copies the rows shown. Times are the user's
+  // own (isoLocalDateTime), shown dd/mm/yyyy by the shell.
+  const $ = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const ACTION_LABELS = { create: 'Created', change: 'Changed', delete: 'Deleted', save: 'Saved', submit: 'Submitted', approve: 'Approved', reject: 'Rejected', post: 'Posted',
+    reverse: 'Reversed', cancel: 'Cancelled', close: 'Closed', confirm: 'Confirmed', finalise: 'Finalised', status: 'Status changed', run: 'Ran', publish: 'Published',
+    reset: 'Reset', import: 'Imported', signin: 'Signed in', signout: 'Signed out' };
+  let rows = [], moduleLabels = {};
+
+  const when = r => window.isoLocalDateTime(r.At);
+  const actionOf = r => (ACTION_LABELS[r.Action] || r.Action || '') + (r.Outcome === 'refused' ? ' (refused)' : '');
+  const moduleOf = r => moduleLabels[r.ModuleID] || r.ModuleID || '';
+  const recordOf = r => r.RecordLabel && r.RecordLabel !== 'ERP' && r.RecordLabel !== 'Portal' ? r.RecordLabel + (r.RecordID && r.RecordID !== r.RecordLabel ? ' (' + r.RecordID + ')' : '') : (r.RecordID || '');
+  // One line saying what happened: the status move, the fields changed, a refusal's reason.
+  function detailOf(r) {
+    if (r.Action === 'signin' || r.Action === 'signout') return r.RecordLabel === 'Portal' ? 'Employee Portal' : 'ERP';
+    const t = r.Totals || {};
+    if (r.Outcome === 'refused') return t.Reason || '';
+    const parts = [];
+    if (t.Status) parts.push(t.Status);
+    if (t.Amount !== undefined) parts.push(t.Amount + (t.Currency ? ' ' + t.Currency : ''));
+    if (t.Records) parts.push((t.IDs || []).slice(0, 5).join(', ') + ((t.IDs || []).length > 5 ? '…' : ''));
+    if (Array.isArray(r.Changes) && r.Changes.length) parts.push(r.Changes.length + ' field' + (r.Changes.length === 1 ? '' : 's') + ': ' + r.Changes.slice(0, 4).map(c => c.Field).join(', ') + (r.Changes.length > 4 ? '…' : ''));
+    if (r.ClientCorporate) parts.push('Corporate ' + r.ClientCorporate);
+    return parts.join(' · ');
+  }
+  const userOf = r => r.UserName || r.UserID || '';
+
+  function render() {
+    $('al-body').innerHTML = rows.map((r, i) =>
+      '<tr class="hover:bg-slate-700/40">' +
+      '<td class="py-2 px-4 whitespace-nowrap text-xs">' + escapeHtml(when(r)) + '</td>' +
+      '<td class="py-2 px-4">' + escapeHtml(userOf(r)) + (r.Role ? '<div class="text-xs text-slate-500">' + escapeHtml(r.Role) + '</div>' : '') + '</td>' +
+      '<td class="py-2 px-4 ' + (r.Outcome === 'refused' ? 'text-amber-400' : '') + '">' + escapeHtml(actionOf(r)) + '</td>' +
+      '<td class="py-2 px-4">' + escapeHtml(moduleOf(r)) + '</td>' +
+      '<td class="py-2 px-4 font-mono text-xs">' + escapeHtml(recordOf(r)) + '</td>' +
+      '<td class="py-2 px-4 text-xs text-slate-300">' + escapeHtml(detailOf(r)) + '</td>' +
+      '<td class="py-2 px-4 text-right"><button class="al-open text-blue-400 hover:text-blue-300 text-xs" data-i="' + i + '">Open</button></td>' +
+      '</tr>').join('') || '<tr><td colspan="7" class="py-6 text-center text-slate-500">Nothing for these filters.</td></tr>';
+    document.querySelectorAll('.al-open').forEach(b => b.addEventListener('click', () => openEntry(rows[Number(b.dataset.i)])));
+  }
+
+  function openEntry(r) {
+    $('al-entry-title').textContent = actionOf(r) + (moduleOf(r) ? ' · ' + moduleOf(r) : '');
+    const line = (k, v) => v ? '<div><span class="text-slate-400">' + escapeHtml(k) + ':</span> ' + escapeHtml(v) + '</div>' : '';
+    $('al-entry-meta').innerHTML = line('When', when(r)) + line('User', userOf(r)) + line('Role', r.Role) + line('Record', recordOf(r)) + line('Company', r.CompanyID) +
+      line('Function', r.Function) + line('Stored in', r.Source) + line('Client corporate', r.ClientCorporate) + line('Outcome', r.Outcome === 'refused' ? 'Refused' : 'Done') + line('Details', detailOf(r));
+    const changes = Array.isArray(r.Changes) ? r.Changes : [];
+    const show = v => v === null || v === undefined || v === '' ? '—' : String(v);
+    $('al-entry-changes').innerHTML = changes.length
+      ? '<table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 pr-3">Field</th><th class="py-2 pr-3">Before</th><th class="py-2">After</th></tr></thead><tbody class="divide-y divide-slate-700">' +
+        changes.map(c => c.More ? '<tr><td colspan="3" class="py-2 text-xs text-slate-400">and ' + escapeHtml(c.More) + ' more fields</td></tr>'
+          : '<tr><td class="py-2 pr-3 font-mono text-xs">' + escapeHtml(c.Field) + '</td>' +
+            (c.Changed ? '<td colspan="2" class="py-2 text-xs text-slate-400 italic">changed (not shown: a sensitive field)</td>'
+              : '<td class="py-2 pr-3 text-xs">' + escapeHtml(show(c.From)) + '</td><td class="py-2 text-xs">' + escapeHtml(show(c.To)) + '</td>') + '</tr>').join('') +
+        '</tbody></table>'
+      : '<p class="text-xs text-slate-500">No fields to show for this entry.</p>';
+    $('al-entry-modal').classList.remove('hidden');
+  }
+
+  // The dates are the user's own days: from the start of From to the end of To.
+  const startOf = d => (d ? new Date(d + 'T00:00:00').toISOString() : '');
+  const endOf = d => (d ? new Date(d + 'T23:59:59.999').toISOString() : '');
+  function load() {
+    $('al-run').disabled = true;
+    call('getAuditLog', { userId: $('al-user').value, moduleId: $('al-module').value, action: $('al-action').value, record: $('al-record').value.trim(),
+      fromAt: startOf($('al-from').value), toAt: endOf($('al-to').value) }).then(r => {
+      $('al-run').disabled = false;
+      rows = r.rows || [];
+      render();
+      $('al-note').textContent = r.more ? 'The newest ' + r.max + ' entries for these filters. Narrow the dates or the filters to see older ones.' : rows.length + ' entr' + (rows.length === 1 ? 'y' : 'ies') + '.';
+    }, err => { $('al-run').disabled = false; appAlert(err.message || 'Unable to load the Audit Log.'); });
+  }
+
+  // TSV: pastes into Excel with each field in its own cell.
+  function copyToExcel() {
+    const headers = ['When', 'User', 'Role', 'Action', 'Module', 'Record', 'Company', 'Details', 'Field', 'Before', 'After'];
+    const lines = [headers.join('\t')];
+    const clean = v => String(v == null ? '' : v).replace(/[\t\n\r]+/g, ' ');
+    rows.forEach(r => {
+      const base = [when(r), userOf(r), r.Role, actionOf(r), moduleOf(r), recordOf(r), r.CompanyID, detailOf(r)].map(clean);
+      const changes = (Array.isArray(r.Changes) ? r.Changes : []).filter(c => !c.More);
+      if (!changes.length) { lines.push(base.concat(['', '', '']).join('\t')); return; }
+      changes.forEach(c => lines.push(base.concat([clean(c.Field), c.Changed ? 'changed' : clean(c.From), c.Changed ? 'changed' : clean(c.To)]).join('\t')));
+    });
+    const tsv = lines.join('\n');
+    const btn = $('al-copy-btn'), original = btn.innerHTML;
+    const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied!' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2000); };
+    const staging = () => {
+      const s = $('al-copy-staging');
+      s.value = tsv; s.style.display = 'block'; s.focus(); s.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      s.style.display = 'none';
+      flash(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(() => flash(true), staging);
+    else staging();
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-shoe-prints"></i> Audit Log';
+    $('al-run').addEventListener('click', load);
+    $('al-record').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+    $('al-copy-btn').addEventListener('click', copyToExcel);
+    $('al-entry-close').addEventListener('click', () => $('al-entry-modal').classList.add('hidden'));
+    $('al-entry-modal').addEventListener('click', e => { if (e.target === $('al-entry-modal')) $('al-entry-modal').classList.add('hidden'); });
+    call('getAuditLogFilters', {}).then(f => {
+      f.users.forEach(u => { const o = document.createElement('option'); o.value = u.UserID; o.textContent = u.Name; $('al-user').appendChild(o); });
+      f.modules.forEach(m => { moduleLabels[m.id] = m.label; const o = document.createElement('option'); o.value = m.id; o.textContent = m.label; $('al-module').appendChild(o); });
+      f.actions.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = ACTION_LABELS[a] || a; $('al-action').appendChild(o); });
+      $('al-intro').textContent += ' Entries are kept ' + f.keepYears + ' years.';
+      load();
+    }, err => appAlert(err.message || 'Unable to open the Audit Log.'));
+  };
+})();
+</script>

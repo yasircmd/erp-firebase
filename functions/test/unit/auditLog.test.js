@@ -15,7 +15,10 @@ test('only audit.js writes the audit log (append-only through one writer)', () =
     .map(f => path.relative(SRC, f));
   assert.deepEqual(writers, []);
   const src = fs.readFileSync(path.join(SRC, 'audit.js'), 'utf8');
-  assert.ok(!/\.update\(|\.delete\(/.test(src), 'audit.js never updates or deletes an entry');
+  // The one delete: the 7-year sweep (Q509, step 3).
+  const sweep = src.slice(src.indexOf('async function sweepExpired('), src.indexOf('\n}\n', src.indexOf('async function sweepExpired(')));
+  assert.match(sweep, /where\('At', '<', cutoff\.toISOString\(\)\)/, 'the sweep deletes only entries older than the cut-off');
+  assert.ok(!/\.update\(|\.delete\(/.test(src.replace(sweep, '')), 'audit.js never updates or deletes an entry, but in the sweep');
 });
 
 test('the action of a request, from its name; reads and sign-in are not actions (QA1)', () => {

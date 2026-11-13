@@ -37,7 +37,7 @@ const VALID_ID = /^[A-Za-z0-9-]{1,20}$/;
 const NOTE_TYPES = ['Note', 'Task', 'Bug', 'Change request'];
 const NOTE_STATUSES = ['Open', 'In progress', 'Done'];
 // A client's Admin needs these to run its own ERP: never switched off.
-const ALWAYS_ON = ['USERMGMT', 'ROLES', 'TREEMGMT'];
+const ALWAYS_ON = ['USERMGMT', 'ROLES', 'TREEMGMT', 'AUDITLOG']; // AUDITLOG: QA9
 const HOME_ONLY = new Set(MODULE_REGISTRY.filter(m => m.homeOnly).map(m => m.id));
 
 const nameOf = user => user.profile.fullName || user.profile.username || user.uid;

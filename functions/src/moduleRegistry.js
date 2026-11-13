@@ -193,7 +193,11 @@ const MODULE_REGISTRY = [
   // corporate's Admin sends issues to the firm. clientOnly: never Corporate
   // 100's own (it is the firm), though its tree can hold the item for the
   // corporates that follow it.
-  { id: 'SUPPORT', label: 'Support', capabilities: ['access'], clientOnly: true }
+  { id: 'SUPPORT', label: 'Support', capabilities: ['access'], clientOnly: true },
+  // Audit Log (docs/modules/AUDIT_LOG.md, Q509, QA9): who changed what, read
+  // only, Admin only. everywhere: every corporate has it, whatever its
+  // modules (a client's Admin sees the provider's changes too, QA6).
+  { id: 'AUDITLOG', label: 'Audit Log', capabilities: ['access'], everywhere: true }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -341,7 +345,9 @@ const DEFAULT_PERMISSIONS = {
   TECHREF:            { access: ['ADMIN'] },
   BUILDER:            { access: ['ADMIN'], write: ['ADMIN'], publish: ['ADMIN'] },
   PACKSETUP:          { access: ['ADMIN'], write: ['ADMIN'] },
-  SUPPORT:            { access: ['ADMIN'] }
+  SUPPORT:            { access: ['ADMIN'] },
+  // Admin only (Q509): it shows what every user did.
+  AUDITLOG:           { access: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

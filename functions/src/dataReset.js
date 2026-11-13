@@ -59,6 +59,10 @@ const CATEGORIES = {
     detail: 'Which months and financial years are closed, for every company, and the closing checklist. Cleared, every month is open again.' },
   logs: { label: 'Logs', group: T, rtdb: ['masterImports', 'coaRenumberLog'],
     detail: 'The Master Import log and the Chart of Accounts renumbering log.' },
+  // The audit log (AUDIT_LOG.md, Q509): reset is for development and
+  // testing. The reset itself is the new log's first entry.
+  auditLog: { label: 'Audit Log', group: T, fs: [require('./audit').COLLECTION],
+    detail: 'Every entry of the Audit Log: who changed what, and when. The reset itself is recorded afterwards, as the log\'s first entry.' },
 
   employees: { label: 'Employees', group: M, fs: ['employees', 'employeeCompensation', 'employeeHistory', 'employeeDocuments', 'essAccounts', 'essUids'], count: ['employees'],  rtdb: ['salesReps', 'salesRepCodes'], counters: ['hrCounters'], ess: true,
     detail: 'Every employee with their compensation, history, documents register and sales-rep set-up, and their Employee Portal sign-ins (decision 283). The HR numbering (employee numbers, leave and other HR documents) restarts. Their documents\' files are Supporting Documents.' },

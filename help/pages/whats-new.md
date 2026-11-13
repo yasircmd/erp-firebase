@@ -13,6 +13,11 @@ screen.
 
 ## 13/11/2026
 
+- **The Audit Log.** A new Admin screen shows who changed what, and when:
+  every save, posting and approval, each changed field of a master or a
+  setting (before and after), sign-ins and sign-outs, and refused attempts.
+  Salaries, bank details and passwords show only that they changed. See
+  [Audit Log](audit-log.html).
 - **One sign-in page.** Employees and sales reps with a portal account can
   sign in on the ERP's page with their Employee Code; anyone with no ERP
   access goes straight on to the Employee Portal. See

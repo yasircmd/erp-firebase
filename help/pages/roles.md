@@ -6,7 +6,7 @@ modules: [ROLES]
 sources: [functions/src/roles.js, functions/src/entitlements.js, functions/src/favorites.js]
 summary: Define which roles can open, edit, approve, post or report on each module.
 reviewed: 2026-11-13
-fingerprint: c1d4686dbdc9b97b
+fingerprint: 372e5fa87246d34d
 ---
 ## What it is for
 

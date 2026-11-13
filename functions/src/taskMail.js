@@ -359,6 +359,8 @@ async function sweepAll(firmAccount, secret, now) {
   for (const c of await require('./corporates').activeCorporates()) {
     try {
       out[c.id] = await runInCorporate(c, () => sweepCorporate({ firmAccount: String(c.id) === HOME_ID ? firmAccount : null, secret, now }));
+      // The audit log's 7-year keeping (AUDIT_LOG.md, Q509): once a day, in the 02:00 UTC sweep.
+      if (now.getUTCHours() === 2 && now.getUTCMinutes() < 5) out[c.id].auditRemoved = await runInCorporate(c, () => require('./audit').sweepExpired(now));
     } catch (err) {
       console.error('taskMail: Corporate ' + c.id + ' not swept', err);
       out[c.id] = { error: err.message };
