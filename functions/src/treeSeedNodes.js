@@ -290,7 +290,7 @@ const TREE_SEED_NODES = [
   { text: 'Company Documents', depth: 2, moduleId: 'COMPANYDOCS' },
   { text: 'Numbering', depth: 2, moduleId: 'NUMBERING' },
   // New development: docs/modules/MULTI_CORPORATE.md, M2 (Corporate 100 only).
-  { text: 'Developer', depth: 1, moduleId: 'DEVELOPER' },
+  { text: 'Client Management', depth: 1, moduleId: 'DEVELOPER' },
   // New development: docs/modules/TECH_REFERENCE.md (Corporate 100 only).
   { text: 'Technical Reference', depth: 1, moduleId: 'TECHREF' },
   // New development: docs/modules/MULTI_CORPORATE.md, M3 (client corporates only).

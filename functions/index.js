@@ -393,7 +393,7 @@ exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;
 
 // Developer (docs/modules/MULTI_CORPORATE.md, M2): Corporate 100 only.
 const developer = require('./src/developer');
-['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules',
+['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules', 'saveDeveloperDataReset',
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
   'getDeveloperTree', 'resetDeveloperTree',
   'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers', // M4

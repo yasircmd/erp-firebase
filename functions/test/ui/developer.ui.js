@@ -173,6 +173,22 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await q.close();
   });
 
+  await check('UX4: Client Management: its name, the client search, Data reset shown and switched off from the client', async () => {
+    const q = await open('u-admin');
+    assert.match(await q.textContent('#app-title'), /Client Management/);
+    await q.fill('#dv-search', 'nothing-like-this');
+    await until(q, () => /No client matches/.test(document.getElementById('dv-list').textContent));
+    await q.fill('#dv-search', 'demo');
+    await until(q, () => document.querySelectorAll('#dv-list tr[data-id]').length === 1);
+    assert.match(await q.textContent('#dv-list tr[data-id="200"]'), /Allowed/);
+    await q.click('#dv-list tr[data-id="200"]');
+    await q.uncheck('#dv-reset-allowed');
+    await until(q, () => /Off/.test(document.querySelector('#dv-list tr[data-id="200"]').textContent));
+    assert.equal((await entry('200')).Modules.DATARESET, false);
+    assert.deepEqual(q.__errors, []);
+    await q.close();
+  });
+
   await check('set up: the steps, the chart headings and the first Admin', async () => {
     p.__dialogs = [];
     await rtdb.ref('coa/H1').set({ AccountCode: '100000', AccountName: 'Assets', AccountType: 'Asset', NormalBalance: 'Debit', IsPostable: false, Status: 'Active', CompanyID: '' });

@@ -179,7 +179,7 @@ const MODULE_REGISTRY = [
   // The MIS Dashboard (MIS.md, phase 2, Q439-Q442): its tiles are MIS reports; changing
   // one's own needs MIS design, a role's default MIS publish.
   { id: 'MISDASHBOARD', label: 'MIS Dashboard', capabilities: ['access'] },
-  { id: 'DEVELOPER', label: 'Developer', capabilities: ['access', 'write'], internal: true, homeOnly: true },
+  { id: 'DEVELOPER', label: 'Client Management', capabilities: ['access', 'write'], internal: true, homeOnly: true },
   // Technical Reference (docs/modules/TECH_REFERENCE.md, Q419-Q422): the app's
   // technical details for the firm's developers, read only. Firm-only and
   // internal (no public Help page: it maps the system's inside).

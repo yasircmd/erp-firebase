@@ -506,6 +506,17 @@ const SCREEN_EDITS = [
   // Default favourites per role (owner, 2026-10-24, decision 270): a star on
   // each role opens up to 5 module choices; a user with no favourites of
   // their own gets their role's.
+  // The permissions matrix's role header stays in view while scrolling down
+  // (UX4.md item 6): its box scrolls both ways within the screen's height,
+  // so the header can stick to its top.
+  { mod: 'ROLES', from: `<div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Module</th>`,
+    to: `<div id="perm-scroll" class="overflow-auto" style="max-height:75vh">
+        <table class="w-full text-left">
+          <thead class="sticky top-0 z-10"><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Module</th>` },
   { mod: 'ROLES', from: '<td class="py-3 px-4 text-right"><button class="role-edit text-slate-400 hover:text-blue-400 p-1" title="Edit">',
     to: '<td class="py-3 px-4 text-right"><button class="role-favs text-slate-400 hover:text-amber-400 p-1 text-xs" title="Default favourites">${roleFavs[r.RoleID] && roleFavs[r.RoleID].length ? \'<i class="fa-solid fa-star text-amber-400"></i> \' + roleFavs[r.RoleID].length : \'<i class="fa-regular fa-star"></i>\'}</button><button class="role-edit text-slate-400 hover:text-blue-400 p-1" title="Edit">' },
   { mod: 'ROLES', from: "      row.querySelector('.role-edit').addEventListener('click', () => openRoleModal(r.RoleID));",
