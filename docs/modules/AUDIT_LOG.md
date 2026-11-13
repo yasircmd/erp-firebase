@@ -190,7 +190,9 @@ every one), and step 3 adds the module to moduleRegistry.js.
 - **The firm (QA6):** a change to a client's directory entry (modules,
   limits, Data Reset, status, the group's modules) is in the firm's log
   with ClientCorporate, and in the client's own log as "The provider"
-  (Role Provider, no user id). What the firm writes inside a client (its
+  (Role Provider, no user id). The client's copy carries only what is its business
+  (Modules, Packs, MaxCompanies, MaxUsers, Status, Name, Group), not the
+  firm's own notes on it (a connection test, a release's result). What the firm writes inside a client (its
   chart headings, tree, first Admin) is likewise in both. The client's
   copy never waits more than 8 s; a client that can't be reached is
   logged to the console.
