@@ -330,6 +330,7 @@
       if (/network/.test(c)) return 'No connection. Check your internet and try again.';
       return (err && err.message) || 'Unable to sign in.';
     }
+    let freshSignIn = false;
     $('si-form').addEventListener('submit', e => {
       e.preventDefault();
       const code = $('si-code').value.trim(), pw = $('si-password').value;
@@ -337,16 +338,22 @@
       if (!essEmail(code)) return;
       $('si-submit').disabled = true;
       $('si-submit').textContent = 'Signing in…';
+      freshSignIn = true; // the audit log records this sign-in (AUDIT_LOG.md, QA5)
       window.__ess.useCorporate($('si-corporate').value.trim()).then(() => window.__ess.signIn(essEmail(code), pw)).then(() => { $('si-password').value = ''; }, err => {
+        freshSignIn = false;
         $('si-error').textContent = signInError(err);
         $('si-error').classList.remove('hidden');
       }).finally(() => { $('si-submit').disabled = false; $('si-submit').textContent = 'Sign in'; });
     });
     function signOutTo(message) {
+      const wasIn = Boolean(me);
       me = null;
       // The next sign-in (perhaps someone else's) starts at Home.
       history.replaceState(null, '', location.pathname + location.search);
-      window.__ess.signOut();
+      // The audit log (AUDIT_LOG.md, QA5): a sign-out of a signed-in user is
+      // recorded first, waiting at most 3 s.
+      const record = wasIn && !message ? window.__ess.call('essPortal', { action: 'signOut' }).catch(() => {}) : Promise.resolve();
+      Promise.race([record, new Promise(r => setTimeout(r, 3000))]).then(() => window.__ess.signOut());
       show('v-signin');
       if (message) { $('si-error').textContent = message; $('si-error').classList.remove('hidden'); }
     }
@@ -1778,7 +1785,9 @@
 
     // ---------- start ----------
     function start() {
-      return api('me').then(r => {
+      const signedIn = freshSignIn;
+      freshSignIn = false;
+      return api('me', signedIn ? { signedIn: true } : undefined).then(r => {
         me = r.me; today = r.today;
         if (me.MustChange) { showChange(); return; }
         $('hdr-me').textContent = initials(me.FullName);

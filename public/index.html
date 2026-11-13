@@ -1354,7 +1354,7 @@
       // google.script.run's own bridge going stale after a long-open
       // session — a GAS platform quirk with no equivalent here, so
       // there's nothing left that reload was actually fixing.
-      window.__firebaseSdk.signOut(window.__firebaseSdk.auth);
+      signOutRecorded();
     }
 
     // A broad, passive activity set covering both desktop and touch —
@@ -1563,8 +1563,24 @@
       // timeout or a cross-tab sign-out both already go through too.
       // One single place that means "user is now signed out",
       // regardless of what triggered it.
-      window.__firebaseSdk.signOut(window.__firebaseSdk.auth);
+      signOutRecorded();
     }
+
+    // ---------- AUDIT SIGN-OUT ----------
+    // The audit log (docs/modules/AUDIT_LOG.md, QA5): a sign-out, by the
+    // user or the idle timeout, is recorded first (recordSignOut), waiting
+    // at most 3 s; it signs out whatever that call does.
+    function signOutRecorded() {
+      const sdk = window.__firebaseSdk;
+      const corp = sdk.corporateId && sdk.corporateId !== '100' ? sdk.corporateId : null;
+      const user = sdk.auth && sdk.auth.currentUser;
+      const record = Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
+        .then(idToken => sdk.httpsCallable(sdk.functionsInstance, 'recordSignOut', { timeout: 3000 })(corp ? { __corporate: { id: corp, idToken: idToken }, __data: null } : {}))
+        .catch(() => {});
+      const cap = new Promise(resolve => setTimeout(resolve, 3000));
+      return Promise.race([record, cap]).then(() => sdk.signOut(sdk.auth));
+    }
+    // ---------- END AUDIT SIGN-OUT ----------
 
     // ---------- TREE ----------
 

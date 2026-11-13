@@ -53,7 +53,17 @@ exports.completeLogin = onCallInCorporate(onCallOptions, async (request) => {
   // every user showed "Never"). Only a real sign-in counts, not a
   // restoreSession on reload. UTC here; the screen shows it in local time.
   await rtdb.ref('users/' + session.uid + '/lastLogin').set(new Date().toISOString());
+  // The audit log (AUDIT_LOG.md, QA5): each ERP sign-in.
+  await require('./audit').signIn(request, 'ERP');
   return session;
+});
+
+// The audit log (AUDIT_LOG.md, QA5): each ERP sign-out, by the user or the
+// idle timeout. The shell calls it just before signing out; a sign-out
+// never waits on it for long, and it never fails.
+exports.recordSignOut = onCallInCorporate(onCallOptions, async (request) => {
+  if (request.auth && request.auth.uid) await require('./audit').signOut(request, 'ERP');
+  return { success: true };
 });
 
 // Before sign-in, no user yet: what the sign-in screen needs for a

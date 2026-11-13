@@ -25,7 +25,7 @@ if (process.env.FUNCTION_TARGET && process.env.K_SERVICE && process.env.FUNCTION
 }
 
 const { getModuleFragment } = require('./src/getModuleFragment');
-const { completeLogin, corporateSignIn, userIdSignIn, restoreSession, getMyTree } = require('./src/session');
+const { completeLogin, corporateSignIn, userIdSignIn, restoreSession, getMyTree, recordSignOut } = require('./src/session');
 const { getMyFavorites, toggleFavorite, saveMyTheme, getRoleFavorites, saveRoleFavorites } = require('./src/favorites');
 const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmission, getMyDraftsForUser } = require('./src/homeTasks');
 // The approval card on a phone (docs/modules/PHONE_VIEW.md, Q336).
@@ -90,6 +90,7 @@ const recurringJournal = require('./src/recurringJournal');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
+exports.recordSignOut = recordSignOut;
 exports.corporateSignIn = corporateSignIn;
 exports.userIdSignIn = userIdSignIn;
 exports.restoreSession = restoreSession;
