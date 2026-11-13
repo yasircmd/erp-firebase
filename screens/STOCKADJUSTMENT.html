@@ -597,7 +597,6 @@
 
   function buildRowMarkup(line, i, readOnly) {
     const item = itemByCode(line.ItemCode);
-    const missingDesc = line.ItemCode && !String(line.Description || '').trim();
     const batchTracked = item && item.BatchTracked;
     const missingBatch = batchTracked && !String(line.BatchNumber || '').trim();
     return `
@@ -610,7 +609,7 @@
         <option value="Decrease" ${line.AdjustmentDirection === 'Decrease' ? 'selected' : ''}>▼ Decrease</option>
       </select></td>
       <td class="py-1 px-1"><select data-row="${i}" data-col="2" data-field="warehouse" class="adj-line-wh w-36 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${movableLocationOptionsHtml(line.WarehouseID)}</select></td>
-      <td class="py-1 px-1"><input data-row="${i}" data-col="3" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="3" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${line.ItemCode ? 'item name' : ''}" class="w-full bg-slate-900 border ${'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
       <td class="py-1 px-1"><select data-row="${i}" data-col="4" data-field="uom" class="adj-line-uom w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${uomOptionsForItem(item, line.EnteredUOMID)}</select></td>
       <td class="py-1 px-1"><input data-row="${i}" data-col="5" data-field="quantity" type="text" inputmode="decimal" value="${line.EnteredQuantity === '' ? '' : line.EnteredQuantity}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
       <td class="py-1.5 px-3 text-xs text-right font-mono adj-available-cell text-slate-500">—</td>
@@ -844,10 +843,6 @@
   function updateTotal() {
     const lineCount = gridLines.filter(l => l.ItemCode || l.EnteredQuantity).length;
     document.getElementById('adj-total-lines').textContent = String(lineCount);
-  }
-
-  function allLineDescriptionsFilled() {
-    return gridLines.every(l => !l.ItemCode || String(l.Description || '').trim());
   }
 
   function allDirectionsSelected() {
@@ -1333,7 +1328,6 @@
     const error = document.getElementById('adj-form-error');
     error.classList.add('hidden');
     if (!document.getElementById('adj-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
-    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allDirectionsSelected()) { error.textContent = 'Select Increase or Decrease for every line.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
     const btn = document.getElementById('adj-save-draft-btn');
@@ -1355,7 +1349,6 @@
     const error = document.getElementById('adj-form-error');
     error.classList.add('hidden');
     if (!document.getElementById('adj-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
-    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allDirectionsSelected()) { error.textContent = 'Select Increase or Decrease for every line.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
 

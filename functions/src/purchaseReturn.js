@@ -23,6 +23,7 @@ const { randomUUID } = require('crypto');
 const purchaseTax = require('./purchaseTax');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
+const descriptions = require('./descriptions');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { approvalInstances } = require('./approvalStore');
 const stockStore = require('./stockStore');
@@ -264,8 +265,7 @@ exports.savePurchaseReturnDraft = onCallWithMessages(onCallOptions, async (reque
   const returnId = String(data.ReturnID || '').trim();
   const transactionDate = String(data.TransactionDate || '').trim();
   if (!transactionDate) throw new HttpsError('invalid-argument', 'Return date is required.');
-  const description = String(data.Description || '').trim();
-  if (!description) throw new HttpsError('invalid-argument', 'Description is required.');
+  let description = String(data.Description || '').trim(); // optional (Q503): defaulted below, from the invoice
   const companyId = String(data.CompanyID || '').trim();
   if (!companyId) throw new HttpsError('invalid-argument', 'Select a Company for this return.');
   if (!userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -282,6 +282,7 @@ exports.savePurchaseReturnDraft = onCallWithMessages(onCallOptions, async (reque
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected returns can be edited.');
   }
   const lines = await buildLines(data.Lines, invoiceId, inv, returnId);
+  description = descriptions.headerDescription(description, 'PURCHASERETURN', [inv && inv.TransactionNumber]);
 
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;

@@ -99,6 +99,12 @@ test('a document\'s entry: a Delivery Note corrected, its reversal refused until
   const dn = ok(await call('u-admin', 'saveDeliveryNoteDraft', { dnData: { TransactionDate: D, Description: 'Delivery', CompanyID: 'C1', CostCenterID: 'CC1', CustomerID: 'CU1',
     Lines: [{ SourceSOID: so.soId, SourceSOLineID: lineId, Quantity: 2, Description: 'Ship' }] } }));
   ok(await call('u-admin', 'postDeliveryNote', { dnId: dn.dnId }));
+  // UX4 (Q503): a blank description names the Sales Order; a blank line takes the item's name.
+  const blank = ok(await call('u-admin', 'saveDeliveryNoteDraft', { dnData: { TransactionDate: D, Description: '', CompanyID: 'C1', CostCenterID: 'CC1', CustomerID: 'CU1',
+    Lines: [{ SourceSOID: so.soId, SourceSOLineID: lineId, Quantity: 1, Description: '' }] } }));
+  const bdn = await val('stock/transactions/' + blank.dnId);
+  assert.deepEqual([bdn.Description, bdn.Lines[0].Description], ['Delivery note from ' + (await val('salesOrders/' + so.soId)).SONumber, 'Steel Sheet']);
+  ok(await call('u-admin', 'deleteDeliveryNoteDraft', { dnId: blank.dnId }));
   const jvId = (await val('stock/transactions/' + dn.dnId)).LinkedJVID;
   const found = await call('u-admin', 'getEntryForCorrection', { jvId });
   const cogs = found.lines.find(l => l.AccountCode === '5000');

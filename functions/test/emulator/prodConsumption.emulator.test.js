@@ -3,7 +3,7 @@
 // modules store), not hand-built transaction records.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -46,6 +46,14 @@ const report = (type, extra, uid) => call(uid || 'u-admin', 'getProductionConsum
   params: Object.assign({ CompanyID: 'C1', ReportType: type, FromDate: '2026-09-01', ToDate: '2026-09-30' }, extra || {})
 });
 const rows = (r) => r.Rows.map(x => [x.ItemCode, x.Category, x.SubCategoryName, x.UOMCode, x.Quantity, x.Value]);
+
+test('UX4 (Q503): a Production with no description saves "Production" and the item\'s name', async () => {
+  await reset(fixture());
+  const s = ok(await call('u-admin', 'saveProductionDraft', { prodData: { TransactionDate: D, Description: '', CompanyID: 'C1',
+    Lines: [Object.assign({ ItemID: 'FG1', EnteredQuantity: 1, UnitCost: 5 }, L, { Description: '' })] } }));
+  const p = await val('stock/transactions/' + s.prodId);
+  assert.deepEqual([p.Description, p.Lines[0].Description], ['Production', 'Panel']);
+});
 
 test('Production: net of reversals, valued, grouped by category', async () => {
   await reset(fixture());

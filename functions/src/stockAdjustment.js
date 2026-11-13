@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
+const descriptions = require('./descriptions');
 const { rtdb } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
 const { postStock, postedFields } = require('./stockPosting');
@@ -42,8 +43,7 @@ exports.saveStockAdjustmentDraft = onCallWithMessages(onCallOptions, async (requ
   const adjId = String(adjData.AdjustmentID || '').trim();
   const transactionDate = String(adjData.TransactionDate || '').trim();
   if (!transactionDate) throw new HttpsError('invalid-argument', 'Transaction date is required.');
-  const description = String(adjData.Description || '').trim();
-  if (!description) throw new HttpsError('invalid-argument', 'Description is required.');
+  const description = descriptions.headerDescription(adjData.Description, 'STOCKADJUSTMENT'); // optional (Q503)
   const reference = String(adjData.Reference || '').trim();
   const companyId = String(adjData.CompanyID || '').trim();
   if (!companyId) throw new HttpsError('invalid-argument', 'Select a Company for this transaction.');
@@ -94,8 +94,7 @@ exports.saveStockAdjustmentDraft = onCallWithMessages(onCallOptions, async (requ
       throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': ' + (enteredUom.Code || 'this unit') + ' does not allow decimal quantities.');
     }
 
-    const lineDescription = String(line.Description || '').trim();
-    if (!lineDescription) throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': description is required.');
+    const lineDescription = descriptions.lineDescription(line.Description, item.ItemName); // optional (Q503)
 
     if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
       throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');

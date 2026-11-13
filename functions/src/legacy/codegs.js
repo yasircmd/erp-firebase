@@ -3002,8 +3002,7 @@ async function saveProductionDraft(idToken, prodData) {
     const prodId = String(prodData.ProductionID || '').trim();
     const transactionDate = String(prodData.TransactionDate || '').trim();
     if (!transactionDate) throw new Error('Transaction date is required.');
-    const description = String(prodData.Description || '').trim();
-    if (!description) throw new Error('Description is required.');
+    const description = String(prodData.Description || '').trim() || 'Production'; // [NEW DEVELOPMENT optional-descriptions]
     const reference = String(prodData.Reference || '').trim();
     const companyId = String(prodData.CompanyID || '').trim();
     if (!companyId) throw new Error('Select a Company for this transaction.');
@@ -3068,8 +3067,7 @@ async function saveProductionDraft(idToken, prodData) {
       // not >= 0.
       if (!(unitCost > 0)) throw new Error('Line ' + (idx + 1) + ': enter a unit cost greater than zero.');
 
-      const lineDescription = String(line.Description || '').trim();
-      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
 
       if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
         throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
@@ -4871,8 +4869,8 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
     const dnId = String(dnData.DeliveryNoteID || '').trim();
     const transactionDate = String(dnData.TransactionDate || '').trim();
     if (!transactionDate) throw new Error('Transaction date is required.');
-    const description = String(dnData.Description || '').trim();
-    if (!description) throw new Error('Description is required.');
+    const descriptionTyped = String(dnData.Description || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+    let description = descriptionTyped || 'Delivery note';
     const reference = String(dnData.Reference || '').trim();
     const companyId = String(dnData.CompanyID || '').trim();
     if (!companyId) throw new Error('Select a Company for this transaction.');
@@ -4950,8 +4948,11 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
       // for Customer Invoice to read later.
       const unitPrice = Number(sourceSOLine.UnitPrice) || 0;
 
-      const lineDescription = String(line.Description || '').trim();
-      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!descriptionTyped) {
+        const soNumbers = Object.keys(soCache).map(k => soCache[k] && soCache[k].SONumber).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+        description = 'Delivery note' + (soNumbers.length ? ' from ' + soNumbers.join(', ') : '');
+      }
 
       // No batch requirement here — Delivery Note is a pure outbound
       // shipment, same as Material Issue (the one other existing
@@ -5718,8 +5719,7 @@ async function savePhysicalCountDraft(idToken, pcData) {
     const pcId = String(pcData.CountID || '').trim();
     const transactionDate = String(pcData.TransactionDate || '').trim();
     if (!transactionDate) throw new Error('Transaction date is required.');
-    const description = String(pcData.Description || '').trim();
-    if (!description) throw new Error('Description is required.');
+    const description = String(pcData.Description || '').trim() || 'Physical count'; // [NEW DEVELOPMENT optional-descriptions]
     const reference = String(pcData.Reference || '').trim();
     const companyId = String(pcData.CompanyID || '').trim();
     if (!companyId) throw new Error('Select a Company for this transaction.');
@@ -5763,8 +5763,7 @@ async function savePhysicalCountDraft(idToken, pcData) {
         throw new Error('Line ' + (idx + 1) + ': ' + (enteredUom.Code || 'this unit') + ' does not allow decimal quantities.');
       }
 
-      const lineDescription = String(line.Description || '').trim();
-      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
 
       if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
         throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
