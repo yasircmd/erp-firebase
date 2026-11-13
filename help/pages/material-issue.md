@@ -6,7 +6,7 @@ modules: [MATERIALISSUE]
 sources: [functions/src/materialIssue.js, functions/src/stockMovement.js]
 summary: Issue stock to a department or process and keep the warehouse quantity and cost records aligned.
 reviewed: 2026-11-13
-fingerprint: ecd8460467e8f4b5
+fingerprint: 95857f3d79da9581
 ---
 ## What it is for
 
@@ -27,6 +27,11 @@ fingerprint: ecd8460467e8f4b5
 4. Review the available quantity reference. Save as Draft if more review is needed; post only after checking direction and line detail.
 5. If approval is configured, posting submits the document; stock and GL change only after approval. Rejected documents can be edited and resubmitted.
 6. After posting, inspect GL Impact and the Stock Ledger. Reverse an incorrect posted entry through the reversal action with a reason; don't edit posted lines.
+
+## Descriptions and cost centers
+
+- **The description is optional.** Left blank, the entry saves *Material issue*, and a blank line takes the item's name ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
+- **A warehouse's cost center.** When a warehouse has a default cost center ([Organizational Units](org-units.html)), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.
 
 ## What happens in the books
 

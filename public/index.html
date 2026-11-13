@@ -724,10 +724,10 @@
         </div>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-300 mb-1">Email or user ID</label>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Email, user ID or Employee Code</label>
         <div class="relative">
           <i class="fa-solid fa-user absolute left-3 top-3 text-xs text-slate-500"></i>
-          <input type="text" id="email" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="name@company.com or your user ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+          <input type="text" id="email" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="name@company.com, your user ID or Employee Code" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
         </div>
       </div>
       <div>
@@ -1101,6 +1101,24 @@
     // functions/src/auth.js's own requireUser).
     // A call that saves or moves a document on clears the screen's edited mark (SCREEN KEYS, UX4.md item 12).
     const SAVING_CALL = /^(save|post|submit|delete|approve|reject|decide|cancel|reverse|confirm|finalise|mark|close|record|run|publish)/;
+    // A warehouse's default cost center (UX4.md item 4, Q502): learnt from
+    // getActiveOrgUnits, which every inventory screen asks for. A screen calls
+    // warehouseCostCenter.apply(line) when a line's warehouse is chosen: the
+    // line takes the warehouse's default, if it has one (still changeable).
+    window.warehouseCostCenter = (function () {
+      let byWarehouse = {};
+      return {
+        learn(units) { byWarehouse = {}; (units || []).forEach(u => { if (u && u.Type === 'Warehouse' && u.DefaultCostCenterID) byWarehouse[u.UnitID] = u.DefaultCostCenterID; }); },
+        // row: the line's row in the screen's grid, whose cost center list (class <prefix>-line-cc) shows it at once.
+        apply(line, field, row) {
+          const cc = line && byWarehouse[line[field || 'WarehouseID']];
+          if (!cc) return line;
+          line.CostCenterID = cc;
+          if (row != null) document.querySelectorAll('#module-container select[class*="-line-cc"][data-row="' + row + '"]').forEach(sel => { sel.value = cc; });
+          return line;
+        }
+      };
+    })();
     function __rpcChain(ctx) {
       return new Proxy({}, {
         get(_t, prop) {
@@ -1136,7 +1154,7 @@
             Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
               .then(idToken => sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(
                 corp ? { __corporate: { id: corp, idToken: idToken }, __data: arg === undefined ? null : arg } : arg))
-              .then(result => { __rpcFinish(timer); if (fromScreen && current() && SAVING_CALL.test(prop)) window.__screenEdited = false; if (ctx.successFn && current()) ctx.successFn(result.data); })
+              .then(result => { __rpcFinish(timer); if (prop === 'getActiveOrgUnits') window.warehouseCostCenter.learn(result.data); if (fromScreen && current() && SAVING_CALL.test(prop)) window.__screenEdited = false; if (ctx.successFn && current()) ctx.successFn(result.data); })
               .catch(err => { __rpcFinish(timer); if (ctx.failureFn && current()) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
         }
@@ -1201,7 +1219,24 @@
       document.getElementById('session-restoring').classList.add('hidden');
       onAuthResponse(response);
     }
+    // ---------- ONE SIGN-IN (UX4.md item 1, Q500) ----------
+    // Everyone signs in here. Someone signed in with no ERP access (an
+    // employee's portal account, a rep with the portal only, or an ERP
+    // account switched off but linked to an employee) goes on to the
+    // Employee Portal, still signed in: the same Auth, the same corporate
+    // (ess.html shares this page's sign-in). Otherwise the refusal stands.
+    // The Employee Code signs in as the portal does (essPortal.js essEmail).
+    function essEmail(code) {
+      const local = String(code || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_').replace(/^[._]+/, '');
+      return local ? local + '@ess.invalid' : '';
+    }
     function handleSessionFailure(err) {
+      rpc.withSuccessHandler(r => { if (r && r.linked) location.href = 'ess.html'; else refuseSession(err); })
+        .withFailureHandler(() => refuseSession(err))
+        .essPortal({ action: 'link' });
+    }
+    // ---------- END ONE SIGN-IN ----------
+    function refuseSession(err) {
       // The Firebase Auth session itself is valid, but the app-level
       // check rejected it (wrong Corporate ID, or the ERP account was
       // deactivated since) — sign out entirely rather than leave the
@@ -1372,6 +1407,7 @@
       document.getElementById('tab-pwd-btn').className = !login ? 'flex-1 pb-3 text-sm font-semibold text-emerald-400 border-b-2 border-emerald-500' : 'flex-1 pb-3 text-sm font-semibold text-slate-400 border-b-2 border-transparent';
     }
 
+    let portalTryFailure = '';
     function handleLogin(event) {
       event.preventDefault();
       const btn = document.getElementById('login-btn');
@@ -1406,14 +1442,18 @@
           // A user ID, not an email (owner, 2026-10-24, decision 271): the
           // corporate gives its email once the password is right.
           if (email.includes('@')) return email;
+          // Not an ERP user ID: perhaps an Employee Code, signed in as the
+          // portal does (ONE SIGN-IN); its refusal is the user ID's.
           return sdk.httpsCallable(sdk.functionsInstance, 'userIdSignIn')({ corporateId, userId: email, password })
-            .then(r => r.data.email, err => { throw Object.assign(new Error(err.message || 'Invalid user ID or password.'), { shown: true }); });
+            .then(r => r.data.email, err => { portalTryFailure = err.message || 'Invalid user ID or password.'; return essEmail(email); });
         }, err => { throw Object.assign(new Error((err && err.message) || 'Invalid Corporate ID.'), { shown: true }); })
         .then(signInEmail => {
           pendingCorporateId = corporateId;
+          const triedPortal = portalTryFailure;
+          portalTryFailure = '';
           return sdk.signInWithEmailAndPassword(sdk.auth, signInEmail, password).catch(err => {
             pendingCorporateId = null;
-            showLoginFailure({ message: mapFirebaseAuthError(err) });
+            showLoginFailure({ message: triedPortal || mapFirebaseAuthError(err) });
           });
         })
         .catch(err => showLoginFailure({ message: err.message }));

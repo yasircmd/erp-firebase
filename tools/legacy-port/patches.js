@@ -3886,4 +3886,111 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     replace: `      DeliveryNoteID: dn.DeliveryNoteID, DeliveryNoteNumber: dn.TransactionNumber, TransactionDate: dn.TransactionDate,
       Description: dn.Description, SalesRepEmployeeID: dn.SalesRepEmployeeID, // [NEW DEVELOPMENT sales-rep] (undefined on older ones)`
   }
+
+  ,
+  // UX batch 4, item 4 (Q502) rides on the same line patches below
+  // ([NEW DEVELOPMENT warehouse-cost-center]): a line sent with no cost
+  // center takes its warehouse's default (Organizational Units), before the
+  // header's (Delivery Note: line, warehouse, header).
+  // UX batch 4, item 13 (Q503): descriptions optional on the inventory
+  // transactions, as functions/src/descriptions.js does for the
+  // hand-written ones (same words). A blank header saves a default; a
+  // blank line takes the item's name.
+  {
+    id: 'optional-descriptions (production header)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-13; docs/modules/UX4.md, item 13, Q503): a blank description saves "Production".',
+    find: `    const description = String(prodData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');`,
+    replace: `    const description = String(prodData.Description || '').trim() || 'Production'; // [NEW DEVELOPMENT optional-descriptions]`
+  },
+  {
+    id: 'optional-descriptions (production line)',
+    why: 'As above: a blank line takes the item\'s name.',
+    find: `      const unitCost = Number(line.UnitCost);
+      // See computeStockMovement_'s identical check for why this is > 0,
+      // not >= 0.
+      if (!(unitCost > 0)) throw new Error('Line ' + (idx + 1) + ': enter a unit cost greater than zero.');
+
+      const lineDescription = String(line.Description || '').trim();
+      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');`,
+    replace: `      const unitCost = Number(line.UnitCost);
+      // See computeStockMovement_'s identical check for why this is > 0,
+      // not >= 0.
+      if (!(unitCost > 0)) throw new Error('Line ' + (idx + 1) + ': enter a unit cost greater than zero.');
+
+      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && wh && wh.DefaultCostCenterID) line.CostCenterID = wh.DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]`
+  },
+  {
+    id: 'optional-descriptions (delivery note header)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-13; docs/modules/UX4.md, item 13, Q503): a blank description saves "Delivery note from" its Sales Orders (set as the lines are read).',
+    find: `    const description = String(dnData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');`,
+    replace: `    const descriptionTyped = String(dnData.Description || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+    let description = descriptionTyped || 'Delivery note';
+    const dnWarehouses = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {}; // [NEW DEVELOPMENT warehouse-cost-center]`
+  },
+  {
+    id: 'optional-descriptions (delivery note line)',
+    why: 'As above: a blank line takes the item\'s name; the header default names the Sales Orders read so far.',
+    find: `      const lineDescription = String(line.Description || '').trim();
+      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+
+      // No batch requirement here — Delivery Note is a pure outbound`,
+    replace: `      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && (dnWarehouses[warehouseId] || {}).DefaultCostCenterID) line.CostCenterID = dnWarehouses[warehouseId].DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]
+      if (!descriptionTyped) {
+        const soNumbers = Object.keys(soCache).map(k => soCache[k] && soCache[k].SONumber).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+        description = 'Delivery note' + (soNumbers.length ? ' from ' + soNumbers.join(', ') : '');
+      }
+
+      // No batch requirement here — Delivery Note is a pure outbound`
+  },
+  {
+    id: 'optional-descriptions (physical count header)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-13; docs/modules/UX4.md, item 13, Q503): a blank description saves "Physical count".',
+    find: `    const description = String(pcData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');`,
+    replace: `    const description = String(pcData.Description || '').trim() || 'Physical count'; // [NEW DEVELOPMENT optional-descriptions]`
+  },
+  {
+    id: 'optional-descriptions (physical count line)',
+    why: 'As above: a blank line takes the item\'s name.',
+    find: `      const lineDescription = String(line.Description || '').trim();
+      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+
+      if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
+        throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
+      }
+
+      // System quantity is a draft-time snapshot`,
+    replace: `      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && wh && wh.DefaultCostCenterID) line.CostCenterID = wh.DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]
+
+      if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
+        throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
+      }
+
+      // System quantity is a draft-time snapshot`
+  }
+
+  ,
+  {
+    id: 'corporate-limits (user)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-13; docs/modules/UX4.md item 2, Q501): saving a user who would be Active is refused at the corporate\'s user limit (functions/src/limits.js).',
+    find: `    if (!roles[role]) throw new Error('Unknown role: ' + role);
+`,
+    replace: `    if (!roles[role]) throw new Error('Unknown role: ' + role);
+    assertActiveRoom_(idToken, 'user', id, status); // [NEW DEVELOPMENT corporate-limits]
+`
+  },
+  {
+    id: 'corporate-limits (company)',
+    why: 'As above: saving a company that would be Active is refused at the corporate\'s company limit.',
+    find: `    if (companyId && parentCompanyId === companyId) throw new Error('A company cannot be its own parent.');
+`,
+    replace: `    if (companyId && parentCompanyId === companyId) throw new Error('A company cannot be its own parent.');
+    assertActiveRoom_(idToken, 'company', companyId, status); // [NEW DEVELOPMENT corporate-limits]
+`
+  }
 ];

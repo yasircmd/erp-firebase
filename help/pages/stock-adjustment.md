@@ -6,7 +6,7 @@ modules: [STOCKADJUSTMENT]
 sources: [functions/src/stockAdjustment.js]
 summary: Correct the item quantity or value after a count, loss, damage or writing off stock.
 reviewed: 2026-11-13
-fingerprint: 5b2b906304e0849b
+fingerprint: 38412237fbd969f4
 ---
 ## What it is for
 
@@ -28,6 +28,11 @@ fingerprint: 5b2b906304e0849b
 5. If Approval Configuration applies, posting submits it for approval. The approver approves or rejects; rejected documents can be corrected and posted again. Approved/postable documents update inventory and GL.
 6. Review the posted document's GL Impact and the Stock Ledger. Reverse a posted adjustment through its reversal action with a reason; do not edit its posted lines.
 
+## Descriptions and cost centers
+
+- **The description is optional.** Left blank, the entry saves *Stock adjustment*, and a blank line takes the item's name ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
+- **A warehouse's cost center.** When a warehouse has a default cost center ([Organizational Units](org-units.html)), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.
+
 ## What happens in the books
 
 An Increase adds inventory at current average cost; a Decrease removes it at the applicable stock cost. The inventory account is offset against the item's Write-off account (or Consumption account fallback): decreases debit the offset and credit inventory; increases debit inventory and credit the offset. The document creates stock transactions and a GL journal. An increase can also allocate newly available stock to open Sales Order shortfalls.
@@ -39,7 +44,7 @@ STOCKADJUSTMENT **access** controls viewing, **draft** creates/edits/deletes Dra
 ## Questions and mistakes
 
 - **Increase cannot post:** this item has zero stock and therefore no average cost to inherit; establish stock/cost with GRN or Production first.
-- **Line is rejected:** confirm the item, warehouse/rack, UOM conversion, positive quantity, required description, and batch number for batch-tracked items.
+- **Line is rejected:** confirm the item, warehouse/rack, UOM conversion, positive quantity, and batch number for batch-tracked items.
 - **Decrease exceeds stock:** check the item's available quantity in that warehouse and any other posted movements before changing the count.
 - **Approval is pending:** no stock or GL change occurs until approval.
 - **GL offset account is missing:** set the item's Write-off or Consumption account in Item Master.

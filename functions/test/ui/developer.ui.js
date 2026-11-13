@@ -189,6 +189,42 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await q.close();
   });
 
+  await check('UX4: limits per client: the most companies and users saved, blank for none (Q501)', async () => {
+    const q = await open('u-admin');
+    await q.click('#dv-list tr[data-id="200"]');
+    await q.waitForSelector('#dv-limits-wrap:not(.hidden)');
+    await q.fill('#dv-max-companies', '3');
+    await q.fill('#dv-max-users', '12');
+    q.__dialogs = [];
+    await q.click('#dv-limits-save');
+    await dialogs(q, 1);
+    assert.match(q.__dialogs[0] || '', /Limits saved for 200/);
+    const e = await entry('200');
+    assert.deepEqual([e.MaxCompanies, e.MaxUsers], [3, 12]);
+    await until(q, () => document.getElementById('dv-max-users').value === '12');
+    await q.waitForLoadState('networkidle'); // the client reloaded after the save
+    await q.waitForTimeout(300);
+    await q.fill('#dv-max-users', '');
+    await q.click('#dv-limits-save');
+    await dialogs(q, 2);
+    assert.equal('MaxUsers' in (await entry('200')), false);
+    assert.deepEqual(q.__errors, []);
+    await q.close();
+  });
+
+  await check('UX4: the firm\'s Help inside Client Management (onboarding, Cloud Shell, limits, packs), never public (Q507)', async () => {
+    const q = await open('u-admin');
+    await q.click('#dv-pages [data-page="help"]');
+    await q.waitForSelector('#dv-help:not(.hidden)');
+    const t = await q.textContent('#dv-help');
+    for (const want of [/Onboarding a client/, /Test connection/, /deploy-functions\.sh <set> --screens/, /deploy-rules\.sh/, /Most companies \/ users/, /Packs/]) assert.match(t, want);
+    assert.equal(await q.isVisible('[data-page-pane="corporates"]'), false);
+    const helpFiles = require('fs').readdirSync(require('path').join(__dirname, '../../../help/pages'));
+    assert.ok(!helpFiles.some(f => /client-management|developer/i.test(f)), 'no public Help page for it');
+    assert.deepEqual(q.__errors, []);
+    await q.close();
+  });
+
   await check('set up: the steps, the chart headings and the first Admin', async () => {
     p.__dialogs = [];
     await rtdb.ref('coa/H1').set({ AccountCode: '100000', AccountName: 'Assets', AccountType: 'Asset', NormalBalance: 'Debit', IsPostable: false, Status: 'Active', CompanyID: '' });

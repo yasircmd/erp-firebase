@@ -6,7 +6,7 @@ modules: [PRODUCTION]
 sources: [functions/src/stockMovement.js]
 summary: Record produced output into stock and post its assigned inventory/consumption accounting; component issue remains separate.
 reviewed: 2026-11-13
-fingerprint: 2c518a7f4eafbfa9
+fingerprint: ecc5fd7064bf263c
 ---
 ## What it is for
 
@@ -26,6 +26,11 @@ fingerprint: 2c518a7f4eafbfa9
 3. Review line totals and output quantities. Check that the Job Order is still Submitted and has eligible lines for the output item; at posting the system matches by item code and updates the corresponding line progress.
 4. Save as Draft and post. If approval is configured, the entry remains pending and stock/GL/job progress do not change until final approval. A rejected entry is editable and can be resubmitted.
 5. After posting, check the finished item's warehouse balance, GL Impact, Job Order progress if linked, and any Sales Order shortfalls allocated from newly available stock. Reverse with a reason if the output entry is wrong.
+
+## Descriptions and cost centers
+
+- **The description is optional.** Left blank, the entry saves *Production*, and a blank line takes the item's name ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
+- **A warehouse's cost center.** When a warehouse has a default cost center ([Organizational Units](org-units.html)), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.
 
 ## What happens in the books
 
