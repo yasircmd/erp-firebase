@@ -4,8 +4,8 @@ area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
-reviewed: 2026-11-12
-fingerprint: 71da215a1d269fe0
+reviewed: 2026-11-13
+fingerprint: 84d8e479b40351ed
 ---
 ## Signing in
 
@@ -54,6 +54,11 @@ at first) chooses which of them you work in. Tick the companies and select
 - The screens offer only the companies you chose in their company lists,
   and with one chosen they fill it in for you, as for a user with only one
   company. The title then names it.
+- **Everywhere:** Home tasks list only the chosen companies' documents
+  (a task with no company always shows); My dashboard, the MIS Dashboard
+  and MIS Reports offer only the chosen companies; and
+  [Master Data Import](master-import.html) refuses a row for a company you
+  did not choose.
 - It's a filter, not a change of what you may do: every company is still
   yours, and **Select all** brings them all back. A document already saved
   for another company still shows its company.
@@ -67,13 +72,20 @@ longer picks the company on each entry.
 - **Search modules** (top bar): type part of a screen's name to filter the
   menu. **Enter** opens the screen when only one matches; **Esc** clears the
   search.
+- **Short codes:** each screen has a code of 2 to 4 letters, shown beside it
+  in the menu (for example COA for Chart of Accounts, JV for Journal
+  Entries, GRN for Goods Receipt Note, PO for Purchase Order). Type the code
+  and press **Enter** to open that screen at once, however many others
+  match. The codes are the same for everyone.
 - The double-arrow button expands or collapses the whole tree.
 - **Without the mouse:** **F2** goes to Search modules. **↓** moves to the
   first row shown, and **↑ ↓** move through the menu. **→** opens an area or
   folder and **←** closes it. **Enter** opens a screen. **Tab** reaches the
   same rows, each outlined when it has the focus.
 - Inside a screen, **← Home** (top left) returns to the menu. If you have
-  unsaved changes, the ERP asks before leaving.
+  unsaved changes, the ERP asks before leaving. **Enter** and **Esc** also
+  work on every screen: see
+  [Working with screens](working-with-screens.html#keys-on-a-screen).
 
 ### Favourites
 

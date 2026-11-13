@@ -111,7 +111,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.click('#dv-note-save');
     await until(p, () => /Set up payroll/.test(document.getElementById('dv-notes').textContent));
     assert.match(await p.textContent('#dv-notes'), /Task\s*Open\s*Approver\s*01\/11\/2026/, 'the due date shown dd/mm/yyyy');
-    await until(p, () => /Active\s*1\s*1/.test(document.querySelector('#dv-list tr[data-id="200"]').textContent));
+    await until(p, () => /Active\s*1\s*Allowed\s*1/.test(document.querySelector('#dv-list tr[data-id="200"]').textContent));
     await p.click('#dv-notes .dv-note-edit');
     assert.equal(await p.inputValue('#dv-note-title'), 'Set up payroll');
     await p.selectOption('#dv-note-status', 'Done');
@@ -169,6 +169,22 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.ok(await q.isDisabled('#dv-groups input[data-gmod="X_SUBSCR"]'), 'a pack\'s module is the pack\'s, not ticked one by one');
     const tree = Object.values((await clientApp.database().ref('tree').get()).val());
     assert.ok(tree.some(n => n.Text === 'Subscriptions' && !n.ModuleID) && tree.some(n => n.ModuleID === 'PACKSETUP'), JSON.stringify(tree.map(n => n.Text)));
+    assert.deepEqual(q.__errors, []);
+    await q.close();
+  });
+
+  await check('UX4: Client Management: its name, the client search, Data reset shown and switched off from the client', async () => {
+    const q = await open('u-admin');
+    assert.match(await q.textContent('#app-title'), /Client Management/);
+    await q.fill('#dv-search', 'nothing-like-this');
+    await until(q, () => /No client matches/.test(document.getElementById('dv-list').textContent));
+    await q.fill('#dv-search', 'demo');
+    await until(q, () => document.querySelectorAll('#dv-list tr[data-id]').length === 1);
+    assert.match(await q.textContent('#dv-list tr[data-id="200"]'), /Allowed/);
+    await q.click('#dv-list tr[data-id="200"]');
+    await q.uncheck('#dv-reset-allowed');
+    await until(q, () => /Off/.test(document.querySelector('#dv-list tr[data-id="200"]').textContent));
+    assert.equal((await entry('200')).Modules.DATARESET, false);
     assert.deepEqual(q.__errors, []);
     await q.close();
   });

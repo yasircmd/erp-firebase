@@ -330,7 +330,7 @@
       $('mis-type').innerHTML = cat.catalogue.map(c => '<option value="' + esc(c.type) + '">' + esc(c.group + ' · ' + c.title) + '</option>').join('') +
         '<option value="__builder">Build a report…</option>';
       $('mis-mode').innerHTML = cat.modes.map(m => '<option value="' + esc(m.mode) + '">' + esc(m.label) + '</option>').join('');
-      $('mis-company').innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      $('mis-company').innerHTML = (cos || []).filter(c => c.Chosen !== false).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
       fillSaved(''); buttons();
       return run();
     }, e => appAlert(e.message));

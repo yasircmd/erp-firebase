@@ -5,8 +5,8 @@ order: 6
 modules: [FAADDDEP]
 sources: [functions/src/fixedAssetsDepreciation.js]
 summary: Add one-off depreciation adjustments for assets with unusual or exceptional value changes.
-reviewed: 2026-11-07
-fingerprint: ae18944e13c82b30
+reviewed: 2026-11-13
+fingerprint: c0fef49724777476
 ---
 ## What it is for
 

@@ -1,6 +1,6 @@
 <div class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-code text-blue-500"></i> Developer</h2></div>
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-users-gear text-blue-500"></i> Client Management</h2></div>
     <div class="flex flex-wrap gap-2">
       <button id="dv-add" class="hidden bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add corporate</button>
       <button id="dv-refresh" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate"></i> Refresh</button>
@@ -17,13 +17,17 @@
   <div data-page-pane="corporates" class="space-y-6">
   <p class="text-xs text-slate-500 max-w-3xl">The firm's corporates (Corporate 100 only). Each one's data is in its own Firebase project; here are where it is, the modules it may use, the firm's internal notes on it (never shown to the client: no client data in a note) and whether its menu follows the main tree (this corporate's).</p>
 
+  <!-- Client search (UX4.md item 16): by id, name, group, project or status. -->
+  <div class="flex items-center gap-2"><label for="dv-search" class="sr-only">Search clients</label>
+    <input id="dv-search" type="search" placeholder="Search clients: id, name, group, project, status" autocomplete="off" class="w-full md:w-96 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <span id="dv-search-count" class="text-xs text-slate-500"></span></div>
   <div class="bg-slate-800/60 rounded-xl border border-slate-700 overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="text-xs text-slate-400 border-b border-slate-700"><tr>
         <th class="text-left px-3 py-2">Corporate ID</th><th class="text-left px-3 py-2">Name</th><th class="text-left px-3 py-2">Project</th>
-        <th class="text-left px-3 py-2">Status</th><th class="text-left px-3 py-2">Modules off</th><th class="text-left px-3 py-2">Open notes</th><th class="text-left px-3 py-2">Last test</th>
+        <th class="text-left px-3 py-2">Status</th><th class="text-left px-3 py-2">Modules off</th><th class="text-left px-3 py-2">Data reset</th><th class="text-left px-3 py-2">Open notes</th><th class="text-left px-3 py-2">Last test</th>
       </tr></thead>
-      <tbody id="dv-list"><tr><td colspan="7" class="px-3 py-3 text-slate-500">Loading…</td></tr></tbody>
+      <tbody id="dv-list"><tr><td colspan="8" class="px-3 py-3 text-slate-500">Loading…</td></tr></tbody>
     </table>
   </div>
   </div>
@@ -72,7 +76,8 @@
   <div data-page-pane="corporates" class="space-y-6">
   <div id="dv-detail" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <div class="text-lg font-semibold text-slate-100" id="dv-title"></div>
+      <div class="flex flex-wrap items-center gap-3"><div class="text-lg font-semibold text-slate-100" id="dv-title"></div>
+        <label id="dv-reset-wrap" class="hidden text-xs flex items-center gap-1 text-slate-300" title="Data Reset clears the client's own data: for setting up and testing only"><input type="checkbox" id="dv-reset-allowed"> Data reset allowed</label></div>
       <div class="flex gap-1 text-xs" id="dv-tabs">
         <button data-tab="connection" class="px-3 py-1.5 rounded-lg border border-slate-700">Connection</button>
         <button data-tab="setup" class="px-3 py-1.5 rounded-lg border border-slate-700">Set up</button>
@@ -176,8 +181,13 @@
     }, err => { el('dv-list').innerHTML = '<tr><td colspan="7" class="px-3 py-3 text-red-400">' + escapeHtml(err.message || 'Unable to load the corporates.') + '</td></tr>'; });
   }
 
+  // Data Reset allowed unless the firm switched the module off (Q511).
+  const resetAllowed = c => (c.Modules || {}).DATARESET !== false;
+  const groupName = id => ((data.groups || []).find(g => g.GroupID === id) || {}).Name || '';
   function renderList() {
-    const rows = data.corporates;
+    const q = (el('dv-search').value || '').trim().toLowerCase();
+    const rows = data.corporates.filter(c => !q || [c.CorporateID, c.Name, groupName(c.Group), c.ProjectID, c.Status].some(v => String(v || '').toLowerCase().includes(q)));
+    el('dv-search-count').textContent = q ? rows.length + ' of ' + data.corporates.length : '';
     el('dv-list').innerHTML = rows.length ? rows.map(c => {
       const off = Object.keys(c.Modules || {}).filter(k => c.Modules[k] === false).length;
       const test = c.LastTest ? (c.LastTest.Ok ? '<span class="text-emerald-400">OK</span> ' : '<span class="text-red-400">failed</span> ') + escapeHtml(time(c.LastTest.At)) : '<span class="text-slate-500">never</span>';
@@ -185,8 +195,9 @@
         '<td class="px-3 py-2 font-semibold">' + escapeHtml(c.CorporateID) + '</td><td class="px-3 py-2">' + escapeHtml(c.Name) + '</td>' +
         '<td class="px-3 py-2 text-slate-400">' + escapeHtml(c.ProjectID) + '</td>' +
         '<td class="px-3 py-2">' + (c.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>') + '</td>' +
-        '<td class="px-3 py-2">' + (off || '—') + '</td><td class="px-3 py-2">' + (c.OpenNotes || '—') + '</td><td class="px-3 py-2">' + test + '</td></tr>';
-    }).join('') : '<tr><td colspan="7" class="px-3 py-3 text-slate-500">No corporates yet: Corporate 100 is this one.</td></tr>';
+        '<td class="px-3 py-2">' + (off || '—') + '</td><td class="px-3 py-2">' + (resetAllowed(c) ? '<span class="text-amber-300">Allowed</span>' : '<span class="text-slate-500">Off</span>') + '</td>' +
+        '<td class="px-3 py-2">' + (c.OpenNotes || '—') + '</td><td class="px-3 py-2">' + test + '</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="px-3 py-3 text-slate-500">' + (q ? 'No client matches.' : 'No corporates yet: Corporate 100 is this one.') + '</td></tr>';
     el('dv-list').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => open(data.corporates.find(c => c.CorporateID === tr.dataset.id))));
   }
 
@@ -217,6 +228,9 @@
     showPage('corporates');
     el('dv-detail').classList.remove('hidden');
     el('dv-title').textContent = c.isNew ? 'New corporate' : c.CorporateID + ' — ' + (c.Name || '');
+    el('dv-reset-wrap').classList.toggle('hidden', !!c.isNew);
+    el('dv-reset-allowed').checked = resetAllowed(c);
+    el('dv-reset-allowed').disabled = !data.canWrite;
     const w = c.WebConfig || {};
     el('dv-id').value = c.CorporateID || ''; el('dv-id').disabled = !c.isNew;
     el('dv-name').value = c.Name || ''; el('dv-status').value = c.Status || 'Active';
@@ -513,8 +527,14 @@
   }
 
   window.initModule = function () {
-    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-code"></i> Developer';
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-users-gear"></i> Client Management';
     el('dv-refresh').addEventListener('click', () => load(current && current.CorporateID));
+    el('dv-search').addEventListener('input', renderList);
+    el('dv-reset-allowed').addEventListener('change', async e => {
+      const allowed = e.target.checked;
+      if (!(await appConfirm((allowed ? 'Allow' : 'Turn off') + ' Data Reset for ' + current.CorporateID + '? ' + (allowed ? 'Its Admin can then clear its data (for setting up and testing).' : 'Its Admin can no longer clear its data.')))) { e.target.checked = !allowed; return; }
+      call('saveDeveloperDataReset', { CorporateID: current.CorporateID, allowed }).then(() => load(current.CorporateID), err => { e.target.checked = !allowed; fail('change Data Reset')(err); });
+    });
     el('dv-add').addEventListener('click', () => open({ isNew: true, Status: 'Inactive' })); // Active once Test connection passes
     el('dv-pages').querySelectorAll('button').forEach(b => b.addEventListener('click', () => showPage(b.dataset.page)));
     showPage('corporates');

@@ -323,6 +323,20 @@ exports.saveDeveloperModules = onCallWithMessages(onCallOptions, async (request)
   return { success: true, off: Object.keys(set).filter(k => set[k] === false), on: Object.keys(set).filter(k => set[k] === true), packs: installed };
 });
 
+// Data Reset allowed or off for a client (UX4.md item 7, Q511): the DATARESET
+// module's own switch (a baseline module: off is stored as false), set on its
+// own so the firm can't lose the other ticks with it. The client's Admin
+// can't switch it back: its modules are the firm's.
+exports.saveDeveloperDataReset = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await developer(request, 'write');
+  const d = request.data || {};
+  const { id } = await entryOf(d.CorporateID);
+  const allowed = d.allowed === true;
+  const { FieldValue } = require('firebase-admin/firestore');
+  await entryRef(id).update({ ['Modules.DATARESET']: allowed ? FieldValue.delete() : false, ModulesUpdatedAt: new Date().toISOString(), ModulesUpdatedBy: nameOf(user) });
+  return { success: true, allowed };
+});
+
 // ---------- groups (decision 259) ----------
 //
 // A group (Firestore corporateGroups, the firm's) is a category of client

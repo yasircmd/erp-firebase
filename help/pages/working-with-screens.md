@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
-reviewed: 2026-11-12
-fingerprint: 5b881f9c130e3f8c
+reviewed: 2026-11-13
+fingerprint: 19ca9a175c07e821
 ---
 ## The page
 
@@ -34,6 +34,18 @@ The dimensions (Division, Branch, Cost Center, Profit Center) and the
 description are in one row under them, and on a wide window the
 adjustments and the totals are side by side. On a phone nothing stays
 fixed, so the lines keep the whole screen.
+
+## Keys on a screen
+
+- **Enter** on a screen's list (not while typing in a field) starts a new
+  entry, as **New** does.
+- **Esc** goes back: to the report you opened the entry from (for example
+  the Trial Balance you drilled down from), or else to Home. If you have
+  typed something not yet saved, it first asks **Leave without saving?**;
+  **No** keeps you on the screen. Typing in a search or filter box doesn't
+  count.
+- **Esc** with a list, a search or a pop-up open only closes that, as
+  before.
 
 ## Company first
 

@@ -782,7 +782,7 @@
         <div id="tree-controls" class="flex items-center gap-2">
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500"></i>
-            <input type="search" id="module-search" placeholder="Search modules" autocomplete="off" title="F2: type to filter the menu; ↓ to the matches, Enter opens; Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
+            <input type="search" id="module-search" placeholder="Search modules or a code (COA)" autocomplete="off" title="F2: type to filter the menu, or a module's code (COA, JV, GRN…); ↓ to the matches, Enter opens; Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
           </div>
           <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" title="Expand all" aria-label="Expand all" class="bg-slate-800 hover:bg-slate-700 text-xs w-8 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-angles-down"></i></button>
           <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
@@ -1099,6 +1099,8 @@
     // Firebase ID token is no longer passed explicitly at all, since
     // callable functions verify it automatically (see
     // functions/src/auth.js's own requireUser).
+    // A call that saves or moves a document on clears the screen's edited mark (SCREEN KEYS, UX4.md item 12).
+    const SAVING_CALL = /^(save|post|submit|delete|approve|reject|decide|cancel|reverse|confirm|finalise|mark|close|record|run|publish)/;
     function __rpcChain(ctx) {
       return new Proxy({}, {
         get(_t, prop) {
@@ -1134,7 +1136,7 @@
             Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
               .then(idToken => sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(
                 corp ? { __corporate: { id: corp, idToken: idToken }, __data: arg === undefined ? null : arg } : arg))
-              .then(result => { __rpcFinish(timer); if (ctx.successFn && current()) ctx.successFn(result.data); })
+              .then(result => { __rpcFinish(timer); if (fromScreen && current() && SAVING_CALL.test(prop)) window.__screenEdited = false; if (ctx.successFn && current()) ctx.successFn(result.data); })
               .catch(err => { __rpcFinish(timer); if (ctx.failureFn && current()) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
         }
@@ -1563,37 +1565,37 @@
 
       // Payroll queries and loan requests waiting for this handler.
       rpc
-        .withSuccessHandler(result => { renderEmpRequests((result && result.items) || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderEmpRequests, (result && result.items) || []); })
         .withFailureHandler(() => { renderEmpRequests([]); })
         .employeeRequests({ action: 'tasks' });
 
       // A leaver's clearance step for this user's team (docs/modules/LEAVER_CLEARANCE.md).
       rpc
-        .withSuccessHandler(result => { renderClearanceTasks(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderClearanceTasks, result || []); })
         .withFailureHandler(() => { renderClearanceTasks([]); })
         .getClearanceTasksForUser();
 
       rpc
-        .withSuccessHandler(result => { renderPendingApprovals(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderPendingApprovals, result || []); })
         .withFailureHandler(() => { renderPendingApprovals([]); })
         .getPendingApprovalsForUser();
 
       rpc
-        .withSuccessHandler(result => { renderRejectedSubmissions(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderRejectedSubmissions, result || []); })
         .withFailureHandler(() => { renderRejectedSubmissions([]); })
         .getMyRejectedSubmissions();
 
       // Drafts this user saved last, until submitted, posted or deleted
       // (docs/modules/DRAFT_TASKS.md).
       rpc
-        .withSuccessHandler(result => { renderMyDrafts(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderMyDrafts, result || []); })
         .withFailureHandler(() => { renderMyDrafts([]); })
         .getMyDraftsForUser();
 
       // Accepted Sales Job Order lines and submitted requisitions, for the
       // follow-up team set in Approval Configuration (docs/modules/APPROVAL_ROUTING.md).
       rpc
-        .withSuccessHandler(result => { renderFollowUps(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderFollowUps, result || []); })
         .withFailureHandler(() => { renderFollowUps([]); })
         .getMyFollowUpTasksForUser();
 
@@ -1602,7 +1604,7 @@
       const now = new Date();
       const localToday = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().substring(0, 10);
       rpc
-        .withSuccessHandler(result => { renderPdcsDue(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderPdcsDue, result || []); })
         .withFailureHandler(() => { renderPdcsDue([]); })
         .getPdcsDueForUser({ today: localToday });
 
@@ -2096,6 +2098,10 @@
     document.getElementById('module-search').addEventListener('keydown', e => {
       if (e.key === 'Escape') { clearModuleSearch(); e.target.blur(); }
       if (e.key === 'Enter') {
+        // A module's short code typed exactly (COA, JV, GRN…) opens it, however many others match (UX4.md item 8).
+        const code = e.target.value.trim().toUpperCase();
+        const exact = code && document.querySelector('#tree-container [data-short="' + code.replace(/[^A-Z0-9]/g, '') + '"]');
+        if (exact) { openModule(exact.getAttribute('data-module-id')); return; }
         const hits = visibleSearchModules();
         if (hits.length === 1) openModule(hits[0].getAttribute('data-module-id'));
       }
@@ -2174,6 +2180,9 @@
       document.getElementById('company-filter').classList.toggle('hidden', myCompanies.length < 2 || !onHome());
       document.getElementById('company-filter-label').textContent = chosen.length === myCompanies.length ? 'All companies' : chosen.length + ' of ' + myCompanies.length + ' companies';
       setCompanyFilter(chosen.map(c => c.CompanyID), myCompanies.map(c => c.CompanyID));
+      redrawHomeTasks();
+      const homeMis = document.getElementById('home-mis');
+      if (homeMis && !homeMis.classList.contains('hidden') && window.misTiles) misTiles.home();
     }
     function toggleCompanyFilter() {
       const panel = document.getElementById('company-filter-panel');
@@ -2184,6 +2193,18 @@
       }
       panel.classList.toggle('hidden');
     }
+    // The Home tasks show only the chosen companies' (UX4.md item 15, owner
+    // 2026-11-13): each task carries its document's CompanyID; one with none
+    // (or a company no longer the user's) is always shown. Each list is kept
+    // as it came, and drawn again when the choice changes.
+    const homeTaskLists = new Map();
+    function inChosenCompanies(items) {
+      const mine = new Set(myCompanies.map(c => c.CompanyID));
+      return (items || []).filter(x => !x || !x.CompanyID || !mine.has(x.CompanyID) || chosenCompanyIds.includes(x.CompanyID));
+    }
+    function homeTasksShow(render, items) { homeTaskLists.set(render, items); render(inChosenCompanies(items)); }
+    function redrawHomeTasks() { homeTaskLists.forEach((items, render) => render(inChosenCompanies(items))); }
+    window.inChosenCompanies = inChosenCompanies;
     function closeCompanyFilter() { document.getElementById('company-filter-panel').classList.add('hidden'); }
     function saveCompanyFilter() {
       const ids = Array.from(document.querySelectorAll('.company-filter-check:checked')).map(c => c.value);
@@ -2229,16 +2250,46 @@
       hiddenCompanyIds = new Set(allIds.filter(id => !chosenIds.includes(id)));
       applySingleCompanyDefault();
     }
+    // UX4.md item 15 (owner, 2026-11-13): every company dropdown, whatever
+    // its id (one is a company dropdown when an option is one of the user's
+    // companies). A dropdown with no blank option (a report's company, the
+    // MIS) starts on its first company: when its options are new and that
+    // first company is one not chosen, it moves to the first chosen one, so
+    // a report never opens on a company filtered out. The move waits until
+    // the screen's own calls have all answered (the rpc count back at 0):
+    // its change listener reloads what depends on the company, which a
+    // screen still loading isn't ready for (Quotations, MIS Dashboard).
+    const companyOptionsSeen = new WeakMap(), companyMoves = new Set();
+    let companyMoveTimer = null;
+    function moveOffHiddenCompanies(tries) {
+      companyMoveTimer = null;
+      if (__rpcPendingCount > 0 && tries < 100) { companyMoveTimer = setTimeout(() => moveOffHiddenCompanies(tries + 1), 100); return; }
+      companyMoves.forEach(select => {
+        companyMoves.delete(select);
+        if (!select.isConnected || select.disabled || !hiddenCompanyIds.has(select.value)) return;
+        const first = Array.from(select.options).find(o => knownCompanyIds.has(o.value) && !hiddenCompanyIds.has(o.value));
+        if (first) { select.value = first.value; select.dispatchEvent(new Event('change')); }
+      });
+      applySingleCompanyDefault(); // the company moved from is hidden now
+    }
     function applySingleCompanyDefault() {
       if (!knownCompanyIds.size) return;
-      document.querySelectorAll('#module-container select[id*="company"]').forEach(select => {
-        Array.from(select.options).forEach(o => {
+      document.querySelectorAll('#module-container select').forEach(select => {
+        const options = Array.from(select.options);
+        if (!options.some(o => knownCompanyIds.has(o.value))) return;
+        const sig = options.map(o => o.value).join('|');
+        const fresh = companyOptionsSeen.get(select) !== sig;
+        companyOptionsSeen.set(select, sig);
+        if (fresh && hiddenCompanyIds.has(select.value) && select.selectedIndex === 0 && !select.disabled && !options.some(o => o.value === '')) {
+          companyMoves.add(select);
+          if (!companyMoveTimer) companyMoveTimer = setTimeout(() => moveOffHiddenCompanies(0), 0);
+        }
+        options.forEach(o => {
           if (!knownCompanyIds.has(o.value)) return;
           const hide = hiddenCompanyIds.has(o.value) && o.value !== select.value;
           if (o.hidden !== hide) o.hidden = hide;
         });
         if (!singleCompanyId || select.value !== '' || select.disabled) return;
-        const options = Array.from(select.options);
         if (!options.some(o => o.value === singleCompanyId)) return;
         const blank = options.find(o => o.value === '');
         if (blank && /shared|none/i.test(blank.textContent)) return;
@@ -3252,10 +3303,13 @@
     // phase 2, Q439-Q442), drawn on the MIS Dashboard screen and, when the
     // user chooses, on Home. Each tile's figures come from runMisReport when
     // shown (Q442); tiles asking the same report share one call.
-    //   misTiles.render(el, tiles, { companyId, month, editable, onRemove, onMove })
+    //   misTiles.render(el, tiles, { companyId, month, editable, onRemove, onMove, onSize })
+    //   misTiles.sizeOf(tile) → { w: 1|2|4, h: 'normal'|'tall' } (its own, else its kind's, Q505)
     //   misTiles.chart(canvas, report, 'bar'|'line') → Promise of the drawn Chart
     //   misTiles.loadChart() → Promise of Chart.js (shipped with the app, Q430)
     window.misTiles = (function () {
+      const SIZES = { kpi: { w: 1, h: 'normal' }, gauge: { w: 1, h: 'normal' }, top: { w: 2, h: 'normal' }, chart: { w: 2, h: 'tall' } };
+      const sizeOf = t => { const d = SIZES[t && t.kind] || SIZES.kpi; return { w: [1, 2, 4].includes(Number(t && t.w)) ? Number(t.w) : d.w, h: t && (t.h === 'tall' || t.h === 'normal') ? t.h : d.h }; };
       let chartLib = null;
       const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
@@ -3303,7 +3357,7 @@
             '<div class="absolute -top-1 h-4 w-1 rounded bg-white" style="left:calc(' + at(v) + '% - 2px)"></div></div>' +
             '<div class="text-[11px] text-slate-500 mt-1 mis-band">Good: ' + val(row, lo) + ' to ' + val(row, hi) + (inBand ? '' : ' · outside') + '</div>';
         }
-        return '<div class="relative h-48"><canvas></canvas></div><p class="mis-chart-note hidden text-xs text-slate-500"></p>';
+        return '<div class="relative ' + (sizeOf(t).h === 'tall' ? 'h-72' : 'h-48') + '"><canvas></canvas></div><p class="mis-chart-note hidden text-xs text-slate-500"></p>';
       }
       // A report as a chart on a canvas (the dashboard's tiles, the MIS Reports screen).
       async function chart(canvas, r, style) {
@@ -3347,13 +3401,20 @@
           if (/^saved:/.test(t.type)) return cache[k] || (cache[k] = call('runSavedMisBuilder', { id: t.type.slice(6), companyId: opt.companyId, month: opt.month })); // a built report (MIS.md, Q449)
           return cache[k] || (cache[k] = call('runMisReport', { type: t.type, companyId: opt.companyId, month: opt.month, mode: t.mode }));
         };
-        el.innerHTML = (tiles || []).map((t, i) => '<div class="mis-tile bg-slate-800/40 border border-slate-700 rounded-xl p-3 ' + (t.kind === 'chart' ? 'md:col-span-2' : '') + '" data-id="' + esc(t.id) + '" data-kind="' + esc(t.kind) + '">' +
+        // Each tile's size (UX4.md item 9, Q505): 1, 2 or 4 columns, normal or tall (2 rows); the grid packs
+        // densely, so a tall tile sits beside two normal ones and nothing in its row is stretched.
+        el.classList.add('md:grid-flow-row-dense');
+        const W = { 1: 'md:col-span-1', 2: 'md:col-span-2', 4: 'md:col-span-4' };
+        el.innerHTML = (tiles || []).map((t, i) => { const s = sizeOf(t); return '<div class="mis-tile bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-col ' + W[s.w] + (s.h === 'tall' ? ' md:row-span-2' : '') + '" data-id="' + esc(t.id) + '" data-kind="' + esc(t.kind) + '" data-w="' + s.w + '" data-h="' + s.h + '">' +
           '<div class="flex items-start justify-between gap-2 mb-2"><div class="text-xs font-semibold text-slate-300 uppercase">' + esc(t.title || t.type) + '</div>' +
-          (opt.editable ? '<div class="flex gap-1 text-slate-500"><button class="mis-up hover:text-slate-200" title="Move earlier"' + (i ? '' : ' disabled') + '><i class="fa-solid fa-arrow-left"></i></button><button class="mis-down hover:text-slate-200" title="Move later"' + (i < tiles.length - 1 ? '' : ' disabled') + '><i class="fa-solid fa-arrow-right"></i></button><button class="mis-remove hover:text-red-400" title="Remove the tile"><i class="fa-solid fa-xmark"></i></button></div>' : '') +
-          '</div><div class="mis-body text-xs text-slate-500">Working…</div></div>').join('') ||
+          (opt.editable ? '<div class="flex gap-1 text-slate-500"><select class="mis-size bg-slate-900 border border-slate-700 rounded text-[11px]" title="Size">' +
+            [[1, 'normal'], [2, 'normal'], [4, 'normal'], [1, 'tall'], [2, 'tall'], [4, 'tall']].map(([w, h]) => '<option value="' + w + '|' + h + '"' + (s.w === w && s.h === h ? ' selected' : '') + '>' + w + ' wide' + (h === 'tall' ? ', tall' : '') + '</option>').join('') + '</select>' +
+            '<button class="mis-up hover:text-slate-200" title="Move earlier"' + (i ? '' : ' disabled') + '><i class="fa-solid fa-arrow-left"></i></button><button class="mis-down hover:text-slate-200" title="Move later"' + (i < tiles.length - 1 ? '' : ' disabled') + '><i class="fa-solid fa-arrow-right"></i></button><button class="mis-remove hover:text-red-400" title="Remove the tile"><i class="fa-solid fa-xmark"></i></button></div>' : '') +
+          '</div><div class="mis-body text-xs text-slate-500 flex-1">Working…</div></div>'; }).join('') ||
           '<p class="text-sm text-slate-500">No tiles yet.</p>';
         if (opt.editable) el.querySelectorAll('.mis-tile').forEach((card, i) => {
           card.querySelector('.mis-remove').addEventListener('click', () => opt.onRemove && opt.onRemove(i));
+          card.querySelector('.mis-size').addEventListener('change', e => { const [w, h] = e.target.value.split('|'); if (opt.onSize) opt.onSize(i, Number(w), h); });
           card.querySelector('.mis-up').addEventListener('click', () => opt.onMove && opt.onMove(i, -1));
           card.querySelector('.mis-down').addEventListener('click', () => opt.onMove && opt.onMove(i, 1));
         });
@@ -3379,7 +3440,8 @@
         const [d, cos] = await Promise.all([call('getMisDashboard', {}), call('getActiveCompanies', {}).catch(() => [])]);
         const sel = document.getElementById('home-mis-company');
         const was = sel.value;
-        sel.innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+        // Only the companies chosen on Home (UX4.md item 15).
+        sel.innerHTML = (cos || []).filter(c => c.Chosen !== false).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
         if (was && [...sel.options].some(o => o.value === was)) sel.value = was;
         const month = (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
         const draw = () => render(document.getElementById('home-mis-grid'), d.tiles, { companyId: sel.value, month });
@@ -3388,7 +3450,7 @@
         box.classList.remove('hidden');
         return draw();
       }
-      return { render, loadChart, chart, home };
+      return { render, loadChart, chart, home, sizeOf };
     })();
     // ---------- END MIS TILES ----------
     // ---------- DOCUMENT LINKS ----------
@@ -3666,8 +3728,9 @@
           details.append(summary, children); li.appendChild(details); stack[stack.length - 1].container.appendChild(li); stack.push({ depth: item.depth, container: children });
         } else {
           li.className = 'py-1.5 pl-7 pr-2 flex items-center justify-between gap-2 text-sm text-slate-400 hover:text-blue-400 hover:bg-slate-800 cursor-pointer';
-          li.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-[6px] text-slate-500"></i><span>${escapeHtml(item.text)}</span></span>`;
+          li.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-[6px] text-slate-500"></i><span>${escapeHtml(item.text)}</span>${item.short ? `<span class="mod-short text-[10px] font-mono text-slate-500 border border-slate-700 rounded px-1">${escapeHtml(item.short)}</span>` : ''}</span>`;
           if (item.moduleId) {
+            if (item.short) li.setAttribute('data-short', item.short); // UX4.md item 8: the module's short code
             li.classList.add('text-blue-400', 'font-medium');
             li.setAttribute('data-module-id', item.moduleId);
             li.addEventListener('click', () => openModule(item.moduleId));
@@ -3845,14 +3908,130 @@
     // ought to reset every open tab's timer, not just this one.
     document.getElementById('idle-stay-btn').addEventListener('click', () => resetIdleTimer());
 
+    // ---------- SCREEN KEYS ----------
+    // (owner, 2026-11-13; docs/modules/UX4.md items 11, 12, Q506)
+    // Enter on a screen (focus not in a field, no dialog open) presses its New
+    // button: one marked data-new, else a shown button whose label starts with
+    // "New". Esc goes back: to the screen it was opened from (a report's
+    // drill-down chain), else Home, asking "Leave without saving?" first when
+    // the screen has unsaved changes. Esc inside a dialog, a picker or a
+    // screen's own pop-up only closes that (they stop the key themselves; a
+    // pop-up left open stops it here).
+    // Unsaved changes: the screen's own window.hasUnsavedChanges() when it has
+    // one, else a field of its form (not a search or filter) changed since the
+    // screen opened or last saved (a save, post, submit … call clears it).
+    window.__screenEdited = false;
+    function screenUnsaved() {
+      if (typeof window.hasUnsavedChanges === 'function') return Boolean(window.hasUnsavedChanges());
+      return Boolean(window.__screenEdited);
+    }
+    (function () {
+      const container = () => document.getElementById('module-container');
+      const FORM_AREA = /(form|entry|editor|detail|modal|line)/i;
+      function markEdited(e) {
+        const t = e.target;
+        if (!t || !/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.type === 'search') return;
+        if (t.closest('[data-no-dirty]') || /search|filter/i.test((t.id || '') + ' ' + (t.name || ''))) return;
+        let inForm = Boolean(t.closest('form')) || FORM_AREA.test(t.id || '');
+        for (let n = t.parentElement; !inForm && n && n !== container(); n = n.parentElement) if (n.id && FORM_AREA.test(n.id)) inForm = true;
+        if (inForm) window.__screenEdited = true;
+      }
+      document.addEventListener('input', e => { if (container() && container().contains(e.target)) markEdited(e); });
+      document.addEventListener('change', e => { if (container() && container().contains(e.target)) markEdited(e); });
+      const shown = el => { if (!el || el.closest('.hidden')) return false; const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden' && el.getClientRects().length > 0; };
+      const onScreen = () => container() && !container().classList.contains('hidden');
+      const popupOpen = () => [...container().querySelectorAll('.fixed')].some(el => /inset-0/.test(el.className) && shown(el)) ||
+        shown(document.getElementById('approval-card'));
+      function newButton() {
+        const all = [...container().querySelectorAll('button, a.btn')].filter(b => shown(b) && !b.disabled);
+        return all.find(b => b.hasAttribute('data-new')) || all.find(b => /^\s*(\+\s*)?New\b/i.test(b.textContent || ''));
+      }
+      async function goBack() {
+        if (screenUnsaved() && !(await appConfirm('You have unsaved changes. Leave without saving?'))) return;
+        window.__screenEdited = false;
+        const chain = (window.__shellReturnChain || []).slice();
+        const to = chain.pop();
+        if (to && to.moduleId) { window.hasUnsavedChanges = undefined; openModule(to.moduleId, to.params, chain); return; }
+        handleBackToHierarchy(true);
+      }
+      // Whether a pop-up was open when the key came, seen before any screen's own
+      // handler runs (an item picker closes itself on Esc without stopping it).
+      let popupAtKey = false;
+      document.addEventListener('keydown', () => { popupAtKey = onScreen() && popupOpen(); }, true);
+      document.addEventListener('keydown', e => {
+        if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !onScreen() || popupAtKey || popupOpen()) return;
+        if (e.key === 'Escape') { e.preventDefault(); goBack(); return; }
+        if (e.key === 'Enter') {
+          if (screenUnsaved()) return; // never over a form being filled in
+          const a = document.activeElement;
+          if (a && a !== document.body && (/^(INPUT|SELECT|TEXTAREA|BUTTON|A|SUMMARY)$/.test(a.tagName) || a.isContentEditable || a.closest('[tabindex]'))) return;
+          const b = newButton();
+          if (b) { e.preventDefault(); b.click(); }
+        }
+      });
+      window.screenKeys = { unsaved: screenUnsaved, newButton: () => onScreen() && newButton() };
+    })();
+    // ---------- END SCREEN KEYS ----------
+    // ---------- APPROVAL BAR ----------
+    // Approve or reject an entry, at its foot (UX4.md item 10, owner
+    // 2026-11-13). Each of the 23 entry screens with approvals keeps its own
+    // banner (the reason box, Approve, Reject, its own decide call) and
+    // shows it through approvalBar.show(banner, { instanceId, rights }):
+    //  - the banner moves to the foot of its entry view, once;
+    //  - it shows only when the approval waits on this user (the server's
+    //    getApprovalBarInfo), with their level and who decides next;
+    //  - rights: the module whose Post right deciding needs; the shell
+    //    waits for it itself. The screens used to check their own canPost,
+    //    which an entry opened from a Home task could reach before the
+    //    rights had loaded: the banner then never showed (the IPR case);
+    //  - an answer for an entry no longer shown is ignored.
+    // dataset.level is set for the screen's decide call, as before.
+    window.approvalBar = (function () {
+      let rights = {};
+      const ask = (fn, data) => new Promise(ok => rpc.withSuccessHandler(ok).withFailureHandler(() => ok(null))[fn](data));
+      const canPost = m => rights[m] || (rights[m] = ask('getModulePermissionsForUser', { moduleId: m }).then(p => Boolean(p && p.canPost)));
+      function place(banner) {
+        if (banner.dataset.barPlaced) return;
+        banner.dataset.barPlaced = '1';
+        const view = banner.parentElement && banner.parentElement.closest('[id$="-view"]');
+        if (view) view.appendChild(banner);
+        const info = document.createElement('p');
+        info.className = 'approval-bar-info text-xs text-slate-400';
+        const head = banner.querySelector('p');
+        if (head) head.after(info); else banner.prepend(info);
+      }
+      function infoText(r) {
+        const levels = (r.Levels || []).slice().sort((a, b) => a.LevelNumber - b.LevelNumber);
+        const next = levels.find(l => l.LevelNumber > r.MyLevel && !l.Decided);
+        return 'Level ' + r.MyLevel + ' of ' + levels.length + '. ' + (next ? 'Then: ' + next.Approver + ' (level ' + next.LevelNumber + ').' : 'Yours is the last level.');
+      }
+      async function show(banner, o) {
+        if (!banner) return;
+        o = o || {};
+        const token = (banner.__barToken || 0) + 1;
+        banner.__barToken = token;
+        banner.classList.add('hidden');
+        place(banner);
+        if (!o.instanceId) return;
+        const [allowed, r] = await Promise.all([o.rights ? canPost(o.rights) : true, ask('getApprovalBarInfo', { approvalInstanceId: o.instanceId })]);
+        if (banner.__barToken !== token || !allowed || !r || !r.MyLevel) return;
+        banner.dataset.level = r.MyLevel;
+        banner.querySelector('.approval-bar-info').textContent = infoText(r);
+        banner.classList.remove('hidden');
+      }
+      return { show, reset() { rights = {}; } };
+    })();
+    // ---------- END APPROVAL BAR ----------
+
     // A loaded module fragment may define window.hasUnsavedChanges() to
     // report whether leaving right now would lose in-progress data (e.g.
     // an open, unsaved JV/CBT entry). The shell doesn't know a fragment's
     // internal state otherwise, so it just asks before navigating away.
-    async function handleBackToHierarchy() {
-      if (typeof window.hasUnsavedChanges === 'function' && window.hasUnsavedChanges()) {
+    async function handleBackToHierarchy(asked) {
+      if (!asked && screenUnsaved()) {
         if (!(await appConfirm('You have unsaved changes. Leave without saving?'))) return;
       }
+      window.__screenEdited = false;
       showTreeNav();
       // Refresh here specifically — not inside showTreeNav() itself,
       // since that's also called by handleLogout() with the token
@@ -3923,6 +4102,7 @@
     }
 
     function openModule(moduleId, drillParams, returnChain) {
+      if (window.approvalBar) approvalBar.reset(); // rights asked afresh for each screen (APPROVAL BAR)
       if (window.phoneView) phoneView.screen(moduleId); // PHONE VIEW: this screen at a phone's width, or desktop-width with its notice
       // Fragments run in this same document (not an iframe), so any fragment
       // can call openModule() directly — that's how cross-report drill-down
@@ -3939,6 +4119,8 @@
       // screen's exact prior state rather than just returning to the tree.
       window.__pendingModuleParams = drillParams || null;
       window.__pendingReturnChain = returnChain || [];
+      window.__shellReturnChain = (returnChain || []).slice(); // SCREEN KEYS: Esc walks back the same way
+      window.__screenEdited = false;
 
       // Every module load gets a fresh token. A fragment's own async
       // rpc callbacks (e.g. loading its list) capture this

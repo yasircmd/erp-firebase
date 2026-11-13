@@ -1235,18 +1235,8 @@
       document.getElementById('mi-rejection-reason').textContent = currentMi.RejectionReason || '(no reason given)';
     }
 
-    document.getElementById('mi-my-approval-banner').classList.add('hidden');
-    if (currentMi && currentMi.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('mi-my-approval-banner').classList.remove('hidden');
-            document.getElementById('mi-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentMi.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('mi-my-approval-banner'), { instanceId: currentMi && currentMi.Status === 'PendingApproval' ? currentMi.ApprovalInstanceID : '', rights: 'MATERIALISSUE' });
 
     document.getElementById('mi-print-btn').classList.toggle('hidden', !posted);
     document.getElementById('mi-gl-impact-btn').classList.toggle('hidden', !(posted && currentMi && currentMi.LinkedJVID));

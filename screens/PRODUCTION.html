@@ -1333,18 +1333,8 @@
       document.getElementById('prd-rejection-reason').textContent = currentProd.RejectionReason || '(no reason given)';
     }
 
-    document.getElementById('prd-my-approval-banner').classList.add('hidden');
-    if (currentProd && currentProd.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('prd-my-approval-banner').classList.remove('hidden');
-            document.getElementById('prd-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentProd.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('prd-my-approval-banner'), { instanceId: currentProd && currentProd.Status === 'PendingApproval' ? currentProd.ApprovalInstanceID : '', rights: 'PRODUCTION' });
 
     document.getElementById('prd-print-btn').classList.toggle('hidden', !posted);
     document.getElementById('prd-labels-btn').classList.toggle('hidden', !posted);

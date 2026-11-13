@@ -53,6 +53,15 @@ const EXTRA = ['ACCOUNTANT', 'ADMIN_TESTER', 'CASHIER', 'FINANCE_MGR', 'HR Execu
     assert.equal(r.headTops, 1, 'the role headers are on one line');
     assert.ok(r.rows > 20, 'rows: ' + r.rows);
     assert.deepEqual(r.bad, []);
+    // UX4 item 6: scrolled down, the role header stays at the top of the matrix.
+    const stuck = await p.evaluate(() => {
+      const box = document.getElementById('perm-scroll'); box.scrollTop = 2000;
+      const h = document.querySelector('.perm-role-th').getBoundingClientRect(), b = box.getBoundingClientRect();
+      return { scrolled: box.scrollTop > 0, top: Math.round(h.top - b.top), sh: box.scrollHeight, ch: box.clientHeight, css: getComputedStyle(box).maxHeight + ' ' + getComputedStyle(box).overflowY };
+    });
+    assert.ok(stuck.scrolled, 'the matrix scrolls ' + JSON.stringify(stuck));
+    assert.ok(stuck.top >= 0 && stuck.top < 4, 'the header at the top: ' + stuck.top);
+    await p.evaluate(() => { document.getElementById('perm-scroll').scrollTop = 0; });
     // Tick Viewer's (the last column's) Chart of Accounts write, save, and it is stored.
     const box = '#perm-table-body input[data-module="COA"][data-cap="write"][data-role="Viewer"]';
     assert.equal(await p.isChecked(box), false);

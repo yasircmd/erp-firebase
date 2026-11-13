@@ -1002,19 +1002,8 @@
     }
 
     showBudgetBanner('vinv', currentInvoice);
-    document.getElementById('vinv-my-approval-banner').classList.add('hidden');
-    if (currentInvoice && (currentInvoice.Status === 'PendingApproval' || currentInvoice.Status === 'PendingReversalApproval') && canPost) {
-      const instanceId = currentInvoice.Status === 'PendingReversalApproval' ? currentInvoice.ReversalApprovalInstanceID : currentInvoice.ApprovalInstanceID;
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('vinv-my-approval-banner').classList.remove('hidden');
-            document.getElementById('vinv-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: instanceId });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('vinv-my-approval-banner'), { instanceId: currentInvoice && (currentInvoice.Status === 'PendingApproval' || currentInvoice.Status === 'PendingReversalApproval') ? (currentInvoice.Status === 'PendingReversalApproval' ? currentInvoice.ReversalApprovalInstanceID : currentInvoice.ApprovalInstanceID) : '', rights: 'VENDORINVOICE' });
 
     ['vinv-form-company', 'vinv-form-vendor', 'vinv-form-date', 'vinv-form-vendorref', 'vinv-form-description',
       'vinv-form-division', 'vinv-form-branch', 'vinv-form-costcenter', 'vinv-form-profitcenter', 'vinv-form-project',

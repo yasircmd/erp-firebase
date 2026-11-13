@@ -5,8 +5,8 @@ order: 5
 modules: [TREEMGMT]
 sources: [functions/src/tree.js, functions/src/entitlements.js]
 summary: Build the menu tree and link each module to the right company, role and section.
-reviewed: 2026-10-23
-fingerprint: 3d7566ff6bfa60c3
+reviewed: 2026-11-13
+fingerprint: 113e893ef43fbef8
 ---
 ## What it is for
 
@@ -28,6 +28,8 @@ fingerprint: 3d7566ff6bfa60c3
 5. Delete a node only after its child nodes are removed or reassigned. Test the menu as representative roles after any structural change.
 
 ## What happens in the books
+
+In the menu, a node linked to a module shows that module's short code beside its text (for example COA or GRN), which users can type in Search modules to open it. The codes are fixed for every module and the same for everyone; they are not edited here.
 
 Tree changes update navigation configuration only; they do not post to the ledger or grant accounting rights. Module actions are still controlled independently by Roles & Permissions and company assignment.
 

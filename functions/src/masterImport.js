@@ -617,6 +617,13 @@ const SELF_KIND = { COMPANY: 'company', ORGUNIT: 'orgUnit', ACCOUNT: 'account' }
 // resolved rows (references as ids, or { row } for one created earlier in
 // this paste) and the issues, each { row, column, message } (row 0 = the
 // header row).
+// Only the companies chosen on Home (UX4.md item 15, owner 2026-11-13): a
+// row for another of the user's companies is an issue, so a paste meant for
+// one company can't land in another. Blank (all companies) is unaffected.
+function notChosenMessage(ex, id) {
+  return ((ex.raw.companies[id] || {}).LegalName || id) + ' is not among the companies chosen on Home. Choose it there to import for it.';
+}
+
 async function checkPaste(user, masterKey, text, opts) {
   opts = opts || {};
   const m = await masterFor(masterKey);
@@ -648,6 +655,7 @@ async function checkPaste(user, masterKey, text, opts) {
   if (!body.length) add(0, '', 'There are no rows under the headers.');
 
   const ex = await loadExisting();
+  const chosen = await require('./companies').chosenCompanyTest(user);
   const resolved = [];
   const namesInPaste = {}; // normalized name (+ scope) -> first row
   body.forEach((cells, idx) => {
@@ -725,6 +733,8 @@ async function checkPaste(user, masterKey, text, opts) {
     // The company, where a row names one: the user must have access to it.
     if (typeof r.CompanyID === 'string' && r.CompanyID && !userCanAccessCompany(user.profile, r.CompanyID)) {
       add(rowNo, 'Company', 'You do not have access to that company.');
+    } else if (typeof r.CompanyID === 'string' && r.CompanyID && !chosen(r.CompanyID)) {
+      add(rowNo, 'Company', notChosenMessage(ex, r.CompanyID));
     }
     // An employee's row (leave balances): the employee's company.
     if (masterKey === 'LEAVEBAL' && typeof r.EmployeeID === 'string' && ex.raw.employees[r.EmployeeID] && !userCanAccessCompany(user.profile, ex.raw.employees[r.EmployeeID].CompanyID)) {
@@ -1363,6 +1373,7 @@ async function checkUpdate(user, masterKey, text) {
   if (!body.length) add(0, '', 'There are no rows under the headers.');
 
   const ex = await loadExisting();
+  const chosen = await require('./companies').chosenCompanyTest(user);
   const recs = u.records(ex);
   const seen = {};
   const resolved = [];
@@ -1376,6 +1387,7 @@ async function checkUpdate(user, masterKey, text) {
     if (hit) seen[hit.id] = seen[hit.id] || rowNo;
     const rec = hit ? recs[hit.id] : null;
     if (rec && !userCanAccessCompany(user.profile, u.companyOf(rec, hit.id))) add(rowNo, u.key.h, 'You do not have access to that record\'s company.');
+    else if (rec && u.companyOf(rec, hit.id) && !chosen(u.companyOf(rec, hit.id))) add(rowNo, u.key.h, notChosenMessage(ex, u.companyOf(rec, hit.id)));
     const co = rec ? u.companyOf(rec, hit.id) : '';
     const set = {};
     const issue = (col, msg) => add(rowNo, col.h, msg);

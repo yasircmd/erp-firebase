@@ -57,10 +57,11 @@
   let D = null, tiles = [], editing = false;
 
   function draw() {
-    $('misd-source').textContent = editing ? 'Editing: add, remove or move tiles, then Save.' : SOURCE[D.source] || '';
+    $('misd-source').textContent = editing ? 'Editing: add, remove, move or size tiles (1, 2 or 4 wide; tall for a chart), then Save.' : SOURCE[D.source] || '';
     return misTiles.render($('misd-grid'), tiles, { companyId: $('misd-company').value, month: $('misd-month').value, editable: editing,
       onRemove: i => { tiles.splice(i, 1); draw(); },
-      onMove: (i, by) => { const j = i + by; if (j < 0 || j >= tiles.length) return; [tiles[i], tiles[j]] = [tiles[j], tiles[i]]; draw(); } });
+      onMove: (i, by) => { const j = i + by; if (j < 0 || j >= tiles.length) return; [tiles[i], tiles[j]] = [tiles[j], tiles[i]]; draw(); },
+      onSize: (i, w, h) => { tiles[i] = Object.assign({}, tiles[i], { w, h }); draw(); } });
   }
   function bar() {
     $('misd-edit').classList.toggle('hidden', !D.rights.design || editing);
@@ -156,7 +157,7 @@
       call('saveMisRoleDashboard', { role, tiles: null }).then(() => appAlert('The default for ' + name + ' is removed.')).catch(e => appAlert(e.message));
     });
     call('getActiveCompanies', {}).catch(() => []).then(cos => {
-      $('misd-company').innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      $('misd-company').innerHTML = (cos || []).filter(c => c.Chosen !== false).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
       return load();
     }).catch(e => appAlert(e.message));
   };

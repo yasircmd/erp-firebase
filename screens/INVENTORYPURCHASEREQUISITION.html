@@ -370,18 +370,8 @@
     document.getElementById('ipr-add-line-btn').classList.toggle('hidden', !editableStatus);
     document.getElementById('ipr-paste-btn').classList.toggle('hidden', !editableStatus);
 
-    document.getElementById('ipr-my-approval-banner').classList.add('hidden');
-    if (currentIpr && currentIpr.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('ipr-my-approval-banner').classList.remove('hidden');
-            document.getElementById('ipr-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentIpr.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('ipr-my-approval-banner'), { instanceId: currentIpr && currentIpr.Status === 'PendingApproval' ? currentIpr.ApprovalInstanceID : '', rights: 'PURCHASEREQUISITION' });
 
     updateCompanyRequiredNote();
     renderGrid();

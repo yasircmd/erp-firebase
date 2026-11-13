@@ -1252,18 +1252,8 @@
       document.getElementById('adj-rejection-reason').textContent = currentAdj.RejectionReason || '(no reason given)';
     }
 
-    document.getElementById('adj-my-approval-banner').classList.add('hidden');
-    if (currentAdj && currentAdj.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('adj-my-approval-banner').classList.remove('hidden');
-            document.getElementById('adj-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentAdj.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('adj-my-approval-banner'), { instanceId: currentAdj && currentAdj.Status === 'PendingApproval' ? currentAdj.ApprovalInstanceID : '', rights: 'STOCKADJUSTMENT' });
 
     document.getElementById('adj-print-btn').classList.toggle('hidden', !posted);
     document.getElementById('adj-gl-impact-btn').classList.toggle('hidden', !(posted && currentAdj && currentAdj.LinkedJVID));

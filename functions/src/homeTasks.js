@@ -29,12 +29,6 @@ async function fetchApprovalSourceDocument(moduleId, documentId) {
   return snap.val();
 }
 
-// Ported from documentStillExists_.
-async function documentStillExists(moduleId, documentId) {
-  if (!APPROVAL_MODULE_STORAGE_[moduleId]) return true;
-  return Boolean(await fetchApprovalSourceDocument(moduleId, documentId));
-}
-
 exports.getPendingApprovalsForUser = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
@@ -56,14 +50,16 @@ exports.getPendingApprovalsForUser = onCallInCorporate(onCallOptions, async (req
       return inst.RequiredLevels.some(l => l.ApproverUserID === actor && !decidedLevels.has(l.LevelNumber));
     });
 
-  // documentStillExists is async, so this filter step can't be a
-  // plain synchronous .filter() the way the original was — resolved
-  // in parallel here, then filtered against the resolved booleans.
-  const existsFlags = await Promise.all(candidates.map(inst => documentStillExists(inst.ModuleID, inst.DocumentID)));
+  // Ported from documentStillExists_ (a task whose document is gone is
+  // dropped). Async, so resolved in parallel here, then filtered.
+  // The document itself also gives the task its company, for the Home
+  // company filter (UX4.md item 15): a module without its own storage
+  // entry counts as existing, with no company (always shown).
+  const docs = await Promise.all(candidates.map(inst => APPROVAL_MODULE_STORAGE_[inst.ModuleID] ? fetchApprovalSourceDocument(inst.ModuleID, inst.DocumentID) : {}));
 
   return candidates
-    .filter((inst, i) => existsFlags[i])
-    .map(inst => Object.assign({ ModuleLabel: approvalLabelOf(inst) }, inst))
+    .filter((inst, i) => Boolean(docs[i]))
+    .map((inst, i) => Object.assign({ ModuleLabel: approvalLabelOf(inst), CompanyID: docs[i].CompanyID || '' }, inst))
     .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
 });
 
@@ -136,6 +132,7 @@ exports.getMyRejectedSubmissions = onCallInCorporate(onCallOptions, async (reque
   const stillActiveFlags = await Promise.all(candidates.map(async inst => {
     if (!APPROVAL_MODULE_STORAGE_[inst.ModuleID]) return true; // unknown module — safe default, don't hide
     const doc = await fetchApprovalSourceDocument(inst.ModuleID, inst.DocumentID);
+    inst.CompanyID = (doc && doc.CompanyID) || '';
     return awaitsResubmission(doc, inst);
   }));
 
@@ -146,7 +143,7 @@ exports.getMyRejectedSubmissions = onCallInCorporate(onCallOptions, async (reque
       return {
         InstanceID: inst.InstanceID, ModuleID: inst.ModuleID,
         ModuleLabel: approvalLabelOf(inst),
-        DocumentID: inst.DocumentID, DocumentNumber: inst.DocumentNumber,
+        DocumentID: inst.DocumentID, DocumentNumber: inst.DocumentNumber, CompanyID: inst.CompanyID || '',
         RejectionReason: rejection ? rejection.Reason : '', RejectedAt: rejection ? rejection.DecidedAt : inst.UpdatedAt
       };
     })

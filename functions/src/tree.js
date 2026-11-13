@@ -66,7 +66,7 @@ function buildVisibleTreeList(nodesById, roleId) {
       const ownAllowed = (node.AllowedRoles || []).includes(roleId);
       const visible = ancestorVisible && ownAllowed;
       if (visible) {
-        result.push({ text: node.Text, depth: depth, moduleId: node.ModuleID || '' });
+        result.push({ text: node.Text, depth: depth, moduleId: node.ModuleID || '', short: node.ModuleID ? require('./moduleShortCodes').codeFor(node.ModuleID) : '' });
       }
       walk(id, depth + 1, visible);
     });

@@ -5,8 +5,8 @@ order: 2
 modules: [ORGUNITS]
 sources: [functions/src/companies.js, functions/src/projects.js]
 summary: Maintain divisions, branches, warehouses, racks, cost centers, profit centers, locations and projects used by ERP workflows.
-reviewed: 2026-11-03
-fingerprint: d91742ab8b74a29c
+reviewed: 2026-11-13
+fingerprint: 9cc3765b37d94348
 ---
 ## What it is for
 

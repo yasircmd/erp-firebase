@@ -645,7 +645,7 @@ const ERP = {
     for (const r of list) {
       const st = await stageOf(r);
       if (!waiting(r, st.Loan)) continue;
-      items.push({ ModuleID: MODULE_ID, DocumentID: r.RequestID, Number: r.Number, Type: r.Type, Category: r.Category, EmployeeName: r.EmployeeName, StatusText: st.StatusText,
+      items.push({ ModuleID: MODULE_ID, DocumentID: r.RequestID, CompanyID: r.CompanyID || '', Number: r.Number, Type: r.Type, Category: r.Category, EmployeeName: r.EmployeeName, StatusText: st.StatusText,
         What: (r.Type === 'Query' ? (r.Status === 'New' ? 'New query' : 'Employee replied') : r.Type === 'Custom' ? (r.Status === 'New' ? 'New request' : 'Employee replied') : 'Loan request to review')
           + (summary(r, st).Overdue ? ' · overdue' : ''), Overdue: summary(r, st).Overdue, Since: r.LastAt || r.CreatedAt });
     }

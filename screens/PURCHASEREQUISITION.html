@@ -332,18 +332,8 @@
     document.getElementById('pr-add-line-btn').classList.toggle('hidden', !editableStatus);
     document.getElementById('pr-paste-btn').classList.toggle('hidden', !editableStatus);
 
-    document.getElementById('pr-my-approval-banner').classList.add('hidden');
-    if (currentPr && currentPr.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('pr-my-approval-banner').classList.remove('hidden');
-            document.getElementById('pr-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentPr.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('pr-my-approval-banner'), { instanceId: currentPr && currentPr.Status === 'PendingApproval' ? currentPr.ApprovalInstanceID : '', rights: 'PURCHASEREQUISITION' });
 
     updateCompanyRequiredNote();
     renderGrid();

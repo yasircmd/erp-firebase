@@ -245,11 +245,8 @@
       : s === 'PendingApproval' ? 'Waiting for approval. Nothing is posted until it is approved.'
       : s === 'Posted' && current.ProceedsTo === 'Customer' ? 'Sold on account to ' + (current.CustomerName || '') + ': receive the payment in CBT against this sale.' : '';
     $('frt-note').textContent = msg; $('frt-note').classList.toggle('hidden', !msg);
-    $('frt-approval-banner').classList.add('hidden');
-    if (s === 'PendingApproval' && current.ApprovalInstanceID) {
-      rpc.withSuccessHandler(level => { if (level) { $('frt-approval-banner').classList.remove('hidden'); $('frt-approval-banner').dataset.level = level; } })
-        .withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show($('frt-approval-banner'), { instanceId: s === 'PendingApproval' && current.ApprovalInstanceID ? current.ApprovalInstanceID : '', rights: '' });
     syncType();
     renderSetup();
     renderLines();

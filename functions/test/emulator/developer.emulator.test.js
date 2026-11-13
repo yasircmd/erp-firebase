@@ -82,6 +82,24 @@ test('the Developer module is Corporate 100\'s only, and changing it needs its w
   await assert.rejects(cara('getModuleFragment', { moduleId: 'DEVELOPER' }), /You do not have access to this module/);
 });
 
+test('UX4: Data Reset off and allowed again for a client, its other modules kept; the client loses and regains it', async () => {
+  await firestore.doc('corporateDirectory/200').update({ Modules: { CRM: true, JV: false } });
+  const { moduleAvailable } = require('../../src/entitlements');
+  const firebaseAdmin = require('../../src/firebaseAdmin');
+  const has = async () => firebaseAdmin.runInCorporate({ id: '200', entry: (await firestore.doc('corporateDirectory/200').get()).data() }, () => moduleAvailable('DATARESET'));
+  assert.equal(await has(), true, 'a baseline module: on unless switched off');
+  await call('u-admin', 'saveDeveloperDataReset', { CorporateID: '200', allowed: false });
+  let m = (await firestore.doc('corporateDirectory/200').get()).data().Modules;
+  assert.deepEqual(m, { CRM: true, JV: false, DATARESET: false });
+  assert.equal(await has(), false);
+  await call('u-admin', 'saveDeveloperDataReset', { CorporateID: '200', allowed: true });
+  m = (await firestore.doc('corporateDirectory/200').get()).data().Modules;
+  assert.deepEqual(m, { CRM: true, JV: false });
+  assert.equal(await has(), true);
+  await assert.rejects(call('u-viewer', 'saveDeveloperDataReset', { CorporateID: '200', allowed: false }), /permission to change the corporates/);
+  await assert.rejects(call('u-admin', 'saveDeveloperDataReset', { CorporateID: '100', allowed: false }), /Unknown corporate/);
+});
+
 test('the directory: add, check, change; a new corporate can sign in', async () => {
   const add = o => call('u-admin', 'saveDeveloperCorporate', Object.assign({
     isNew: true, CorporateID: '300', Name: 'Third Co', ProjectID: 'third-co-erp', DatabaseURL: 'https://third-co-erp-default-rtdb.firebaseio.com/', WebConfig: { apiKey: 'k3', appId: '1:3:web:3' }

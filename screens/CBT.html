@@ -1346,18 +1346,8 @@
       document.getElementById('cbt-rejection-reason').textContent = currentEntry.RejectionReason || '(no reason given)';
     }
 
-    document.getElementById('cbt-my-approval-banner').classList.add('hidden');
-    if (currentEntry && currentEntry.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('cbt-my-approval-banner').classList.remove('hidden');
-            document.getElementById('cbt-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentEntry.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('cbt-my-approval-banner'), { instanceId: currentEntry && currentEntry.Status === 'PendingApproval' ? currentEntry.ApprovalInstanceID : '', rights: 'CBT' });
 
     document.getElementById('cbt-print-btn').classList.toggle('hidden', !posted);
 

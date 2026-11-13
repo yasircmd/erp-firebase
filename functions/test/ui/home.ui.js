@@ -38,12 +38,13 @@ function stubs() {
   const tree = [
     { depth: 0, text: 'Accounts Payable' },
     { depth: 1, text: 'Purchasing' },
-    { depth: 2, text: 'Purchase Order', moduleId: 'PURCHASEORDER' },
-    { depth: 2, text: 'Purchase Return / Debit Note', moduleId: 'PURCHASERETURN' },
-    { depth: 1, text: 'Vendor Invoice', moduleId: 'VENDORINVOICE' },
+    { depth: 2, text: 'Purchase Order', moduleId: 'PURCHASEORDER', short: 'PO' },
+    { depth: 2, text: 'Purchase Return / Debit Note', moduleId: 'PURCHASERETURN', short: 'PRT' },
+    { depth: 1, text: 'Vendor Invoice', moduleId: 'VENDORINVOICE', short: 'VI' },
     { depth: 0, text: 'Accounts Receivable' },
-    { depth: 1, text: 'Customer Invoice', moduleId: 'CUSTOMERINVOICE' },
-    { depth: 1, text: 'Sales Return / Credit Note', moduleId: 'SALESRETURN' }
+    { depth: 1, text: 'Customer Invoice', moduleId: 'CUSTOMERINVOICE', short: 'CI' },
+    { depth: 1, text: 'Sales Return / Credit Note', moduleId: 'SALESRETURN', short: 'SR' },
+    { depth: 1, text: 'Customer Reviews', moduleId: 'CRM', short: 'CRM' }
   ];
   let favorites = [{ moduleId: 'VENDORINVOICE', label: 'Vendor Invoice' }];
   window.__calls = [];
@@ -69,6 +70,7 @@ function stubs() {
       case 'saveMyEmailSettings': window.__emailSaved = arg; return { success: true };
       case 'getCrmActivitiesDueForUser': return window.__crmDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
+      case 'getPendingApprovalsForUser': return window.__pendingApprovals || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
       case 'getClearanceTasksForUser': return window.__clearances || [];
       case 'getMyRejectedSubmissions': return window.__rejected || [];
@@ -186,15 +188,15 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await visibleStars(page), 0, 'hovering no longer shows a star');
 
     await menu(page, '#fav-config-btn');
-    assert.equal(await visibleStars(page), 5);
-    assert.deepEqual(await visibleModules(page), ['PURCHASEORDER', 'PURCHASERETURN', 'VENDORINVOICE', 'CUSTOMERINVOICE', 'SALESRETURN']);
+    assert.equal(await visibleStars(page), 6);
+    assert.deepEqual(await visibleModules(page), ['PURCHASEORDER', 'PURCHASERETURN', 'VENDORINVOICE', 'CUSTOMERINVOICE', 'SALESRETURN', 'CRM']);
     assert.ok(await page.isVisible('#fav-config-banner'));
     assert.match(await page.getAttribute('[data-favorite-module-id="VENDORINVOICE"] i', 'class'), /fa-solid fa-star/);
     await page.click('[data-favorite-module-id="SALESRETURN"]');
     await page.waitForFunction(() => document.querySelectorAll('#favorites-list button').length === 2);
     assert.match(await page.getAttribute('[data-favorite-module-id="SALESRETURN"] i', 'class'), /fa-solid fa-star/);
     assert.ok(await page.isHidden('#stub-module'), 'a star click does not open the module');
-    assert.equal(await visibleStars(page), 5, 'still in the mode after a change');
+    assert.equal(await visibleStars(page), 6, 'still in the mode after a change');
 
     await page.click('#fav-config-done-btn');
     assert.equal(await visibleStars(page), 0);
@@ -241,12 +243,25 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('UX4: a module\'s short code shown in the menu; typed, Enter opens it however many others match', async () => {
+    const page = await open();
+    await page.fill('#module-search', 'vi');
+    const hits = await visibleModules(page);
+    assert.deepEqual(hits.sort(), ['CRM', 'VENDORINVOICE'], 'two match "vi" (Customer Reviews by its name)');
+    assert.equal((await page.textContent('#tree-container [data-module-id="VENDORINVOICE"] .mod-short')).trim(), 'VI');
+    await page.press('#module-search', 'Enter');
+    await page.waitForSelector('#stub-module');
+    assert.match(await page.textContent('#stub-module'), /VENDORINVOICE/);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await check('Expand/Collapse is one icon button', async () => {
     const page = await open();
     assert.equal((await page.textContent('#toggle-expand-btn')).trim(), '');
     assert.equal(await page.getAttribute('#toggle-expand-btn', 'title'), 'Expand all');
     await page.click('#toggle-expand-btn');
-    assert.equal((await visibleModules(page)).length, 5);
+    assert.equal((await visibleModules(page)).length, 6);
     assert.equal(await page.getAttribute('#toggle-expand-btn', 'title'), 'Collapse all');
     assert.equal(await page.locator('#toggle-expand-btn i.fa-angles-up').count(), 1);
     await page.click('#toggle-expand-btn');
@@ -631,6 +646,41 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await page.evaluate(() => window.__savedTheme), undefined, 'nothing saved: it was not changed');
     assert.deepEqual(page.__errors, []);
     await page.close();
+  });
+
+  await check('UX4: Home tasks follow the companies chosen; a task with no company always shows; all again brings them back', async () => {
+    const two = [{ CompanyID: 'C1', LegalName: 'Main Co', CompanyRefCode: '01' }, { CompanyID: 'C2', LegalName: 'Second Co', CompanyRefCode: '02' }];
+    // As open(), with the tasks set before the page loads.
+    const q = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    q.__errors = []; q.on('pageerror', e => q.__errors.push(e.message));
+    await routeCdnStyles(q);
+    await q.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await q.addInitScript(stubs);
+    await q.addInitScript(c => {
+      window.__companies = c;
+      window.__pendingApprovals = [{ InstanceID: 'A1', ModuleID: 'JV', ModuleLabel: 'Journal Entry', DocumentID: 'J1', DocumentNumber: 'JV-MAIN', CompanyID: 'C1' },
+        { InstanceID: 'A2', ModuleID: 'JV', ModuleLabel: 'Journal Entry', DocumentID: 'J2', DocumentNumber: 'JV-SECOND', CompanyID: 'C2' }];
+      window.__drafts = [{ ModuleID: 'GRN', ModuleLabel: 'GRN', DocumentID: 'G1', Description: 'Main draft', CompanyID: 'C1' }, { ModuleID: 'BUDGET', ModuleLabel: 'Budget', DocumentID: 'B1', Description: 'No company' }];
+    }, two);
+    await q.goto('http://127.0.0.1:8131/');
+    await q.waitForSelector('#company-filter-btn', { state: 'visible', timeout: 30000 });
+    const shown = () => q.evaluate(() => ({
+      approvals: [...document.querySelectorAll('#home-pending-approvals-list > div')].map(r => r.textContent.trim().split(/\s+/)[0]),
+      drafts: [...document.querySelectorAll('#home-drafts-list > div')].map(r => /No company/.test(r.textContent) ? 'none' : 'C1')
+    }));
+    await q.waitForFunction(() => document.querySelectorAll('#home-pending-approvals-list > div').length === 2, null, { timeout: 30000 });
+    assert.deepEqual(await shown(), { approvals: ['JV-MAIN', 'JV-SECOND'], drafts: ['C1', 'none'] }, 'all chosen: all');
+    await q.click('#company-filter-btn');
+    await q.uncheck('.company-filter-check[value="C1"]');
+    await q.click('#company-filter-apply');
+    await q.waitForFunction(() => document.querySelectorAll('#home-pending-approvals-list > div').length === 1, null, { timeout: 30000 });
+    assert.deepEqual(await shown(), { approvals: ['JV-SECOND'], drafts: ['none'] }, 'C2 chosen');
+    await q.click('#company-filter-btn');
+    await q.check('.company-filter-check[value="C1"]');
+    await q.click('#company-filter-apply');
+    await q.waitForFunction(() => document.querySelectorAll('#home-pending-approvals-list > div').length === 2, null, { timeout: 30000 });
+    assert.deepEqual(q.__errors, []);
+    await q.close();
   });
 
   await check('company filter: after the name, for several companies; one chosen names it; saved; kept for the next sign-in; Home only (decision 273)', async () => {

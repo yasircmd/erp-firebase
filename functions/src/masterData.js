@@ -140,6 +140,27 @@ exports.getMyPendingApprovalLevel = onCallWithMessages(onCallOptions, async (req
   return mine ? mine.LevelNumber : null;
 });
 
+// The shell's APPROVAL BAR (UX4.md item 10): the level waiting on this
+// user, as getMyPendingApprovalLevel, with every level's approver and
+// whether it is decided, so the bar can say who decides next. Null when
+// nothing waits on the user.
+exports.getApprovalBarInfo = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const id = request.data && request.data.approvalInstanceId;
+  if (!id) return null;
+  const instance = await approvalInstances.get(String(id));
+  if (!instance || instance.Status !== 'Pending') return null;
+  const decided = new Set((instance.Decisions || []).map(d => d.LevelNumber));
+  const mine = (instance.RequiredLevels || []).find(l => l.ApproverUserID === user.uid && !decided.has(l.LevelNumber));
+  if (!mine) return null;
+  const users = (await rtdb.ref('users').get()).val() || {};
+  const nameOf = uid => (users[uid] && (users[uid].fullName || users[uid].username)) || uid || '';
+  return {
+    MyLevel: mine.LevelNumber,
+    Levels: (instance.RequiredLevels || []).map(l => ({ LevelNumber: l.LevelNumber, Approver: nameOf(l.ApproverUserID), Decided: decided.has(l.LevelNumber) }))
+  };
+});
+
 // Ported from getJournalEntryDetail — the "GL impact" popup.
 exports.getJournalEntryDetail = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);

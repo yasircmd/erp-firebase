@@ -4,8 +4,8 @@ area: start
 order: 3
 summary: How documents are submitted, approved, rejected and delegated.
 sources: [functions/src/approvals.js, functions/src/homeTasks.js]
-reviewed: 2026-11-12
-fingerprint: 43404e5b9b7f3343
+reviewed: 2026-11-13
+fingerprint: 4f8f45e5e85fd6c4
 ---
 ## When a document needs approval
 
@@ -20,7 +20,10 @@ instead of posting it.
 1. Your pending approvals appear in Home tasks under **Your Pending
    Approvals**.
 2. Select one to open the document. Check it, and its attachments.
-3. Choose **Approve**, or **Reject** with a reason.
+3. At the foot of the entry, under its lines, **Your approval is needed**
+   says your level and who decides next (for example *Level 1 of 2. Then:
+   the finance manager (level 2).*). Choose **Approve**, or **Reject** with
+   a reason.
 
 A reason is required to reject. When the last approver approves, the
 document is posted (or, for an order or a request, becomes approved for

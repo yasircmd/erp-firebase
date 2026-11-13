@@ -672,17 +672,8 @@
     document.getElementById('srt-rejection-banner').classList.toggle('hidden', !current || current.Status !== 'Rejected');
     if (current && current.Status === 'Rejected') document.getElementById('srt-rejection-reason').textContent = current.RejectionReason || '(no reason given)';
 
-    document.getElementById('srt-my-approval-banner').classList.add('hidden');
-    if (current && current.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (!levelNumber) return;
-          const banner = document.getElementById('srt-my-approval-banner');
-          banner.classList.remove('hidden'); banner.dataset.level = levelNumber;
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('srt-my-approval-banner'), { instanceId: current && current.Status === 'PendingApproval' ? current.ApprovalInstanceID : '', rights: 'SALESRETURN' });
 
     ['srt-form-company', 'srt-form-customer', 'srt-form-invoice', 'srt-form-date', 'srt-form-reference', 'srt-form-description']
       .forEach(id => { document.getElementById(id).disabled = !editable; });

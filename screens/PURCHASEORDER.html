@@ -939,18 +939,8 @@
     document.getElementById('po-resubmit-btn').classList.add('hidden');
     document.getElementById('po-revise-error').classList.add('hidden');
 
-    document.getElementById('po-my-approval-banner').classList.add('hidden');
-    if (currentPO.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('po-my-approval-banner').classList.remove('hidden');
-            document.getElementById('po-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentPO.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('po-my-approval-banner'), { instanceId: currentPO.Status === 'PendingApproval' ? currentPO.ApprovalInstanceID : '', rights: 'PURCHASEORDER' });
 
     showDetailView();
   }

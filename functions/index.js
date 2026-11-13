@@ -55,7 +55,7 @@ const {
 } = require('./src/warehouseMovement');
 const {
   getModulePermissionsForUser, getActiveItems, getActiveUOMs, getActiveOrgUnits, getActiveVendors,
-  getStockLedgerEntryPublic, getMyPendingApprovalLevel, getJournalEntryDetail, updatePostedDescription
+  getStockLedgerEntryPublic, getMyPendingApprovalLevel, getApprovalBarInfo, getJournalEntryDetail, updatePostedDescription
 } = require('./src/masterData');
 const {
   getJournalEntries, getCbtEntries, saveJournalDraft, saveCbtDraft, deleteJournalDraft,
@@ -140,6 +140,7 @@ exports.getActiveOrgUnits = getActiveOrgUnits;
 exports.getActiveVendors = getActiveVendors;
 exports.getStockLedgerEntryPublic = getStockLedgerEntryPublic;
 exports.getMyPendingApprovalLevel = getMyPendingApprovalLevel;
+exports.getApprovalBarInfo = getApprovalBarInfo;
 exports.getJournalEntryDetail = getJournalEntryDetail;
 exports.updatePostedDescription = updatePostedDescription;
 exports.getJournalEntries = getJournalEntries;
@@ -393,7 +394,7 @@ exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;
 
 // Developer (docs/modules/MULTI_CORPORATE.md, M2): Corporate 100 only.
 const developer = require('./src/developer');
-['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules',
+['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules', 'saveDeveloperDataReset',
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
   'getDeveloperTree', 'resetDeveloperTree',
   'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers', // M4
