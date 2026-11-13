@@ -12,6 +12,62 @@
     <button data-page="corporates" class="px-3 py-1.5 rounded-lg border border-slate-700">Corporates</button>
     <button data-page="groups" class="px-3 py-1.5 rounded-lg border border-slate-700">Groups</button>
     <button data-page="support" class="px-3 py-1.5 rounded-lg border border-slate-700">Support queue <span id="dv-q-tab-count"></span></button>
+    <button data-page="help" class="px-3 py-1.5 rounded-lg border border-slate-700"><i class="fa-solid fa-circle-question"></i> Help</button>
+  </div>
+
+  <!-- The firm's own Help (owner, 2026-11-13; docs/modules/UX4.md item 5, Q507):
+       here only, never in the public Help, since it names the firm's tools.
+       From docs/ONBOARDING.md and README → Deploying: keep them in step. -->
+  <div data-page-pane="help" class="hidden space-y-5 text-sm text-slate-300 max-w-4xl" id="dv-help">
+    <section class="space-y-2">
+      <h3 class="text-base font-semibold text-slate-100">Onboarding a client</h3>
+      <p>The client's IT first creates its Firebase project and grants the firm's accounts (docs/ONBOARDING.md, part A). Then, here:</p>
+      <ol class="list-decimal pl-5 space-y-1">
+        <li><b>Add corporate</b>: Corporate ID, name, project ID, database URL, web config, its group. Leave it <b>Inactive</b>.</li>
+        <li><b>Test connection</b>: Realtime Database, Firestore and Authentication must all pass before it can be Active.</li>
+        <li><b>Rules</b>: GitHub → Actions → Deploy → <code>database rules</code> (Set up, step 2, links to it). The app never deploys rules.</li>
+        <li><b>Tree</b> tab → <b>Back to the main tree</b>.</li>
+        <li>Set up → <b>Copy the chart headings</b>.</li>
+        <li>Set up → <b>Create the first Admin</b> (the password email's link lasts one hour; <b>Send the password email again</b> if needed).</li>
+        <li><b>Modules</b>: tick what the client bought; set <b>Limits</b> and <b>Data reset</b> (above the tabs); then Connection → Status <b>Active</b> → Save.</li>
+        <li>Tell the client's Admin their <b>Corporate ID</b>.</li>
+      </ol>
+    </section>
+    <section class="space-y-2">
+      <h3 class="text-base font-semibold text-slate-100">Limits and Data reset</h3>
+      <ul class="list-disc pl-5 space-y-1">
+        <li><b>Most companies / users</b>: the most <i>Active</i> ones the client may have; blank is no limit. A new one, or one made Active again, is refused at the limit with a message to contact you. Lowering a limit switches nothing off.</li>
+        <li><b>Data reset allowed</b>: off once the client is live. Reset clears the client's data and is for setting up and testing only.</li>
+      </ul>
+    </section>
+    <section class="space-y-2">
+      <h3 class="text-base font-semibold text-slate-100">Groups and packs</h3>
+      <ul class="list-disc pl-5 space-y-1">
+        <li><b>Groups</b>: a module that came after the baseline is provided to a group; every corporate in it gets it. A corporate can still be ticked one by one.</li>
+        <li><b>Packs</b>: published from Module Builder → Packs, then provided here to a group or a corporate. Each corporate gets the pack's modules, its menu folder and Pack setup.</li>
+      </ul>
+    </section>
+    <section class="space-y-2">
+      <h3 class="text-base font-semibold text-slate-100">Releases (Cloud Shell)</h3>
+      <p>Short runs go from GitHub → Actions → <b>Deploy</b> (type <code>DEPLOY</code>): screens only, hosting, database rules, small function sets. A deploy of every function (any module registry or auth change, about 130 minutes) goes from Cloud Shell, inside <code>tmux</code>, on a clean, up-to-date <code>main</code>:</p>
+      <pre class="keep-iso bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs overflow-x-auto">cd ~/erp-firebase && pwd
+git checkout main && git pull && git status --porcelain   # must print nothing
+(cd functions && npm ci) && (cd tools/legacy-port && npm ci)
+node tools/legacy-port/generate.js legacy-gas && git status --porcelain   # still nothing
+node --test functions/test/unit/noBrowserDialogs.test.js functions/test/unit/dateFormat.test.js functions/test/unit/help.test.js
+bash tools/deploy-functions.sh &lt;set&gt; --screens
+bash tools/deploy-hosting.sh</pre>
+      <ul class="list-disc pl-5 space-y-1">
+        <li><b>Rules and indexes</b>: <code>bash tools/deploy-rules.sh</code> (or the Deploy task <code>database rules</code>) deploys them here and to every Active client, gives the main tree to those that follow it, and deletes what the firm holds about a client Inactive for 90 days. Run it with each release that changes the rules or the tree.</li>
+        <li><b>Screens only</b>: <code>bash tools/release-screens.sh</code>; <code>list</code> and <code>rollback &lt;ID&gt;</code> undo one.</li>
+        <li>Every new callable needs its public-invoker binding; <code>deploy-functions.sh</code> grants it.</li>
+        <li>Record every deploy in docs/DEPLOY_LOG.md.</li>
+      </ul>
+    </section>
+    <section class="space-y-2">
+      <h3 class="text-base font-semibold text-slate-100">A client leaving</h3>
+      <p>Status <b>Inactive</b> (nobody can sign in), the client withdraws its grants; 90 days later the next release deletes the firm's copies (Support issues and files, notes).</p>
+    </section>
   </div>
 
   <div data-page-pane="corporates" class="space-y-6">
@@ -77,7 +133,8 @@
   <div id="dv-detail" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="flex flex-wrap items-center gap-3"><div class="text-lg font-semibold text-slate-100" id="dv-title"></div>
-        <label id="dv-reset-wrap" class="hidden text-xs flex items-center gap-1 text-slate-300" title="Data Reset clears the client's own data: for setting up and testing only"><input type="checkbox" id="dv-reset-allowed"> Data reset allowed</label></div>
+        <label id="dv-reset-wrap" class="hidden text-xs flex items-center gap-1 text-slate-300" title="Data Reset clears the client's own data: for setting up and testing only"><input type="checkbox" id="dv-reset-allowed"> Data reset allowed</label>
+        <span id="dv-limits-wrap" class="hidden text-xs flex items-center gap-1 text-slate-300" title="The most Active companies and users the client may have (blank: no limit). Lowering one switches nothing off.">Most companies <input type="number" min="1" id="dv-max-companies" data-no-dirty class="w-16 bg-slate-900 border border-slate-700 rounded px-1 py-0.5" placeholder="any"> users <input type="number" min="1" id="dv-max-users" data-no-dirty class="w-16 bg-slate-900 border border-slate-700 rounded px-1 py-0.5" placeholder="any"> <button type="button" id="dv-limits-save" class="bg-slate-700 hover:bg-slate-600 rounded px-2 py-0.5">Save limits</button></span></div>
       <div class="flex gap-1 text-xs" id="dv-tabs">
         <button data-tab="connection" class="px-3 py-1.5 rounded-lg border border-slate-700">Connection</button>
         <button data-tab="setup" class="px-3 py-1.5 rounded-lg border border-slate-700">Set up</button>
@@ -231,6 +288,10 @@
     el('dv-reset-wrap').classList.toggle('hidden', !!c.isNew);
     el('dv-reset-allowed').checked = resetAllowed(c);
     el('dv-reset-allowed').disabled = !data.canWrite;
+    // Limits (UX4.md item 2, Q501).
+    el('dv-limits-wrap').classList.toggle('hidden', !!c.isNew);
+    el('dv-max-companies').value = c.MaxCompanies || ''; el('dv-max-users').value = c.MaxUsers || '';
+    ['dv-max-companies', 'dv-max-users', 'dv-limits-save'].forEach(id => { el(id).disabled = !data.canWrite; });
     const w = c.WebConfig || {};
     el('dv-id').value = c.CorporateID || ''; el('dv-id').disabled = !c.isNew;
     el('dv-name').value = c.Name || ''; el('dv-status').value = c.Status || 'Active';
@@ -535,6 +596,8 @@
       if (!(await appConfirm((allowed ? 'Allow' : 'Turn off') + ' Data Reset for ' + current.CorporateID + '? ' + (allowed ? 'Its Admin can then clear its data (for setting up and testing).' : 'Its Admin can no longer clear its data.')))) { e.target.checked = !allowed; return; }
       call('saveDeveloperDataReset', { CorporateID: current.CorporateID, allowed }).then(() => load(current.CorporateID), err => { e.target.checked = !allowed; fail('change Data Reset')(err); });
     });
+    el('dv-limits-save').addEventListener('click', () => call('saveDeveloperLimits', { CorporateID: current.CorporateID, MaxCompanies: el('dv-max-companies').value, MaxUsers: el('dv-max-users').value })
+      .then(() => { appAlert('Limits saved for ' + current.CorporateID + '.'); return load(current.CorporateID); }, fail('save the limits')));
     el('dv-add').addEventListener('click', () => open({ isNew: true, Status: 'Inactive' })); // Active once Test connection passes
     el('dv-pages').querySelectorAll('button').forEach(b => b.addEventListener('click', () => showPage(b.dataset.page)));
     showPage('corporates');

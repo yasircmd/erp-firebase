@@ -1,6 +1,6 @@
 # UX batch 4 (owner, 2026-11-13)
 
-Status: **Wave A built 2026-11-13** (see *As built: Wave A*), decisions Q500–Q511. Waves B and C next.
+Status: **Waves A and B built 2026-11-13** (see *As built*), decisions Q500–Q511. Wave C (the two designs) next.
 
 ## The owner's list
 
@@ -234,3 +234,43 @@ two Wave C designs to you.
   project, status) and the Data reset column with its own toggle
   (`saveDeveloperDataReset`, which switches the DATARESET module off or
   back on for the client).
+
+## As built: Wave B (2026-11-13)
+
+- **13, descriptions (Q503):** functions/src/descriptions.js. A blank header
+  saves the document's name and its source (*Goods receipt from PO-…*,
+  *Purchase return / Sales return from* the invoice, *Delivery note from*
+  its Sales Orders; Material issue, Stock adjustment, Warehouse movement,
+  Physical count, Production); a blank line takes the item's name (a GRN
+  non-stock line, its category's). The ported Delivery Note, Physical Count
+  and Production by legacy-port patches (MIGRATION.md). The six stock
+  screens no longer refuse a blank line. Vendor and Customer Invoice keep
+  theirs required, as journals and payments do.
+- **4, default cost center (Q502):** a warehouse's `DefaultCostCenterID`
+  (Organizational Units, by SCREEN_EDITS; checked in projects.js
+  `warehouseFields`, through the existing saveOrgUnit hook): an active cost
+  center of the warehouse's company, or a shared one.
+  - **Departure:** warehouses are chosen per line, so the default is per
+    line: choosing a line's warehouse sets that line's cost center (shell
+    `warehouseCostCenter`, learnt from getActiveOrgUnits), still changeable.
+  - On the server, a line saved with no cost center takes its warehouse's
+    (GRN, Material Issue, Stock Adjustment, Warehouse Movement; the ported
+    Delivery Note, Physical Count, Production by patches). Returns take
+    their dimensions from the invoice, as before.
+- **2, limits (Q501):** `saveDeveloperLimits` sets MaxCompanies and
+  MaxUsers on the directory entry (blank: none); limits.js refuses a
+  company or user save that would make one more Active (patches on the
+  ported saveCompany and saveFirebaseUser). Master Import goes through the
+  same saves. The firm's own first Admin (createDeveloperAdmin) is not
+  counted against it.
+- **1, one sign-in (Q500):** client side only. **Departure:** completeLogin
+  is unchanged; the ERP page asks `essPortal({ action: 'link' })` when
+  completeLogin refuses, and someone with a portal account (or a linked
+  employee record) goes on to ess.html, still signed in (the same Firebase
+  app name and corporate on the same origin). A user ID that isn't an ERP
+  user is tried as an Employee Code (the portal's own `essEmail`). A
+  portal session reopening the ERP page goes on to the portal too.
+- **5, Client Management Help (Q507):** a Help tab in screens/DEVELOPER.html
+  (onboarding, limits and Data reset, groups and packs, releases and the
+  Cloud Shell commands, a client leaving), from docs/ONBOARDING.md and
+  README → Deploying; never in the public Help (developer UI checks both).

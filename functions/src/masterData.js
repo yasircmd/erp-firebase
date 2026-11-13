@@ -93,7 +93,9 @@ exports.getActiveOrgUnits = onCallWithMessages(onCallOptions, async (request) =>
   return Object.keys(data)
     .filter(id => data[id].Status === 'Active')
     .filter(id => userCanAccessCompany(user.profile, data[id].CompanyID || ''))
-    .map(id => ({ UnitID: id, Type: data[id].Type, Code: data[id].Code, Name: data[id].Name, CompanyID: data[id].CompanyID || '' }));
+    .map(id => Object.assign({ UnitID: id, Type: data[id].Type, Code: data[id].Code, Name: data[id].Name, CompanyID: data[id].CompanyID || '' },
+      // A warehouse's default cost center, for the inventory entries (UX4.md item 4, Q502).
+      data[id].Type === 'Warehouse' ? { DefaultCostCenterID: data[id].DefaultCostCenterID || '' } : {}));
 });
 
 // Ported from getActiveVendors.

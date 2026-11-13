@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
+const descriptions = require('./descriptions');
 const { rtdb } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
 const { purchaseOrders, vendorInvoices } = require('./purchaseStore');
@@ -126,8 +127,8 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   const grnId = String(grnData.GRNID || '').trim();
   const transactionDate = String(grnData.TransactionDate || '').trim();
   if (!transactionDate) throw new HttpsError('invalid-argument', 'Transaction date is required.');
-  const description = String(grnData.Description || '').trim();
-  if (!description) throw new HttpsError('invalid-argument', 'Description is required.');
+  // Optional (Q503): blank takes a default once the lines are known, below.
+  let description = String(grnData.Description || '').trim();
   const reference = String(grnData.Reference || '').trim();
   const companyId = String(grnData.CompanyID || '').trim();
   if (!companyId) throw new HttpsError('invalid-argument', 'Select a Company for this transaction.');
@@ -216,8 +217,7 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
     }
     if (!(unitCost > 0)) throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': enter a unit cost greater than zero.');
 
-    const lineDescription = String(line.Description || '').trim();
-    if (!lineDescription) throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': description is required.');
+    const lineDescription = descriptions.lineDescription(line.Description, item.ItemName); // optional (Q503)
 
     if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
       throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
@@ -232,7 +232,7 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
       UnitCost: Math.round(unitCost * 10000) / 10000,
       BatchNumber: String(line.BatchNumber || '').trim(),
       ExpiryDate: String(line.ExpiryDate || '').trim(),
-      CostCenterID: String(line.CostCenterID || '').trim(),
+      CostCenterID: String(line.CostCenterID || '').trim() || (wh && wh.DefaultCostCenterID) || '', // blank: the warehouse's default (Q502)
       ProfitCenterID: String(line.ProfitCenterID || '').trim(),
       Description: lineDescription,
       SourcePOID: sourcePOId, SourcePOLineID: sourcePOLineId
@@ -273,8 +273,7 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
       unitCost = Number(line.UnitCost);
     }
     if (!(unitCost > 0)) throw new HttpsError('invalid-argument', label + ': enter a unit cost greater than zero.');
-    const lineDescription = String(line.Description || '').trim();
-    if (!lineDescription) throw new HttpsError('invalid-argument', label + ': description is required.');
+    const lineDescription = descriptions.lineDescription(line.Description, category.Name); // optional (Q503)
     const lineCostCenter = String(line.CostCenterID || '').trim() || costCenterId;
     resolveCategoryAccount(category, coaData, companyId, lineCostCenter, label);
 
@@ -291,6 +290,8 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   }
 
   if (!lines.length && !nonStockLines.length) throw new HttpsError('invalid-argument', 'Enter at least one line.');
+  description = descriptions.headerDescription(description, 'GRN',
+    Object.values(poCache).filter(Boolean).map(po => po.PONumber));
 
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;

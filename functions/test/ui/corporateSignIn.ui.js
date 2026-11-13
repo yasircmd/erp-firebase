@@ -76,10 +76,16 @@ function stubs() {
         throw new Error('Invalid user ID or password. A user ID shared by two users signs in by email.');
       }
       case 'completeLogin':
-      case 'restoreSession':
+      case 'restoreSession': {
+        // A portal account has no ERP profile: refused (session.js / auth.js).
+        const uids = Object.keys(sessionStorage).filter(k => k.startsWith('stub-user:')).map(k => sessionStorage.getItem(k));
+        if (uids.some(u => /^u-emp/.test(u))) throw new Error('You do not have access to this ERP.');
         return { fullName: env ? 'Cara Client' : 'Admin User', roleName: 'Administrator', data: tree };
+      }
       case 'getMyTree': return tree;
-      case 'essPortal': return { me: { MustChange: true, FullName: 'Cara Client', EmployeeNo: 'EMP-0001' }, today: '2026-10-19' };
+      case 'essPortal':
+        if (data && data.action === 'link') return { linked: Object.keys(sessionStorage).some(k => k.startsWith('stub-user:') && /^u-emp/.test(sessionStorage.getItem(k))) };
+        return { me: { MustChange: true, FullName: 'Cara Client', EmployeeNo: 'EMP-0001' }, today: '2026-10-19' };
       default: return [];
     }
   };
@@ -132,7 +138,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await signIn('200', 'Cara', 'wrong');
     await page.waitForSelector('#login-error-msg:not(.hidden)');
     assert.equal(await page.textContent('#login-error-msg'), 'Invalid user ID or password. A user ID shared by two users signs in by email.');
-    assert.deepEqual((await log()).filter(x => x.startsWith('signIn')), [], 'no sign-in attempted');
+    // UX4 (Q500): not an ERP user ID, so tried as an Employee Code (the portal's sign-in); its refusal is the user ID's.
+    assert.deepEqual((await log()).filter(x => x.startsWith('signIn')), ['signIn corp-200-erp-client-demo cara@ess.invalid'], 'only the portal\'s sign-in tried');
     await signIn('200', 'Cara', 'pw200');
     await signedIn();
     const c = await calls();
@@ -239,6 +246,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForSelector('#v-change:not(.hidden)');
     assert.equal(await page.inputValue('#si-corporate'), '', 'still empty after a reload');
     assert.equal((await calls()).find(x => x.name === 'essPortal').arg.__corporate.id, '200', 'restored in 200');
+  });
+
+  await check('UX4 (Q500): an employee signs in on the ERP page with the Employee Code and goes on to the portal, still signed in', async () => {
+    // A portal session left from the check above would itself go straight on to the portal: start signed out.
+    await page.evaluate(() => { Object.keys(sessionStorage).forEach(k => sessionStorage.removeItem(k)); });
+    await page.goto('http://127.0.0.1:8137/');
+    await signIn('200', 'EMP-0001', 'e200');
+    await page.waitForURL(/\/ess\.html/, { timeout: 15000 });
+    // (the log starts afresh on the portal's page; the signed-in user is what carries over)
+    assert.equal(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('stub-user:')).map(k => sessionStorage.getItem(k)).join()), 'u-emp1', 'not signed out');
   });
 
   await check('no page errors', async () => { assert.deepEqual(errors, []); });

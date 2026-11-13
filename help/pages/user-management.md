@@ -5,7 +5,7 @@ order: 3
 modules: [USERMGMT]
 sources: [functions/src/roles.js, functions/src/session.js]
 summary: Set up ERP users, assign roles and control which screens they can access and post.
-reviewed: 2026-10-24
+reviewed: 2026-11-13
 fingerprint: 146bb833f453b24e
 ---
 ## What it is for
@@ -38,6 +38,7 @@ USERMGMT access/write rights control user administration. Limit these rights to 
 
 ## Questions and mistakes
 
+- **"Your subscription allows N active users"**: your organisation's plan sets the most active users, and all are in use. Make one inactive, or ask your provider to raise the limit. Inactive users don't count.
 - **User sees no menu item:** check the role's visibility on the node and all menu ancestors in Tree Management.
 - **Menu appears but access is denied:** check the module capability and company assignment in Roles & Permissions/User Management.
 - **User has no company data:** assign the needed company; an empty assignment does not provide company-scoped finance/report access.

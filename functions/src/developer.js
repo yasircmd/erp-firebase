@@ -337,6 +337,28 @@ exports.saveDeveloperDataReset = onCallWithMessages(onCallOptions, async (reques
   return { success: true, allowed };
 });
 
+// Limits (owner, 2026-11-13; docs/modules/UX4.md item 2, Q501): the most
+// Active companies and Active users the client may have; blank, no limit.
+// Enforced in the client's own saves (limits.js); lowering one switches
+// nothing off.
+exports.saveDeveloperLimits = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await developer(request, 'write');
+  const d = request.data || {};
+  const { id } = await entryOf(d.CorporateID);
+  const { FieldValue } = require('firebase-admin/firestore');
+  const out = {};
+  const update = { LimitsUpdatedAt: new Date().toISOString(), LimitsUpdatedBy: nameOf(user) };
+  [['MaxCompanies', 'companies'], ['MaxUsers', 'users']].forEach(([key, label]) => {
+    const raw = d[key] == null ? '' : String(d[key]).trim();
+    if (raw === '') { update[key] = FieldValue.delete(); out[key] = null; return; }
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1 || n > 100000) throw new HttpsError('invalid-argument', 'The most ' + label + ' is a whole number of at least 1, or blank for no limit.');
+    update[key] = n; out[key] = n;
+  });
+  await entryRef(id).update(update);
+  return Object.assign({ success: true }, out);
+});
+
 // ---------- groups (decision 259) ----------
 //
 // A group (Firestore corporateGroups, the firm's) is a category of client

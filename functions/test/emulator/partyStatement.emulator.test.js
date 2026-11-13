@@ -8,7 +8,7 @@
 // the data it leaves.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, firestore, call, reset, baseFixture } = require('./_helpers');
+const { app, firestore, call, reset, baseFixture, val } = require('./_helpers');
 
 function fixture() {
   const f = baseFixture();
@@ -84,6 +84,11 @@ test('vendor: rows, running balance, open items and aging as at the end date, re
   const dn = ok(await call('u-admin', 'savePurchaseReturnDraft', { TransactionDate: '2026-04-20', Description: 'Two back', CompanyID: 'C1', VendorID: 'V1',
     SourceInvoiceID: d.id, Lines: [{ SourceGRNID: 'G1', SourceGRNLineNo: 1, Quantity: 2 }] }));
   const dbn = ok(await call('u-admin', 'postPurchaseReturn', { returnId: dn.returnId }));
+  // UX4 (Q503): a blank description names the invoice.
+  const blank = ok(await call('u-admin', 'savePurchaseReturnDraft', { TransactionDate: '2026-04-20', Description: '', CompanyID: 'C1', VendorID: 'V1',
+    SourceInvoiceID: d.id, Lines: [{ SourceGRNID: 'G1', SourceGRNLineNo: 1, Quantity: 1 }] }));
+  assert.equal((await val('stock/transactions/' + blank.returnId)).Description, 'Purchase return from ' + (await val('vendorInvoices/' + d.id)).TransactionNumber);
+  ok(await call('u-admin', 'deletePurchaseReturnDraft', { returnId: blank.returnId }));
 
   const s = await statement('Vendor', 'V1', '2026-03-01', '2026-04-30');
   // Opening: bill A 1000 less its 600 payment.

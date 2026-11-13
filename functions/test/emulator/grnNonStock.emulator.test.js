@@ -139,7 +139,7 @@ test('refusals: other company, inactive or invalid category, PO category mismatc
   assert.match(await save({ CategoryID: 'RC5', Description: 'x', Quantity: 1, UnitCost: 1 }), /has no valid GL account/);
   assert.match(await save({ CategoryID: 'RC2', Description: 'x', Quantity: 1, SourcePOID: 'PO1', SourcePOLineID: 'L2' }), /category does not match the referenced Purchase Order line/);
   assert.match(await save({ CategoryID: 'RC1', Description: 'x', Quantity: 0, UnitCost: 1 }), /quantity greater than zero/);
-  assert.match(await save({ CategoryID: 'RC1', Description: '', Quantity: 1, UnitCost: 1 }), /description is required/);
+  // A blank description takes the category's name now (UX4.md item 13, Q503; checked in descriptionsOptional).
   assert.match(await err(call('u-admin', 'saveGrnDraft', base({ CostCenterID: '', NonStockLines: [{ CategoryID: 'RC1', Description: 'x', Quantity: 1, UnitCost: 1 }] }))),
     /select a Cost Center/);
   assert.match(await err(call('u-admin', 'saveGrnDraft', base({}))), /Enter at least one line/);

@@ -5,21 +5,28 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-11-13
-fingerprint: 84d8e479b40351ed
+fingerprint: 9c13764d547c8df5
 ---
 ## Signing in
 
 1. Open the ERP's address in your browser (Chrome, Edge, Safari or Firefox).
 2. On **Sign In**, enter:
    - **Corporate ID**: your organisation's ID, given by your administrator;
-   - **Email or user ID** and **Password**: your own ERP account. The user
-     ID is your Username in User Management; your email works as before.
+   - **Email, user ID or Employee Code** and **Password**: your own ERP
+     account. The user ID is your Username in User Management; your email
+     works as before. An employee with an Employee Portal account can sign
+     in here too, with the Employee Code.
 3. Select **Sign In**. You arrive at **Home**, the menu of modules.
 
 The Corporate ID decides which organisation's ERP you sign in to. The
 field starts empty; your browser can save it with your sign-in and offer
-it next time. The **Employee Portal** asks for the same Corporate ID, then
-your Employee Code and password.
+it next time.
+
+**One sign-in for everyone.** Someone with no ERP access (an employee, or a
+sales rep who uses only the portal) is taken straight on to the **Employee
+Portal**, already signed in. Someone with both lands on Home, with **My
+Portal** in the user menu as before. The portal's own address still works:
+it asks for the same Corporate ID, then the Employee Code and password.
 
 If two users were given the same user ID before user IDs had to be
 unique, they sign in with their email until one is renamed.

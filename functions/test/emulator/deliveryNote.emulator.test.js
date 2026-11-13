@@ -86,11 +86,11 @@ test('draft validation: ship cap, customer, company, SO status', async () => {
   assert.match((await draft([dnLine(so, 11)])).error, /cannot ship more than 10 — capped at the smaller of what remains on the order \(12\) and what is currently reserved \(10\)/);
   assert.match((await draft([dnLine(so, 1)], { CustomerID: 'CU2' })).error, /different Customer/);
   assert.match((await draft([dnLine(so, 0)])).error, /quantity greater than zero/);
-  assert.match((await draft([dnLine(so, 1, { Description: '' })])).error, /description is required/);
+  // Descriptions are optional now (UX4.md item 13, Q503): blank ones take defaults (the descriptionsOptional and correctionJv suites check them).
+  assert.equal((await draft([dnLine(so, 1, { Description: '' })], { Description: '' })).success, true);
   assert.match((await draft([dnLine(so, 1)], { CostCenterID: '' })).error, /Cost Center is required/);
   assert.match((await draft([dnLine(so, 1, { SourceSOLineID: 'NOPE' })])).error, /Sales Order line was not found/);
   assert.match((await draft([])).error, /at least one line/);
-  assert.match((await draft([dnLine(so, 1)], { Description: '' })).error, /Description is required/);
   await call('u-admin', 'cancelSalesOrder', { soId: so.soId });
   assert.match((await draft([dnLine(so, 1)])).error, /no longer available for delivery/);
 });

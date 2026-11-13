@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
+const descriptions = require('./descriptions');
 const { rtdb } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
 const { postStock, postedFields } = require('./stockPosting');
@@ -40,8 +41,7 @@ exports.saveMaterialIssueDraft = onCallWithMessages(onCallOptions, async (reques
   const miId = String(miData.MIID || '').trim();
   const transactionDate = String(miData.TransactionDate || '').trim();
   if (!transactionDate) throw new HttpsError('invalid-argument', 'Transaction date is required.');
-  const description = String(miData.Description || '').trim();
-  if (!description) throw new HttpsError('invalid-argument', 'Description is required.');
+  const description = descriptions.headerDescription(miData.Description, 'MATERIALISSUE'); // optional (Q503)
   const reference = String(miData.Reference || '').trim();
   // Defaults to 'Issue' since that's ~99% of real usage — Return is
   // always an explicit, manual choice, never inferred.
@@ -94,8 +94,7 @@ exports.saveMaterialIssueDraft = onCallWithMessages(onCallOptions, async (reques
       throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': ' + (enteredUom.Code || 'this unit') + ' does not allow decimal quantities.');
     }
 
-    const lineDescription = String(line.Description || '').trim();
-    if (!lineDescription) throw new HttpsError('invalid-argument', 'Line ' + (idx + 1) + ': description is required.');
+    const lineDescription = descriptions.lineDescription(line.Description, item.ItemName); // optional (Q503)
 
     lines.push({
       LineNo: lines.length + 1,
@@ -104,7 +103,7 @@ exports.saveMaterialIssueDraft = onCallWithMessages(onCallOptions, async (reques
       EnteredUOMID: enteredUomId, EnteredQuantity: enteredQty,
       Quantity: Math.round(baseQty * 1e6) / 1e6,
       BatchNumber: String(line.BatchNumber || '').trim(), // reference only, not required even for batch-tracked items — matches original
-      CostCenterID: String(line.CostCenterID || '').trim(),
+      CostCenterID: String(line.CostCenterID || '').trim() || (wh && wh.DefaultCostCenterID) || '', // blank: the warehouse's default (Q502)
       ProfitCenterID: String(line.ProfitCenterID || '').trim(),
       Description: lineDescription
     });

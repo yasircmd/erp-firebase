@@ -6,7 +6,7 @@ modules: [SALESRETURN]
 sources: [functions/src/salesReturn.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
 reviewed: 2026-11-13
-fingerprint: 0cc9492bce629922
+fingerprint: 61ed29f38dcf59e4
 ---
 ## What it is for
 
@@ -40,6 +40,10 @@ again. Reversing a return already posted is allowed on a closed project.
 
 A return takes its invoice's **Sales Rep**: in MIS Reports → **Sales by
 rep**, it comes off that rep's sales.
+
+## Descriptions
+
+- **The description is optional.** Left blank, the entry saves *Sales return from the customer invoice's number* ([Working with screens](working-with-screens.html#descriptions-on-stock-entries)).
 
 ## What happens in the books
 

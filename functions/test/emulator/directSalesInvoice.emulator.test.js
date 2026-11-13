@@ -104,6 +104,10 @@ test('reversing the invoice reverses its delivery: the stock back at its cost; a
     Lines: [{ SourceDNID: inv.AutoDeliveryNoteID, SourceDNLineNo: 1, Quantity: 1, WarehouseID: 'WH1' }] }));
   ok(await call('u-admin', 'postSalesReturn', { returnId: r.returnId }));
   assert.deepEqual(await ledger(), [29, 35]);
+  // UX4 (Q503): a blank description names the invoice.
+  const r2 = ok(await call('u-admin', 'saveSalesReturnDraft', { TransactionDate: D, Description: '', CompanyID: 'C1', CustomerID: 'CU1', SourceInvoiceID: s.invoiceId,
+    Lines: [{ SourceDNID: inv.AutoDeliveryNoteID, SourceDNLineNo: 1, Quantity: 1, WarehouseID: 'WH1' }] }));
+  assert.equal((await val('stock/transactions/' + r2.returnId)).Description, 'Sales return from ' + inv.TransactionNumber);
 });
 
 test('from a Sales Order: the order\'s lines still to deliver; invoiced directly, the order counts them delivered and uses up the reservation', async () => {

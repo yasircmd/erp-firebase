@@ -498,7 +498,7 @@
     const matched = itemByCode(itemCode);
     if (matched) {
       if (!gridLines[row].EnteredUOMID) gridLines[row].EnteredUOMID = matched.UOMID;
-      if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+      if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) { gridLines[row].WarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[row], 'WarehouseID', row); }
     }
   }
 
@@ -599,7 +599,6 @@
 
   function buildRowMarkup(line, i, readOnly) {
     const item = itemByCode(line.ItemCode);
-    const missingDesc = line.ItemCode && !String(line.Description || '').trim();
     const batchTracked = item && item.BatchTracked;
     const missingBatch = batchTracked && !String(line.BatchNumber || '').trim();
     const counted = parseFloat(String(line.CountedQuantityEntered).replace(/,/g, ''));
@@ -627,7 +626,7 @@
       <td class="py-1 px-1"><div class="flex gap-1"><input data-row="${i}" data-col="0" data-field="item" list="pc-item-datalist" value="${escapeHtml(line.ItemCode)}" ${readOnly ? 'disabled' : ''} placeholder="Code" class="pc-item-input w-24 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500">${readOnly ? '' : `<button type="button" data-row="${i}" class="pc-item-pick shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded px-2 text-xs" title="Search items"><i class="fa-solid fa-magnifying-glass"></i></button>`}</div></td>
       <td class="py-1 px-2 text-xs text-slate-400 pc-item-name">${item ? escapeHtml(item.ItemName) : (line.ItemCode ? '<span class="text-red-400">not found</span>' : '')}</td>
       <td class="py-1 px-1"><select data-row="${i}" data-col="1" data-field="warehouse" class="pc-line-wh w-36 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${movableLocationOptionsHtml(line.WarehouseID)}</select></td>
-      <td class="py-1 px-1"><input data-row="${i}" data-col="2" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="2" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${line.ItemCode ? 'item name' : ''}" class="w-full bg-slate-900 border ${'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
       <td class="py-1 px-1"><select data-row="${i}" data-col="3" data-field="uom" class="pc-line-uom w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${uomOptionsForItem(item, line.EnteredUOMID)}</select></td>
       <td class="py-1.5 px-3 text-xs text-right font-mono pc-system-cell text-slate-500">${systemQty !== null ? formatMoney(systemQty) : '—'}</td>
       <td class="py-1 px-1"><input data-row="${i}" data-col="4" data-field="counted" type="text" inputmode="decimal" value="${line.CountedQuantityEntered === '' ? '' : line.CountedQuantityEntered}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
@@ -861,7 +860,7 @@
           if (uomSelect) uomSelect.innerHTML = uomOptionsForItem(matched, matched.UOMID);
         }
         if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) {
-          gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+          { gridLines[row].WarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[row], 'WarehouseID', row); }
           // Warehouse options are the same regardless of item, so they
           // already exist — just set the value.
           const whSelect = tr.querySelector('select[data-field="warehouse"]');
@@ -876,7 +875,7 @@
       if (ensureTrailingBlankRow()) appendRowToDom();
       refreshSystemQtyForRow(row);
     } else if (field === 'warehouse') {
-      gridLines[row].WarehouseID = value;
+      { gridLines[row].WarehouseID = value; warehouseCostCenter.apply(gridLines[row], 'WarehouseID', row); }
       refreshSystemQtyForRow(row);
     } else if (field === 'uom') {
       gridLines[row].EnteredUOMID = value;
@@ -894,10 +893,6 @@
   function updateTotal() {
     const lineCount = gridLines.filter(l => l.ItemCode || l.CountedQuantityEntered).length;
     document.getElementById('pc-total-lines').textContent = String(lineCount);
-  }
-
-  function allLineDescriptionsFilled() {
-    return gridLines.every(l => !l.ItemCode || String(l.Description || '').trim());
   }
 
   function allCountedQuantitiesEntered() {
@@ -946,12 +941,12 @@
           const matched = itemByCode(stripped);
           if (matched) {
             if (!gridLines[targetRow].EnteredUOMID) gridLines[targetRow].EnteredUOMID = matched.UOMID;
-            if (matched.DefaultWarehouseID && !gridLines[targetRow].WarehouseID) gridLines[targetRow].WarehouseID = matched.DefaultWarehouseID;
+            if (matched.DefaultWarehouseID && !gridLines[targetRow].WarehouseID) { gridLines[targetRow].WarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[targetRow], 'WarehouseID', targetRow); }
           }
         } else if (field === 'warehouse') {
           if (value) {
             const loc = orgUnits.find(u => (u.Type === 'Warehouse' || u.Type === 'Rack') && String(u.Code).toLowerCase() === value.toLowerCase());
-            gridLines[targetRow].WarehouseID = loc ? loc.UnitID : '';
+            { gridLines[targetRow].WarehouseID = loc ? loc.UnitID : ''; warehouseCostCenter.apply(gridLines[targetRow], 'WarehouseID', targetRow); }
           }
         } else if (field === 'description') {
           gridLines[targetRow].Description = value;
@@ -1391,7 +1386,6 @@
     const error = document.getElementById('pc-form-error');
     error.classList.add('hidden');
     if (!document.getElementById('pc-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
-    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allCountedQuantitiesEntered()) { error.textContent = 'Enter a counted quantity for every line.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
     const btn = document.getElementById('pc-save-draft-btn');
@@ -1413,7 +1407,6 @@
     const error = document.getElementById('pc-form-error');
     error.classList.add('hidden');
     if (!document.getElementById('pc-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
-    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allCountedQuantitiesEntered()) { error.textContent = 'Enter a counted quantity for every line.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
 

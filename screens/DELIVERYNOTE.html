@@ -538,6 +538,7 @@
       SourceSOID: so.SOID, SourceSOLineID: line.LineID, SourceSONumber: so.SONumber,
       MaxShippable: maxShip
     });
+    warehouseCostCenter.apply(gridLines[gridLines.length - 1]); // the warehouse's default cost center, if it has one (UX4.md, Q502)
     isDirty = true;
     renderGrid();
   }

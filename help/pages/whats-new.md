@@ -13,6 +13,18 @@ screen.
 
 ## 13/11/2026
 
+- **One sign-in page.** Employees and sales reps with a portal account can
+  sign in on the ERP's page with their Employee Code; anyone with no ERP
+  access goes straight on to the Employee Portal. See
+  [Getting started](getting-started.html#signing-in).
+- **Descriptions optional on stock entries.** Left blank, a Goods Receipt,
+  Material Issue, Stock Adjustment, Warehouse Movement, Physical Count,
+  Production, Delivery Note or return saves a description of its own, and a
+  blank line takes the item's name. See
+  [Working with screens](working-with-screens.html#descriptions-on-stock-entries).
+- **A warehouse's default cost center.** Set it in
+  [Organizational Units](org-units.html); a stock entry's line takes it when
+  you choose the warehouse.
 - **Short codes for every screen.** Each screen now has a code of 2 to 4
   letters beside it in the menu (COA, JV, GRN, PO and so on). Type the code
   in Search modules and press **Enter** to open it. See

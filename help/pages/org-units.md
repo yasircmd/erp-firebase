@@ -6,7 +6,7 @@ modules: [ORGUNITS]
 sources: [functions/src/companies.js, functions/src/projects.js]
 summary: Maintain divisions, branches, warehouses, racks, cost centers, profit centers, locations and projects used by ERP workflows.
 reviewed: 2026-11-13
-fingerprint: 9cc3765b37d94348
+fingerprint: 0e9467b084b4b3eb
 ---
 ## What it is for
 
@@ -32,8 +32,9 @@ Units can be shared across companies or restricted to one company. Parent links 
 1. Open **Organizational Units**. Search by code/name and use the type or status filter to review existing units.
 2. Add an item and choose its type, unique code, name, optional parent, company scope, and Active status.
 3. For a Rack, select a Warehouse as its parent. Other unit types may be arranged under an appropriate parent; do not create a parent cycle.
-4. Save, then confirm the unit appears in the correct type-specific picker. Check company scope before assigning a warehouse or employee dimension.
-5. Edit a unit to correct its details. Deactivate rather than delete a unit that should no longer be selected. Reassign/deactivate active child units before deactivating their parent.
+4. For a **Warehouse**, choose its **Default cost center** if its stock entries usually go to one (an active cost center of the warehouse's company, or a shared one). Choosing the warehouse on a stock entry's line then sets that line's cost center, still changeable, and a line saved with none takes it.
+5. Save, then confirm the unit appears in the correct type-specific picker. Check company scope before assigning a warehouse or employee dimension.
+6. Edit a unit to correct its details. Deactivate rather than delete a unit that should no longer be selected. Reassign/deactivate active child units before deactivating their parent.
 
 ## Rights
 

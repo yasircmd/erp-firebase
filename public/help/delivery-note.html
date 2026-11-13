@@ -25,6 +25,8 @@
 <p>Once the company has projects, the Delivery Note has a <strong>Project</strong> field, after Profit Center. Ticking a Sales Order's line fills it in with the order's project when it has none yet; you can change it. Every line the Delivery Note posts (stock and cost of sales) carries it, and its reversal too, even after the project is closed.</p>
 <h2 id="sales-rep">Sales rep</h2>
 <p>The Delivery Note has a <strong>Sales Rep</strong> field. It takes the rep of the first Sales Order you pick lines from, else the customer's; the invoice made from it takes it in turn. You can change it, or choose <strong>No rep</strong>, while the Delivery Note is a draft; once it is posted it stays as it is. Only the company's active sales reps are offered. MIS Reports → <strong>Sales by rep</strong> counts each document's own rep.</p>
+<h2 id="descriptions-and-cost-centers">Descriptions and cost centers</h2>
+<ul><li><strong>The description is optional.</strong> Left blank, the entry saves <em>Delivery note from SO-… (its sales orders)</em>, and a blank line takes the item's name (<a href="working-with-screens.html#descriptions-on-stock-entries">Working with screens</a>).</li><li><strong>A warehouse's cost center.</strong> When a warehouse has a default cost center (<a href="org-units.html">Organizational Units</a>), choosing it on a line sets the line's cost center; you can still change it. A line saved with no cost center takes its warehouse's.</li></ul>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>The delivery note updates stock movement and supports the later customer invoice. It usually does not create the final trade receivable posting by itself, unless the system is designed to do so.</p>
 <h2 id="rights">Rights</h2>
