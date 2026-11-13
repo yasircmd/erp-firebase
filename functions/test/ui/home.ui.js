@@ -188,7 +188,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
     await menu(page, '#fav-config-btn');
     assert.equal(await visibleStars(page), 6);
-    assert.deepEqual(await visibleModules(page), ['PURCHASEORDER', 'PURCHASERETURN', 'VENDORINVOICE', 'CUSTOMERINVOICE', 'SALESRETURN']);
+    assert.deepEqual(await visibleModules(page), ['PURCHASEORDER', 'PURCHASERETURN', 'VENDORINVOICE', 'CUSTOMERINVOICE', 'SALESRETURN', 'CRM']);
     assert.ok(await page.isVisible('#fav-config-banner'));
     assert.match(await page.getAttribute('[data-favorite-module-id="VENDORINVOICE"] i', 'class'), /fa-solid fa-star/);
     await page.click('[data-favorite-module-id="SALESRETURN"]');
