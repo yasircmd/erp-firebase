@@ -34,7 +34,21 @@ function onCallInCorporate(options, handler) {
     await require('./builtDefinitions').refresh();
     // A call from a variant's screen (MODULE_BUILDER.md, phase 4): checked, then the request runs in it.
     const variant = await variantOf(request.data);
-    return runInCorporate(corporate, () => require('./variantContext').runWithVariant(variant, () => handler(request)));
+    // The audit log (AUDIT_LOG.md): every request that changes something is
+    // recorded once it has answered, or been refused for rights or a limit.
+    const audit = require('./audit');
+    const fnName = process.env.FUNCTION_TARGET || process.env.K_SERVICE || '';
+    return runInCorporate(corporate, () => audit.runWithRequest(request, async () => {
+      let result;
+      try {
+        result = await require('./variantContext').runWithVariant(variant, () => handler(request));
+      } catch (err) {
+        await audit.afterCall(fnName, request, undefined, err);
+        throw err;
+      }
+      await audit.afterCall(fnName, request, result, null);
+      return result;
+    }));
   }));
   fn.inCorporate = handler;
   return fn;

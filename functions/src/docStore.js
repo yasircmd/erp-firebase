@@ -217,13 +217,18 @@ function makeStore(spec) {
   // spec.afterWrite(id, before, after): told of every write once made (or,
   // in a batch, joined; the task emails check again before sending:
   // approvalStore.js, docs/modules/TASK_EMAILS.md). It never throws.
-  const told = async (id, before, after) => { if (spec.afterWrite) await spec.afterWrite(String(id), before, after); };
+  // And the audit log (audit.js, AUDIT_LOG.md): a document's creation,
+  // deletion or status change; in a batch, once the request has succeeded.
+  const told = async (id, before, after, inBatch) => {
+    if (spec.afterWrite) await spec.afterWrite(String(id), before, after);
+    await require('./audit').documentChanged(name, String(id), before, after, inBatch);
+  };
   async function set(id, doc, tx) {
     const r = ref(id);
     const v = normalize(doc);
     await dateGuard(r, v);
-    const before = spec.afterWrite ? await r.get().then(x => (x.exists ? fromStore(x.data()) : null)) : null;
-    if (tx) { if (v === null) tx.delete(r); else tx.set(r, stored(v)); await told(id, before, v); return v; }
+    const before = await r.get().then(x => (x.exists ? fromStore(x.data()) : null));
+    if (tx) { if (v === null) tx.delete(r); else tx.set(r, stored(v)); await told(id, before, v, true); return v; }
     if (v === null) await r.delete(); else await r.set(stored(v));
     await told(id, before, v);
     return v;
@@ -244,7 +249,12 @@ function makeStore(spec) {
     await told(id, before, out);
     return out;
   }
-  async function remove(id) { await ref(id).delete(); }
+  async function remove(id) {
+    const r = ref(id);
+    const before = await r.get().then(x => (x.exists ? fromStore(x.data()) : null));
+    await r.delete();
+    if (before) await told(id, before, null);
+  }
   // RTDB transaction(): fn(current) gives the document to write, or
   // undefined to abort; in a Firestore transaction, retried on contention.
   // { committed, snapshot } as RTDB's.
