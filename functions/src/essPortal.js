@@ -370,10 +370,22 @@ async function crmRep(me) {
   return { user: require('./crm').portalUser(me, rep), customers: await S.myCustomers(me, rep) };
 }
 
+// The audit log's user for a portal account: the employee.
+const portalWho = me => ({ UserID: String(me.uid || ''), UserName: String(me.emp.FullName || ''), Role: 'Portal' });
+
 const ACTIONS = {
+  // The audit log (AUDIT_LOG.md, QA5): a portal sign-out; the page calls it
+  // just before signing out.
+  signOut: { mustChange: true, run: async (me) => {
+    if (me.via === 'portal') await require('./audit').signOut(null, 'Portal', portalWho(me));
+    return { success: true };
+  } },
   // Who is signed in; also records the portal sign-in.
-  me: { mustChange: true, run: async (me) => {
+  me: { mustChange: true, run: async (me, d) => {
     if (me.via === 'portal') await ACCOUNTS().doc(me.emp.EmployeeID).update({ LastSignIn: new Date().toISOString() });
+    // The audit log (AUDIT_LOG.md, QA5): a portal sign-in (the page says
+    // when it has just signed in; a reload is not one).
+    if (me.via === 'portal' && d && d.signedIn === true) await require('./audit').signIn(null, 'Portal', portalWho(me));
     const rep = await require('./salesRep').repOf(me); // the Sales tab (docs/modules/SALES_REP_PORTAL.md)
     return { me: Object.assign(await profileOf(me), { SalesRep: rep ? { IsManager: Boolean(rep.IsManager) } : null }), today: today() };
   } },

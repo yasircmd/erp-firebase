@@ -117,6 +117,17 @@ function follow(service) {
 }
 const rtdb = follow(app => app.database());
 const firestore = follow(app => app.firestore());
+// The audit log (docs/modules/AUDIT_LOG.md step 2): a write to a master or
+// a setting is seen by auditWrites.js, through these two handles only.
+const auditedRtdb = new Proxy(rtdb, {
+  get(t, prop) {
+    if (prop === 'ref') return (path, ...rest) => require('./auditWrites').ref(t.ref(path, ...rest), path);
+    return t[prop];
+  }
+});
+const auditedFirestore = new Proxy({}, {
+  get(_t, prop) { return require('./auditWrites').firestoreHandle(current().app.firestore(), 'corporate')[prop]; }
+});
 // admin.auth() is the current corporate's Auth; everything else in the SDK
 // (admin.apps, the namespaces) is as it is.
 const adminForRequest = new Proxy(admin, {
@@ -131,10 +142,10 @@ const adminForRequest = new Proxy(admin, {
 // (unit/corporateContext lists who may use it).
 // The firm's Cloud Storage bucket: the Support attachments (M3, decision 253).
 const FIRM_BUCKET = process.env.ERP_FIRM_BUCKET || 'erp1-8f4cd.firebasestorage.app';
-const firm = { rtdb: homeApp.database(), firestore: homeApp.firestore(), auth: () => homeApp.auth(), bucket: () => homeApp.storage().bucket(FIRM_BUCKET), app: homeApp };
+const firm = { rtdb: homeApp.database(), firestore: require('./auditWrites').firestoreHandle(homeApp.firestore(), 'provider'), auth: () => homeApp.auth(), bucket: () => homeApp.storage().bucket(FIRM_BUCKET), app: homeApp };
 
 module.exports = {
-  admin: adminForRequest, rtdb, firestore, firm, HOME_ID, appFor,
+  admin: adminForRequest, rtdb: auditedRtdb, firestore: auditedFirestore, firm, HOME_ID, appFor,
   runInCorporate, useCorporateOutsideRequests, corporateId, corporateEntry,
   withinTime, withinReach, closeCorporate, REACH_MS
 };

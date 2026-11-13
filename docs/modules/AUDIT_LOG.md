@@ -1,6 +1,6 @@
 # Audit log (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-13** (QA1–QA7, all as recommended; see *The owner's decisions*). **Step 1 built 2026-11-13** (see *As built: step 1*); steps 2 and 3 next.
+Status: **design agreed 2026-11-13** (QA1–QA7, all as recommended; see *The owner's decisions*). **Step 1 built 2026-11-13**, **step 2 built 2026-11-13** (QA8 added; see *As built*); step 3 next.
 Item 14 of UX batch 4 (docs/modules/UX4.md). Already decided:
 
 - **Q508:** it records actions and changed fields. Every save, submit,
@@ -100,6 +100,7 @@ auditLog/{time-ordered id}
 - **QA5:** each ERP and portal sign-in and sign-out is recorded.
 - **QA6:** the firm's actions on a client go in the firm's log and also in the client's, as "the provider".
 - **QA7:** the log starts on the day it is switched on.
+- **QA8** (2026-11-13, asked while building step 2): the masters and settings kept in Firestore (employees and their pay, the HR and payroll setups, fixed assets, budgets, credit limits, tax setup, bank details, mail accounts) record their changed fields too, through the same wrapper, in step 2.
 
 ## The steps, once agreed
 
@@ -143,3 +144,67 @@ every one), and step 3 adds the module to moduleRegistry.js.
 - **Deploy:** set audit-log-1, every function (callable.js and docStore.js
   are in each). No new function, screen or rule. No screen yet, so no
   Help change; the Audit Log module and its Help come in step 3.
+
+## As built: step 2 (2026-11-13)
+
+- **functions/src/auditWrites.js** is the one wrapper (QA2, QA8).
+  firebaseAdmin.js hands out `rtdb` and `firestore` through it, and the
+  firm's `firm.firestore` too. A path that is not listed gets the plain
+  handle back; a wrapped reference is unwrapped before it reaches the SDK.
+  - **Realtime Database:** the listed roots (items, vendors, customers, coa,
+    companies, orgUnits, users, roles, permissions, tree, currencies,
+    exchange rates, price lists, approval setups, period closing, recurring
+    journals and the other setups). A record is `root/<id>`
+    (`exchangeRates/<code>/<rate>`). `set`, `update` (also multi-path, from
+    the root), `remove`, `push` and `transaction` read the record before
+    and after.
+  - **Firestore:** the listed collections (employees, employeeCompensation,
+    essAccounts, the HR, leave, payroll and request setups, the fixed
+    assets setup and assets, budgets, credit, tax, bank details, mail
+    accounts, and the other setups). A document's `set`, `update`,
+    `delete`, `create`, `add`, and writes in a batch or a transaction are
+    seen; a batch's or transaction's befores are read as they are queued,
+    and the afters once it has committed.
+  - **Many records:** a write touching more than 50 records (an import, a
+    seeded list, a depreciation run), or a large list (items, customers,
+    vendors, price list lines, the chart) written whole, is one summary
+    entry: "(n records)", with the first 20 ids, nothing read.
+- **audit.js** keeps each record's first before and last after for the
+  request and records it when the request answers (even if it then failed:
+  the write had committed). Entry: Action create / change / delete, Source
+  (`rtdb:vendors`, `employees` …), RecordID, RecordLabel (its name),
+  Changes [{Field, From, To}] (dotted for nested fields; a list as a
+  whole; at most 100). Fields that change with every save (UpdatedAt,
+  lastLogin …) are not changes. A fixed asset's balances kept by its
+  postings are not either.
+- **Sensitive (QA3):** a field named like salary, IBAN, bank account or
+  account number, SWIFT, password, token, secret, API key or credential,
+  and every field of an employee's pay (employeeCompensation), is
+  recorded as `{ Field, Changed: true }`, never its values.
+- **Sign-ins (QA5):** completeLogin records an ERP sign-in. The new
+  callable `recordSignOut` records a sign-out: the shell calls it when the
+  user signs out or the idle timeout does, waiting at most 3 s. The
+  portal: the `me` call right after a password sign-in (`signedIn: true`)
+  and a new `signOut` action. The entry: Action signin / signout,
+  RecordLabel ERP or Portal; a portal user is the employee.
+- **The firm (QA6):** a change to a client's directory entry (modules,
+  limits, Data Reset, status, the group's modules) is in the firm's log
+  with ClientCorporate, and in the client's own log as "The provider"
+  (Role Provider, no user id). What the firm writes inside a client (its
+  chart headings, tree, first Admin) is likewise in both. The client's
+  copy never waits more than 8 s; a client that can't be reached is
+  logged to the console.
+- **Outside a user's request** (a scheduled function), master and
+  document changes are recorded with the user "System". A test or tool
+  calling the modules directly records nothing.
+- **Tests:** unit auditWrites (5), emulator auditLogMasters (7: a vendor
+  created then changed; the permission matrix; an employee with the IBAN
+  and the pay as changed; an ERP sign-in and sign-out; the firm's limits
+  in both logs; the firm's chart headings in a client; a directory change
+  in a transaction). Negative controls: no sensitive check, the handles
+  not wrapped, no client copy, a transaction not seen: each failed a test.
+- **Deploy:** set audit-log-2, every function (firebaseAdmin.js is in
+  each); one new function, recordSignOut (its public-invoker binding);
+  then the "hosting" task (public/index.html and public/ess.html: the
+  sign-out). No rules, no screens. Nothing a user sees yet: the log's
+  screen is step 3, with its Help and What's new.
