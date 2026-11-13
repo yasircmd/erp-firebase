@@ -1,6 +1,6 @@
 # Audit log (design; owner, 2026-11-13)
 
-Status: **design, for the owner's decisions (QA1–QA7)**. No code yet.
+Status: **design agreed 2026-11-13** (QA1–QA7, all as recommended; see *The owner's decisions*). Build next, in the three steps below.
 Item 14 of UX batch 4 (docs/modules/UX4.md). Already decided:
 
 - **Q508:** it records actions and changed fields. Every save, submit,
@@ -90,6 +90,16 @@ auditLog/{time-ordered id}
 | QA5 | Sign-ins? | (a) each ERP and portal sign-in and sign-out; (b) none | **(a).** Failed passwords are kept by Firebase Authentication, not by us. |
 | QA6 | What the firm does to a client from Client Management (modules, limits, Data reset, tree)? | (a) in the firm's own log (Corporate 100); (b) also shown in the client's log | **(b).** The client's Admin should see that their modules or limits were changed, and when; it shows as "the provider". |
 | QA7 | Older records, from before the log? | (a) the log starts on the day it is switched on; (b) also build entries from the CreatedBy / UpdatedBy fields records already have | **(a).** Those fields say who saved last, not what changed; a log made from them would look complete when it isn't. |
+
+## The owner's decisions (2026-11-13)
+
+- **QA1:** only requests that change something; views are not recorded.
+- **QA2:** one wrapper on the RTDB writes to the master and settings paths, which reads the record first.
+- **QA3:** sensitive fields record that they changed, not their values; passwords and tokens are never recorded.
+- **QA4:** refusals are recorded for rights and limits only (Outcome refused).
+- **QA5:** each ERP and portal sign-in and sign-out is recorded.
+- **QA6:** the firm's actions on a client go in the firm's log and also in the client's, as "the provider".
+- **QA7:** the log starts on the day it is switched on.
 
 ## The steps, once agreed
 
