@@ -151,7 +151,9 @@ test('a posted count stores what it posted, so Stock Ledger and the count list r
 test('validation, delete, list and access checks', async () => {
   await reset(fixture());
   assert.match((await draft([line({ CountedQuantity: -1 })])).error, /counted quantity of zero or more/);
-  assert.match((await draft([line({ CountedQuantity: 1, Description: '' })])).error, /description is required/);
+  const blank = await draft([line({ CountedQuantity: 1, Description: '' })]);
+  assert.equal(blank.success, true, 'a blank description takes the item\'s name now (UX4.md, Q503)');
+  await call('u-admin', 'deletePhysicalCountDraft', { pcId: blank.pcId });
   assert.match((await draft([line({ CountedQuantity: 1, WarehouseID: 'CC1' })])).error, /location not found/);
   assert.match((await draft([])).error, /at least one line/);
 
