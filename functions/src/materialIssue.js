@@ -103,7 +103,7 @@ exports.saveMaterialIssueDraft = onCallWithMessages(onCallOptions, async (reques
       EnteredUOMID: enteredUomId, EnteredQuantity: enteredQty,
       Quantity: Math.round(baseQty * 1e6) / 1e6,
       BatchNumber: String(line.BatchNumber || '').trim(), // reference only, not required even for batch-tracked items — matches original
-      CostCenterID: String(line.CostCenterID || '').trim(),
+      CostCenterID: String(line.CostCenterID || '').trim() || (wh && wh.DefaultCostCenterID) || '', // blank: the warehouse's default (Q502)
       ProfitCenterID: String(line.ProfitCenterID || '').trim(),
       Description: lineDescription
     });

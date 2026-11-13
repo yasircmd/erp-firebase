@@ -100,10 +100,14 @@ test('a document\'s entry: a Delivery Note corrected, its reversal refused until
     Lines: [{ SourceSOID: so.soId, SourceSOLineID: lineId, Quantity: 2, Description: 'Ship' }] } }));
   ok(await call('u-admin', 'postDeliveryNote', { dnId: dn.dnId }));
   // UX4 (Q503): a blank description names the Sales Order; a blank line takes the item's name.
+  // And (Q502) a line with no cost center takes its warehouse's, before the header's.
+  await require('./_helpers').rtdb.ref('orgUnits/CC2').set({ Type: 'CostCenter', Code: 'CC2', Name: 'Stores', Status: 'Active', CompanyID: 'C1' });
+  await require('./_helpers').rtdb.ref('orgUnits/WH1/DefaultCostCenterID').set('CC2');
   const blank = ok(await call('u-admin', 'saveDeliveryNoteDraft', { dnData: { TransactionDate: D, Description: '', CompanyID: 'C1', CostCenterID: 'CC1', CustomerID: 'CU1',
     Lines: [{ SourceSOID: so.soId, SourceSOLineID: lineId, Quantity: 1, Description: '' }] } }));
   const bdn = await val('stock/transactions/' + blank.dnId);
-  assert.deepEqual([bdn.Description, bdn.Lines[0].Description], ['Delivery note from ' + (await val('salesOrders/' + so.soId)).SONumber, 'Steel Sheet']);
+  assert.deepEqual([bdn.Description, bdn.Lines[0].Description, bdn.Lines[0].CostCenterID], ['Delivery note from ' + (await val('salesOrders/' + so.soId)).SONumber, 'Steel Sheet', 'CC2']);
+  await require('./_helpers').rtdb.ref('orgUnits/WH1/DefaultCostCenterID').remove();
   ok(await call('u-admin', 'deleteDeliveryNoteDraft', { dnId: blank.dnId }));
   const jvId = (await val('stock/transactions/' + dn.dnId)).LinkedJVID;
   const found = await call('u-admin', 'getEntryForCorrection', { jvId });

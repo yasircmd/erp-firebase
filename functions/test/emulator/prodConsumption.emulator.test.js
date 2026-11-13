@@ -48,11 +48,13 @@ const report = (type, extra, uid) => call(uid || 'u-admin', 'getProductionConsum
 const rows = (r) => r.Rows.map(x => [x.ItemCode, x.Category, x.SubCategoryName, x.UOMCode, x.Quantity, x.Value]);
 
 test('UX4 (Q503): a Production with no description saves "Production" and the item\'s name', async () => {
-  await reset(fixture());
+  const f = fixture();
+  f.orgUnits.WH1.DefaultCostCenterID = 'CC1'; // and its warehouse's cost center (Q502)
+  await reset(f);
   const s = ok(await call('u-admin', 'saveProductionDraft', { prodData: { TransactionDate: D, Description: '', CompanyID: 'C1',
-    Lines: [Object.assign({ ItemID: 'FG1', EnteredQuantity: 1, UnitCost: 5 }, L, { Description: '' })] } }));
+    Lines: [Object.assign({ ItemID: 'FG1', EnteredQuantity: 1, UnitCost: 5 }, L, { Description: '', CostCenterID: '' })] } }));
   const p = await val('stock/transactions/' + s.prodId);
-  assert.deepEqual([p.Description, p.Lines[0].Description], ['Production', 'Panel']);
+  assert.deepEqual([p.Description, p.Lines[0].Description, p.Lines[0].CostCenterID], ['Production', 'Panel', 'CC1']);
 });
 
 test('Production: net of reversals, valued, grouped by category', async () => {

@@ -18,7 +18,7 @@ const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 80);
 async function projectFields(type, unitData, companyId, status) {
   if (type !== 'Project') {
     if (status === 'Closed') throw new Error('Only a project is Closed; other units are Active or Inactive.');
-    return {};
+    return type === 'Warehouse' ? warehouseFields(unitData, companyId) : {};
   }
   if (!['Active', 'Closed', 'Inactive'].includes(status)) throw new Error('A project is Active or Closed.');
   const d = unitData || {};
@@ -33,6 +33,21 @@ async function projectFields(type, unitData, companyId, status) {
   if (end && !isDate(end)) throw new Error('Enter the project\'s end date as a date.');
   if (start && end && end < start) throw new Error('The project ends before it starts.');
   return { CustomerID: customerId, StartDate: start, EndDate: end };
+}
+
+// A warehouse's default cost center (owner, 2026-11-13; docs/modules/UX4.md
+// item 4, Q502): an inventory entry takes it when its warehouse is chosen,
+// still changeable, and the server uses it when the entry sends none. An
+// active cost center of the warehouse's company, or a shared one (a shared
+// warehouse: shared cost centers only). Throws Error.
+async function warehouseFields(unitData, companyId) {
+  const id = text((unitData || {}).DefaultCostCenterID);
+  if (!id) return { DefaultCostCenterID: '' };
+  const cc = (await rtdb.ref('orgUnits/' + id).get()).val();
+  if (!cc || cc.Type !== 'CostCenter') throw new Error('Choose a cost center of Organizational Units as the warehouse\'s default.');
+  if (cc.Status !== 'Active') throw new Error('The default cost center ' + (cc.Code || '') + ' is not active.');
+  if (cc.CompanyID && cc.CompanyID !== companyId) throw new Error('The default cost center ' + (cc.Code || '') + ' belongs to another company.');
+  return { DefaultCostCenterID: id };
 }
 
 // Every project a set of GL lines names exists, is the company's (or

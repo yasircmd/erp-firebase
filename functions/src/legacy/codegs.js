@@ -3068,6 +3068,7 @@ async function saveProductionDraft(idToken, prodData) {
       if (!(unitCost > 0)) throw new Error('Line ' + (idx + 1) + ': enter a unit cost greater than zero.');
 
       const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && wh && wh.DefaultCostCenterID) line.CostCenterID = wh.DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]
 
       if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
         throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
@@ -4871,6 +4872,7 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
     if (!transactionDate) throw new Error('Transaction date is required.');
     const descriptionTyped = String(dnData.Description || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
     let description = descriptionTyped || 'Delivery note';
+    const dnWarehouses = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {}; // [NEW DEVELOPMENT warehouse-cost-center]
     const reference = String(dnData.Reference || '').trim();
     const companyId = String(dnData.CompanyID || '').trim();
     if (!companyId) throw new Error('Select a Company for this transaction.');
@@ -4949,6 +4951,7 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
       const unitPrice = Number(sourceSOLine.UnitPrice) || 0;
 
       const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && (dnWarehouses[warehouseId] || {}).DefaultCostCenterID) line.CostCenterID = dnWarehouses[warehouseId].DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]
       if (!descriptionTyped) {
         const soNumbers = Object.keys(soCache).map(k => soCache[k] && soCache[k].SONumber).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
         description = 'Delivery note' + (soNumbers.length ? ' from ' + soNumbers.join(', ') : '');
@@ -5764,6 +5767,7 @@ async function savePhysicalCountDraft(idToken, pcData) {
       }
 
       const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && wh && wh.DefaultCostCenterID) line.CostCenterID = wh.DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]
 
       if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
         throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');

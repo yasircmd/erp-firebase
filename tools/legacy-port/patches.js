@@ -3888,6 +3888,10 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
   }
 
   ,
+  // UX batch 4, item 4 (Q502) rides on the same line patches below
+  // ([NEW DEVELOPMENT warehouse-cost-center]): a line sent with no cost
+  // center takes its warehouse's default (Organizational Units), before the
+  // header's (Delivery Note: line, warehouse, header).
   // UX batch 4, item 13 (Q503): descriptions optional on the inventory
   // transactions, as functions/src/descriptions.js does for the
   // hand-written ones (same words). A blank header saves a default; a
@@ -3914,7 +3918,8 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       // not >= 0.
       if (!(unitCost > 0)) throw new Error('Line ' + (idx + 1) + ': enter a unit cost greater than zero.');
 
-      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]`
+      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && wh && wh.DefaultCostCenterID) line.CostCenterID = wh.DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]`
   },
   {
     id: 'optional-descriptions (delivery note header)',
@@ -3922,7 +3927,8 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     find: `    const description = String(dnData.Description || '').trim();
     if (!description) throw new Error('Description is required.');`,
     replace: `    const descriptionTyped = String(dnData.Description || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
-    let description = descriptionTyped || 'Delivery note';`
+    let description = descriptionTyped || 'Delivery note';
+    const dnWarehouses = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {}; // [NEW DEVELOPMENT warehouse-cost-center]`
   },
   {
     id: 'optional-descriptions (delivery note line)',
@@ -3932,6 +3938,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 
       // No batch requirement here — Delivery Note is a pure outbound`,
     replace: `      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && (dnWarehouses[warehouseId] || {}).DefaultCostCenterID) line.CostCenterID = dnWarehouses[warehouseId].DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]
       if (!descriptionTyped) {
         const soNumbers = Object.keys(soCache).map(k => soCache[k] && soCache[k].SONumber).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
         description = 'Delivery note' + (soNumbers.length ? ' from ' + soNumbers.join(', ') : '');
@@ -3958,6 +3965,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 
       // System quantity is a draft-time snapshot`,
     replace: `      const lineDescription = String(line.Description || '').trim() || String(item.ItemName || '').trim(); // [NEW DEVELOPMENT optional-descriptions]
+      if (!String(line.CostCenterID || '').trim() && wh && wh.DefaultCostCenterID) line.CostCenterID = wh.DefaultCostCenterID; // [NEW DEVELOPMENT warehouse-cost-center]
 
       if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
         throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');

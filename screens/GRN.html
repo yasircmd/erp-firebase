@@ -615,7 +615,7 @@
     const matched = itemByCode(itemCode);
     if (matched) {
       if (!gridLines[row].EnteredUOMID) gridLines[row].EnteredUOMID = matched.UOMID;
-      if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+      if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) { gridLines[row].WarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[row], 'WarehouseID', row); }
     }
   }
 
@@ -1055,7 +1055,7 @@
           if (uomSelect) uomSelect.innerHTML = uomOptionsForItem(matched, matched.UOMID);
         }
         if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) {
-          gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+          { gridLines[row].WarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[row], 'WarehouseID', row); }
           // Warehouse options are the same regardless of item, so they
           // already exist — just set the value.
           const whSelect = tr.querySelector('select[data-field="warehouse"]');
@@ -1069,7 +1069,7 @@
       // now) completely untouched.
       if (ensureTrailingBlankRow()) appendRowToDom();
     } else if (field === 'warehouse') {
-      gridLines[row].WarehouseID = value;
+      { gridLines[row].WarehouseID = value; warehouseCostCenter.apply(gridLines[row], 'WarehouseID', row); }
     } else if (field === 'uom') {
       gridLines[row].EnteredUOMID = value;
     } else if (field === 'description') {
@@ -1203,12 +1203,12 @@
           const matched = itemByCode(stripped);
           if (matched) {
             if (!gridLines[targetRow].EnteredUOMID) gridLines[targetRow].EnteredUOMID = matched.UOMID;
-            if (matched.DefaultWarehouseID && !gridLines[targetRow].WarehouseID) gridLines[targetRow].WarehouseID = matched.DefaultWarehouseID;
+            if (matched.DefaultWarehouseID && !gridLines[targetRow].WarehouseID) { gridLines[targetRow].WarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[targetRow], 'WarehouseID', targetRow); }
           }
         } else if (field === 'warehouse') {
           if (value) {
             const wh = orgUnits.find(u => u.Type === 'Warehouse' && String(u.Code).toLowerCase() === value.toLowerCase());
-            gridLines[targetRow].WarehouseID = wh ? wh.UnitID : '';
+            { gridLines[targetRow].WarehouseID = wh ? wh.UnitID : ''; warehouseCostCenter.apply(gridLines[targetRow], 'WarehouseID', targetRow); }
           }
         } else if (field === 'description') {
           gridLines[targetRow].Description = value;

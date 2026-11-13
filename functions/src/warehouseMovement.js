@@ -110,7 +110,7 @@ exports.saveWarehouseMovementDraft = onCallWithMessages(onCallOptions, async (re
       EnteredUOMID: enteredUomId, EnteredQuantity: enteredQty,
       Quantity: Math.round(baseQty * 1e6) / 1e6,
       BatchNumber: String(line.BatchNumber || '').trim(),
-      CostCenterID: String(line.CostCenterID || '').trim(),
+      CostCenterID: String(line.CostCenterID || '').trim() || (fromWh && fromWh.DefaultCostCenterID) || '', // blank: the warehouse's default (Q502)
       ProfitCenterID: String(line.ProfitCenterID || '').trim(),
       Description: lineDescription
     });

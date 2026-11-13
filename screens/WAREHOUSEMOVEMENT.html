@@ -479,7 +479,7 @@
       // warehouse — the destination is always a deliberate choice, never
       // guessed, since auto-filling it the same way would risk silently
       // defaulting From and To to the same place.
-      if (matched.DefaultWarehouseID && !gridLines[row].FromWarehouseID) gridLines[row].FromWarehouseID = matched.DefaultWarehouseID;
+      if (matched.DefaultWarehouseID && !gridLines[row].FromWarehouseID) { gridLines[row].FromWarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[row], 'FromWarehouseID', row); }
     }
   }
 
@@ -789,7 +789,7 @@
           if (uomSelect) uomSelect.innerHTML = uomOptionsForItem(matched, matched.UOMID);
         }
         if (matched.DefaultWarehouseID && !gridLines[row].FromWarehouseID) {
-          gridLines[row].FromWarehouseID = matched.DefaultWarehouseID;
+          { gridLines[row].FromWarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[row], 'FromWarehouseID', row); }
           // From-location options are the same regardless of item, so
           // they already exist — just set the value. To-location is
           // deliberately never auto-set (see applyItemToRow's comment).
@@ -805,7 +805,7 @@
       if (ensureTrailingBlankRow()) appendRowToDom();
       refreshAvailableForRow(row);
     } else if (field === 'fromlocation') {
-      gridLines[row].FromWarehouseID = value;
+      { gridLines[row].FromWarehouseID = value; warehouseCostCenter.apply(gridLines[row], 'FromWarehouseID', row); }
       refreshAvailableForRow(row);
     } else if (field === 'tolocation') {
       gridLines[row].ToWarehouseID = value;
@@ -868,12 +868,12 @@
           const matched = itemByCode(stripped);
           if (matched) {
             if (!gridLines[targetRow].EnteredUOMID) gridLines[targetRow].EnteredUOMID = matched.UOMID;
-            if (matched.DefaultWarehouseID && !gridLines[targetRow].FromWarehouseID) gridLines[targetRow].FromWarehouseID = matched.DefaultWarehouseID;
+            if (matched.DefaultWarehouseID && !gridLines[targetRow].FromWarehouseID) { gridLines[targetRow].FromWarehouseID = matched.DefaultWarehouseID; warehouseCostCenter.apply(gridLines[targetRow], 'FromWarehouseID', targetRow); }
           }
         } else if (field === 'fromlocation') {
           if (value) {
             const loc = orgUnits.find(u => (u.Type === 'Warehouse' || u.Type === 'Rack') && String(u.Code).toLowerCase() === value.toLowerCase());
-            gridLines[targetRow].FromWarehouseID = loc ? loc.UnitID : '';
+            { gridLines[targetRow].FromWarehouseID = loc ? loc.UnitID : ''; warehouseCostCenter.apply(gridLines[targetRow], 'FromWarehouseID', targetRow); }
           }
         } else if (field === 'tolocation') {
           if (value) {

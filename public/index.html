@@ -1101,6 +1101,24 @@
     // functions/src/auth.js's own requireUser).
     // A call that saves or moves a document on clears the screen's edited mark (SCREEN KEYS, UX4.md item 12).
     const SAVING_CALL = /^(save|post|submit|delete|approve|reject|decide|cancel|reverse|confirm|finalise|mark|close|record|run|publish)/;
+    // A warehouse's default cost center (UX4.md item 4, Q502): learnt from
+    // getActiveOrgUnits, which every inventory screen asks for. A screen calls
+    // warehouseCostCenter.apply(line) when a line's warehouse is chosen: the
+    // line takes the warehouse's default, if it has one (still changeable).
+    window.warehouseCostCenter = (function () {
+      let byWarehouse = {};
+      return {
+        learn(units) { byWarehouse = {}; (units || []).forEach(u => { if (u && u.Type === 'Warehouse' && u.DefaultCostCenterID) byWarehouse[u.UnitID] = u.DefaultCostCenterID; }); },
+        // row: the line's row in the screen's grid, whose cost center list (class <prefix>-line-cc) shows it at once.
+        apply(line, field, row) {
+          const cc = line && byWarehouse[line[field || 'WarehouseID']];
+          if (!cc) return line;
+          line.CostCenterID = cc;
+          if (row != null) document.querySelectorAll('#module-container select[class*="-line-cc"][data-row="' + row + '"]').forEach(sel => { sel.value = cc; });
+          return line;
+        }
+      };
+    })();
     function __rpcChain(ctx) {
       return new Proxy({}, {
         get(_t, prop) {
@@ -1136,7 +1154,7 @@
             Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
               .then(idToken => sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(
                 corp ? { __corporate: { id: corp, idToken: idToken }, __data: arg === undefined ? null : arg } : arg))
-              .then(result => { __rpcFinish(timer); if (fromScreen && current() && SAVING_CALL.test(prop)) window.__screenEdited = false; if (ctx.successFn && current()) ctx.successFn(result.data); })
+              .then(result => { __rpcFinish(timer); if (prop === 'getActiveOrgUnits') window.warehouseCostCenter.learn(result.data); if (fromScreen && current() && SAVING_CALL.test(prop)) window.__screenEdited = false; if (ctx.successFn && current()) ctx.successFn(result.data); })
               .catch(err => { __rpcFinish(timer); if (ctx.failureFn && current()) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
         }

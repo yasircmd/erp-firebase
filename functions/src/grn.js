@@ -232,7 +232,7 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
       UnitCost: Math.round(unitCost * 10000) / 10000,
       BatchNumber: String(line.BatchNumber || '').trim(),
       ExpiryDate: String(line.ExpiryDate || '').trim(),
-      CostCenterID: String(line.CostCenterID || '').trim(),
+      CostCenterID: String(line.CostCenterID || '').trim() || (wh && wh.DefaultCostCenterID) || '', // blank: the warehouse's default (Q502)
       ProfitCenterID: String(line.ProfitCenterID || '').trim(),
       Description: lineDescription,
       SourcePOID: sourcePOId, SourcePOLineID: sourcePOLineId

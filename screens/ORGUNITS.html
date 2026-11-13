@@ -70,6 +70,10 @@
           <div><label class="block text-xs font-medium text-slate-300 mb-1">End date</label><input type="date" id="ou-form-end" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
         </div>
       </div>
+      <div id="ou-warehouse-fields" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Default cost center <span class="text-slate-500">(optional: inventory entries take it for this warehouse)</span></label>
+        <select id="ou-form-defcc" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select>
+      </div>
       <div id="ou-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
       <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
         <button type="button" id="ou-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
@@ -186,6 +190,7 @@
   function openModal(unitId) {
     const form = document.getElementById('ou-form');
     form.reset();
+    document.getElementById('ou-form-defcc').dataset.want = '';
     document.getElementById('ou-form-error').classList.add('hidden');
 
     if (unitId) {
@@ -203,6 +208,7 @@
       document.getElementById('ou-form-customer').value = u.CustomerID || '';
       document.getElementById('ou-form-start').value = u.StartDate || '';
       document.getElementById('ou-form-end').value = u.EndDate || '';
+      document.getElementById('ou-form-defcc').dataset.want = u.DefaultCostCenterID || '';
     } else {
       document.getElementById('ou-modal-title').textContent = 'Add Item';
       document.getElementById('ou-form-id').value = '';
@@ -217,6 +223,23 @@
     const project = document.getElementById('ou-form-type').value === 'Project';
     document.getElementById('ou-project-fields').classList.toggle('hidden', !project);
     document.getElementById('ou-status-closed').classList.toggle('hidden', !project);
+    showWarehouseFields();
+  }
+
+  // A warehouse's default cost center: the company's active cost centers, or shared ones.
+  function showWarehouseFields() {
+    const warehouse = document.getElementById('ou-form-type').value === 'Warehouse';
+    document.getElementById('ou-warehouse-fields').classList.toggle('hidden', !warehouse);
+    const sel = document.getElementById('ou-form-defcc');
+    const keep = sel.dataset.want || sel.value;
+    const co = document.getElementById('ou-form-company').value;
+    sel.innerHTML = '<option value="">None</option>' + units
+      .filter(u => u.UnitID === keep || (u.Type === 'CostCenter' && u.Status === 'Active' && (!u.CompanyID || u.CompanyID === co)))
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code)))
+      .map(u => '<option value="' + escapeHtml(u.UnitID) + '">' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('');
+    sel.value = keep;
+    if (sel.value !== keep) sel.value = '';
+    sel.dataset.want = '';
   }
 
   function closeModal() { document.getElementById('ou-modal').classList.add('hidden'); }
@@ -233,7 +256,8 @@
       Status: document.getElementById('ou-form-status').value,
       CustomerID: document.getElementById('ou-form-customer').value,
       StartDate: document.getElementById('ou-form-start').value,
-      EndDate: document.getElementById('ou-form-end').value
+      EndDate: document.getElementById('ou-form-end').value,
+      DefaultCostCenterID: document.getElementById('ou-form-type').value === 'Warehouse' ? document.getElementById('ou-form-defcc').value : ''
     };
     const error = document.getElementById('ou-form-error');
     const btn = document.getElementById('ou-save-btn');
@@ -274,6 +298,7 @@
     document.getElementById('ou-form').addEventListener('submit', saveUnit);
     document.getElementById('ou-form-type').addEventListener('change', () => populateParentOptions(document.getElementById('ou-form-id').value || null));
     document.getElementById('ou-form-type').addEventListener('change', showProjectFields);
+    document.getElementById('ou-form-company').addEventListener('change', showWarehouseFields);
     rpc.withSuccessHandler(list => {
       const sel = document.getElementById('ou-form-customer');
       (list || []).sort((a, b) => String(a.CustomerName).localeCompare(String(b.CustomerName))).forEach(c => { const o = document.createElement('option'); o.value = c.CustomerID; o.textContent = c.CustomerCode + ' — ' + c.CustomerName; sel.appendChild(o); });

@@ -1229,6 +1229,43 @@ const SCREEN_EDITS = [
       "    shown.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(s => {" },
   { mod: 'ITEMSUBCAT', from: "      document.getElementById('isc-back-btn').addEventListener('click', () => { const chain = returnChain.slice(); const t = chain.pop(); openModule(t.moduleId, t.params, chain); });\n    }\n",
     to: "      document.getElementById('isc-back-btn').addEventListener('click', () => { const chain = returnChain.slice(); const t = chain.pop(); openModule(t.moduleId, t.params, chain); });\n    }\n    document.getElementById('isc-search').addEventListener('input', renderTable);\n" },
+  // A warehouse's default cost center (owner, 2026-11-13; docs/modules/
+  // UX4.md item 4, Q502): the inventory entries take it when the warehouse
+  // is chosen. Active cost centers of the warehouse's company, or shared.
+  { mod: 'ORGUNITS', from: '      <div id="ou-form-error"',
+    to: `      <div id="ou-warehouse-fields" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Default cost center <span class="text-slate-500">(optional: inventory entries take it for this warehouse)</span></label>
+        <select id="ou-form-defcc" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select>
+      </div>
+      <div id="ou-form-error"` },
+  { mod: 'ORGUNITS', from: "    form.reset();\n",
+    to: "    form.reset();\n    document.getElementById('ou-form-defcc').dataset.want = '';\n" },
+  { mod: 'ORGUNITS', from: "      document.getElementById('ou-form-end').value = u.EndDate || '';\n",
+    to: "      document.getElementById('ou-form-end').value = u.EndDate || '';\n      document.getElementById('ou-form-defcc').dataset.want = u.DefaultCostCenterID || '';\n" },
+  { mod: 'ORGUNITS', from: "    document.getElementById('ou-status-closed').classList.toggle('hidden', !project);\n  }",
+    to: `    document.getElementById('ou-status-closed').classList.toggle('hidden', !project);
+    showWarehouseFields();
+  }
+
+  // A warehouse's default cost center: the company's active cost centers, or shared ones.
+  function showWarehouseFields() {
+    const warehouse = document.getElementById('ou-form-type').value === 'Warehouse';
+    document.getElementById('ou-warehouse-fields').classList.toggle('hidden', !warehouse);
+    const sel = document.getElementById('ou-form-defcc');
+    const keep = sel.dataset.want || sel.value;
+    const co = document.getElementById('ou-form-company').value;
+    sel.innerHTML = '<option value="">None</option>' + units
+      .filter(u => u.UnitID === keep || (u.Type === 'CostCenter' && u.Status === 'Active' && (!u.CompanyID || u.CompanyID === co)))
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code)))
+      .map(u => '<option value="' + escapeHtml(u.UnitID) + '">' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('');
+    sel.value = keep;
+    if (sel.value !== keep) sel.value = '';
+    sel.dataset.want = '';
+  }` },
+  { mod: 'ORGUNITS', from: "      EndDate: document.getElementById('ou-form-end').value\n    };",
+    to: "      EndDate: document.getElementById('ou-form-end').value,\n      DefaultCostCenterID: document.getElementById('ou-form-type').value === 'Warehouse' ? document.getElementById('ou-form-defcc').value : ''\n    };" },
+  { mod: 'ORGUNITS', from: "    document.getElementById('ou-form-type').addEventListener('change', showProjectFields);\n",
+    to: "    document.getElementById('ou-form-type').addEventListener('change', showProjectFields);\n    document.getElementById('ou-form-company').addEventListener('change', showWarehouseFields);\n" },
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {
