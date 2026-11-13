@@ -5,8 +5,8 @@ order: 5
 modules: [DELIVERYNOTE]
 sources: [functions/src/stockMovement.js]
 summary: Deliver the ordered goods and record the stock movement out of the warehouse to the customer.
-reviewed: 2026-11-08
-fingerprint: 553df8ccaffc1a36
+reviewed: 2026-11-13
+fingerprint: b156a32ec4cce30d
 ---
 ## What it is for
 

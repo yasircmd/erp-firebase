@@ -785,18 +785,8 @@
       document.getElementById('dn-rejection-reason').textContent = currentDN.RejectionReason || '(no reason given)';
     }
 
-    document.getElementById('dn-my-approval-banner').classList.add('hidden');
-    if (currentDN && currentDN.Status === 'PendingApproval' && canPost) {
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('dn-my-approval-banner').classList.remove('hidden');
-            document.getElementById('dn-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: currentDN.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('dn-my-approval-banner'), { instanceId: currentDN && currentDN.Status === 'PendingApproval' ? currentDN.ApprovalInstanceID : '', rights: 'DELIVERYNOTE' });
 
     ['dn-form-company', 'dn-form-customer', 'dn-form-date', 'dn-form-reference', 'dn-form-description',
       'dn-form-division', 'dn-form-branch', 'dn-form-costcenter', 'dn-form-profitcenter', 'dn-form-project', 'dn-form-rep'].forEach(id => {

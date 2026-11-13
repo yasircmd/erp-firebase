@@ -5,8 +5,8 @@ order: 2
 modules: [BOM]
 sources: [functions/src/masterData.js]
 summary: Define what a finished product is made of and how the materials are consumed during production.
-reviewed: 2026-11-07
-fingerprint: 0b8299941e4c68cc
+reviewed: 2026-11-13
+fingerprint: 0ce39311a6f6d62e
 ---
 ## What it is for
 

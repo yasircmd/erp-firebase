@@ -500,13 +500,8 @@
     $('rj-rejection-banner').classList.toggle('hidden', status !== 'Rejected');
     if (status === 'Rejected') $('rj-rejection-reason').textContent = current.RejectionReason || '(no reason given)';
     $('rj-paused-note').classList.toggle('hidden', status !== 'Paused');
-    $('rj-my-approval-banner').classList.add('hidden');
-    if (status === 'PendingApproval' && canPost) {
-      rpc.withSuccessHandler(level => {
-        if (!level) return;
-        $('rj-my-approval-banner').classList.remove('hidden'); $('rj-my-approval-banner').dataset.level = level;
-      }).withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show($('rj-my-approval-banner'), { instanceId: status === 'PendingApproval' ? current.ApprovalInstanceID : '', rights: MODULE_ID });
     ['rj-form-company', 'rj-form-division', 'rj-form-branch', 'rj-form-costcenter', 'rj-form-profitcenter', 'rj-form-description', 'rj-form-reference',
       'rj-freq', 'rj-interval', 'rj-day', 'rj-weekday', 'rj-nth', 'rj-start', 'rj-endmode', 'rj-count', 'rj-enddate', 'rj-mode', 'rj-service-from', 'rj-service-to']
       .forEach(id => { $(id).disabled = !editable; });

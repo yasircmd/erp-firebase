@@ -44,6 +44,9 @@ const vfStart = find(/---------- VARIANTS ----------/);
 const vfEnd = find(/---------- END VARIANTS ----------/);
 const skStart = find(/\/\/ ---------- SCREEN KEYS ----------/);
 const skEnd = find(/\/\/ ---------- END SCREEN KEYS ----------/);
+const abStart = find(/\/\/ ---------- APPROVAL BAR ----------/);
+const abEnd = find(/\/\/ ---------- END APPROVAL BAR ----------/);
+if (!abStart || !abEnd) throw new Error('APPROVAL BAR markers not found in index.html');
 const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
 const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
@@ -106,6 +109,7 @@ ${slice(vfStart, vfEnd)}
   // Home, as far as a screen can tell (SCREEN KEYS goes there): the module closed, marked.
   window.handleBackToHierarchy = function () { document.getElementById('module-container').classList.add('hidden'); window.__wentHome = (window.__wentHome || 0) + 1; };
 ${slice(skStart, skEnd)}
+${slice(abStart, abEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
   window.openModule = function (moduleId, drillParams, returnChain) {

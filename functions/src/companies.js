@@ -55,4 +55,15 @@ exports.saveMyCompanies = onCallInCorporate(onCallOptions, async (request) => {
   return { companyIds: all ? ids : chosen };
 });
 
+// The companies chosen on Home, for a check on the server (UX4.md item 15:
+// Master Import): a test of a company id, true when it is chosen, or when
+// nothing is chosen (all), or when it is not one of the user's active
+// companies (other checks answer for those).
+async function chosenCompanyTest(user) {
+  const [{ ids }, saved] = await Promise.all([activeAssigned(user), rtdb.ref('userPreferences/' + user.uid + '/Companies').get()]);
+  const chosen = (saved.val() || []).filter(id => ids.includes(id));
+  return id => !chosen.length || !ids.includes(id) || chosen.includes(id);
+}
+
 module.exports.getUserAssignedCompanies = getUserAssignedCompanies;
+module.exports.chosenCompanyTest = chosenCompanyTest;

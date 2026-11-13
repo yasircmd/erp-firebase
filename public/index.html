@@ -1565,37 +1565,37 @@
 
       // Payroll queries and loan requests waiting for this handler.
       rpc
-        .withSuccessHandler(result => { renderEmpRequests((result && result.items) || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderEmpRequests, (result && result.items) || []); })
         .withFailureHandler(() => { renderEmpRequests([]); })
         .employeeRequests({ action: 'tasks' });
 
       // A leaver's clearance step for this user's team (docs/modules/LEAVER_CLEARANCE.md).
       rpc
-        .withSuccessHandler(result => { renderClearanceTasks(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderClearanceTasks, result || []); })
         .withFailureHandler(() => { renderClearanceTasks([]); })
         .getClearanceTasksForUser();
 
       rpc
-        .withSuccessHandler(result => { renderPendingApprovals(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderPendingApprovals, result || []); })
         .withFailureHandler(() => { renderPendingApprovals([]); })
         .getPendingApprovalsForUser();
 
       rpc
-        .withSuccessHandler(result => { renderRejectedSubmissions(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderRejectedSubmissions, result || []); })
         .withFailureHandler(() => { renderRejectedSubmissions([]); })
         .getMyRejectedSubmissions();
 
       // Drafts this user saved last, until submitted, posted or deleted
       // (docs/modules/DRAFT_TASKS.md).
       rpc
-        .withSuccessHandler(result => { renderMyDrafts(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderMyDrafts, result || []); })
         .withFailureHandler(() => { renderMyDrafts([]); })
         .getMyDraftsForUser();
 
       // Accepted Sales Job Order lines and submitted requisitions, for the
       // follow-up team set in Approval Configuration (docs/modules/APPROVAL_ROUTING.md).
       rpc
-        .withSuccessHandler(result => { renderFollowUps(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderFollowUps, result || []); })
         .withFailureHandler(() => { renderFollowUps([]); })
         .getMyFollowUpTasksForUser();
 
@@ -1604,7 +1604,7 @@
       const now = new Date();
       const localToday = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().substring(0, 10);
       rpc
-        .withSuccessHandler(result => { renderPdcsDue(result || []); })
+        .withSuccessHandler(result => { homeTasksShow(renderPdcsDue, result || []); })
         .withFailureHandler(() => { renderPdcsDue([]); })
         .getPdcsDueForUser({ today: localToday });
 
@@ -2180,6 +2180,9 @@
       document.getElementById('company-filter').classList.toggle('hidden', myCompanies.length < 2 || !onHome());
       document.getElementById('company-filter-label').textContent = chosen.length === myCompanies.length ? 'All companies' : chosen.length + ' of ' + myCompanies.length + ' companies';
       setCompanyFilter(chosen.map(c => c.CompanyID), myCompanies.map(c => c.CompanyID));
+      redrawHomeTasks();
+      const homeMis = document.getElementById('home-mis');
+      if (homeMis && !homeMis.classList.contains('hidden') && window.misTiles) misTiles.home();
     }
     function toggleCompanyFilter() {
       const panel = document.getElementById('company-filter-panel');
@@ -2190,6 +2193,18 @@
       }
       panel.classList.toggle('hidden');
     }
+    // The Home tasks show only the chosen companies' (UX4.md item 15, owner
+    // 2026-11-13): each task carries its document's CompanyID; one with none
+    // (or a company no longer the user's) is always shown. Each list is kept
+    // as it came, and drawn again when the choice changes.
+    const homeTaskLists = new Map();
+    function inChosenCompanies(items) {
+      const mine = new Set(myCompanies.map(c => c.CompanyID));
+      return (items || []).filter(x => !x || !x.CompanyID || !mine.has(x.CompanyID) || chosenCompanyIds.includes(x.CompanyID));
+    }
+    function homeTasksShow(render, items) { homeTaskLists.set(render, items); render(inChosenCompanies(items)); }
+    function redrawHomeTasks() { homeTaskLists.forEach((items, render) => render(inChosenCompanies(items))); }
+    window.inChosenCompanies = inChosenCompanies;
     function closeCompanyFilter() { document.getElementById('company-filter-panel').classList.add('hidden'); }
     function saveCompanyFilter() {
       const ids = Array.from(document.querySelectorAll('.company-filter-check:checked')).map(c => c.value);
@@ -2235,16 +2250,46 @@
       hiddenCompanyIds = new Set(allIds.filter(id => !chosenIds.includes(id)));
       applySingleCompanyDefault();
     }
+    // UX4.md item 15 (owner, 2026-11-13): every company dropdown, whatever
+    // its id (one is a company dropdown when an option is one of the user's
+    // companies). A dropdown with no blank option (a report's company, the
+    // MIS) starts on its first company: when its options are new and that
+    // first company is one not chosen, it moves to the first chosen one, so
+    // a report never opens on a company filtered out. The move waits until
+    // the screen's own calls have all answered (the rpc count back at 0):
+    // its change listener reloads what depends on the company, which a
+    // screen still loading isn't ready for (Quotations, MIS Dashboard).
+    const companyOptionsSeen = new WeakMap(), companyMoves = new Set();
+    let companyMoveTimer = null;
+    function moveOffHiddenCompanies(tries) {
+      companyMoveTimer = null;
+      if (__rpcPendingCount > 0 && tries < 100) { companyMoveTimer = setTimeout(() => moveOffHiddenCompanies(tries + 1), 100); return; }
+      companyMoves.forEach(select => {
+        companyMoves.delete(select);
+        if (!select.isConnected || select.disabled || !hiddenCompanyIds.has(select.value)) return;
+        const first = Array.from(select.options).find(o => knownCompanyIds.has(o.value) && !hiddenCompanyIds.has(o.value));
+        if (first) { select.value = first.value; select.dispatchEvent(new Event('change')); }
+      });
+      applySingleCompanyDefault(); // the company moved from is hidden now
+    }
     function applySingleCompanyDefault() {
       if (!knownCompanyIds.size) return;
-      document.querySelectorAll('#module-container select[id*="company"]').forEach(select => {
-        Array.from(select.options).forEach(o => {
+      document.querySelectorAll('#module-container select').forEach(select => {
+        const options = Array.from(select.options);
+        if (!options.some(o => knownCompanyIds.has(o.value))) return;
+        const sig = options.map(o => o.value).join('|');
+        const fresh = companyOptionsSeen.get(select) !== sig;
+        companyOptionsSeen.set(select, sig);
+        if (fresh && hiddenCompanyIds.has(select.value) && select.selectedIndex === 0 && !select.disabled && !options.some(o => o.value === '')) {
+          companyMoves.add(select);
+          if (!companyMoveTimer) companyMoveTimer = setTimeout(() => moveOffHiddenCompanies(0), 0);
+        }
+        options.forEach(o => {
           if (!knownCompanyIds.has(o.value)) return;
           const hide = hiddenCompanyIds.has(o.value) && o.value !== select.value;
           if (o.hidden !== hide) o.hidden = hide;
         });
         if (!singleCompanyId || select.value !== '' || select.disabled) return;
-        const options = Array.from(select.options);
         if (!options.some(o => o.value === singleCompanyId)) return;
         const blank = options.find(o => o.value === '');
         if (blank && /shared|none/i.test(blank.textContent)) return;
@@ -3395,7 +3440,8 @@
         const [d, cos] = await Promise.all([call('getMisDashboard', {}), call('getActiveCompanies', {}).catch(() => [])]);
         const sel = document.getElementById('home-mis-company');
         const was = sel.value;
-        sel.innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+        // Only the companies chosen on Home (UX4.md item 15).
+        sel.innerHTML = (cos || []).filter(c => c.Chosen !== false).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
         if (was && [...sel.options].some(o => o.value === was)) sel.value = was;
         const month = (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
         const draw = () => render(document.getElementById('home-mis-grid'), d.tiles, { companyId: sel.value, month });
@@ -3926,6 +3972,56 @@
       window.screenKeys = { unsaved: screenUnsaved, newButton: () => onScreen() && newButton() };
     })();
     // ---------- END SCREEN KEYS ----------
+    // ---------- APPROVAL BAR ----------
+    // Approve or reject an entry, at its foot (UX4.md item 10, owner
+    // 2026-11-13). Each of the 23 entry screens with approvals keeps its own
+    // banner (the reason box, Approve, Reject, its own decide call) and
+    // shows it through approvalBar.show(banner, { instanceId, rights }):
+    //  - the banner moves to the foot of its entry view, once;
+    //  - it shows only when the approval waits on this user (the server's
+    //    getApprovalBarInfo), with their level and who decides next;
+    //  - rights: the module whose Post right deciding needs; the shell
+    //    waits for it itself. The screens used to check their own canPost,
+    //    which an entry opened from a Home task could reach before the
+    //    rights had loaded: the banner then never showed (the IPR case);
+    //  - an answer for an entry no longer shown is ignored.
+    // dataset.level is set for the screen's decide call, as before.
+    window.approvalBar = (function () {
+      let rights = {};
+      const ask = (fn, data) => new Promise(ok => rpc.withSuccessHandler(ok).withFailureHandler(() => ok(null))[fn](data));
+      const canPost = m => rights[m] || (rights[m] = ask('getModulePermissionsForUser', { moduleId: m }).then(p => Boolean(p && p.canPost)));
+      function place(banner) {
+        if (banner.dataset.barPlaced) return;
+        banner.dataset.barPlaced = '1';
+        const view = banner.parentElement && banner.parentElement.closest('[id$="-view"]');
+        if (view) view.appendChild(banner);
+        const info = document.createElement('p');
+        info.className = 'approval-bar-info text-xs text-slate-400';
+        const head = banner.querySelector('p');
+        if (head) head.after(info); else banner.prepend(info);
+      }
+      function infoText(r) {
+        const levels = (r.Levels || []).slice().sort((a, b) => a.LevelNumber - b.LevelNumber);
+        const next = levels.find(l => l.LevelNumber > r.MyLevel && !l.Decided);
+        return 'Level ' + r.MyLevel + ' of ' + levels.length + '. ' + (next ? 'Then: ' + next.Approver + ' (level ' + next.LevelNumber + ').' : 'Yours is the last level.');
+      }
+      async function show(banner, o) {
+        if (!banner) return;
+        o = o || {};
+        const token = (banner.__barToken || 0) + 1;
+        banner.__barToken = token;
+        banner.classList.add('hidden');
+        place(banner);
+        if (!o.instanceId) return;
+        const [allowed, r] = await Promise.all([o.rights ? canPost(o.rights) : true, ask('getApprovalBarInfo', { approvalInstanceId: o.instanceId })]);
+        if (banner.__barToken !== token || !allowed || !r || !r.MyLevel) return;
+        banner.dataset.level = r.MyLevel;
+        banner.querySelector('.approval-bar-info').textContent = infoText(r);
+        banner.classList.remove('hidden');
+      }
+      return { show, reset() { rights = {}; } };
+    })();
+    // ---------- END APPROVAL BAR ----------
 
     // A loaded module fragment may define window.hasUnsavedChanges() to
     // report whether leaving right now would lose in-progress data (e.g.
@@ -4006,6 +4102,7 @@
     }
 
     function openModule(moduleId, drillParams, returnChain) {
+      if (window.approvalBar) approvalBar.reset(); // rights asked afresh for each screen (APPROVAL BAR)
       if (window.phoneView) phoneView.screen(moduleId); // PHONE VIEW: this screen at a phone's width, or desktop-width with its notice
       // Fragments run in this same document (not an iframe), so any fragment
       // can call openModule() directly — that's how cross-report drill-down

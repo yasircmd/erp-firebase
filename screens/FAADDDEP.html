@@ -165,11 +165,8 @@
     const msg = s === 'Reversed' ? 'Reversed ' + (current.ReversalJVNumber ? '(' + current.ReversalJVNumber + ') ' : '') + '— ' + (current.ReversalReason || '')
       : s === 'PendingApproval' ? 'Waiting for approval. Nothing is posted until it is approved.' : '';
     $('fad-note').textContent = msg; $('fad-note').classList.toggle('hidden', !msg);
-    $('fad-approval-banner').classList.add('hidden');
-    if (s === 'PendingApproval' && current.ApprovalInstanceID) {
-      rpc.withSuccessHandler(level => { if (level) { $('fad-approval-banner').classList.remove('hidden'); $('fad-approval-banner').dataset.level = level; } })
-        .withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show($('fad-approval-banner'), { instanceId: s === 'PendingApproval' && current.ApprovalInstanceID ? current.ApprovalInstanceID : '', rights: '' });
     renderLines();
   }
   function newEntry() {

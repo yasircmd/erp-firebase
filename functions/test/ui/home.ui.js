@@ -70,6 +70,7 @@ function stubs() {
       case 'saveMyEmailSettings': window.__emailSaved = arg; return { success: true };
       case 'getCrmActivitiesDueForUser': return window.__crmDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
+      case 'getPendingApprovalsForUser': return window.__pendingApprovals || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
       case 'getClearanceTasksForUser': return window.__clearances || [];
       case 'getMyRejectedSubmissions': return window.__rejected || [];
@@ -645,6 +646,41 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await page.evaluate(() => window.__savedTheme), undefined, 'nothing saved: it was not changed');
     assert.deepEqual(page.__errors, []);
     await page.close();
+  });
+
+  await check('UX4: Home tasks follow the companies chosen; a task with no company always shows; all again brings them back', async () => {
+    const two = [{ CompanyID: 'C1', LegalName: 'Main Co', CompanyRefCode: '01' }, { CompanyID: 'C2', LegalName: 'Second Co', CompanyRefCode: '02' }];
+    // As open(), with the tasks set before the page loads.
+    const q = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    q.__errors = []; q.on('pageerror', e => q.__errors.push(e.message));
+    await routeCdnStyles(q);
+    await q.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await q.addInitScript(stubs);
+    await q.addInitScript(c => {
+      window.__companies = c;
+      window.__pendingApprovals = [{ InstanceID: 'A1', ModuleID: 'JV', ModuleLabel: 'Journal Entry', DocumentID: 'J1', DocumentNumber: 'JV-MAIN', CompanyID: 'C1' },
+        { InstanceID: 'A2', ModuleID: 'JV', ModuleLabel: 'Journal Entry', DocumentID: 'J2', DocumentNumber: 'JV-SECOND', CompanyID: 'C2' }];
+      window.__drafts = [{ ModuleID: 'GRN', ModuleLabel: 'GRN', DocumentID: 'G1', Description: 'Main draft', CompanyID: 'C1' }, { ModuleID: 'BUDGET', ModuleLabel: 'Budget', DocumentID: 'B1', Description: 'No company' }];
+    }, two);
+    await q.goto('http://127.0.0.1:8131/');
+    await q.waitForSelector('#company-filter-btn', { state: 'visible', timeout: 30000 });
+    const shown = () => q.evaluate(() => ({
+      approvals: [...document.querySelectorAll('#home-pending-approvals-list > div')].map(r => r.textContent.trim().split(/\s+/)[0]),
+      drafts: [...document.querySelectorAll('#home-drafts-list > div')].map(r => /No company/.test(r.textContent) ? 'none' : 'C1')
+    }));
+    await q.waitForFunction(() => document.querySelectorAll('#home-pending-approvals-list > div').length === 2, null, { timeout: 30000 });
+    assert.deepEqual(await shown(), { approvals: ['JV-MAIN', 'JV-SECOND'], drafts: ['C1', 'none'] }, 'all chosen: all');
+    await q.click('#company-filter-btn');
+    await q.uncheck('.company-filter-check[value="C1"]');
+    await q.click('#company-filter-apply');
+    await q.waitForFunction(() => document.querySelectorAll('#home-pending-approvals-list > div').length === 1, null, { timeout: 30000 });
+    assert.deepEqual(await shown(), { approvals: ['JV-SECOND'], drafts: ['none'] }, 'C2 chosen');
+    await q.click('#company-filter-btn');
+    await q.check('.company-filter-check[value="C1"]');
+    await q.click('#company-filter-apply');
+    await q.waitForFunction(() => document.querySelectorAll('#home-pending-approvals-list > div').length === 2, null, { timeout: 30000 });
+    assert.deepEqual(q.__errors, []);
+    await q.close();
   });
 
   await check('company filter: after the name, for several companies; one chosen names it; saved; kept for the next sign-in; Home only (decision 273)', async () => {

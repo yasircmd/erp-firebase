@@ -131,7 +131,7 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
     Object.keys(data).forEach(id => {
       const r = data[id];
       if (!r || r.Status !== 'Submitted' || !canSee(r) || !inTeam(moduleId, r)) return;
-      tasks.push({ ModuleID: moduleId, ModuleLabel: labelOf(moduleId), DocumentID: id, DocumentNumber: r[numberField] || '',
+      tasks.push({ ModuleID: moduleId, ModuleLabel: labelOf(moduleId), DocumentID: id, DocumentNumber: r[numberField] || '', CompanyID: r.CompanyID || '',
         Description: r.Description || '', DocumentDate: r[dateField] || '', ReadySince: r.SubmittedAt || r.UpdatedAt || '' });
     });
   }
@@ -147,7 +147,7 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
       const b = l && batches[l.ParentBatchID];
       // Only Sales lines are ever Accepted (Production's own start Open).
       if (!l || l.Status !== 'Accepted' || !b || !canSee(b) || !inTeam('JOBORDERREQUEST', b)) return;
-      tasks.push({ ModuleID: 'JOBORDERREQUEST', ModuleLabel: labelOf('JOBORDERREQUEST'), DocumentID: id, DocumentNumber: l.SubJONumber || '',
+      tasks.push({ ModuleID: 'JOBORDERREQUEST', ModuleLabel: labelOf('JOBORDERREQUEST'), DocumentID: id, DocumentNumber: l.SubJONumber || '', CompanyID: b.CompanyID || '',
         Description: [l.ItemCode, l.OrderedQuantity != null ? '× ' + l.OrderedQuantity : ''].filter(Boolean).join(' '),
         DocumentDate: l.TargetDate || '', ReadySince: l.AcceptedAt || l.UpdatedAt || '' });
     });
@@ -166,7 +166,7 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
       const key = scopeKeyFor(scopeTypeOf('DELIVERYNOTE'), dn);
       const team = (key && (((teams.DELIVERYNOTE || {})[key]) || {}).UserIDs) || [];
       if (team.length ? !team.includes(user.uid) : !me.includes(dn.CreatedBy)) return;
-      tasks.push({ ModuleID: 'DELIVERYNOTE', ModuleLabel: labelOf('DELIVERYNOTE'), DocumentID: id, DocumentNumber: dn.TransactionNumber || '',
+      tasks.push({ ModuleID: 'DELIVERYNOTE', ModuleLabel: labelOf('DELIVERYNOTE'), DocumentID: id, DocumentNumber: dn.TransactionNumber || '', CompanyID: dn.CompanyID || '',
         Description: 'To invoice: ' + (((customers[dn.CustomerID] || {}).CustomerName) || dn.Description || ''),
         DocumentDate: dn.TransactionDate || '', ReadySince: dn.PostedAt || dn.UpdatedAt || '' });
     });

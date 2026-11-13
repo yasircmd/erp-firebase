@@ -5,8 +5,8 @@ order: 9
 modules: [MASTERIMPORT]
 sources: [functions/src/masterImport.js]
 summary: Add or update ERP masters, employee records, opening balances and item barcodes from an Excel paste.
-reviewed: 2026-11-06
-fingerprint: f5cb75eff1cdaff7
+reviewed: 2026-11-13
+fingerprint: ed1dcc3e8cc66a58
 ---
 ## What it is for
 
@@ -38,6 +38,7 @@ This import does **not** load GL opening balances, opening stock or vendor/custo
 - Import prerequisite records first. For example, set up a company's accounts before importing items that refer to them, and set up HR designations and grades before Employees.
 - Check each column's notes and required marker. Use the displayed company code or name, account, item and other reference codes/names as requested.
 - You need access to Master Data Import, the relevant right for the selected module and access to each applicable company.
+- If you chose companies at the top of Home, a row for one of your other companies is an issue (*… is not among the companies chosen on Home*), so a paste meant for one company can't land in another. Choose that company on Home to import for it. A row with the Company empty (all companies) is not affected.
 - For Users, prepare one temporary password on the screen for the batch. It must be at least six characters; it is not a spreadsheet column or part of the import log.
 - For **Update existing**, decide which columns to change. The key identifies the record and cannot be changed; only pasted columns are updated.
 

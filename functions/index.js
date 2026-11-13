@@ -55,7 +55,7 @@ const {
 } = require('./src/warehouseMovement');
 const {
   getModulePermissionsForUser, getActiveItems, getActiveUOMs, getActiveOrgUnits, getActiveVendors,
-  getStockLedgerEntryPublic, getMyPendingApprovalLevel, getJournalEntryDetail, updatePostedDescription
+  getStockLedgerEntryPublic, getMyPendingApprovalLevel, getApprovalBarInfo, getJournalEntryDetail, updatePostedDescription
 } = require('./src/masterData');
 const {
   getJournalEntries, getCbtEntries, saveJournalDraft, saveCbtDraft, deleteJournalDraft,
@@ -140,6 +140,7 @@ exports.getActiveOrgUnits = getActiveOrgUnits;
 exports.getActiveVendors = getActiveVendors;
 exports.getStockLedgerEntryPublic = getStockLedgerEntryPublic;
 exports.getMyPendingApprovalLevel = getMyPendingApprovalLevel;
+exports.getApprovalBarInfo = getApprovalBarInfo;
 exports.getJournalEntryDetail = getJournalEntryDetail;
 exports.updatePostedDescription = updatePostedDescription;
 exports.getJournalEntries = getJournalEntries;

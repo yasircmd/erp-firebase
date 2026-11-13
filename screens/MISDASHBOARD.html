@@ -157,7 +157,7 @@
       call('saveMisRoleDashboard', { role, tiles: null }).then(() => appAlert('The default for ' + name + ' is removed.')).catch(e => appAlert(e.message));
     });
     call('getActiveCompanies', {}).catch(() => []).then(cos => {
-      $('misd-company').innerHTML = (cos || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+      $('misd-company').innerHTML = (cos || []).filter(c => c.Chosen !== false).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
       return load();
     }).catch(e => appAlert(e.message));
   };

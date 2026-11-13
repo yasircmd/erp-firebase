@@ -936,14 +936,8 @@
 
     document.getElementById('pdc-rejection-banner').classList.toggle('hidden', status !== 'Rejected');
     if (status === 'Rejected') document.getElementById('pdc-rejection-reason').textContent = current.RejectionReason || '(no reason given)';
-    document.getElementById('pdc-my-approval-banner').classList.add('hidden');
-    if (status === 'PendingApproval' && canPost) {
-      rpc.withSuccessHandler(levelNumber => {
-        if (!levelNumber) return;
-        const banner = document.getElementById('pdc-my-approval-banner');
-        banner.classList.remove('hidden'); banner.dataset.level = levelNumber;
-      }).withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('pdc-my-approval-banner'), { instanceId: status === 'PendingApproval' ? current.ApprovalInstanceID : '', rights: CONFIG.moduleId });
 
     ['pdc-form-company', 'pdc-form-party', 'pdc-form-date', 'pdc-form-bank',
       'pdc-form-reference', 'pdc-form-description', 'pdc-form-division', 'pdc-form-branch', 'pdc-form-costcenter', 'pdc-form-profitcenter', 'pdc-form-replaces']

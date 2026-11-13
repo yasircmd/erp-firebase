@@ -1,6 +1,6 @@
 # UX batch 4 (owner, 2026-11-13)
 
-Status: **planned 2026-11-13**, decisions Q500–Q511. Not built yet.
+Status: **Wave A built 2026-11-13** (see *As built: Wave A*), decisions Q500–Q511. Waves B and C next.
 
 ## The owner's list
 
@@ -163,3 +163,74 @@ two Wave C designs to you.
   screens and Hosting.
 - Wave B deploys every function (completeLogin, the company and user saves,
   the ported saves) with screens and Hosting.
+
+## As built: Wave A (2026-11-13)
+
+- **6, Roles:** the matrix scrolls in its own box (`#perm-scroll`, 75% of
+  the window high, inline styles since the built CSS lacked the classes),
+  its header row sticky. A SCREEN_EDIT in tools/legacy-port/generate.js.
+- **8, short codes:** functions/src/moduleShortCodes.js (SHORT, `codeFor`),
+  not a `short` field in moduleRegistry.js: a list beside the registry,
+  checked against it by unit/moduleShortCodes. A built module (X_...) takes
+  the first letters of its id, up to 4, unless taken. buildVisibleTreeList
+  gives each menu item its `short`; the menu shows it and Enter on an exact
+  code opens the module. The DEVELOPER label changed too (Client
+  Management), so every function deploys.
+- **9, tile sizes:** `w` (1, 2, 4) and `h` (1, 2) on each tile, cleaned in
+  misDashboard.js (defaults by kind: key figure and gauge 1, top list 2,
+  chart 2 tall); the MIS TILES grid packs densely (`grid-flow-row-dense`).
+- **11, 12, keys:** the shell's SCREEN KEYS block. A screen with
+  `hasUnsavedChanges()` answers for itself; any other counts as unsaved once
+  a field of a form, entry, editor, detail, modal or line area is changed
+  (not a search or filter box, nor `[data-no-dirty]`); a successful save,
+  post, submit and so on clears it. Enter (focus on nothing in particular,
+  nothing unsaved) presses `[data-new]` or the shown **New** button. Esc
+  with a pop-up open is left to the pop-up (recorded before any screen's
+  own Esc handler runs). **Departure:** no `data-new` mark added to every
+  screen; the New button is found by its text, which every list screen
+  has. ux4Keys.ui checks it.
+- **10, approvals:** the shell's APPROVAL BAR block,
+  `approvalBar.show(banner, { instanceId, rights })`, called by all 23 entry
+  screens in place of their own `getMyPendingApprovalLevel` call.
+  - **The IPR cause, reproduced:** the screens showed their banner only
+    `&& canPost`, and `canPost` came from a rights call made in parallel
+    with loading the list and the entry. Opened from a Home task, the
+    entry could be drawn before the rights arrived, and the banner was then
+    never shown. approvalBar waits for the module's rights itself (Post,
+    which every decide function requires on the server), and drops an
+    answer for an entry no longer on the screen. ui/approvalBar holds the
+    rights answer back 2.5 seconds: before the fix the IPR's bar never came.
+  - The banner moves to the end of its entry view, under the lines and
+    totals and above the supporting documents.
+  - A new callable, `getApprovalBarInfo`, gives the level and every
+    level's approver, so the bar says *Level 1 of 2. Then: … (level 2).*
+  - **Departure:** each screen keeps its own banner and decide call (23
+    different decide functions with their own arguments). The shell owns
+    when and where the bar shows, and its words.
+- **15, the company filter:**
+  - Home tasks: each task now carries its document's `CompanyID` (pending
+    approvals and rejected submissions from the document, follow-ups,
+    PDCs due, clearances, employee requests; drafts had it). The shell
+    keeps each list as it came and draws only the chosen companies' (a task
+    with no company always shows), again when the choice changes.
+  - My dashboard on Home, the MIS Dashboard and MIS Reports (with the
+    builder) list only the chosen companies.
+  - Every company dropdown, whatever its id (one is a company dropdown when
+    an option is one of the user's companies), hides the companies not
+    chosen. A dropdown with no blank option that starts on a company not
+    chosen moves to the first chosen one, once, when its options are new,
+    and only after the screen's own calls have all answered: its change
+    listener reloads what depends on the company, which a screen still
+    loading isn't ready for (found on Quotations and the MIS Dashboard).
+  - Master Import: a row (new or update) for one of the user's companies
+    not chosen is an issue, *… is not among the companies chosen on Home*.
+    Blank (all companies) is unaffected. `chosenCompanyTest` in
+    companies.js.
+  - **Departure:** the filter is still not a right. Task emails list every
+    company's tasks, since they are not a screen.
+  - ui/singleCompany checks every screen that asks getActiveCompanies with
+    the second company chosen: the first is never offered or selected.
+- **16, 5, 7, Client Management:** the label, the search (id, name, group,
+  project, status) and the Data reset column with its own toggle
+  (`saveDeveloperDataReset`, which switches the DATARESET module off or
+  back on for the client).

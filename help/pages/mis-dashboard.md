@@ -1,6 +1,6 @@
 ---
-fingerprint: e3bdfc6d52fe2e65
-reviewed: 2026-11-08
+fingerprint: c3e81700fedfc47a
+reviewed: 2026-11-13
 title: MIS Dashboard
 area: mis
 order: 1
@@ -51,7 +51,11 @@ always up to date.
 2. **Edit** to change the tiles: choose the tile, the report, the figure (for
    a key figure or gauge), the comparison, the chart style or the good band,
    and a title, then **Add tile**. Remove a tile with ×, move it with the
-   arrows.
+   arrows, and size it with its size list: **1**, **2** or **4** wide, and
+   **tall** (two rows high) for a chart. A tall tile sits beside two normal
+   ones stacked, so a 12-month trend can be tall with two key figures next
+   to it. New tiles start at a size that suits them: a key figure or gauge
+   1 wide, a top list 2, a chart 2 wide and tall.
 3. **Save my dashboard**. **Reset** removes your own tiles and shows your
    role's dashboard again.
 4. To set a role's dashboard (MIS publish): while editing, choose the role and

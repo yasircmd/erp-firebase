@@ -20,13 +20,14 @@
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open Tree Management and review the existing hierarchy. Add a top-level item or add a child beneath the intended parent.</li><li>Set the node text, optional parent, optional linked module, and allowed roles. Use a node without a linked module for a heading/reference item. An item either opens a module or holds sub-items, never both: the ERP refuses a module on an item that has sub-items, and a sub-item under an item that opens a module. A top-level item is an area of the menu: it never opens a module, whether you save it there or drag it there.</li><li>Drag a node above or below another node to reorder it; dropping on another node can also move it under that node's parent. Save the move and confirm the final hierarchy.</li><li>Edit the node if its label, parent, module link, or allowed roles change. Check parent visibility: a child is visible only when it and every ancestor allow the user's role.</li><li>Delete a node only after its child nodes are removed or reassigned. Test the menu as representative roles after any structural change.</li></ol>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
+<p>In the menu, a node linked to a module shows that module's short code beside its text (for example COA or GRN), which users can type in Search modules to open it. The codes are fixed for every module and the same for everyone; they are not edited here.</p>
 <p>Tree changes update navigation configuration only; they do not post to the ledger or grant accounting rights. Module actions are still controlled independently by Roles &amp; Permissions and company assignment.</p>
 <h2 id="rights">Rights</h2>
 <p>TREEMGMT access/write rights control who can view and edit the menu tree. Restrict changes to administrative users; role checkboxes control visibility, not permission to post data.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
 <ul><li><strong>Node is visible but screen access is denied:</strong> configure the module's access capability separately in Roles &amp; Permissions.</li><li><strong>Child is missing for a role:</strong> check the Allowed Roles on the node and every ancestor.</li><li><strong>Node appears but opens no module:</strong> it may be a reference node with no linked module; edit the module link if it should launch a screen.</li><li><strong>Cannot move/delete a node:</strong> ensure it is not being placed under itself/its descendant and remove or reassign its children first.</li></ul>
 <h2 id="related-pages">Related pages</h2>
-<p><a href="roles.html">Roles and Permissions</a> · <a href="user-management.html">User Management</a> · <a href="getting-started.html">Getting Started</a></p><p class="crumb">Last reviewed 23/10/2026</p></main>
+<p><a href="roles.html">Roles and Permissions</a> · <a href="user-management.html">User Management</a> · <a href="getting-started.html">Getting Started</a></p><p class="crumb">Last reviewed 13/11/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

@@ -1322,19 +1322,8 @@
       document.getElementById('cinv-rejection-reason').textContent = currentInvoice.RejectionReason || '(no reason given)';
     }
 
-    document.getElementById('cinv-my-approval-banner').classList.add('hidden');
-    if (currentInvoice && (currentInvoice.Status === 'PendingApproval' || currentInvoice.Status === 'PendingReversalApproval') && canPost) {
-      const instanceId = currentInvoice.Status === 'PendingReversalApproval' ? currentInvoice.ReversalApprovalInstanceID : currentInvoice.ApprovalInstanceID;
-      rpc
-        .withSuccessHandler(levelNumber => {
-          if (levelNumber) {
-            document.getElementById('cinv-my-approval-banner').classList.remove('hidden');
-            document.getElementById('cinv-my-approval-banner').dataset.level = levelNumber;
-          }
-        })
-        .withFailureHandler(() => {})
-        .getMyPendingApprovalLevel({ approvalInstanceId: instanceId });
-    }
+    // Approve / Reject at the foot of the entry, when it waits on this user (shell APPROVAL BAR, UX4.md item 10).
+    approvalBar.show(document.getElementById('cinv-my-approval-banner'), { instanceId: currentInvoice && (currentInvoice.Status === 'PendingApproval' || currentInvoice.Status === 'PendingReversalApproval') ? (currentInvoice.Status === 'PendingReversalApproval' ? currentInvoice.ReversalApprovalInstanceID : currentInvoice.ApprovalInstanceID) : '', rights: 'CUSTOMERINVOICE' });
 
     ['cinv-form-company', 'cinv-form-customer', 'cinv-form-date', 'cinv-form-description',
       'cinv-form-division', 'cinv-form-branch', 'cinv-form-costcenter', 'cinv-form-profitcenter', 'cinv-form-project', 'cinv-form-rep',

@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-12
+reviewed: 2026-11-13
 title: What's new
 area: start
 order: 3
@@ -10,6 +10,30 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 13/11/2026
+
+- **Short codes for every screen.** Each screen now has a code of 2 to 4
+  letters beside it in the menu (COA, JV, GRN, PO and so on). Type the code
+  in Search modules and press **Enter** to open it. See
+  [Getting started](getting-started.html#the-menu).
+- **Enter and Esc on a screen.** **Enter** on a list starts a new entry;
+  **Esc** goes back to the report you came from, or Home, asking first if
+  something isn't saved. See
+  [Working with screens](working-with-screens.html#keys-on-a-screen).
+- **Approvals at the foot of the entry.** *Your approval is needed* now sits
+  under the entry's lines on every screen, says your level and who decides
+  next, and no longer goes missing when you open the document from a Home
+  task. See [Approvals](approvals.html#approving).
+- **The companies you choose apply everywhere.** Home tasks, My dashboard,
+  the MIS screens and Master Data Import now follow the companies chosen at
+  the top of Home. See
+  [Choosing your companies](getting-started.html#choosing-your-companies).
+- **Dashboard tile sizes.** Tiles can be 1, 2 or 4 wide, and a chart can be
+  tall, with two tiles stacked beside it. See
+  [MIS Dashboard](mis-dashboard.html).
+- **Roles & Permissions.** The row of role names stays at the top while you
+  scroll the matrix. See [Roles & Permissions](roles.html).
 
 ## 12/11/2026
 

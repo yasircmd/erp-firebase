@@ -1,6 +1,6 @@
 <div class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-building-user text-blue-500"></i> Client Management</h2></div>
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-users-gear text-blue-500"></i> Client Management</h2></div>
     <div class="flex flex-wrap gap-2">
       <button id="dv-add" class="hidden bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add corporate</button>
       <button id="dv-refresh" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate"></i> Refresh</button>
@@ -527,7 +527,7 @@
   }
 
   window.initModule = function () {
-    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-building-user"></i> Client Management';
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-users-gear"></i> Client Management';
     el('dv-refresh').addEventListener('click', () => load(current && current.CorporateID));
     el('dv-search').addEventListener('input', renderList);
     el('dv-reset-allowed').addEventListener('change', async e => {

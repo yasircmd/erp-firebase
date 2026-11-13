@@ -833,7 +833,7 @@ exports.getPdcsDueForUser = onCallWithMessages(onCallOptions, async (request) =>
     .filter(p => p.Status === 'Pending' && userCanAccessCompany(user.profile, p.CompanyID) && mine(p))
     .map(p => ({
       ModuleID: DIRECTIONS[p.Direction].moduleId, ModuleLabel: DIRECTIONS[p.Direction].label, DocumentID: p.PdcID,
-      DocumentNumber: p.TransactionNumber || '', ChequeNumber: p.ChequeNumber, ChequeDate: p.ChequeDate,
+      DocumentNumber: p.TransactionNumber || '', CompanyID: p.CompanyID || '', ChequeNumber: p.ChequeNumber, ChequeDate: p.ChequeDate,
       PartyName: p.PartyName || '', Amount: p.Amount, Overdue: p.ChequeDate < asOf
     }))
     .sort((a, b) => (a.ChequeDate + a.DocumentNumber).localeCompare(b.ChequeDate + b.DocumentNumber));

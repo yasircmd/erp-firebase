@@ -278,7 +278,7 @@ exports.getClearanceTasksForUser = onCallWithMessages(onCallOptions, async (requ
   snap.docs.map(d => withStates(d.data())).filter(c => userCanAccessCompany(user.profile, c.CompanyID)).forEach(c => c.Steps.forEach(s => {
     if (s.State !== 'Open') return;
     if ((s.TeamUserIDs || []).includes(user.uid) || (manage && !(s.TeamUserIDs || []).length)) {
-      out.push({ EmployeeID: c.EmployeeID, EmployeeName: c.EmployeeName, EmployeeNo: c.EmployeeNo, LeavingDate: c.LeavingDate, Step: s.Name, Progress: c.Progress });
+      out.push({ EmployeeID: c.EmployeeID, CompanyID: c.CompanyID || '', EmployeeName: c.EmployeeName, EmployeeNo: c.EmployeeNo, LeavingDate: c.LeavingDate, Step: s.Name, Progress: c.Progress });
     }
   }));
   return out.sort((a, b) => String(a.LeavingDate).localeCompare(String(b.LeavingDate)));

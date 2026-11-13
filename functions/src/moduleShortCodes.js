@@ -28,7 +28,6 @@ const SHORT = Object.freeze({
   BANKREC: 'BRC', GLREC: 'GLR', MIS: 'MIS', MISDASHBOARD: 'MISD', DEVELOPER: 'CLM', TECHREF: 'TREF',
   BUILDER: 'MB', PACKSETUP: 'PKS', SUPPORT: 'SUP'
 });
-const TAKEN = new Set(Object.values(SHORT));
 
 // A module's code, or '' (a built module whose letters are taken has none).
 function codeFor(moduleId) {
@@ -37,7 +36,7 @@ function codeFor(moduleId) {
   const m = /^X_([A-Z][A-Z0-9_]*)$/.exec(id);
   if (!m) return '';
   const c = m[1].replace(/[^A-Z0-9]/g, '').slice(0, 4);
-  return c.length >= 2 && !TAKEN.has(c) ? c : '';
+  return c.length >= 2 && !Object.values(SHORT).includes(c) ? c : '';
 }
 
 module.exports = { SHORT, codeFor };

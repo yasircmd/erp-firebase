@@ -10,7 +10,11 @@
 //    change);
 //  - a user with two companies gets nothing filled in, and both offered;
 //  - one with two who chose one at the top (the company filter, decision
-//    273) gets the chosen one filled in, and the other hidden.
+//    273) gets the chosen one filled in, and the other hidden;
+//  - UX4 (item 15): one who chose the second company, on every screen with
+//    a company choice (each screen that asks getActiveCompanies), never has
+//    the first offered or selected, in any dropdown whatever its id, a
+//    report's dropdown with no blank option included.
 //   node functions/test/ui/singleCompany.ui.js [MODULE ...]
 // Run an emulator suite that uses _helpers.js's all-modules permissions
 // first (e.g. vendorMaster), so the fixture data exists.
@@ -26,7 +30,12 @@ const ALL = ['BALANCESHEET', 'CASHFLOW', 'CBT', 'COA', 'CUSTOMERINVOICE', 'CUSTO
   'PROCUREMENTSETUP', 'PRODCONSUMPTION', 'PRODUCTION', 'PROFITLOSS', 'PURCHASEORDER', 'PURCHASEREQUISITION',
   'PURCHASERETURN', 'RECURRINGJV', 'SALESINVOICESETUP', 'SALESORDER', 'SALESRETURN', 'STOCKADJUSTMENT', 'STOCKAVAILABILITY',
   'STOCKLEDGER', 'STOCKVALUATION', 'TRIALBALANCE', 'VENDORINVOICE', 'VENDORMASTER', 'VENDORSOA', 'WAREHOUSEMOVEMENT'];
-const MODULES = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
+// --chosen2 MODULE...: only the UX4 check, for those screens (the whole sweep
+// is run in parts, with the emulators restarted between them: each function
+// called keeps its own emulator worker).
+const CHOSEN2_ONLY = process.argv.includes('--chosen2');
+const ARGS = process.argv.slice(2).filter(a => a !== '--chosen2');
+const MODULES = CHOSEN2_ONLY ? [] : ARGS.length ? ARGS : ALL;
 const MULTI_MODULES = ['GRN', 'JV', 'TRIALBALANCE', 'PURCHASEREQUISITION'].filter(m => MODULES.includes(m));
 const SHARED = /shared|none/i;
 
@@ -37,7 +46,9 @@ async function seedMultiCompanyUser() {
   });
   for (const [path, body] of [
     ['users/u-chose', { status: 'Active', role: 'Admin', username: 'chose', fullName: 'Chose One', AssignedCompanies: ['C1', 'C2'] }],
-    ['userPreferences/u-chose', { Companies: ['C1'] }]]) {
+    ['userPreferences/u-chose', { Companies: ['C1'] }],
+    ['users/u-chose2', { status: 'Active', role: 'Admin', username: 'chose2', fullName: 'Chose Two', AssignedCompanies: ['C1', 'C2'] }],
+    ['userPreferences/u-chose2', { Companies: ['C2'] }]]) {
     await fetch('http://127.0.0.1:9000/' + path + '.json?ns=erp1-8f4cd-default-rtdb', { method: 'PUT', headers: { Authorization: 'Bearer owner' }, body: JSON.stringify(body) });
   }
 }
@@ -54,9 +65,15 @@ const companySelects = page => page.$$eval('#module-container select[id*="compan
   await seedMultiCompanyUser();
   require('./buildHarness');
   const harness = fs.readFileSync(path.join(__dirname, 'harness.html'));
-  const server = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'text/html' }); r.end(harness); }).listen(8126);
+  // The vendor scripts a screen loads (Chart.js on the MIS screens) as themselves.
+  const server = http.createServer((q, r) => {
+    const vendor = /^\/vendor\/([\w.-]+\.js)/.exec(q.url);
+    if (vendor) { r.writeHead(200, { 'Content-Type': 'text/javascript' }); r.end(fs.readFileSync(path.join(__dirname, '../../../public/vendor', vendor[1]))); return; }
+    r.writeHead(200, { 'Content-Type': 'text/html' }); r.end(harness);
+  }).listen(8126);
   const browser = await chromium.launch();
   const results = [];
+  results.push = (...rows) => { rows.forEach(r => console.log(r.join('  '))); return Array.prototype.push.apply(results, rows); }; // as it goes (a long run)
 
   async function open(mod, uid) {
     const page = await browser.newPage();
@@ -159,8 +176,33 @@ const companySelects = page => page.$$eval('#module-container select[id*="compan
     results.push([problems.length ? 'FAIL' : 'PASS', mod, 'u-chose', hidden + ' hide C2', '', problems.join(' | ')]);
   }
 
+  // UX4 item 15: C2 chosen (C1, the first, filtered out), every screen with a
+  // company choice. With module names given, only those.
+  const WITH_CHOICE = ARGS.length ? ARGS : fs.readdirSync(path.join(__dirname, '../../../screens'))
+    .filter(f => /\.html$/.test(f) && /getActiveCompanies/.test(fs.readFileSync(path.join(__dirname, '../../../screens', f), 'utf8'))).map(f => f.replace(/\.html$/, ''));
+  for (const mod of WITH_CHOICE) {
+    const problems = [];
+    let checked = 0;
+    try {
+      const page = await open(mod, 'u-chose2');
+      const sels = await page.$$eval('#module-container select', ss => ss.map(s => {
+        const o = v => Array.from(s.options).find(x => x.value === v);
+        return { id: s.id || s.name || s.className, value: s.value, c1: o('C1') ? (o('C1').hidden ? 'hidden' : 'shown') : 'none', c2: Boolean(o('C2')) };
+      }).filter(s => s.c1 !== 'none' || s.c2));
+      for (const s of sels) {
+        checked++;
+        if (s.value === 'C1') problems.push(s.id + ' is set to C1, not chosen');
+        if (s.c1 === 'shown') problems.push(s.id + ' offers C1, not chosen');
+      }
+      problems.push(...await failedCalls(page), ...page.__errors);
+      await page.close();
+    } catch (e) {
+      problems.push(e.message.split('\n')[0]);
+    }
+    results.push([problems.length ? 'FAIL' : 'PASS', mod, 'u-chose2', checked + ' company dropdowns', '', problems.join(' | ')]);
+  }
+
   await browser.close(); server.close();
-  for (const r of results) console.log(r.join('  '));
   const passed = results.filter(r => r[0] === 'PASS').length;
   console.log(passed + '/' + results.length + ' passed');
   process.exitCode = passed === results.length ? 0 : 1;

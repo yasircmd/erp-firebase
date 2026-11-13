@@ -1,6 +1,6 @@
 ---
-fingerprint: ab7f6a0389a60f69
-reviewed: 2026-11-12
+fingerprint: d2a7fff964464d91
+reviewed: 2026-11-13
 title: Build a report
 area: mis
 order: 3
