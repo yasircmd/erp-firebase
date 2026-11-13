@@ -92,6 +92,7 @@ const MAPPED = {
   assertPartyCurrencyKept_: ['fx', 'assertPartyCurrencyKept', 'dropCtx'],
   accountCurrency_: ['fx', 'accountCurrency', 'dropCtx'], // decision 217 (patch bank-currency)
   ledgerFcBalances_: ['fx', 'ledgerFcBalances', 'pure'],
+  assertActiveRoom_: ['limits', 'assertRoom', 'dropCtx'], // limits per corporate (UX4.md item 2, Q501)
   projectFields_: ['projects', 'projectFields', 'dropCtx'], // docs/modules/PROJECTS_DIMENSIONS.md (patch projects)
   cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
   needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],
@@ -185,6 +186,7 @@ const SHARED_PATHS = {
   fx: '../fx',
   projects: '../projects',
   docRep: '../docRep',
+  limits: '../limits',
   dimensionRules: '../dimensionRules',
   eInvoicing: '../eInvoicing',
   dataReset: '../dataReset', // used by name (__dataReset.) in patches

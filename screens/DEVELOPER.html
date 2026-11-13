@@ -77,7 +77,8 @@
   <div id="dv-detail" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="flex flex-wrap items-center gap-3"><div class="text-lg font-semibold text-slate-100" id="dv-title"></div>
-        <label id="dv-reset-wrap" class="hidden text-xs flex items-center gap-1 text-slate-300" title="Data Reset clears the client's own data: for setting up and testing only"><input type="checkbox" id="dv-reset-allowed"> Data reset allowed</label></div>
+        <label id="dv-reset-wrap" class="hidden text-xs flex items-center gap-1 text-slate-300" title="Data Reset clears the client's own data: for setting up and testing only"><input type="checkbox" id="dv-reset-allowed"> Data reset allowed</label>
+        <span id="dv-limits-wrap" class="hidden text-xs flex items-center gap-1 text-slate-300" title="The most Active companies and users the client may have (blank: no limit). Lowering one switches nothing off.">Most companies <input type="number" min="1" id="dv-max-companies" data-no-dirty class="w-16 bg-slate-900 border border-slate-700 rounded px-1 py-0.5" placeholder="any"> users <input type="number" min="1" id="dv-max-users" data-no-dirty class="w-16 bg-slate-900 border border-slate-700 rounded px-1 py-0.5" placeholder="any"> <button type="button" id="dv-limits-save" class="bg-slate-700 hover:bg-slate-600 rounded px-2 py-0.5">Save limits</button></span></div>
       <div class="flex gap-1 text-xs" id="dv-tabs">
         <button data-tab="connection" class="px-3 py-1.5 rounded-lg border border-slate-700">Connection</button>
         <button data-tab="setup" class="px-3 py-1.5 rounded-lg border border-slate-700">Set up</button>
@@ -231,6 +232,10 @@
     el('dv-reset-wrap').classList.toggle('hidden', !!c.isNew);
     el('dv-reset-allowed').checked = resetAllowed(c);
     el('dv-reset-allowed').disabled = !data.canWrite;
+    // Limits (UX4.md item 2, Q501).
+    el('dv-limits-wrap').classList.toggle('hidden', !!c.isNew);
+    el('dv-max-companies').value = c.MaxCompanies || ''; el('dv-max-users').value = c.MaxUsers || '';
+    ['dv-max-companies', 'dv-max-users', 'dv-limits-save'].forEach(id => { el(id).disabled = !data.canWrite; });
     const w = c.WebConfig || {};
     el('dv-id').value = c.CorporateID || ''; el('dv-id').disabled = !c.isNew;
     el('dv-name').value = c.Name || ''; el('dv-status').value = c.Status || 'Active';
@@ -535,6 +540,8 @@
       if (!(await appConfirm((allowed ? 'Allow' : 'Turn off') + ' Data Reset for ' + current.CorporateID + '? ' + (allowed ? 'Its Admin can then clear its data (for setting up and testing).' : 'Its Admin can no longer clear its data.')))) { e.target.checked = !allowed; return; }
       call('saveDeveloperDataReset', { CorporateID: current.CorporateID, allowed }).then(() => load(current.CorporateID), err => { e.target.checked = !allowed; fail('change Data Reset')(err); });
     });
+    el('dv-limits-save').addEventListener('click', () => call('saveDeveloperLimits', { CorporateID: current.CorporateID, MaxCompanies: el('dv-max-companies').value, MaxUsers: el('dv-max-users').value })
+      .then(() => { appAlert('Limits saved for ' + current.CorporateID + '.'); return load(current.CorporateID); }, fail('save the limits')));
     el('dv-add').addEventListener('click', () => open({ isNew: true, Status: 'Inactive' })); // Active once Test connection passes
     el('dv-pages').querySelectorAll('button').forEach(b => b.addEventListener('click', () => showPage(b.dataset.page)));
     showPage('corporates');

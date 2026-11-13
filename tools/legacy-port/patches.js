@@ -3973,4 +3973,24 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 
       // System quantity is a draft-time snapshot`
   }
+
+  ,
+  {
+    id: 'corporate-limits (user)',
+    why: 'NEW DEVELOPMENT (owner, 2026-11-13; docs/modules/UX4.md item 2, Q501): saving a user who would be Active is refused at the corporate\'s user limit (functions/src/limits.js).',
+    find: `    if (!roles[role]) throw new Error('Unknown role: ' + role);
+`,
+    replace: `    if (!roles[role]) throw new Error('Unknown role: ' + role);
+    assertActiveRoom_(idToken, 'user', id, status); // [NEW DEVELOPMENT corporate-limits]
+`
+  },
+  {
+    id: 'corporate-limits (company)',
+    why: 'As above: saving a company that would be Active is refused at the corporate\'s company limit.',
+    find: `    if (companyId && parentCompanyId === companyId) throw new Error('A company cannot be its own parent.');
+`,
+    replace: `    if (companyId && parentCompanyId === companyId) throw new Error('A company cannot be its own parent.');
+    assertActiveRoom_(idToken, 'company', companyId, status); // [NEW DEVELOPMENT corporate-limits]
+`
+  }
 ];

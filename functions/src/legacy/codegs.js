@@ -25,6 +25,7 @@ const __fx = require('../fx');
 const __glWriting = require('../glWriting');
 const __invoiceStock = require('../invoiceStock');
 const __itemCategories = require('../itemCategories');
+const __limits = require('../limits');
 const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
@@ -68,6 +69,7 @@ const documentBaseLines_ = (...a) => __fx.documentBaseLines(...a);
 const assertPartyCurrencyKept_ = (idToken, ...a) => __fx.assertPartyCurrencyKept(...a);
 const accountCurrency_ = (idToken, ...a) => __fx.accountCurrency(...a);
 const ledgerFcBalances_ = (...a) => __fx.ledgerFcBalances(...a);
+const assertActiveRoom_ = (idToken, ...a) => __limits.assertRoom(...a);
 const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
 const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
 const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
@@ -682,6 +684,7 @@ async function saveFirebaseUser(idToken, userData) {
 
     const roles = await ensureRolesSeeded_(idToken);
     if (!roles[role]) throw new Error('Unknown role: ' + role);
+    await assertActiveRoom_(idToken, 'user', id, status); // [NEW DEVELOPMENT corporate-limits]
 
     // [PORT CHANGE import-user-id] the user's id is returned, for Master Data Import's undo.
     let savedUserId = id;
@@ -1344,6 +1347,7 @@ async function saveCompany(idToken, companyData) {
 
     if (!legalName) throw new Error('Legal company name is required.');
     if (companyId && parentCompanyId === companyId) throw new Error('A company cannot be its own parent.');
+    await assertActiveRoom_(idToken, 'company', companyId, status); // [NEW DEVELOPMENT corporate-limits]
 
     // GRN Clearing Account is a FIXED, per-company setting — not chosen
     // per-transaction. A clearing account only works as one if it's

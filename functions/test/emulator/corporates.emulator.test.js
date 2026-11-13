@@ -162,3 +162,36 @@ test('Drive sign-in: the link carries its corporate, and Google\'s return finds 
   const page = await (await fetch('http://127.0.0.1:5001/' + PROJECT + '/us-central1/driveOAuthCallback?state=200.nope&code=x')).text();
   assert.match(page, /This sign-in link has expired/);
 });
+
+// Limits per corporate (owner, 2026-11-13; docs/modules/UX4.md item 2,
+// Q501): set by the firm in Client Management; a client's save that would
+// take its Active companies or users over is refused; Inactive ones don't
+// count; making one Active again counts; nothing is switched off.
+test('limits: set in Client Management; a new or reactivated Active company or user over the limit is refused, Inactive ones are not', async () => {
+  const set = r => assert.equal(r.success, true, JSON.stringify(r));
+  set(await call('u-admin', 'saveDeveloperLimits', { CorporateID: '200', MaxCompanies: '1', MaxUsers: 1 }));
+  const entry = (await firestore.doc('corporateDirectory/200').get()).data();
+  assert.deepEqual([entry.MaxCompanies, entry.MaxUsers], [1, 1]);
+  await assert.rejects(call('u-admin', 'saveDeveloperLimits', { CorporateID: '200', MaxCompanies: '0' }), /whole number of at least 1/);
+
+  const company = (o) => cara('saveCompany', { companyData: Object.assign({ LegalName: 'Second Co', Status: 'Active' }, o) });
+  assert.match((await company({})).error || '', /allows 1 active companies/);
+  const inactive = await company({ Status: 'Inactive' });
+  assert.equal(inactive.success, true, inactive.error);
+  const id = Object.keys((await clientRtdb.ref('companies').get()).val()).find(k => k !== 'K1');
+  assert.match((await company({ CompanyID: id })).error || '', /contact your provider/, 'made Active again: refused');
+  const k1 = await company({ CompanyID: 'K1', LegalName: 'Client Co' });
+  assert.equal(k1.success, true, 'one already Active is saved as before: ' + k1.error);
+
+  assert.match((await cara('saveFirebaseUser', { userData: { username: 'dan', fullName: 'Dan', email: 'dan@client.test', password: 'secret-2', role: 'Admin', status: 'Active' } })).error || '', /allows 1 active users/);
+  // Blank again: no limit.
+  set(await call('u-admin', 'saveDeveloperLimits', { CorporateID: '200', MaxCompanies: '', MaxUsers: '' }));
+  assert.equal((await company({ CompanyID: id })).success, true);
+  const after = (await firestore.doc('corporateDirectory/200').get()).data();
+  assert.deepEqual(['MaxCompanies' in after, 'MaxUsers' in after], [false, false]);
+});
+
+test('limits: Corporate 100 has none', async () => {
+  const r = await call('u-admin', 'saveCompany', { companyData: { LegalName: 'Home Co Three', Status: 'Active' } });
+  assert.equal(r.success, true, r.error);
+});
