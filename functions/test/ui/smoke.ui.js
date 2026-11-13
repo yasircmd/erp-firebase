@@ -13,7 +13,7 @@ const { onAppDialog } = require('./_appDialogs');
 
 const listed = require('../../../tools/legacy-port/modules.json').modules;
 const MODULES = process.argv.slice(2).length ? process.argv.slice(2)
-  : ['STOCKADJUSTMENT', 'MATERIALISSUE', 'GRN', 'WAREHOUSEMOVEMENT', 'PURCHASERETURN', 'SALESRETURN', 'VENDORSOA', 'CUSTOMERSOA', 'PDCRECEIVED', 'PDCISSUED', 'FACONFIG', 'FAASSET', 'FAACQ', 'FADEPRUN', 'FAADDDEP', 'FAREGISTER', 'FARETIRE', 'FAAUC', 'RECURRINGJV', ...listed];
+  : ['STOCKADJUSTMENT', 'MATERIALISSUE', 'GRN', 'WAREHOUSEMOVEMENT', 'PURCHASERETURN', 'SALESRETURN', 'VENDORSOA', 'CUSTOMERSOA', 'PDCRECEIVED', 'PDCISSUED', 'FACONFIG', 'FAASSET', 'FAACQ', 'FADEPRUN', 'FAADDDEP', 'FAREGISTER', 'FARETIRE', 'FAAUC', 'RECURRINGJV', 'AUDITLOG', ...listed];
 
 // Failures that are the ORIGINAL behavior for that role (documented in
 // docs/MIGRATION.md's quirks list), not port bugs: module+uid -> regex of allowed problems.
@@ -21,7 +21,9 @@ const EXPECTED = {
   'USERMGMT|u-viewer': /You do not have permission to manage users\./,
   // Data Reset hard-checks the literal role 'ADMIN' (requireAdminRole_).
   'DATARESET|u-admin': /Only Admin users can access Data Reset\./,
-  'DATARESET|u-viewer': /Only Admin users can access Data Reset\./
+  'DATARESET|u-viewer': /Only Admin users can access Data Reset\./,
+  // The Audit Log is Admin only by default (AUDIT_LOG.md, Q509): the viewer is refused.
+  'AUDITLOG|u-viewer': /You do not have access to this module\./
 };
 // Data Reset is also loaded as a real 'ADMIN' user, seeded below.
 const usersFor = (mod) => mod === 'DATARESET' ? ['u-admin', 'u-viewer', 'u-root'] : ['u-admin', 'u-viewer'];

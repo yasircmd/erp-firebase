@@ -412,6 +412,8 @@ const support = require('./src/support');
 ['getCorrectionJvs', 'getEntryForCorrection', 'getCorrectionJv', 'saveCorrectionJvDraft'].forEach(n => { exports[n] = require('./src/correctionJv')[n]; });
 // Technical Reference (docs/modules/TECH_REFERENCE.md): firm-only, read only.
 ['getTechRefPart', 'searchTechRef'].forEach(n => { exports[n] = require('./src/techRef')[n]; });
+// The Audit Log (docs/modules/AUDIT_LOG.md, step 3).
+['getAuditLog', 'getAuditLogFilters'].forEach(n => { exports[n] = require('./src/auditLog')[n]; });
 // MIS (docs/modules/MIS.md): the engine (phase 1).
 ['getMisCatalogue', 'runMisReport', 'getMisSetup', 'saveMisSetup'].forEach(n => { exports[n] = require('./src/mis')[n]; });
 ['getMisDashboard', 'getMisHomeChoice', 'saveMisDashboard', 'resetMisDashboard', 'saveMisRoleDashboard'].forEach(n => { exports[n] = require('./src/misDashboard')[n]; }); // MIS.md, phase 2

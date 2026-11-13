@@ -31,6 +31,76 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "auditLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "RecordID",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "At",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "auditLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "RecordLabel",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "At",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "auditLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "UserID",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "At",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "auditLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ModuleID",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "At",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "auditLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Action",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "At",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

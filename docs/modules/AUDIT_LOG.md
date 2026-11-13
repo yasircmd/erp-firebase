@@ -1,6 +1,6 @@
 # Audit log (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-13** (QA1–QA7, all as recommended; see *The owner's decisions*). **Step 1 built 2026-11-13**, **step 2 built 2026-11-13** (QA8 added; see *As built*); step 3 next.
+Status: **design agreed 2026-11-13** (QA1–QA7, all as recommended; see *The owner's decisions*). **Steps 1, 2 and 3 built 2026-11-13** (QA8 and QA9 added; see *As built*).
 Item 14 of UX batch 4 (docs/modules/UX4.md). Already decided:
 
 - **Q508:** it records actions and changed fields. Every save, submit,
@@ -101,6 +101,7 @@ auditLog/{time-ordered id}
 - **QA6:** the firm's actions on a client go in the firm's log and also in the client's, as "the provider".
 - **QA7:** the log starts on the day it is switched on.
 - **QA8** (2026-11-13, asked while building step 2): the masters and settings kept in Firestore (employees and their pay, the HR and payroll setups, fixed assets, budgets, credit limits, tax setup, bank details, mail accounts) record their changed fields too, through the same wrapper, in step 2.
+- **QA9** (2026-11-13, asked while building step 3): every corporate has the Audit Log, always on like User Management; the firm cannot switch it off for a client.
 
 ## The steps, once agreed
 
@@ -210,3 +211,45 @@ every one), and step 3 adds the module to moduleRegistry.js.
   then the "hosting" task (public/index.html and public/ess.html: the
   sign-out). No rules, no screens. Nothing a user sees yet: the log's
   screen is step 3, with its Help and What's new.
+
+## As built: step 3 (2026-11-13)
+
+- **The module:** AUDITLOG, "Audit Log" (short code AUD), capability
+  access, default Admin only. `everywhere: true` in moduleRegistry.js makes
+  every corporate have it, whatever its directory entry (entitlements.js,
+  QA9); Client Management lists it as always on. Menu: SYSTEM ADMIN →
+  Audit Log (treeSeedNodes.js). The live trees get it with Tree
+  Management after the deploy (the seed only fills an empty tree).
+- **functions/src/auditLog.js** (new, read only): `getAuditLogFilters`
+  (the corporate's users, the modules, the actions, the years kept) and
+  `getAuditLog` ({ userId, moduleId, action, record, fromAt, toAt }). One
+  indexed filter goes to Firestore (a record, by RecordID or RecordLabel,
+  else the user, the module, the action), with the dates, newest first, at
+  most 500; the other filters narrow those. The five composite indexes
+  (field + At descending) are in firestore.indexes.json.
+- **screens/AUDITLOG.html:** the filters (user, module, action, record,
+  From and To in the user's own days), the newest entries, **Open** for an
+  entry's details and its fields before → after (a sensitive field reads
+  "changed"), and **Copy to Excel** (one row per changed field).
+- **Keeping (Q509):** `audit.sweepExpired` deletes entries over 7 years
+  old (400 at a time, up to 4,000 a run). It runs once a day, in the task
+  emails' scheduled sweep at 02:00 UTC, for each corporate in its own
+  (taskMail.js sweepAll), rather than a monthly function of its own: no new
+  scheduled function. It is the only delete in audit.js (unit auditLog
+  checks it).
+- **Data Reset (Q509):** a new transactional category, *Audit Log*,
+  clears the whole log. `clearDataCategories` is now an action (reset),
+  so the reset is the new log's first entry.
+- **Help:** help/pages/audit-log.md (Administration), Data Reset's page,
+  What's new.
+- **Tests:** emulator auditLogScreen (5: Admin only, and reads not
+  recorded; the filters; every corporate has it; the 7-year sweep; Data
+  Reset), dataResetAll's count, the UI smoke test (AUDITLOG: the viewer
+  refused, as expected). Negative controls: no access check, a sweep that
+  keeps nothing, the module not everywhere, no Data Reset category: each
+  failed a test.
+- **Deploy:** set audit-log-3. The rules task first (the five indexes),
+  then every function (moduleRegistry.js changed) with --screens (the
+  AUDITLOG screen), two new functions (getAuditLog, getAuditLogFilters:
+  their invoker bindings), then hosting (the Help). After it: add Audit
+  Log to the menu in Tree Management.

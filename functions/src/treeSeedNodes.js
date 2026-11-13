@@ -282,6 +282,8 @@ const TREE_SEED_NODES = [
   { text: 'User Management', depth: 1, moduleId: 'USERMGMT' },
   { text: 'Security & Access Control', depth: 1 },
   { text: 'Roles & Permissions Management', depth: 1, moduleId: 'ROLES' },
+  // New development: docs/modules/AUDIT_LOG.md (Admin only).
+  { text: 'Audit Log', depth: 1, moduleId: 'AUDITLOG' },
   { text: 'System Health & Maintenance', depth: 1 },
   { text: 'Configuration & Data Management', depth: 1 },
   { text: 'Master Data Import', depth: 2, moduleId: 'MASTERIMPORT' },

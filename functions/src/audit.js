@@ -42,7 +42,7 @@ const VERBS = [
   ['update', 'save'], ['set', 'save'], ['add', 'save'], ['mark', 'status'], ['record', 'save'], ['run', 'run'],
   ['publish', 'publish'], ['reset', 'reset'], ['tick', 'save'], ['copy', 'save'], ['import', 'import'],
   ['provide', 'save'], ['test', null], ['request', 'submit'], ['revise', 'save'], ['restore', 'save'],
-  ['release', 'run'], ['purge', 'delete'], ['give', 'save'], ['upload', 'save'], ['change', 'save']
+  ['release', 'run'], ['purge', 'delete'], ['clear', 'reset'], ['give', 'save'], ['upload', 'save'], ['change', 'save']
 ];
 // Never actions, whatever their name says: reads, and the log's own reader.
 const NOT_ACTIONS = /^(get|list|find|search|check|load|read|preview|compare|corporateSignIn|userIdSignIn|essPortal$|restoreSession|completeLogin|recordSignOut)/;
@@ -319,6 +319,28 @@ async function knownAfter(corporate, key) {
   return prev && !prev.many ? prev.after : undefined;
 }
 
+// ---------- keeping (Q509, step 3) ----------
+
+// Kept 7 years: the daily sweep (taskMail.js sweepAll, each corporate in
+// its own) deletes older entries, at most ROUNDS x 400 a run. The only
+// delete in this file; Data Reset clears the whole log (dataReset.js).
+const KEEP_YEARS = 7;
+async function sweepExpired(now) {
+  const cutoff = new Date(now || Date.now());
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - KEEP_YEARS);
+  let removed = 0;
+  for (let round = 0; round < 10; round++) {
+    const old = await firestore.collection(COLLECTION).where('At', '<', cutoff.toISOString()).limit(400).get();
+    if (old.empty) break;
+    const batch = firestore.batch();
+    old.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    removed += old.size;
+    if (old.size < 400) break;
+  }
+  return removed;
+}
+
 // ---------- sign-ins and sign-outs (QA5) ----------
 
 // how: 'ERP' or 'Portal'. who: given for the portal (its users are
@@ -335,5 +357,5 @@ const signOut = (request, how, who) => session('signout', request, how, who);
 
 module.exports = {
   COLLECTION, runWithRequest, record, afterCall, documentChanged, actionOf, moduleOf, recordIdOf, refusalOf, documentEntry,
-  watching, masterChanged, knownAfter, fieldChanges, masterEntry, signIn, signOut
+  watching, masterChanged, knownAfter, fieldChanges, masterEntry, signIn, signOut, sweepExpired, KEEP_YEARS
 };

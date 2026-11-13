@@ -6,7 +6,7 @@ modules: [TREEMGMT]
 sources: [functions/src/tree.js, functions/src/entitlements.js]
 summary: Build the menu tree and link each module to the right company, role and section.
 reviewed: 2026-11-13
-fingerprint: 113e893ef43fbef8
+fingerprint: 74ffabe58a65e163
 ---
 ## What it is for
 

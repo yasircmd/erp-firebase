@@ -29,7 +29,7 @@
       "modules": ["JOBORDERREQUEST", "BOM", "PRODUCTION", "PRODCONSUMPTION", "MATERIALVARIANCE"] },
     { "id": "admin", "title": "Administration", "written": true,
       "intro": "Companies, users, rights, the menu, approvals, numbering, imports and documents.",
-      "modules": ["COMPANYMASTER", "ORGUNITS", "USERMGMT", "ROLES", "TREEMGMT", "APPROVALCONFIG", "APPROVALTRACKER", "NUMBERING", "MASTERIMPORT", "DOCUMENTSTORAGE", "COMPANYDOCS", "DATARESET", "SUPPORT"] },
+      "modules": ["COMPANYMASTER", "ORGUNITS", "USERMGMT", "ROLES", "TREEMGMT", "APPROVALCONFIG", "APPROVALTRACKER", "AUDITLOG", "NUMBERING", "MASTERIMPORT", "DOCUMENTSTORAGE", "COMPANYDOCS", "DATARESET", "SUPPORT"] },
     { "id": "mis", "title": "Management reports (MIS)", "written": true,
       "intro": "Management reports, the dashboard and the report builder.",
       "modules": ["MISDASHBOARD", "MIS"] },

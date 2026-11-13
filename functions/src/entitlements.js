@@ -33,6 +33,7 @@ function availableIn(id, entry, moduleId) {
   const m = byId(moduleId);
   if (!m) return false;
   if (m.homeOnly) return false;
+  if (m.everywhere) return true; // the Audit Log (QA9): never switched off
   const modules = (entry && entry.Modules) || {};
   return BASELINE_MODULES.includes(moduleId) ? modules[moduleId] !== false : modules[moduleId] === true;
 }
