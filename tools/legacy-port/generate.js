@@ -513,7 +513,7 @@ const SCREEN_EDITS = [
         <table class="w-full text-left">
           <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
             <th class="py-3 px-4">Module</th>`,
-    to: `<div id="perm-scroll" class="overflow-auto" style="max-height:75vh">
+    to: `<div id="perm-scroll" style="max-height:75vh;overflow:auto">
         <table class="w-full text-left">
           <thead class="sticky top-0 z-10"><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
             <th class="py-3 px-4">Module</th>` },

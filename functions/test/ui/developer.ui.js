@@ -111,7 +111,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.click('#dv-note-save');
     await until(p, () => /Set up payroll/.test(document.getElementById('dv-notes').textContent));
     assert.match(await p.textContent('#dv-notes'), /Task\s*Open\s*Approver\s*01\/11\/2026/, 'the due date shown dd/mm/yyyy');
-    await until(p, () => /Active\s*1\s*1/.test(document.querySelector('#dv-list tr[data-id="200"]').textContent));
+    await until(p, () => /Active\s*1\s*Allowed\s*1/.test(document.querySelector('#dv-list tr[data-id="200"]').textContent));
     await p.click('#dv-notes .dv-note-edit');
     assert.equal(await p.inputValue('#dv-note-title'), 'Set up payroll');
     await p.selectOption('#dv-note-status', 'Done');

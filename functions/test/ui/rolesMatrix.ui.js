@@ -57,9 +57,9 @@ const EXTRA = ['ACCOUNTANT', 'ADMIN_TESTER', 'CASHIER', 'FINANCE_MGR', 'HR Execu
     const stuck = await p.evaluate(() => {
       const box = document.getElementById('perm-scroll'); box.scrollTop = 2000;
       const h = document.querySelector('.perm-role-th').getBoundingClientRect(), b = box.getBoundingClientRect();
-      return { scrolled: box.scrollTop > 0, top: Math.round(h.top - b.top) };
+      return { scrolled: box.scrollTop > 0, top: Math.round(h.top - b.top), sh: box.scrollHeight, ch: box.clientHeight, css: getComputedStyle(box).maxHeight + ' ' + getComputedStyle(box).overflowY };
     });
-    assert.ok(stuck.scrolled, 'the matrix scrolls');
+    assert.ok(stuck.scrolled, 'the matrix scrolls ' + JSON.stringify(stuck));
     assert.ok(stuck.top >= 0 && stuck.top < 4, 'the header at the top: ' + stuck.top);
     await p.evaluate(() => { document.getElementById('perm-scroll').scrollTop = 0; });
     // Tick Viewer's (the last column's) Chart of Accounts write, save, and it is stored.
