@@ -38,12 +38,13 @@ function stubs() {
   const tree = [
     { depth: 0, text: 'Accounts Payable' },
     { depth: 1, text: 'Purchasing' },
-    { depth: 2, text: 'Purchase Order', moduleId: 'PURCHASEORDER' },
-    { depth: 2, text: 'Purchase Return / Debit Note', moduleId: 'PURCHASERETURN' },
-    { depth: 1, text: 'Vendor Invoice', moduleId: 'VENDORINVOICE' },
+    { depth: 2, text: 'Purchase Order', moduleId: 'PURCHASEORDER', short: 'PO' },
+    { depth: 2, text: 'Purchase Return / Debit Note', moduleId: 'PURCHASERETURN', short: 'PRT' },
+    { depth: 1, text: 'Vendor Invoice', moduleId: 'VENDORINVOICE', short: 'VI' },
     { depth: 0, text: 'Accounts Receivable' },
-    { depth: 1, text: 'Customer Invoice', moduleId: 'CUSTOMERINVOICE' },
-    { depth: 1, text: 'Sales Return / Credit Note', moduleId: 'SALESRETURN' }
+    { depth: 1, text: 'Customer Invoice', moduleId: 'CUSTOMERINVOICE', short: 'CI' },
+    { depth: 1, text: 'Sales Return / Credit Note', moduleId: 'SALESRETURN', short: 'SR' },
+    { depth: 1, text: 'Customer Reviews', moduleId: 'CRM', short: 'CRM' }
   ];
   let favorites = [{ moduleId: 'VENDORINVOICE', label: 'Vendor Invoice' }];
   window.__calls = [];
@@ -243,13 +244,13 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('UX4: a module\'s short code shown in the menu; typed, Enter opens it however many others match', async () => {
     const page = await open();
-    await page.fill('#module-search', 'so');
+    await page.fill('#module-search', 'vi');
     const hits = await visibleModules(page);
-    assert.ok(hits.length > 1 && hits.includes('SALESORDER'), 'several match "so": ' + hits.join(','));
-    assert.equal((await page.textContent('#tree-container [data-module-id="SALESORDER"] .mod-short')).trim(), 'SO');
+    assert.deepEqual(hits.sort(), ['CRM', 'VENDORINVOICE'], 'two match "vi" (Customer Reviews by its name)');
+    assert.equal((await page.textContent('#tree-container [data-module-id="VENDORINVOICE"] .mod-short')).trim(), 'VI');
     await page.press('#module-search', 'Enter');
     await page.waitForSelector('#stub-module');
-    assert.match(await page.textContent('#stub-module'), /SALESORDER/);
+    assert.match(await page.textContent('#stub-module'), /VENDORINVOICE/);
     assert.deepEqual(page.__errors, []);
     await page.close();
   });
