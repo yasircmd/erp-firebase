@@ -1,6 +1,6 @@
 # UX batch 4 (owner, 2026-11-13)
 
-Status: **Waves A and B built 2026-11-13** (see *As built*), decisions Q500–Q511. Wave C: AUDIT_LOG.md agreed (QA1–QA7); ITEMS_FIRESTORE.md next (measured first, Q510).
+Status: **Waves A and B built 2026-11-13** (see *As built*), decisions Q500–Q511. Wave C: AUDIT_LOG.md agreed (QA1–QA7); ITEMS_FIRESTORE.md measured and drafted 2026-11-13, for the owner's decisions (QI1–QI6).
 
 ## The owner's list
 
