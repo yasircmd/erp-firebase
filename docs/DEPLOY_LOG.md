@@ -2064,3 +2064,35 @@ from, and how it was verified. The deploy procedure is in the
   Live: calculated fields, Project links, actions as a variant and on the
   record's project, packs, Pack setup. To do in the app: publish the packs
   (Module Builder → Packs), then provide them in the Developer screen.
+- **2026-11-13, UX batch 4 Wave A (PR #276, from `47edb45`):** "functions
+  set, then screens" `ux4-wave-a`, run
+  [#364](https://github.com/yasircmd/erp-firebase/actions/runs/43400467379)
+  (09:20–11:47 UTC), success: `SUMMARY: functions deployed: 724 …; access
+  granted: 723 (none for: sweepTaskMail); screens released: yes` (the styles
+  and Hosting redeployed with it). "hosting", run
+  [#365](https://github.com/yasircmd/erp-firebase/actions/runs/43421789627)
+  (12:02–12:03 UTC), success (the Help). No rules change. Live: short codes,
+  Enter/Esc, dashboard tile sizes, the approval bar at the foot of entries,
+  the company filter everywhere, Client Management search and Data reset.
+- **2026-11-13, UX batch 4 Wave B (PR #278, from `9eb5f2d`):** run
+  [#366](https://github.com/yasircmd/erp-firebase/actions/runs/43422082232)
+  failed at the set lookup: PR #277 had merged into `ux4-wave-a`, not `main`,
+  so `ux4-wave-b` was not on `main` yet (fixed by PR #278). "functions set,
+  then screens" `ux4-wave-b`, run
+  [#367](https://github.com/yasircmd/erp-firebase/actions/runs/43422533211)
+  (12:07–14:41 UTC), success: `SUMMARY: functions deployed: 725 …; access
+  granted: 724 (none for: sweepTaskMail); screens released: yes` (the new
+  saveDeveloperLimits among them). "hosting", run
+  [#368](https://github.com/yasircmd/erp-firebase/actions/runs/43445168653)
+  (14:41–14:42 UTC), success. No rules change. Live: one sign-in routed to
+  the portal, limits per corporate, a warehouse's default cost center,
+  optional descriptions on stock entries.
+- **2026-11-13, Audit log step 1 (PR #279, from `1785f62`):** "functions set,
+  then screens" `audit-log-1`, run
+  [#369](https://github.com/yasircmd/erp-firebase/actions/runs/43445818414)
+  (14:45–17:12 UTC, 121 batches of 6), success: `SUMMARY: functions deployed:
+  725 …; access granted: 724 (none for: sweepTaskMail); screens released:
+  yes` (release 20261113T171145Z-1785f62; the styles and Hosting redeployed
+  with it). No new function, no rules change. Live: every changing request
+  and every document's creation and status change written to `auditLog`
+  (no screen yet: step 3).
