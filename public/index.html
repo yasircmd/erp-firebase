@@ -1099,6 +1099,8 @@
     // Firebase ID token is no longer passed explicitly at all, since
     // callable functions verify it automatically (see
     // functions/src/auth.js's own requireUser).
+    // A call that saves or moves a document on clears the screen's edited mark (SCREEN KEYS, UX4.md item 12).
+    const SAVING_CALL = /^(save|post|submit|delete|approve|reject|decide|cancel|reverse|confirm|finalise|mark|close|record|run|publish)/;
     function __rpcChain(ctx) {
       return new Proxy({}, {
         get(_t, prop) {
@@ -1134,7 +1136,7 @@
             Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
               .then(idToken => sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(
                 corp ? { __corporate: { id: corp, idToken: idToken }, __data: arg === undefined ? null : arg } : arg))
-              .then(result => { __rpcFinish(timer); if (ctx.successFn && current()) ctx.successFn(result.data); })
+              .then(result => { __rpcFinish(timer); if (fromScreen && current() && SAVING_CALL.test(prop)) window.__screenEdited = false; if (ctx.successFn && current()) ctx.successFn(result.data); })
               .catch(err => { __rpcFinish(timer); if (ctx.failureFn && current()) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
         }
@@ -3860,14 +3862,80 @@
     // ought to reset every open tab's timer, not just this one.
     document.getElementById('idle-stay-btn').addEventListener('click', () => resetIdleTimer());
 
+    // ---------- SCREEN KEYS ----------
+    // (owner, 2026-11-13; docs/modules/UX4.md items 11, 12, Q506)
+    // Enter on a screen (focus not in a field, no dialog open) presses its New
+    // button: one marked data-new, else a shown button whose label starts with
+    // "New". Esc goes back: to the screen it was opened from (a report's
+    // drill-down chain), else Home, asking "Leave without saving?" first when
+    // the screen has unsaved changes. Esc inside a dialog, a picker or a
+    // screen's own pop-up only closes that (they stop the key themselves; a
+    // pop-up left open stops it here).
+    // Unsaved changes: the screen's own window.hasUnsavedChanges() when it has
+    // one, else a field of its form (not a search or filter) changed since the
+    // screen opened or last saved (a save, post, submit … call clears it).
+    window.__screenEdited = false;
+    function screenUnsaved() {
+      if (typeof window.hasUnsavedChanges === 'function') return Boolean(window.hasUnsavedChanges());
+      return Boolean(window.__screenEdited);
+    }
+    (function () {
+      const container = () => document.getElementById('module-container');
+      const FORM_AREA = /(form|entry|editor|detail|modal|line)/i;
+      function markEdited(e) {
+        const t = e.target;
+        if (!t || !/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.type === 'search') return;
+        if (t.closest('[data-no-dirty]') || /search|filter/i.test((t.id || '') + ' ' + (t.name || ''))) return;
+        let inForm = Boolean(t.closest('form'));
+        for (let n = t.parentElement; !inForm && n && n !== container(); n = n.parentElement) if (n.id && FORM_AREA.test(n.id)) inForm = true;
+        if (inForm) window.__screenEdited = true;
+      }
+      document.addEventListener('input', e => { if (container() && container().contains(e.target)) markEdited(e); });
+      document.addEventListener('change', e => { if (container() && container().contains(e.target)) markEdited(e); });
+      const shown = el => { if (!el || el.closest('.hidden')) return false; const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden' && el.getClientRects().length > 0; };
+      const onScreen = () => container() && !container().classList.contains('hidden');
+      const popupOpen = () => [...container().querySelectorAll('.fixed')].some(el => /inset-0/.test(el.className) && shown(el)) ||
+        shown(document.getElementById('approval-card'));
+      function newButton() {
+        const all = [...container().querySelectorAll('button, a.btn')].filter(b => shown(b) && !b.disabled);
+        return all.find(b => b.hasAttribute('data-new')) || all.find(b => /^\s*(\+\s*)?New\b/i.test(b.textContent || ''));
+      }
+      async function goBack() {
+        if (screenUnsaved() && !(await appConfirm('You have unsaved changes. Leave without saving?'))) return;
+        window.__screenEdited = false;
+        const chain = (window.__shellReturnChain || []).slice();
+        const to = chain.pop();
+        if (to && to.moduleId) { window.hasUnsavedChanges = undefined; openModule(to.moduleId, to.params, chain); return; }
+        handleBackToHierarchy(true);
+      }
+      // Whether a pop-up was open when the key came, seen before any screen's own
+      // handler runs (an item picker closes itself on Esc without stopping it).
+      let popupAtKey = false;
+      document.addEventListener('keydown', () => { popupAtKey = onScreen() && popupOpen(); }, true);
+      document.addEventListener('keydown', e => {
+        if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !onScreen() || popupAtKey || popupOpen()) return;
+        if (e.key === 'Escape') { e.preventDefault(); goBack(); return; }
+        if (e.key === 'Enter') {
+          if (screenUnsaved()) return; // never over a form being filled in
+          const a = document.activeElement;
+          if (a && a !== document.body && (/^(INPUT|SELECT|TEXTAREA|BUTTON|A|SUMMARY)$/.test(a.tagName) || a.isContentEditable || a.closest('[tabindex]'))) return;
+          const b = newButton();
+          if (b) { e.preventDefault(); b.click(); }
+        }
+      });
+      window.screenKeys = { unsaved: screenUnsaved, newButton: () => onScreen() && newButton() };
+    })();
+    // ---------- END SCREEN KEYS ----------
+
     // A loaded module fragment may define window.hasUnsavedChanges() to
     // report whether leaving right now would lose in-progress data (e.g.
     // an open, unsaved JV/CBT entry). The shell doesn't know a fragment's
     // internal state otherwise, so it just asks before navigating away.
-    async function handleBackToHierarchy() {
-      if (typeof window.hasUnsavedChanges === 'function' && window.hasUnsavedChanges()) {
+    async function handleBackToHierarchy(asked) {
+      if (!asked && screenUnsaved()) {
         if (!(await appConfirm('You have unsaved changes. Leave without saving?'))) return;
       }
+      window.__screenEdited = false;
       showTreeNav();
       // Refresh here specifically — not inside showTreeNav() itself,
       // since that's also called by handleLogout() with the token
@@ -3954,6 +4022,8 @@
       // screen's exact prior state rather than just returning to the tree.
       window.__pendingModuleParams = drillParams || null;
       window.__pendingReturnChain = returnChain || [];
+      window.__shellReturnChain = (returnChain || []).slice(); // SCREEN KEYS: Esc walks back the same way
+      window.__screenEdited = false;
 
       // Every module load gets a fresh token. A fragment's own async
       // rpc callbacks (e.g. loading its list) capture this

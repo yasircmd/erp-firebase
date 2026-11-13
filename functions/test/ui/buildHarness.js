@@ -42,6 +42,8 @@ const elCssStart = find(/---------- ENTRY LAYOUT CSS ----------/);
 const elCssEnd = find(/---------- END ENTRY LAYOUT CSS ----------/);
 const vfStart = find(/---------- VARIANTS ----------/);
 const vfEnd = find(/---------- END VARIANTS ----------/);
+const skStart = find(/\/\/ ---------- SCREEN KEYS ----------/);
+const skEnd = find(/\/\/ ---------- END SCREEN KEYS ----------/);
 const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
 const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
@@ -101,11 +103,18 @@ ${slice(srStart, srEnd)}
 ${slice(mtStart, mtEnd)}
 ${slice(pkStart, pkEnd)}
 ${slice(vfStart, vfEnd)}
+  // Home, as far as a screen can tell (SCREEN KEYS goes there): the module closed, marked.
+  window.handleBackToHierarchy = function () { document.getElementById('module-container').classList.add('hidden'); window.__wentHome = (window.__wentHome || 0) + 1; };
+${slice(skStart, skEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
   window.openModule = function (moduleId, drillParams, returnChain) {
     window.__pendingModuleParams = drillParams || null;
     window.__pendingReturnChain = returnChain || [];
+    window.__shellReturnChain = (returnChain || []).slice(); window.__screenEdited = false; // as the shell's (SCREEN KEYS)
+    window.hasUnsavedChanges = undefined;
+    window.__openedModule = moduleId;
+    document.getElementById('module-container').classList.remove('hidden');
     const container = document.getElementById('module-container');
     window.__variant = null; // as the shell's openModule (VARIANTS)
     rpc.withSuccessHandler(result => {
