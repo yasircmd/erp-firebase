@@ -2733,7 +2733,7 @@
           '<button type="button" class="erp-picker-close" aria-label="Close">&times;</button></div><div class="erp-picker-list" role="listbox"></div><div class="erp-picker-foot"></div>';
         document.body.appendChild(box);
         const search = box.querySelector('.erp-picker-search');
-        search.addEventListener('input', () => { if (cur) { cur.query = search.value; cur.active = -1; render(); } });
+        search.addEventListener('input', () => { if (cur) { cur.query = search.value; cur.active = -1; if (cur.server) ask(); render(); } });
         search.addEventListener('keydown', onKeys);
         box.querySelector('.erp-picker-close').addEventListener('click', () => close(true));
         // Clicks inside keep the focus where it is (the box being typed in).
@@ -2761,6 +2761,7 @@
             .map(o => ({ value: o.value, code: '', name: o.textContent.trim(), extra: o.dataset.search || '' }));
         }
         const dl = listOf(el);
+        if (dl && dl.__itemSearch) return []; // asked of the server as you type (ITEM SEARCH, below)
         return dl ? Array.from(dl.options).filter(o => o.value !== '').map(o => {
           const text = (o.label || o.textContent || '').trim();
           // An item's user code shows as its code; its system code is still found (ITEM CODES).
@@ -2783,7 +2784,10 @@
       function render() {
         const words = cur.query.toLowerCase().split(/\s+/).filter(Boolean);
         let shown, groups = {};
-        if (!words.length) {
+        if (cur.server) {
+          if (!words.length) { shown = recentItems(cur.el); if (shown.length) groups[0] = 'Recent'; }
+          else shown = cur.items;
+        } else if (!words.length) {
           const byValue = new Map(cur.items.map(it => [it.value, it]));
           const rec = recent(cur.el).map(v => byValue.get(v)).filter(Boolean);
           shown = rec.concat(cur.items.filter(it => !rec.includes(it)));
@@ -2797,7 +2801,9 @@
         box.querySelector('.erp-picker-list').innerHTML = cur.shown.map((it, i) => (groups[i] ? '<div class="erp-picker-group">' + groups[i] + '</div>' : '') +
           '<div class="erp-picker-row' + (i === cur.active ? ' active' : '') + '" role="option" data-i="' + i + '" data-value="' + esc(it.value) + '">' +
           (it.code ? '<span class="erp-picker-code">' + esc(it.code) + '</span>' : '') + '<span class="erp-picker-name">' + esc(it.name) + '</span></div>').join('');
-        box.querySelector('.erp-picker-foot').textContent = !cur.total ? (cur.items.length ? 'No match: try part of the code or name.' : 'Nothing to choose from.')
+        box.querySelector('.erp-picker-foot').textContent = cur.server
+          ? (cur.loading ? 'Searching…' : !words.length ? (cur.total ? '' : 'Type part of the code, the name or a barcode.') : words.join(' ').length < 2 ? 'Type at least 2 letters.' : !cur.total ? 'No match: try part of the code or name.' : cur.more ? 'The best ' + cur.total + ': type more to narrow.' : '')
+          : !cur.total ? (cur.items.length ? 'No match: try part of the code or name.' : 'Nothing to choose from.')
           : cur.total > cur.shown.length ? 'Showing ' + cur.shown.length + ' of ' + cur.total + ': type more to narrow.' : '';
         const act = box.querySelector('.erp-picker-row.active');
         if (act) act.scrollIntoView({ block: 'nearest' });
@@ -2818,6 +2824,8 @@
       function open(el, kind, query, anchor) {
         if (!box) build();
         cur = { el, kind, anchor: anchor || null, query: query || '', active: -1, navigated: false, items: itemsOf(el, kind) };
+        const dl = kind === 'list' ? listOf(el) : null;
+        if (dl && dl.__itemSearch) { cur.server = dl.__itemSearch; ask(); }
         box.classList.remove('hidden');
         place();
         render();
@@ -2838,6 +2846,7 @@
         if (!it) return;
         const el = cur.el;
         remember(el, it.value);
+        if (it.item && cur.server) { rememberItem(el, it); if (cur.server.onItem) cur.server.onItem(it.item); }
         close(true);
         el.value = it.value;
         el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2881,7 +2890,7 @@
         if (!(el.tagName === 'INPUT' && el.dataset && el.dataset.pickerList) || el.readOnly || el.disabled) return;
         const typed = e.inputType && (e.inputType.startsWith('delete') || (e.inputType === 'insertText' && e.data && e.data.length === 1));
         if (!typed && !(cur && cur.el === el)) return;
-        if (cur && cur.el === el) { cur.query = el.value; cur.active = -1; cur.navigated = false; render(); }
+        if (cur && cur.el === el) { cur.query = el.value; cur.active = -1; cur.navigated = false; if (cur.server) ask(); render(); }
         else open(el, 'list', el.value);
       }, true);
       document.addEventListener('keydown', e => {
@@ -2995,6 +3004,164 @@
         if (!(el.classList && el.classList.contains('erp-party-box'))) return;
         setTimeout(() => { if (cur && cur.anchor === el && document.activeElement !== el && !box.contains(document.activeElement)) close(false); }, 0);
       }, true);
+
+      // ----- ITEM SEARCH (owner, 2026-11-14; docs/modules/ITEMS_FIRESTORE.md, step 3b):
+      // an item box asks the server as you type (searchItems), never holding the
+      // whole catalogue. A screen marks its item list with
+      //   window.itemSearchList(datalistOrId, { value: item => text for the box,
+      //     onItem: item => (the screen keeps it, so its own lookups find it),
+      //     filters: () => ({ companyId, stockOnly, sellable, category, status }) })
+      // and the picker does the rest; recent picks are kept in this browser.
+      const ITEM_WAIT = 250;
+      function ask() {
+        const c = cur, q = c.query.trim();
+        clearTimeout(c.timer);
+        if (q.length < 2) { c.items = []; c.loading = false; c.more = false; return; }
+        c.loading = true;
+        c.timer = setTimeout(() => {
+          const filters = Object.assign({}, c.server.filters ? c.server.filters() : {}, { q });
+          rpc.withSuccessHandler(r => {
+            if (cur !== c || c.query.trim() !== q) return; // typed on, or closed
+            c.loading = false; c.more = Boolean(r && r.more);
+            c.items = ((r && r.items) || []).map(item => serverRow(c.server, item));
+            c.active = -1;
+            render();
+          }).withFailureHandler(() => { if (cur === c) { c.loading = false; c.items = []; render(); } }).searchItems(filters);
+        }, ITEM_WAIT);
+      }
+      function serverRow(server, item) {
+        const user = item.UserCode || (window.itemUserCode ? window.itemUserCode(item.ItemCode) : '');
+        return { value: server.value ? server.value(item) : item.ItemCode, code: user || item.ItemCode, name: item.ItemName || '', extra: '', item };
+      }
+      const recentItemsKey = el => recentKey(el) + ':items';
+      function recentItems(el) {
+        let list = [];
+        try { list = JSON.parse(localStorage.getItem(recentItemsKey(el)) || '[]'); } catch (e) { list = []; }
+        return list.map(item => serverRow(cur.server, item));
+      }
+      function rememberItem(el, row) {
+        try {
+          const list = JSON.parse(localStorage.getItem(recentItemsKey(el)) || '[]').filter(i => i.ItemID !== row.item.ItemID);
+          localStorage.setItem(recentItemsKey(el), JSON.stringify([row.item].concat(list).slice(0, RECENT_MAX)));
+        } catch (e) { /* storage off: no recent picks */ }
+      }
+      window.itemSearchList = (list, opts) => {
+        const dl = typeof list === 'string' ? document.getElementById(list) : list;
+        if (dl) dl.__itemSearch = Object.assign({}, opts || {});
+        return dl;
+      };
+      // ----- ITEM CATALOGUE (ITEMS_FIRESTORE.md, step 3b-2): the items a screen
+      // has met (its documents', those chosen or searched, codes typed or pasted),
+      // never the whole catalogue. A screen keeps its lookups, on cat.list:
+      //   const cat = window.itemCatalog({ datalist, filters: () => ({ companyId }), value });
+      //   cat.list (grows; never replaced), cat.byId(id), cat.byCode(code or user code),
+      //   cat.ensureIds(ids), cat.ensureCodes(codes): Promises, the items asked for added;
+      //   cat.search(q): the server's matches, added; cat.codesIn(text, col): a paste's codes;
+      //   cat.forDocs(docs): their lines' items; cat.prepare(text, barcodeIndex): a scan's item;
+      //   cat.results(box, q, { row: item => html, bind: box => {} }): a "Search items" window.
+      // A code typed in the datalist's box and not yet known is asked of the server
+      // when typing pauses or the box is left, then the box's input and change events fire again.
+      window.itemCatalog = (opts) => {
+        const o = opts || {};
+        const list = [], byIdMap = {};
+        const low = v => String(v == null ? '' : v).trim().toLowerCase();
+        const filters = () => (o.filters ? o.filters() : {}) || {};
+        const call = (fn, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[fn](data));
+        function add(items) {
+          (items || []).forEach(i => {
+            if (!i || !i.ItemID) return;
+            if (byIdMap[i.ItemID]) Object.assign(byIdMap[i.ItemID], i);
+            else { byIdMap[i.ItemID] = i; list.push(i); }
+          });
+          return list;
+        }
+        const byId = id => byIdMap[id];
+        const codeOf = v => String(v == null ? '' : v).split(' — ')[0].trim();
+        function byCode(code) {
+          const c = low(codeOf(code));
+          if (!c) return undefined;
+          return list.find(i => low(i.ItemCode) === c) || list.find(i => i.UserCode && low(i.UserCode) === c);
+        }
+        const chunks = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; };
+        function ensureIds(ids) {
+          const want = [...new Set(Array.from(ids || []).map(x => String(x == null ? '' : x)).filter(id => id && !byIdMap[id]))];
+          if (!want.length) return Promise.resolve(list);
+          return Promise.all(chunks(want, 500).map(part => call('getItemsByIds', { ids: part }).then(add))).then(() => list, () => list);
+        }
+        function ensureCodes(codes, companyId) {
+          const want = [...new Set(Array.from(codes || []).map(codeOf).filter(c => c && !byCode(c)))];
+          if (!want.length) return Promise.resolve(list);
+          const co = companyId === undefined ? (filters().companyId || '') : companyId;
+          return Promise.all(chunks(want, 500).map(part => call('getItemsByCodes', { codes: part, companyId: co }).then(add))).then(() => list, () => list);
+        }
+        function search(q, extra) {
+          return call('searchItems', Object.assign({}, filters(), extra || {}, { q })).then(r => { add((r && r.items) || []); return r || { items: [] }; });
+        }
+        // The cells of a pasted block in one column (the item code's), rows by line.
+        const codesIn = (text, col) => String(text || '').split(/\r?\n/).map(line => (line.split('\t')[col || 0] || '').trim()).filter(Boolean);
+        const dl = o.datalist ? (typeof o.datalist === 'string' ? document.getElementById(o.datalist) : o.datalist) : null;
+        if (dl) {
+          window.itemSearchList(dl, { value: o.value || (i => i.ItemCode + ' — ' + i.ItemName), filters: o.filters, onItem: i => add([i]) });
+          // A code typed in full: asked when typing pauses, or the box is left.
+          let typedTimer = null;
+          const resolve = el => {
+            const code = codeOf(el.value);
+            if (code.length < 2 || byCode(code)) return;
+            ensureCodes([code]).then(() => {
+              if (!byCode(code)) return;
+              // Every box holding it now (a screen may have redrawn its lines meanwhile).
+              Array.from(document.querySelectorAll('input[list]')).filter(b => b.getAttribute('list') === dl.id && low(codeOf(b.value)) === low(code)).forEach(b => {
+                b.dispatchEvent(new Event('input', { bubbles: true }));
+                b.dispatchEvent(new Event('change', { bubbles: true }));
+              });
+            });
+          };
+          const onBox = e => {
+            if (!dl.isConnected) { ['change', 'input'].forEach(t => document.removeEventListener(t, onBox, true)); return; } // the screen has gone
+            const el = e.target;
+            if (!el || el.tagName !== 'INPUT' || el.getAttribute('list') !== dl.id) return;
+            clearTimeout(typedTimer);
+            if (e.type === 'change') resolve(el);
+            else typedTimer = setTimeout(() => resolve(el), 300);
+          };
+          ['change', 'input'].forEach(t => document.addEventListener(t, onBox, true));
+        }
+        // The items a set of documents names (their lines', any array of objects).
+        function forDocs(docs) {
+          const ids = [];
+          Array.from(docs || []).forEach(d => {
+            if (!d || typeof d !== 'object') return;
+            if (d.ItemID) ids.push(d.ItemID);
+            Object.values(d).forEach(v => { if (Array.isArray(v)) v.forEach(l => { if (l && typeof l === 'object' && l.ItemID) ids.push(l.ItemID); }); });
+          });
+          return ensureIds(ids);
+        }
+        // A scan or a typed code (a barcode in the screen's index, else a code), known before the screen looks.
+        function prepare(text, barcodeIndex) {
+          const t = String(text || '').trim();
+          if (!t) return Promise.resolve(list);
+          const b = barcodeIndex && barcodeIndex[t.toUpperCase()];
+          return Promise.all([b && b.ItemID ? ensureIds([b.ItemID]) : null, ensureCodes([t])]).then(() => list);
+        }
+        // A screen's "Search items" window: the server's matches as you type (2 letters).
+        let resultsSeq = 0, resultsTimer = null;
+        function results(box, query, r) {
+          const q = String(query || '').trim(), seq = ++resultsSeq;
+          const note = t => '<div class="p-4 text-center text-slate-500">' + t + '</div>';
+          clearTimeout(resultsTimer);
+          if (!box) return;
+          if (q.length < 2) { box.innerHTML = note('Type at least 2 letters of an item\'s code or name, or its barcode.'); return; }
+          box.innerHTML = note('Searching…');
+          resultsTimer = setTimeout(() => search(q, { limit: 100 }).then(found => {
+            if (seq !== resultsSeq) return;
+            const items = found.items || [];
+            box.innerHTML = items.length ? items.map(r.row).join('') + (found.more ? note('The best ' + items.length + ': type more to narrow.') : '') : note('No items match that search.');
+            if (r.bind) r.bind(box);
+          }, () => { if (seq === resultsSeq) box.innerHTML = note('Unable to search the items.'); }), 250);
+        }
+        return { list, add, byId, byCode, ensureIds, ensureCodes, search, codesIn, forDocs, prepare, results };
+      };
+      // ----- END ITEM SEARCH
 
       window.erpPicker = { open: (el, query) => open(el, el.tagName === 'SELECT' ? 'select' : 'list', query), close: () => close(false) };
     })();

@@ -29,13 +29,14 @@
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-boxes-stacked text-blue-500"></i> Item Master</h2></div>
     <div class="flex gap-2">
+      <button id="im-copy-btn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
       <button id="im-lbl-btn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-barcode"></i> Barcodes &amp; Labels</button>
       <button id="im-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Item</button>
     </div>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
-    <input type="text" id="im-search-input" placeholder="Search code or name..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <input type="text" id="im-search-input" placeholder="Search code, name or barcode..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
     <select id="im-category-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
       <option value="">All Categories</option>
       <option value="RawMaterial">Raw Material</option>
@@ -58,6 +59,12 @@
       </table>
     </div>
   </div>
+  <!-- A page at a time (docs/modules/ITEMS_FIRESTORE.md, step 3b, QI3). -->
+  <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+    <span id="im-page-note"></span>
+    <button id="im-more" class="hidden bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 rounded-lg text-sm text-slate-200">Load more</button>
+  </div>
+  <textarea id="im-copy-staging" class="hidden"></textarea>
 </div>
 
 <div id="im-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
@@ -287,15 +294,44 @@
   function companyById(id) { return companies.find(c => c.CompanyID === id); }
   function subCategoryById(id) { return subCategories.find(s => s.SubCategoryID === id); }
 
-  function fetchAndRender() {
+  // A page at a time (docs/modules/ITEMS_FIRESTORE.md, step 3b, QI3): the filters go
+  // to the server; typed text searches (code, user code, name, barcode); Load more
+  // reads the next page. The page's barcodes come with it.
+  let nextCursor = '', pageSeq = 0, searchTimer = null;
+  const pageFilters = () => ({ q: document.getElementById('im-search-input').value.trim(), category: document.getElementById('im-category-filter').value,
+    companyId: document.getElementById('im-company-filter').value, status: document.getElementById('im-status-filter').value });
+  function loadPage(reset) {
+    const seq = ++pageSeq;
+    const f = pageFilters();
+    if (!reset) f.after = nextCursor;
     rpc
-      .withSuccessHandler(result => { items = result || []; renderTable(); })
-      .withFailureHandler(err => alert(err.message || 'Unable to load items.'))
-      .getItems();
-    rpc
-      .withSuccessHandler(result => { barcodes = (result && result.barcodes) || {}; renderTable(); if (!document.getElementById('im-lbl').classList.contains('hidden')) renderLblItems(); })
-      .withFailureHandler(err => appAlert(err.message || 'Unable to load the barcodes.'))
-      .getItemBarcodes({});
+      .withSuccessHandler(r => {
+        if (seq !== pageSeq) return; // the filters changed meanwhile
+        const got = (r && r.items) || [];
+        items = reset ? got : items.concat(got);
+        nextCursor = (r && r.next) || '';
+        document.getElementById('im-more').classList.toggle('hidden', !nextCursor);
+        document.getElementById('im-page-note').textContent = r && r.searched ? (r.more ? 'The best ' + items.length + ' matches: type more to narrow.' : items.length + ' match' + (items.length === 1 ? '' : 'es') + '.')
+          : items.length + ' item' + (items.length === 1 ? '' : 's') + (nextCursor ? ' so far.' : '.');
+        renderTable();
+        const ids = got.map(i => i.ItemID);
+        if (ids.length) rpc.withSuccessHandler(b => { Object.assign(barcodes, (b && b.barcodes) || {}); renderTable(); })
+          .withFailureHandler(err => appAlert(err.message || 'Unable to load the barcodes.')).getItemBarcodes({ itemIds: ids });
+      })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to load items.'))
+      .getItemsPage(f);
+  }
+  function fetchAndRender() { barcodes = {}; loadPage(true); }
+  // Copy to Excel: every item the filters keep, built on the server.
+  function copyItems() {
+    const btn = document.getElementById('im-copy-btn'), original = btn.innerHTML;
+    btn.disabled = true;
+    rpc.withSuccessHandler(r => {
+      btn.disabled = false;
+      const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied ' + r.count + '!' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2000); };
+      const staging = () => { const t = document.getElementById('im-copy-staging'); t.value = r.tsv; t.style.display = 'block'; t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } t.style.display = 'none'; flash(ok); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.tsv).then(() => flash(true), staging); else staging();
+    }).withFailureHandler(err => { btn.disabled = false; appAlert(err.message || 'Unable to copy the items.'); }).getItemsExport(pageFilters());
   }
 
   // ---------- barcodes (docs/modules/ITEM_BARCODES.md) ----------
@@ -679,18 +715,30 @@
     f.srcdoc = html;
     document.body.appendChild(f);
   }
-  const lblItems = () => {
-    const co = lblVal('im-lbl-company'), q = lblVal('im-lbl-search').trim().toLowerCase();
-    return items.filter(i => i.Status === 'Active' && (!i.CompanyID || i.CompanyID === co))
-      .filter(i => !q || (i.ItemCode + ' ' + (i.UserCode || '') + ' ' + i.ItemName + ' ' + (barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')).toLowerCase().includes(q))
-      .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
-  };
+  // The labels' items (ITEMS_FIRESTORE.md, step 3b): the server's search as you type;
+  // with nothing typed, the items given copies so far.
+  let lblFound = [], lblKnown = {}, lblTimer = null, lblSeq = 0;
+  function lblSearch() {
+    clearTimeout(lblTimer);
+    const q = lblVal('im-lbl-search').trim(), co = lblVal('im-lbl-company'), seq = ++lblSeq;
+    if (q.length < 2) { lblFound = []; renderLblItems(); return; }
+    lblTimer = setTimeout(() => lblCall('searchItems', { q, companyId: co, limit: 100 }).then(r => {
+      if (seq !== lblSeq) return;
+      lblFound = r.items || [];
+      lblFound.forEach(i => { lblKnown[i.ItemID] = i; });
+      const ids = lblFound.map(i => i.ItemID).filter(id => !barcodes[id]);
+      renderLblItems();
+      if (ids.length) lblCall('getItemBarcodes', { itemIds: ids }).then(b => { Object.assign(barcodes, b.barcodes || {}); renderLblItems(); }, () => {});
+    }, err => appAlert(err.message || 'Unable to search the items.')), 250);
+  }
+  const lblItems = () => (lblVal('im-lbl-search').trim().length >= 2 ? lblFound
+    : Object.keys(lblCopies).filter(id => Number(lblCopies[id]) > 0 && lblKnown[id]).map(id => lblKnown[id]));
   function renderLblItems() {
     const list = lblItems();
     document.getElementById('im-lbl-items').innerHTML = list.length ? list.map(i => '<tr><td class="py-1 pr-3 font-mono">' + escapeHtml(i.ItemCode) + '</td><td class="py-1 pr-3">' + escapeHtml(i.ItemName) + '</td>' +
       '<td class="py-1 pr-3 font-mono text-slate-400">' + escapeHtml(((barcodes[i.ItemID] || []).find(b => b.PackQty === 1) || {}).Barcode || '(item code)') + '</td>' +
       '<td class="py-1 text-right"><input data-id="' + escapeHtml(i.ItemID) + '" type="number" min="0" step="1" value="' + escapeHtml(lblCopies[i.ItemID] || '') + '" class="im-lbl-n w-20 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-right"></td></tr>').join('')
-      : '<tr><td colspan="4" class="py-3 text-center text-slate-500">No items.</td></tr>';
+      : '<tr><td colspan="4" class="py-3 text-center text-slate-500">' + (lblVal('im-lbl-search').trim().length >= 2 ? 'No items.' : 'Type at least 2 letters of a code, name or barcode to find items.') + '</td></tr>';
   }
   function loadLblSettings() {
     const co = lblVal('im-lbl-company');
@@ -720,10 +768,11 @@
   }
   function lblGenerate(save) {
     const co = lblVal('im-lbl-company'), cat = lblVal('im-lbl-gen-cat');
-    const ids = save ? lblPreview.map(g => g.ItemID)
-      : items.filter(i => i.Status === 'Active' && (!i.CompanyID || i.CompanyID === co) && (!cat || i.Category === cat) && !(barcodes[i.ItemID] || []).length).map(i => i.ItemID);
-    if (!ids.length) { appAlert('Every item here already has a barcode.'); return; }
-    lblCall('generateItemBarcodes', { companyId: co, itemIds: ids, save }).then(r => {
+    // The preview's items are chosen on the server (those without a barcode, up to 500: ITEMS_FIRESTORE.md, step 3b).
+    const ids = save ? lblPreview.map(g => g.ItemID) : [];
+    if (save && !ids.length) return;
+    lblCall('generateItemBarcodes', save ? { companyId: co, itemIds: ids, save } : { companyId: co, category: cat, withoutBarcode: true, save: false }).then(r => {
+      if (!save && r.none) { appAlert('Every item here already has a barcode.'); return; }
       if (!save) { lblPreview = r.generated; renderLblPreview(); return; }
       lblPreview = []; renderLblPreview();
       appAlert(r.generated.length + ' barcode' + (r.generated.length === 1 ? '' : 's') + ' saved (' + r.scheme + ').');
@@ -751,7 +800,7 @@
     document.getElementById('im-lbl-btn').addEventListener('click', openLbl);
     document.getElementById('im-lbl-close').addEventListener('click', () => document.getElementById('im-lbl').classList.add('hidden'));
     document.getElementById('im-lbl-company').addEventListener('change', () => { lblCopies = {}; loadLblSettings(); });
-    document.getElementById('im-lbl-search').addEventListener('input', renderLblItems);
+    document.getElementById('im-lbl-search').addEventListener('input', lblSearch);
     document.getElementById('im-lbl-items').addEventListener('input', e => { if (e.target.dataset.id) lblCopies[e.target.dataset.id] = e.target.value; });
     document.getElementById('im-lbl-save').addEventListener('click', saveLblSettings);
     document.getElementById('im-lbl-preview').addEventListener('click', () => lblGenerate(false));
@@ -783,10 +832,12 @@
     document.getElementById('im-cat-cancel').addEventListener('click', () => document.getElementById('im-cat-panel').classList.add('hidden'));
     document.getElementById('im-cat-save').addEventListener('click', saveCustomCategory);
     ['im-cat-name', 'im-cat-prefix'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveCustomCategory(); } })); // not the item's form
-    document.getElementById('im-search-input').addEventListener('input', renderTable);
-    document.getElementById('im-category-filter').addEventListener('change', renderTable);
-    document.getElementById('im-company-filter').addEventListener('change', renderTable);
-    document.getElementById('im-status-filter').addEventListener('change', renderTable);
+    document.getElementById('im-search-input').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadPage(true), 300); });
+    document.getElementById('im-category-filter').addEventListener('change', () => loadPage(true));
+    document.getElementById('im-company-filter').addEventListener('change', () => loadPage(true));
+    document.getElementById('im-status-filter').addEventListener('change', () => loadPage(true));
+    document.getElementById('im-more').addEventListener('click', () => loadPage(false));
+    document.getElementById('im-copy-btn').addEventListener('click', copyItems);
 
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-boxes-stacked"></i> Item Master';
     loadReferenceData();

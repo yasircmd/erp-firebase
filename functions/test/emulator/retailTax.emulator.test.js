@@ -54,7 +54,8 @@ test('a counter sale taxed by item: the tax out of each price, CGST + SGST to th
   await ready();
   const counter = await call('u-admin', 'getRetailCounter', { companyId: 'C1' });
   assert.equal(counter.lineTax, true);
-  assert.deepEqual(['RM-001', 'FG-002'].map(c => counter.items.find(i => i.ItemCode === c).TaxPercent), [18, 5]);
+  const items = (await call('u-admin', 'findRetailItems', { companyId: 'C1', ids: ['I1', 'I2'] })).items; // the counter asks (ITEMS_FIRESTORE.md, step 3b)
+  assert.deepEqual(['RM-001', 'FG-002'].map(c => items.find(i => i.ItemCode === c).TaxPercent), [18, 5]);
   // 3 × 52.50 less 3.00 = 154.50 at 18%; 2 × 21.00 = 42.00 at 5%.
   const s = await sell([{ ItemID: 'I1', Quantity: 3, Discount: 3 }, { ItemID: 'I2', Quantity: 2 }]);
   assert.equal(s.success, true, s.error);

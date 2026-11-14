@@ -3,10 +3,10 @@ title: Item Master
 area: inventory
 order: 1
 modules: [ITEMMASTER]
-sources: [functions/src/masterData.js, functions/src/itemCategories.js]
+sources: [functions/src/masterData.js, functions/src/itemCategories.js, functions/src/itemSearch.js]
 summary: Maintain the master item record used by purchase, stock movement, valuations and stock reports.
 reviewed: 2026-11-14
-fingerprint: b2dda14b7993a37b
+fingerprint: b6cbcb33a108946f
 ---
 ## What it is for
 
@@ -24,6 +24,30 @@ fingerprint: b2dda14b7993a37b
 2. Add or edit the item record: code, description, unit and category. The **Sub-Category** list shows the category's shared sub-categories and those of the item's company (while the item has no company yet, every company's, named with their company: choosing one gives the item that company); **New…** beside it opens Item Sub-Category to add one (save the item first: you come back to Item Master and open it again).
 3. Set the stock and cost details required by the company.
 4. Save the item and check it appears in the stock routines.
+
+## Finding an item
+
+The list shows the items **100 at a time**, in code order. **Load more**
+below it adds the next 100; the count above says how many are shown so far.
+
+- **Search** looks through every item, not only those shown: type the
+  start of an item code or user code, a word of the name, or part of a
+  word (from 3 letters: "olt" finds *Hex Bolt*). Type several words to
+  narrow it: each must be in the item. A barcode typed or scanned whole
+  finds its item. The best matches show first, up to 200; type more to
+  narrow it.
+- The **Category**, **Company** and **Status** filters choose the items
+  listed, from every item.
+- **Copy to Excel** copies every item the filters and search keep (not
+  only the page shown), one row each: item code, user code, name,
+  category, sub-category, unit, company, batch tracking and status. Paste
+  it into Excel.
+- In **Labels**, type part of an item's code, name or barcode to find it,
+  then enter how many labels to print. Items you have given a number stay
+  in the list while you search for more.
+- Under **Barcodes for own products**, **Preview numbers for items without
+  a barcode** finds them among every item of the category chosen, up to
+  500 at a time.
 
 ## Your own item code
 

@@ -60,6 +60,12 @@ async function requireItemMaster(user, cap) {
 exports.getItemBarcodes = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireItemMaster(user);
+  // Item Master's page (ITEMS_FIRESTORE.md, step 3b): only its items' barcodes, by the ItemID index.
+  const ids = Array.isArray((request.data || {}).itemIds) ? [...new Set(request.data.itemIds.map(String).filter(Boolean))].slice(0, 500) : null;
+  if (ids) {
+    const found = await Promise.all(ids.map(id => rtdb.ref(ROOT).orderByChild('ItemID').equalTo(id).get().then(x => x.val() || {})));
+    return { barcodes: byItem(Object.assign({}, ...found)) };
+  }
   return { barcodes: byItem(await all()) };
 });
 
@@ -183,7 +189,15 @@ exports.generateItemBarcodes = onCallWithMessages(onCallOptions, async (request)
   await requireItemMaster(user, 'write');
   const d = request.data || {};
   const co = requireCompanyAccess(user, String(d.companyId || '').trim());
-  const ids = [...new Set((Array.isArray(d.itemIds) ? d.itemIds : []).map(x => String(x || '').trim()).filter(Boolean))];
+  let ids = [...new Set((Array.isArray(d.itemIds) ? d.itemIds : []).map(x => String(x || '').trim()).filter(Boolean))];
+  // Or the items without a barcode, of a category (Item Master's labels panel, ITEMS_FIRESTORE.md step 3b): chosen here.
+  if (!ids.length && d.withoutBarcode) {
+    const has = byItem(await all());
+    const found = d.category ? await itemStore.store.query({ Category: String(d.category) }) : await itemStore.store.query({ Status: 'Active' });
+    ids = Object.keys(found).filter(id => found[id].Status === 'Active' && (!found[id].CompanyID || found[id].CompanyID === co) && !(has[id] || []).length)
+      .sort((a, b) => String(found[a].ItemCode).localeCompare(String(found[b].ItemCode), undefined, { numeric: true })).slice(0, 500);
+    if (!ids.length) return { generated: [], skipped: [], scheme: '', none: true };
+  }
   if (!ids.length) bad('Choose the items.');
   if (ids.length > 500) bad('Up to 500 items at a time.');
   const run = async () => {

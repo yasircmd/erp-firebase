@@ -53,10 +53,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const it = Object.values(await val('items')).find(i => i.ItemName === 'Bearing 6204');
     assert.deepEqual([it.ItemCode, it.Category], ['SP-000001', 'Consumable']);
     const key = await page.$eval('#im-category-filter option[data-custom]', o => o.value);
+    // The filters reload the list from the server (ITEMS_FIRESTORE.md, step 3b).
     await page.selectOption('#im-category-filter', key);
-    assert.deepEqual(await page.$$eval('#im-table-body tr', r => r.map(x => x.cells[0].textContent.trim())), ['SP-000001']);
+    await page.waitForFunction(() => [...document.querySelectorAll('#im-table-body tr')].map(x => x.cells[0].textContent.trim()).join() === 'SP-000001', null, T);
     await page.selectOption('#im-category-filter', 'Consumable');
-    assert.doesNotMatch(await page.textContent('#im-table-body'), /SP-000001/, 'its own category, not the base');
+    await page.waitForFunction(() => !/SP-000001/.test(document.getElementById('im-table-body').textContent), null, T); // its own category, not the base
     assert.deepEqual(page.__errors, []);
   });
 

@@ -6,7 +6,7 @@ modules: [BOM]
 sources: [functions/src/masterData.js]
 summary: Define what a finished product is made of and how the materials are consumed during production.
 reviewed: 2026-11-14
-fingerprint: c7dcc8a3ec255bf1
+fingerprint: 019ec9bda72c9013
 ---
 ## What it is for
 
@@ -21,8 +21,8 @@ fingerprint: c7dcc8a3ec255bf1
 ## Step by step
 
 1. Open BOM and search/filter the list by parent item or status. Select **New BOM**, or open an existing record and choose **Duplicate** to create a new version from it.
-2. Select the parent Finished or Semi-Finished Good, enter the recipe version and **Effective From** date, and add notes if needed.
-3. Add eligible component items. Enter quantity per one unit of the parent in the component's base UOM, plus Scrap % where applicable. Paste rows from Excel using Component Code, Quantity, and Scrap %; review the resulting UOM and quantities.
+2. Type at least 2 letters of the parent's code or name above its list to find it, then select the Finished or Semi-Finished Good; enter the recipe version and **Effective From** date, and add notes if needed.
+3. Add eligible component items, found the same way above the component list. Enter quantity per one unit of the parent in the component's base UOM, plus Scrap % where applicable. Paste rows from Excel using Component Code, Quantity, and Scrap %; review the resulting UOM and quantities.
 4. Save the BOM. When a BOM is marked Active, another Active BOM for the same parent is automatically deactivated. Effective dates still matter: historical reports select the recipe that applied on the transaction date, not simply today's active row.
 5. Deactivate or reactivate a recipe from the list when its use changes. Keep prior versions for historical production and variance analysis; do not rewrite an old recipe to represent a later change.
 

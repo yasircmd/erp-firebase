@@ -23,6 +23,8 @@ const SORTED = [
   { file: 'journal.js', has: "firestoreQuery_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, narrowed, [['CreatedAt', 'DESCENDING']]", query: JOURNAL_LIST },
   // The firm's Support queue, sorted with no filter: a single-field index.
   { file: 'support.js', has: "collection(ISSUES).orderBy('UpdatedAt', 'desc')", query: { collection: 'supportIssues', equality: [], order: [['UpdatedAt', 'DESCENDING']] } },
+  // Item Master a page at a time (ITEMS_FIRESTORE.md, step 3b): code order, no filter (the id breaks a tie).
+  { file: 'itemSearch.js', has: "col().orderBy('ItemCode').orderBy(FieldPath.documentId())", query: { collection: 'items', equality: [], order: [['ItemCode', 'ASCENDING']] } },
   // The Audit Log (AUDIT_LOG.md step 3): one equality filter at most, with the dates.
   ...['RecordID', 'RecordLabel', 'UserID', 'ModuleID', 'Action', null].map(f => ({ file: 'auditLog.js', has: "orderBy('At', 'desc')",
     query: { collection: 'auditLog', equality: f ? [f] : [], order: [['At', 'DESCENDING']] } }))

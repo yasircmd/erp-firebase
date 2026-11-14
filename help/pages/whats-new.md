@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-11-13
+reviewed: 2026-11-14
 title: What's new
 area: start
 order: 3
@@ -10,6 +10,22 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 14/11/2026
+
+- **Items found as you type on the stock entries.** On a GRN, Material
+  Issue, Stock Adjustment, Warehouse Movement, Physical Count or Production
+  line, in BOM and in Stock Ledger, type 2 letters of an item's code or name
+  and choose from the matches; **Search items** works the same way. A code
+  typed in full, pasted or scanned still finds its item. See
+  [Working with screens](working-with-screens.html#finding-an-account-item-customer-or-vendor).
+- **Item Master a page at a time.** The item list shows 100 items at a
+  time with **Load more**, and its search, filters and **Copy to Excel**
+  cover every item: search by code, user code, a word or part of one, or a
+  barcode. See [Item Master](item-master.html#finding-an-item).
+- **Items found as you type at the Retail Sales counter.** Type 2 letters
+  of an item's code or name, or scan it; quick scans one after another are
+  each added. See [Retail Sales](retail-sales.html).
 
 ## 13/11/2026
 

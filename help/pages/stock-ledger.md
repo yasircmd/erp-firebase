@@ -5,8 +5,8 @@ order: 9
 modules: [STOCKLEDGER]
 sources: [functions/src/stockMovement.js]
 summary: Review the full stock movement history for items and warehouses, by date and transaction.
-reviewed: 2026-10-30
-fingerprint: af81a31d24a02174
+reviewed: 2026-11-14
+fingerprint: 3257e830ab8c81bd
 ---
 ## What it is for
 

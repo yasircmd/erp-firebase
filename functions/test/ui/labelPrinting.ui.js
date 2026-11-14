@@ -123,7 +123,10 @@ const D = new Date().toISOString().slice(0, 10);
     const p = await open('ITEMMASTER', 'u-viewer');
     await p.waitForSelector('#im-table-body tr:has-text("FG-002")', { timeout: 30000 });
     await p.click('#im-lbl-btn');
-    await p.waitForFunction(() => document.querySelectorAll('#im-lbl-items tr').length >= 3, null, { timeout: 30000 });
+    // The items are found on the server as you type (ITEMS_FIRESTORE.md, step 3b): nothing listed until then.
+    await p.waitForFunction(() => /Type at least 2 letters/.test(document.getElementById('im-lbl-items').textContent), null, { timeout: 30000 });
+    await p.fill('#im-lbl-search', 'fg-');
+    await p.waitForFunction(() => document.querySelectorAll('#im-lbl-items tr').length === 2 && /FG-001[\s\S]*FG-002/.test(document.getElementById('im-lbl-items').textContent), null, { timeout: 30000 });
     await new Promise(r => setTimeout(r, 1000));
     assert.ok(await p.isHidden('#im-lbl-settings'));
     assert.ok(await p.isHidden('#im-lbl-gen'));

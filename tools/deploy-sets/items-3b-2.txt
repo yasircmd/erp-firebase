@@ -1,0 +1,41 @@
+# Large item catalogues, step 3b-2 (owner, 2026-11-14; docs/modules/
+# ITEMS_FIRESTORE.md, QI2). AFTER items-3b-1. No rules change. WITH --screens
+# (GRN, MATERIALISSUE, STOCKADJUSTMENT, WAREHOUSEMOVEMENT, PHYSICALCOUNT,
+# PRODUCTION, BOM, STOCKLEDGER; the release also redeploys Hosting, which
+# carries the shell's item catalogue, window.itemCatalog).
+# NEW (add its invoker binding): getItemsByCodes. The rest load itemSearch.js.
+checkMasterImport
+checkOpeningBalances
+confirmRetailReturn
+confirmRetailSale
+createRetailCustomer
+findOpeningBatch
+findRetailItems
+findRetailSaleForReturn
+generateItemBarcodes
+getBarcodeIndex
+getBarcodeSettings
+getItemBarcodes
+getItemsByCodes
+getItemsByIds
+getItemsExport
+getItemsPage
+getLabelSheet
+getMasterImportRecords
+getMasterImportSpecs
+getOpeningBalanceSetup
+getRetailCounter
+getRetailSale
+getRetailSales
+getRetailSalesSetup
+postOpeningBalances
+reverseOpeningBalanceBatch
+reverseRetailReturn
+reverseRetailSale
+runMasterImport
+saveBarcodeSettings
+saveItemBarcodes
+saveOpeningBalanceSettings
+saveRetailPaymentMethod
+saveRetailSalesSettings
+searchItems

@@ -212,6 +212,71 @@ async function pricesOn(priceListId, date) {
   return Object.fromEntries(Object.entries(out).map(([code, l]) => [code, Number(l.UnitPrice) || 0]));
 }
 
+// One item's price on a list on a date: its own lines only, by the ItemCode
+// index (ITEMS_FIRESTORE.md, step 3b), the latest in force; null when none.
+async function priceOf(priceListId, code, date) {
+  if (!priceListId || !code) return null;
+  const lines = (await rtdb.ref('priceListLines').orderByChild('ItemCode').equalTo(String(code)).get()).val() || {};
+  let best = null;
+  Object.values(lines).forEach(l => {
+    if (l.PriceListID !== priceListId || l.Status !== 'Active' || !l.EffectiveFrom || l.EffectiveFrom > date) return;
+    if (!best || l.EffectiveFrom > best.EffectiveFrom) best = l;
+  });
+  return best ? Number(best.UnitPrice) || 0 : null;
+}
+
+// The counter's rows for these items (ITEMS_FIRESTORE.md, step 3b): the counter
+// no longer loads the catalogue; it asks for the items scanned or typed.
+async function counterRows(items, companyId, warehouseId, date, settings, config) {
+  const uoms = (await val('uoms')) || {};
+  const ids = Object.keys(items).filter(id => items[id].Status === 'Active' && ofCompany(items[id], companyId) && items[id].InventoryAccountID);
+  return Promise.all(ids.map(async id => {
+    const i = items[id], u = uoms[i.UOMID] || {};
+    const [l, price, codes] = await Promise.all([stockStore.getLedgerEntry(id, warehouseId), priceOf(settings.PriceListID, i.ItemCode, date),
+      rtdb.ref('itemBarcodes').orderByChild('ItemID').equalTo(id).get().then(x => x.val() || {})]);
+    return {
+      ItemID: id, ItemCode: i.ItemCode, ItemName: i.ItemName || '', UOM: u.Code || '', AllowDecimals: !!u.AllowDecimals,
+      Price: price, InStock: Number((l || {}).Quantity) || 0, TaxPercent: config ? rateOfCode(config, i.TaxCode, date) : null,
+      Barcodes: Object.entries(codes).map(([code, b]) => ({ Barcode: code, PackQty: b.PackQty || 1 }))
+    };
+  }));
+}
+
+// data: { companyId, warehouseId, date, q (a scan or typed text) | ids (the lines', to refresh) }
+// { items, scanned: { ItemID, Units } when q was a barcode }
+exports.findRetailItems = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'access');
+  const d = request.data || {};
+  const companyId = String(d.companyId || '').trim();
+  requireCompany(user, companyId);
+  const settings = await loadSettings(companyId);
+  if (!settings) return { items: [], scanned: null };
+  const warehouseId = String(d.warehouseId || '').trim() || settings.WarehouseID;
+  const date = String(d.date || '').trim() || new Date().toISOString().substring(0, 10);
+  const config = await taxConfig.configFor(companyId);
+  if (Array.isArray(d.ids)) { // the lines' items, in the order asked
+    const want = d.ids.slice(0, 300).map(String);
+    const rows = await counterRows(await itemStore.byIds(want), companyId, warehouseId, date, settings, config);
+    return { items: rows.sort((a, b) => want.indexOf(a.ItemID) - want.indexOf(b.ItemID)), scanned: null };
+  }
+  const q = String(d.q || '').trim().slice(0, 80);
+  if (!q) return { items: [], scanned: null };
+  // A scan: the product's own barcode first (a pack's adds its quantity).
+  const code = q.toUpperCase();
+  if (/^[0-9A-Z-]{3,40}$/.test(code)) {
+    const b = (await rtdb.ref('itemBarcodes/' + code).get()).val();
+    if (b && b.ItemID) {
+      const rows = await counterRows(await itemStore.byIds([b.ItemID]), companyId, warehouseId, date, settings, config);
+      if (rows.length) return { items: rows, scanned: { ItemID: b.ItemID, Units: b.PackQty || 1 } };
+    }
+  }
+  const found = await require('./itemSearch').search(user, q.split(' — ')[0], { companyId, stockOnly: true, limit: 20 });
+  const rows = await counterRows(await itemStore.byIds(found.items.map(i => i.ItemID)), companyId, warehouseId, date, settings, config);
+  const order = found.items.map(i => i.ItemID);
+  return { items: rows.sort((a, b) => order.indexOf(a.ItemID) - order.indexOf(b.ItemID)), scanned: null };
+});
+
 exports.getRetailSalesSetup = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'access');
@@ -370,7 +435,7 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
   const date = String(d.date || '').trim() || new Date().toISOString().substring(0, 10);
   const config = await taxConfig.configFor(companyId); // line tax (TAX_ENGINE.md, part 4)
   const [methods, customers, items, uoms, ledger, prices, barcodes, canAddCustomer] = await Promise.all([
-    methodsOf(companyId), val('customers'), itemStore.all(), val('uoms'), stockStore.allLedger({ WarehouseID: warehouseId }), pricesOn(settings.PriceListID, date), Barcodes.all(),
+    methodsOf(companyId), val('customers'), Promise.resolve({}), val('uoms'), Promise.resolve({}), Promise.resolve({}), Promise.resolve({}), // items: findRetailItems (ITEMS_FIRESTORE.md, step 3b)
     moduleHasCapability('CUSTOMERMASTER', 'write', user.profile.role)
   ]);
   const codesOf = Barcodes.byItem(barcodes); // the products' own barcodes (docs/modules/ITEM_BARCODES.md)

@@ -5,8 +5,8 @@ order: 7
 modules: [PHYSICALCOUNT]
 sources: []
 summary: Count stock physically and post the difference between the counted quantity and the system balance.
-reviewed: 2026-11-13
-fingerprint: 7dfd74401a159815
+reviewed: 2026-11-14
+fingerprint: 756aa19c4537d344
 ---
 ## What it is for
 
