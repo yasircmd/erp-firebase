@@ -399,6 +399,7 @@ const developer = require('./src/developer');
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
   'getDeveloperTree', 'resetDeveloperTree',
   'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers', // M4
+  'moveDeveloperItems', // ITEMS_FIRESTORE.md, step 3
   'saveDeveloperFxSheet' // FX_SHEET.md
 ].forEach(name => { exports[name] = developer[name]; });
 
