@@ -2138,3 +2138,13 @@ from, and how it was verified. The deploy procedure is in the
   [#377](https://github.com/yasircmd/erp-firebase/actions/runs/43567550483)
   (06:41–09:05 UTC), success: every function. Live: every document reads
   only its own items (ITEMS_FIRESTORE.md, step 1).
+- **2026-11-14, Large item catalogues step 2 (PR #287, from `601d39b`):**
+  "database rules", run
+  [#378](https://github.com/yasircmd/erp-firebase/actions/runs/43579277412)
+  (09:10–09:11 UTC), success: the ReorderLevel index on items, to this
+  project and the client corporates, before the functions. "functions set"
+  `items-2`, run
+  [#379](https://github.com/yasircmd/erp-firebase/actions/runs/43579460704)
+  (09:12–11:33 UTC), success: every function. Live: the reports read only
+  the items with stock or movement, the Reorder report also those with a
+  reorder level (ITEMS_FIRESTORE.md, step 2, QI4, QI7).
