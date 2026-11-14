@@ -13,12 +13,12 @@ test('the records a Realtime Database write touches', () => {
   assert.deepEqual(W.rtdbRecords('vendors/V1/Email', 'set', 'x').list, ['vendors/V1'], 'a field: its record');
   assert.deepEqual(W.rtdbRecords('exchangeRates/USD/-Nk1', 'set', {}).list, ['exchangeRates/USD/-Nk1'], 'a rate: depth 3');
   assert.deepEqual(W.rtdbRecords('stock/X', 'set', {}).list, [], 'not a master');
-  assert.deepEqual(W.rtdbRecords('', 'update', { 'items/I1/Name': 'a', 'items/I2': {}, 'gl/J1': {} }).list.sort(), ['items/I1', 'items/I2'], 'a multi-path update: by record, masters only');
+  assert.deepEqual(W.rtdbRecords('', 'update', { 'vendors/V1/Name': 'a', 'vendors/V2': {}, 'gl/J1': {} }).list.sort(), ['vendors/V1', 'vendors/V2'], 'a multi-path update: by record, masters only');
   assert.deepEqual(W.rtdbRecords('roles', 'update', { R1: { Name: 'a' }, R2: null }).list.sort(), ['roles/R1', 'roles/R2']);
   assert.equal(W.rtdbRecords('permissions', 'set', {}).whole, 'permissions', 'a small list set whole: read whole');
-  const big = W.rtdbRecords('items', 'set', { I1: {}, I2: {} });
+  const big = W.rtdbRecords('customers', 'set', { C1: {}, C2: {} });
   assert.deepEqual([big.many, big.count], [true, 2], 'a large list set whole: a summary, unread');
-  const many = {}; for (let i = 0; i <= W.MANY; i++) many['items/I' + i + '/Name'] = 'x';
+  const many = {}; for (let i = 0; i <= W.MANY; i++) many['vendors/V' + i + '/Name'] = 'x';
   assert.equal(W.rtdbRecords('', 'update', many).many, true, 'more than MANY records: a summary');
 });
 

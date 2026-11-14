@@ -77,6 +77,8 @@ const itemsByCodes_ = (idToken, ...a) => __itemStore.byCodes(...a);
 const itemsForReport_ = (idToken, ...a) => __itemStore.forReport(...a);
 const itemsForReportLines_ = (idToken, ...a) => __itemStore.forReportLines(...a);
 const itemsLinesOf_ = (...a) => __itemStore.linesOf(...a);
+const itemsByCodeIgnoringCase_ = (idToken, ...a) => __itemStore.byCodeIgnoringCase(...a);
+const itemsBySubCategory_ = (idToken, ...a) => __itemStore.bySubCategory(...a);
 const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
 const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
 const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
@@ -320,7 +322,8 @@ const DATA_RESET_CATEGORIES = {
   // [NEW DEVELOPMENT data-reset-opening-balances] docs/modules/OPENING_BALANCES.md
   openingBalanceBatches: { paths: ['openingBalances/batches'], recordsPath: 'openingBalances/batches', label: 'Opening Balance Batches', detail: 'The log of posted opening batches (GL, Stock, Open Invoices) and their reversals. Their entries are in GL Journal Entries and Stock Transactions: clear all three together. The opening date and clearing account set-up is kept.', group: 'transactional' },
   boms: { paths: ['boms'], recordsPath: 'boms', label: 'Bill of Materials', detail: 'All BOM records.', group: 'transactional' },
-  items: { paths: ['items', 'itemCounters'], recordsPath: 'items', label: 'Item Master', detail: 'Every item and the item-code numbering sequence.', group: 'master' },
+  // [NEW DEVELOPMENT items-firestore] firestore:itemAccounts, its inventory-account summary too (ITEMS_FIRESTORE.md, step 3)
+  items: { paths: ['items', 'itemCounters', 'firestore:itemAccounts'], recordsPath: 'items', label: 'Item Master', detail: 'Every item and the item-code numbering sequence.', group: 'master' },
   itemSubCategories: { paths: ['itemSubCategories'], recordsPath: 'itemSubCategories', label: 'Item Sub-Categories', detail: 'Sub-category master list.', group: 'master' },
   uoms: { paths: ['uoms'], recordsPath: 'uoms', label: 'Units of Measure', detail: 'UOM master list — will reseed defaults (KG/PCS/etc.) next time it\'s opened.', group: 'master' },
   // [NEW DEVELOPMENT data-reset-all-modules] its renumber log too
@@ -1907,7 +1910,7 @@ async function saveItemSubCategory(idToken, data) {
     const companyId = String(data.CompanyID || '').trim();
     if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
     if (subCategoryId && companyId) {
-      const items = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+      const items = (await itemsBySubCategory_(idToken, subCategoryId)) || {}; // only its items (ITEMS_FIRESTORE.md, step 3)
       const other = Object.keys(items).find(id => items[id].SubCategoryID === subCategoryId && (items[id].CompanyID || '') !== companyId);
       if (other) throw new Error('Item ' + (items[other].ItemCode || other) + ' of ' + (items[other].CompanyID ? 'another company' : 'all companies') + ' uses this sub-category: it cannot belong to one company only.');
     }
@@ -2017,7 +2020,7 @@ async function saveItem(idToken, itemData) {
     const userCode = String(itemData.UserCode || '').trim();
     if (userCode) {
       if (!/^[A-Za-z0-9][A-Za-z0-9\-_\/.]{0,29}$/.test(userCode)) throw new Error('The user code is 1 to 30 letters, digits, - _ / or . (starting with a letter or digit).');
-      const allItems = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+      const allItems = (await itemsByCodeIgnoringCase_(idToken, userCode)) || {}; // only the items with this code (ITEMS_FIRESTORE.md, step 3)
       const self = String(itemData.ItemID || '').trim();
       const same = Object.keys(allItems).find(id => id !== self && allItems[id] &&
         (String(allItems[id].UserCode || '').toLowerCase() === userCode.toLowerCase() || String(allItems[id].ItemCode || '').toLowerCase() === userCode.toLowerCase()));

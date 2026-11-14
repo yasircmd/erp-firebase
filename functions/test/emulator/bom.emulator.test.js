@@ -51,13 +51,13 @@ test('the list shows the parent item\'s CURRENT code and name after the item is 
   assert.deepEqual([saved.ParentItemCode, saved.ParentItemName], ['FG-001', 'Panel']);
 
   // Renamed (and recoded) in Item Master after the BOM was saved.
-  await rtdb.ref('items/FG1').update({ ItemName: 'Door Panel', ItemCode: 'FG-001A' });
+  await require('../../src/itemStore').store.update('FG1', { ItemName: 'Door Panel', ItemCode: 'FG-001A' });
   const [now] = await boms();
   assert.deepEqual([now.ParentItemCode, now.ParentItemName], ['FG-001A', 'Door Panel']);
   assert.equal(await val('boms/' + now.BOMID + '/ParentItemName'), 'Panel', 'the stored copy is kept as saved');
 
   // An item that no longer exists: the stored copy is shown.
-  await rtdb.ref('items/FG1').remove();
+  await require('../../src/itemStore').store.remove('FG1');
   const [gone] = await boms();
   assert.deepEqual([gone.ParentItemCode, gone.ParentItemName], ['FG-001', 'Panel']);
 });

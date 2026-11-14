@@ -717,6 +717,22 @@ exports.createDeveloperAdmin = onCallWithMessages(onCallOptions, async (request)
 // The chart's headings as Corporate 100's are now (decision 261): its
 // non-posting accounts at heading codes, with no posting account and no
 // balance. Only into an empty chart.
+// The items' move to Firestore (ITEMS_FIRESTORE.md, step 3, QI6, QI8), in one
+// corporate (100 included): copy (before and after the deploy, the newer
+// edit winning), check, finish (check, export the old items to the firm's
+// Cloud Storage, delete them from the Realtime Database).
+exports.moveDeveloperItems = onCallWithMessages(Object.assign({}, onCallOptions, { timeoutSeconds: 540, memory: '1GiB' }), async (request) => {
+  await developer(request, 'write');
+  const d = request.data || {};
+  const action = ['copy', 'check', 'finish'].includes(d.action) ? d.action : '';
+  if (!action) throw new HttpsError('invalid-argument', 'Choose copy, check or finish.');
+  const M = require('./itemMigration');
+  const id = str(d.CorporateID, 20);
+  if (id === HOME_ID) return Object.assign({ CorporateID: id, action }, await M[action]());
+  const c = await entryOf(id);
+  return Object.assign({ CorporateID: c.id, action }, await withinReach(c, () => runInCorporate(c, () => M[action]()), 500000));
+});
+
 exports.copyDeveloperChartHeaders = onCallWithMessages(onCallOptions, async (request) => {
   const user = await developer(request, 'write');
   const c = await entryOf((request.data || {}).CorporateID);

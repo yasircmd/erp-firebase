@@ -1506,7 +1506,7 @@ const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter',
     const companyId = String(data.CompanyID || '').trim();
     if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
     if (subCategoryId && companyId) {
-      const items = firebaseDbRequest_('items', 'get', null, idToken) || {};
+      const items = itemsBySubCategory_(idToken, subCategoryId) || {}; // only its items (ITEMS_FIRESTORE.md, step 3)
       const other = Object.keys(items).find(id => items[id].SubCategoryID === subCategoryId && (items[id].CompanyID || '') !== companyId);
       if (other) throw new Error('Item ' + (items[other].ItemCode || other) + ' of ' + (items[other].CompanyID ? 'another company' : 'all companies') + ' uses this sub-category: it cannot belong to one company only.');
     }
@@ -3347,7 +3347,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     const userCode = String(itemData.UserCode || '').trim();
     if (userCode) {
       if (!/^[A-Za-z0-9][A-Za-z0-9\\-_\\/.]{0,29}$/.test(userCode)) throw new Error('The user code is 1 to 30 letters, digits, - _ / or . (starting with a letter or digit).');
-      const allItems = firebaseDbRequest_('items', 'get', null, idToken) || {};
+      const allItems = itemsByCodeIgnoringCase_(idToken, userCode) || {}; // only the items with this code (ITEMS_FIRESTORE.md, step 3)
       const self = String(itemData.ItemID || '').trim();
       const same = Object.keys(allItems).find(id => id !== self && allItems[id] &&
         (String(allItems[id].UserCode || '').toLowerCase() === userCode.toLowerCase() || String(allItems[id].ItemCode || '').toLowerCase() === userCode.toLowerCase()));
@@ -4168,5 +4168,11 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     why: ITEMS_REPORTS_WHY,
     find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  return Object.keys(data).map(id => {\n",
     replace: "  const itemsData = itemsByIds_(idToken, Object.keys(data).map(id => (data[id] || {}).ParentItemID)) || {}; // only the parents (ITEMS_FIRESTORE.md, step 2)\n  return Object.keys(data).map(id => {\n"
+  },
+  {
+    id: "items-firestore (data reset)",
+    why: "NEW DEVELOPMENT (owner, 2026-11-14; docs/modules/ITEMS_FIRESTORE.md, step 3): clearing Item Master also clears itemAccounts, the summary of the items' inventory accounts kept by itemStore.js.",
+    find: "  items: { paths: ['items', 'itemCounters'], recordsPath: 'items',",
+    replace: "  // [NEW DEVELOPMENT items-firestore] firestore:itemAccounts, its inventory-account summary too (ITEMS_FIRESTORE.md, step 3)\n  items: { paths: ['items', 'itemCounters', 'firestore:itemAccounts'], recordsPath: 'items',"
   }
 ];

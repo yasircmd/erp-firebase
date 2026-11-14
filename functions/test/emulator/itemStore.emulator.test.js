@@ -78,7 +78,7 @@ test('above BULK_AT items, one read of the list, still only the items asked for'
   await reset(fixture());
   const more = {}, want = ['I1'];
   for (let i = 0; i < itemStore.BULK_AT + 50; i++) { more['B' + i] = { ItemCode: 'B-' + i, ItemName: 'Bulk ' + i, Status: 'Active', CompanyID: i % 2 ? 'C1' : 'C2' }; want.push('B' + i); }
-  await rtdb.ref('items').update(more);
+  await itemStore.store.putMany(more);
   const got = await itemStore.forReport(want, 'C1');
   assert.equal(Object.keys(got).length, 1 + Math.floor((itemStore.BULK_AT + 50) / 2), 'C1\'s only');
   assert.ok(!got.I2 && !got.I3, 'items not asked for are not returned');

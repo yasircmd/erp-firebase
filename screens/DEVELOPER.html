@@ -3,8 +3,23 @@
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-users-gear text-blue-500"></i> Client Management</h2></div>
     <div class="flex flex-wrap gap-2">
       <button id="dv-add" class="hidden bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add corporate</button>
+      <button id="dv-items" class="dv-write hidden bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-boxes-stacked"></i> Items move</button>
       <button id="dv-refresh" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate"></i> Refresh</button>
     </div>
+  </div>
+
+  <!-- The items' move to Firestore (docs/modules/ITEMS_FIRESTORE.md, step 3, QI6, QI8):
+       Copy before the deploy and again after it (the newer edit wins), then
+       Finish (checks, exports the old items to the firm's Cloud Storage, deletes them). -->
+  <div id="dv-items-panel" class="hidden bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3 text-sm">
+    <p class="text-xs text-slate-400 max-w-3xl">For each corporate (100 too): <b>Copy</b> before the items deploy, <b>Copy</b> again after it (the newer edit of each item wins), then <b>Finish</b>: it checks every item, exports the old ones to the firm's Cloud Storage, and deletes them from the Realtime Database. Ask users not to edit items until the second copy.</p>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label class="block text-xs text-slate-300 mb-1">Corporate</label><select id="dv-items-corp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <button data-items="copy" class="dv-items-act bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Copy</button>
+      <button data-items="check" class="dv-items-act bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg">Check</button>
+      <button data-items="finish" class="dv-items-act bg-red-700 hover:bg-red-600 text-white text-xs px-4 py-2 rounded-lg">Finish</button>
+    </div>
+    <pre id="dv-items-out" class="keep-iso text-xs text-slate-300 whitespace-pre-wrap"></pre>
   </div>
 
   <!-- The page's own tabs (owner, 2026-10-24): the corporates, the groups, the Support queue. -->
@@ -19,6 +34,16 @@
        here only, never in the public Help, since it names the firm's tools.
        From docs/ONBOARDING.md and README → Deploying: keep them in step. -->
   <div data-page-pane="help" class="hidden space-y-5 text-sm text-slate-300 max-w-4xl" id="dv-help">
+    <section class="space-y-2">
+      <h3 class="text-base font-semibold text-slate-100">Items move (to Firestore)</h3>
+      <p>Once, with the items deploy (docs/modules/ITEMS_FIRESTORE.md, step 3a). <b>Items move</b>, at the top, works on one corporate at a time, 100 included:</p>
+      <ol class="list-decimal pl-5 space-y-1">
+        <li>Ask users not to edit items (Item Master, Master Import) until step 4.</li>
+        <li>For each corporate: <b>Copy</b>. It copies the items into Firestore.</li>
+        <li>GitHub → Actions → Deploy → <code>functions set</code> <code>items-3a</code>.</li>
+        <li>For each corporate: <b>Copy</b> again (the newer edit of each item wins), <b>Check</b>, then <b>Finish</b>: it exports the old items to the firm's Cloud Storage (item-exports/) and deletes them from the Realtime Database. Finish refuses while the check fails.</li>
+      </ol>
+    </section>
     <section class="space-y-2">
       <h3 class="text-base font-semibold text-slate-100">Onboarding a client</h3>
       <p>The client's IT first creates its Firebase project and grants the firm's accounts (docs/ONBOARDING.md, part A). Then, here:</p>
@@ -524,6 +549,21 @@ bash tools/deploy-hosting.sh</pre>
     call('copyDeveloperChartHeaders', { CorporateID: current.CorporateID }).then(r => { appAlert(r.count + ' headings copied.'); return load(current.CorporateID); }, fail('copy the headings'));
   }
 
+  // ---------- the items' move to Firestore (ITEMS_FIRESTORE.md, step 3) ----------
+  function openItemsMove() {
+    const panel = el('dv-items-panel');
+    panel.classList.toggle('hidden');
+    const corps = ((data && data.corporates) || []).map(c => '<option value="' + escapeHtml(c.CorporateID) + '">' + escapeHtml(c.CorporateID + ' — ' + (c.Name || '')) + '</option>').join('');
+    el('dv-items-corp').innerHTML = '<option value="100">100 — the firm</option>' + corps;
+  }
+  async function itemsMove(action) {
+    const id = el('dv-items-corp').value;
+    if (action === 'finish' && !(await appConfirm('Check ' + id + '\'s items, export the old ones to the firm\'s Cloud Storage and delete them from the Realtime Database? Only after the second copy.', { danger: true }))) return;
+    el('dv-items-out').textContent = 'Working…';
+    call('moveDeveloperItems', { CorporateID: id, action }).then(r => { el('dv-items-out').textContent = JSON.stringify(r, null, 2); },
+      err => { el('dv-items-out').textContent = ''; appAlert((err && err.message) || 'Unable to ' + action + ' the items.'); });
+  }
+
   // ---------- the support queue (M3) ----------
   let queue = null, qIssue = null;
   const Q_TONE = { New: 'text-amber-300 font-semibold', 'In progress': 'text-blue-300', 'Waiting for you': 'text-fuchsia-300', Resolved: 'text-emerald-400', Closed: 'text-slate-500' };
@@ -590,6 +630,8 @@ bash tools/deploy-hosting.sh</pre>
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-users-gear"></i> Client Management';
     el('dv-refresh').addEventListener('click', () => load(current && current.CorporateID));
+    el('dv-items').addEventListener('click', openItemsMove);
+    document.querySelectorAll('.dv-items-act').forEach(b => b.addEventListener('click', () => itemsMove(b.dataset.items)));
     el('dv-search').addEventListener('input', renderList);
     el('dv-reset-allowed').addEventListener('change', async e => {
       const allowed = e.target.checked;

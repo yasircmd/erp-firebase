@@ -14,13 +14,17 @@ const path = require('path');
 const SRC = path.join(__dirname, '../../src');
 
 const PATHS = ['salesOrders', 'customerInvoices', 'stock/reservations', 'vendorInvoices', 'purchaseOrders', 'purchaseRequisitions', 'inventoryPurchaseRequisitions',
-  'jobOrderBatches', 'jobOrderLines', 'pdcCheques', 'approvalInstances'];
+  'jobOrderBatches', 'jobOrderLines', 'pdcCheques', 'approvalInstances', 'items'];
 // file: why it reads a whole moved collection (store.all()).
 const ALLOWED = {
   'coaUsage.js': 'whether an account was ever used: every document, by nature',
   'coaRenumber.js': 'every stored copy of a renumbered account\'s code is rewritten',
   'docStore.js': 'all() itself, and the RTDB-path adapter (Data Reset clears and counts through it)',
-  'movedPaths.js': 'where() on a collection still in RTDB reads it whole, as before'
+  'movedPaths.js': 'where() on a collection still in RTDB reads it whole, as before',
+  // ITEMS_FIRESTORE.md, step 3: all() for the readers that need every item (the pickers until step 3b,
+  // Master Import's duplicate check, the MIS builder's data set), and its reports above BULK_AT items.
+  'itemStore.js': 'all() for the readers that need every item; the reports above BULK_AT',
+  'itemMigration.js': 'the old items in the Realtime Database, copied, checked, exported and deleted (QI6, QI8)'
 };
 // Ported lists that show every document the user's companies hold, newest
 // first (the company filter is a user's list of companies, not one value).
@@ -31,7 +35,9 @@ const PORTED_WHOLE = {
   // Production's batch picker reads every batch only when no company is given.
   jobOrderBatches: ['getJobOrderBatches', 'getJobOrderLinesFlat', 'getEligibleJobOrderBatchesForProduction'], jobOrderLines: ['getJobOrderLinesFlat'], pdcCheques: [],
   // The Approval Tracker reads every approval only when no module is chosen.
-  approvalInstances: ['getApprovalHistory']
+  approvalInstances: ['getApprovalHistory'],
+  // The item pickers and the Item Master list, until step 3b's server search (ITEMS_FIRESTORE.md).
+  items: ['getItems', 'getSellableItems', 'getEligibleJobOrderItems']
 };
 
 const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));

@@ -42,9 +42,9 @@ async function budgetBuckets(companyId, months, coa) {
 // The parties' control accounts and the items' inventory accounts (the
 // ratio map's seed, Q432).
 async function controlAccounts() {
-  const [customers, vendors, items] = await Promise.all([val('customers'), val('vendors'), val('items')]);
+  const [customers, vendors, accounts] = await Promise.all([val('customers'), val('vendors'), require('./itemStore').inventoryAccounts('')]);
   const ids = (o, f) => [...new Set(Object.values(o).map(x => x && x[f]).filter(Boolean))];
-  return { receivableIds: ids(customers, 'TradeReceivablesAccountID'), payableIds: ids(vendors, 'TradePayablesAccountID'), inventoryIds: ids(items, 'InventoryAccountID') };
+  return { receivableIds: ids(customers, 'TradeReceivablesAccountID'), payableIds: ids(vendors, 'TradePayablesAccountID'), inventoryIds: Object.keys(accounts) };
 }
 
 // The financial year's first month (Period Closing's setting, as the Budget reads it).

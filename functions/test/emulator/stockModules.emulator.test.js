@@ -113,9 +113,14 @@ const state = {};
 test.before(async () => {
   await rtdb.ref('/').set(null);
   await fetch('http://' + process.env.FIRESTORE_EMULATOR_HOST + '/emulator/v1/projects/' + PROJECT + '/databases/(default)/documents', { method: 'DELETE' });
-  await rtdb.ref('/').set(FIXTURE);
+  // The items are in Firestore (ITEMS_FIRESTORE.md, step 3): through their store; the rest to RTDB.
+  const rest = Object.assign({}, FIXTURE);
+  delete rest.items;
+  await rtdb.ref('/').set(rest);
+  await movedPaths.request('items', 'put', FIXTURE.items);
+  await require('../../src/itemStore').rebuildAccounts();
 });
-test.after(async () => { await app.delete(); });
+test.after(async () => { await Promise.all(admin.apps.map(a => a.delete())); });
 
 // ---------- master data / helpers ----------
 

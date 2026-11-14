@@ -5,8 +5,8 @@ order: 3
 modules: [PRICELISTING]
 sources: [functions/src/masterData.js]
 summary: Review and maintain the item prices and rates used for sales transactions and customer orders.
-reviewed: 2026-11-13
-fingerprint: c2c89918ad7d86b9
+reviewed: 2026-11-14
+fingerprint: 546ce35c476fa778
 ---
 ## What it is for
 

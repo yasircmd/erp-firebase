@@ -236,7 +236,7 @@ async function salesItems(me, d) {
   const customer = await requireMyCustomer(me, rep, d.customerId);
   const priceList = await L().resolvePriceListForClassification_(CTX, me.emp.CompanyID, customer.Classification || '');
   if (!priceList) throw failed('This customer has no price list (Price Listing, by its classification): the office prices its orders.');
-  const [byItem, items, units] = await Promise.all([L().groupPriceListLinesByItem_(CTX, priceList.PriceListID), val('items'), val('orgUnits')]);
+  const [byItem, items, units] = await Promise.all([L().groupPriceListLinesByItem_(CTX, priceList.PriceListID), itemStore.all(), val('orgUnits')]); // the catalogue: step 3b's search
   const warehouses = Object.keys(units || {}).filter(id => units[id].Type === 'Warehouse' && units[id].Status === 'Active' && (!units[id].CompanyID || units[id].CompanyID === me.emp.CompanyID))
     .map(id => ({ WarehouseID: id, Code: units[id].Code, Name: units[id].Name }));
   const out = [];

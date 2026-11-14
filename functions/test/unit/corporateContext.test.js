@@ -59,7 +59,8 @@ test('the firm\'s own project is reached only for the directory and the screens 
   // techRef.js: the Technical Reference inside the screens release (TECH_REFERENCE.md), firm-only.
   // builtDefinitions.js, moduleBuilder.js: the built modules' definitions, the firm's like the screens release (MODULE_BUILDER.md, Q461).
   // builtPacks.js: the firm's packs (modulePacks) and their definitions (MODULE_BUILDER.md, phase 6); what a corporate installed is its own.
-  assert.deepEqual(users, ['builtDefinitions.js', 'builtPacks.js', 'corporates.js', 'developer.js', 'fxSheet.js', 'getModuleFragment.js', 'moduleBuilder.js', 'support.js', 'techRef.js']);
+  // itemMigration.js: the old items' JSON export, in the firm's Cloud Storage (ITEMS_FIRESTORE.md, QI6).
+  assert.deepEqual(users, ['builtDefinitions.js', 'builtPacks.js', 'corporates.js', 'developer.js', 'fxSheet.js', 'getModuleFragment.js', 'itemMigration.js', 'moduleBuilder.js', 'support.js', 'techRef.js']);
 });
 
 test('no module keeps data between requests, except these', () => {

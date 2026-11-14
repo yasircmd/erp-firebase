@@ -118,9 +118,10 @@ function dateValue(v) {
 
 async function loadData() {
   const paths = ['coa', 'items', 'orgUnits', 'vendors', 'customers'];
-  const snaps = await Promise.all(paths.map(p => rtdb.ref(p).get()));
+  // Wherever each lives now (the items are in Firestore: ITEMS_FIRESTORE.md, step 3).
+  const vals = await Promise.all(paths.map(p => require('./movedPaths').val(p)));
   const d = {};
-  paths.forEach((p, i) => { d[p] = snaps[i].val() || {}; });
+  paths.forEach((p, i) => { d[p] = vals[i] || {}; });
   d.baseCode = (await require('./exchangeRates').baseCurrency()).Code;
   d.rates = (await rtdb.ref('exchangeRates').get()).val() || {};
   return d;
