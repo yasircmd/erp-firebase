@@ -18,7 +18,6 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
-const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 
@@ -74,7 +73,7 @@ async function assertDocumentNotCorrected(documentId) {
 async function accountRoles(companyId) {
   const partyLedger = require('./partyLedger');
   const [items, parties, taxDoc, fa] = await Promise.all([
-    itemStore.stocked(companyId), // the items with stock or movement: their inventory accounts (ITEMS_FIRESTORE.md, step 2)
+    rtdb.ref('items').get().then(s => s.val() || {}),
     partyLedger.loadParties(),
     firestore.collection('taxConfig').doc(String(companyId)).get(),
     require('./fixedAssetsCommon').controlledAccountIds()

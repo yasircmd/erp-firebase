@@ -246,8 +246,7 @@ deploys the rules (indexes) first.
 - **Hand-written reports:** Batch Expiry and Reorder (their transactions',
   ledger's, reservations' and orders' items, and those with a reorder
   level), Inventory aging (the items moved), tax reports (the documents'
-  lines), period closing's stock check and the Correction JV's inventory
-  accounts (`stocked`). Barcodes: an item's barcodes, generation and the
+  lines). Barcodes: an item's barcodes, generation and the
   label sheet read only their items.
 - **Ported reports** (11 more patches, items-reports): Stock Valuation (the
   ledger's items), Stock Ledger (its one item), Material Variance (its
@@ -256,6 +255,13 @@ deploys the rules (indexes) first.
   recalculation (the postings'), the BOM list (its parents).
   `generate.js` maps `itemsForReport_`, `itemsForReportLines_` and
   `itemsLinesOf_`.
+- **Kept reading every item, for step 3:** period closing's stock check
+  and the Correction JV's inventory accounts. They need the inventory
+  account of every item, moved or not (an inventory account with a GL
+  balance and no stock is what the check finds; a CJV may not move a line
+  onto any inventory account). The regression caught this when they read
+  only the stocked items. Step 3 keeps a summary of the items' inventory
+  accounts, updated on every item write.
 - **Still reading the whole catalogue, for step 3:** the pickers
   (`getActiveItems`, `getSellableItems`, eligible Job Order items, item
   user codes, built-module links, the portal's price-list items), the Item

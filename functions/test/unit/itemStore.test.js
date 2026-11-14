@@ -32,7 +32,9 @@ test('the document readers never read the whole catalogue', () => {
 });
 
 // Step 2 (QI4, QI7): the reports read only the items they cover.
-const REPORT_FILES = ['stockReports.js', 'agingReports.js', 'taxReports.js', 'periodClosing.js', 'correctionJv.js', 'itemBarcodes.js'];
+// periodClosing.js and correctionJv.js still read every item's inventory account (an item that never moved
+// counts too): step 3 keeps a summary of them on every item write.
+const REPORT_FILES = ['stockReports.js', 'agingReports.js', 'taxReports.js', 'itemBarcodes.js'];
 const PORTED_REPORTS = ['getStockValuationReport', 'getStockLedgerReport', 'getMaterialVarianceReport', 'getProductionConsumptionReport',
   'getStockAvailabilityList', 'recalculateStockLedger', 'getBoms'];
 

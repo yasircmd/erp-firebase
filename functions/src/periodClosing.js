@@ -245,7 +245,7 @@ async function partyControl(partyType, companyId, month) {
 async function stockControl(companyId, month) {
   const end = lastDay(month);
   const [inv, itemSnap, coaSnap, jvSnap] = await Promise.all([
-    aging.inventoryAging(companyId, end, '', '', false), require('./itemStore').stocked(companyId).then(v => ({ val: () => v })), rtdb.ref('coa').get(),
+    aging.inventoryAging(companyId, end, '', '', false), rtdb.ref('items').get(), rtdb.ref('coa').get(),
     firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get()
   ]);
   const items = itemSnap.val() || {}, coa = coaSnap.val() || {};
