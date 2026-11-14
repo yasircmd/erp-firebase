@@ -4022,7 +4022,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     id: "items-only-their-own (saveDeliveryNoteDraft)",
     why: ITEMS_WHY,
     find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    // Source SOs referenced by any line, cached once \u2014 a single\n",
-    replace: "    const itemsData = itemsByCodes_(idToken, (dnData.Lines || []).map(l => String((l && l.ItemCode) || '').trim())) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    // Source SOs referenced by any line, cached once \u2014 a single\n"
+    replace: "    // The items of the Sales Order lines this note ships (its lines name the SO line, not the item).\n    const itemCodesShipped = [];\n    const soIdsShipped = Array.from(new Set((dnData.Lines || []).map(l => String((l && l.SourceSOID) || '').trim()).filter(Boolean)));\n    for (const soIdShipped of soIdsShipped) {\n      const soShipped = firebaseDbRequest_('salesOrders/' + soIdShipped, 'get', null, idToken);\n      ((soShipped && soShipped.Lines) || []).forEach(l => itemCodesShipped.push(l.ItemCode));\n    }\n    const itemsData = itemsByCodes_(idToken, itemCodesShipped) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    // Source SOs referenced by any line, cached once \u2014 a single\n"
   },
   {
     id: "items-only-their-own (commitDeliveryNotePosting_)",

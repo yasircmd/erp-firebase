@@ -4895,7 +4895,14 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
     const customerData = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);
     if (!customerData || customerData.Status !== 'Active') throw new Error('Unknown or inactive Customer.');
 
-    const itemsData = (await itemsByCodes_(idToken, (dnData.Lines || []).map(l => String((l && l.ItemCode) || '').trim()))) || {};
+    // The items of the Sales Order lines this note ships (its lines name the SO line, not the item).
+    const itemCodesShipped = [];
+    const soIdsShipped = Array.from(new Set((dnData.Lines || []).map(l => String((l && l.SourceSOID) || '').trim()).filter(Boolean)));
+    for (const soIdShipped of soIdsShipped) {
+      const soShipped = await firebaseDbRequest_('salesOrders/' + soIdShipped, 'get', null, idToken);
+      ((soShipped && soShipped.Lines) || []).forEach(l => itemCodesShipped.push(l.ItemCode));
+    }
+    const itemsData = (await itemsByCodes_(idToken, itemCodesShipped)) || {};
     const itemByCode = {};
     Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
 

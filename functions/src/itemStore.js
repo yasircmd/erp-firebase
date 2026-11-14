@@ -8,7 +8,9 @@
 'use strict';
 const { rtdb } = require('./firebaseAdmin');
 
-const ids = list => [...new Set((list || []).map(x => String(x == null ? '' : x).trim()).filter(x => x && !/[.#$\[\]/]/.test(x)))];
+// Any list (an array or a Set); a single id on its own counts as one.
+const listOf = list => (list == null ? [] : typeof list === 'string' ? [list] : Array.from(list));
+const ids = list => [...new Set(listOf(list).map(x => String(x == null ? '' : x).trim()).filter(x => x && !/[.#$\[\]/]/.test(x)))];
 
 // The items with these ids, as { id: item } (the shape a whole read gave):
 // an id with no item is simply absent.
@@ -23,7 +25,7 @@ async function byIds(list) {
 // The items with these item codes, as { id: item }, like byIds: one
 // query each on ItemCode (database.rules.json indexes it on items).
 async function byCodes(list) {
-  const want = [...new Set((list || []).map(x => String(x == null ? '' : x).trim()).filter(Boolean))];
+  const want = [...new Set(listOf(list).map(x => String(x == null ? '' : x).trim()).filter(Boolean))];
   const snaps = await Promise.all(want.map(code => rtdb.ref('items').orderByChild('ItemCode').equalTo(code).get()));
   const out = {};
   snaps.forEach(s => Object.assign(out, s.val() || {}));
