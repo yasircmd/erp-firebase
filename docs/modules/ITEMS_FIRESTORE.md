@@ -453,6 +453,7 @@ Production, BOM and Stock Ledger.
   - a scan not asked first (GRN);
   - the answer given only to the box that asked (Stock Adjustment's line,
     redrawn meanwhile).
+- **Regression:** 890 emulator tests and 298 unit tests passed.
 - **Deploy:** after items-3b-1. Set **items-3b-2** (35 functions; getItemsByCodes
   new: its invoker binding) with **--screens**; no rules.
 
