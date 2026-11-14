@@ -25,6 +25,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const descriptions = require('./descriptions');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { approvalInstances } = require('./approvalStore');
 const stockStore = require('./stockStore');
 const { vendorInvoices } = require('./purchaseStore');
@@ -168,10 +169,11 @@ function computeValues(lines, inv) {
 // Quantity } rows against what's returnable now. Used at save and again
 // at commit (under the global lock — the authoritative check).
 async function buildLines(rawLines, invoiceId, inv, excludeReturnId) {
-  const [available, itemsSnap, uomsSnap] = await Promise.all([
-    invoiceGrnLines(invoiceId, inv, excludeReturnId), rtdb.ref('items').get(), rtdb.ref('uoms').get()
+  const [available, uomsSnap] = await Promise.all([
+    invoiceGrnLines(invoiceId, inv, excludeReturnId), rtdb.ref('uoms').get()
   ]);
-  const items = itemsSnap.val() || {};
+  // Only the invoice's items (ITEMS_FIRESTORE.md, step 1).
+  const items = await itemStore.forLines(available);
   const uoms = uomsSnap.val() || {};
   const byKey = new Map(available.map(a => [grnLineKey(a.SourceGRNID, a.SourceGRNLineNo), a]));
   const seen = new Set();
@@ -349,10 +351,9 @@ async function commitPurchaseReturnPosting(user, existing, returnId) {
   const lines = await buildLines(existing.Lines, existing.SourceInvoiceID, inv, returnId);
   const values = computeValues(lines, inv);
 
-  const [itemsSnap, coaSnap, vendorSnap] = await Promise.all([
-    rtdb.ref('items').get(), rtdb.ref('coa').get(), rtdb.ref('vendors/' + existing.VendorID).get()
+  const [itemsData, coaSnap, vendorSnap] = await Promise.all([
+    itemStore.forLines(lines), rtdb.ref('coa').get(), rtdb.ref('vendors/' + existing.VendorID).get()
   ]);
-  const itemsData = itemsSnap.val() || {};
   const coaData = coaSnap.val() || {};
   const vendor = vendorSnap.val();
   if (!vendor || !vendor.TradePayablesAccountID) throw new Error('This Vendor has no Trade Payables Account configured. Set one in Vendor Master Data before posting.');
@@ -529,10 +530,10 @@ exports.reversePurchaseReturn = onCallWithMessages(onCallOptions, async (request
     await assertEntryReversible(existing.LinkedJVID, Object.assign({}, glEntry, { ReversalOfJV: '' }));
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const [itemsSnap, coaSnap] = await Promise.all([rtdb.ref('items').get(), rtdb.ref('coa').get()]);
+    const [itemsData, coaSnap] = await Promise.all([itemStore.forLines(existing.Lines), rtdb.ref('coa').get()]);
     // In at the unit cost each line went out at (stored by the posting).
     const movementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'In' }));
-    const movement = await computeStockMovement(itemsSnap.val() || {}, coaSnap.val() || {}, movementLines);
+    const movement = await computeStockMovement(itemsData, coaSnap.val() || {}, movementLines);
 
     // Mirror of the original: every line swapped, the vendor tag kept (so
     // the vendor's statement shows the reversal) but with no allocations —

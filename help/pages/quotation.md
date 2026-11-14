@@ -1,6 +1,6 @@
 ---
-fingerprint: 6c6de529f7ad5392
-reviewed: 2026-11-12
+fingerprint: f4445bcc6cc4dca5
+reviewed: 2026-11-14
 title: Quotations
 area: crm
 order: 2

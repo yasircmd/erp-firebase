@@ -22,6 +22,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const engine = require('./taxEngine');
@@ -74,12 +75,14 @@ async function vendorInvoiceTax(p) {
   (Array.isArray(d.LineTaxCodes) ? d.LineTaxCodes : []).forEach(x => { if (x && x.Key && x.TaxCode) asked[text(x.Key, 80)] = text(x.TaxCode, 12).toUpperCase(); });
   const before = {};
   ((p.before || {}).TaxLines || []).forEach(t => { before[t.Key] = t.TaxCode; });
-  const [items, coa] = await Promise.all([rtdb.ref('items').get().then(s => s.val() || {}), rtdb.ref('coa').get().then(s => s.val() || {})]);
+  const coa = (await rtdb.ref('coa').get()).val() || {};
   const accountByCode = {};
   Object.values(coa).forEach(a => { accountByCode[String(a.AccountCode)] = a; });
   const raw = [];
   for (const g of p.sourceGRNs || []) {
     const rec = await stockStore.getTx(g.GRNID);
+    // Only this GRN's items (ITEMS_FIRESTORE.md, step 1).
+    const items = await itemStore.forLines((rec && rec.Lines) || []);
     // Its stock lines (an item) and its non-stock lines (a category's account, GRN_NON_STOCK.md).
     const lines = ((rec && rec.Lines) || []).map((l, i) => ({ l, key: g.GRNID + '#' + (Number(l.LineNo) || i + 1) }))
       .concat(((rec && rec.NonStockLines) || []).map((l, i) => ({ l, key: g.GRNID + '#ns' + (i + 1), nonStock: true })));

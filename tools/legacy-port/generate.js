@@ -93,6 +93,10 @@ const MAPPED = {
   accountCurrency_: ['fx', 'accountCurrency', 'dropCtx'], // decision 217 (patch bank-currency)
   ledgerFcBalances_: ['fx', 'ledgerFcBalances', 'pure'],
   assertActiveRoom_: ['limits', 'assertRoom', 'dropCtx'], // limits per corporate (UX4.md item 2, Q501)
+  // The item store (ITEMS_FIRESTORE.md, step 1): a document reads only its own items (called only from patches).
+  itemsByIds_: ['itemStore', 'byIds', 'dropCtx'],
+  itemsForLines_: ['itemStore', 'forLines', 'dropCtx'],
+  itemsByCodes_: ['itemStore', 'byCodes', 'dropCtx'],
   projectFields_: ['projects', 'projectFields', 'dropCtx'], // docs/modules/PROJECTS_DIMENSIONS.md (patch projects)
   cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
   needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],
@@ -187,6 +191,7 @@ const SHARED_PATHS = {
   projects: '../projects',
   docRep: '../docRep',
   limits: '../limits',
+  itemStore: '../itemStore', // ITEMS_FIRESTORE.md, step 1
   dimensionRules: '../dimensionRules',
   eInvoicing: '../eInvoicing',
   dataReset: '../dataReset', // used by name (__dataReset.) in patches

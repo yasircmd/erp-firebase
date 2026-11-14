@@ -5,8 +5,8 @@ order: 8
 modules: [PURCHASERETURN]
 sources: [functions/src/purchaseReturn.js, functions/src/grn.js, functions/src/purchaseTax.js]
 summary: Return goods to the supplier, reverse the stock and capture the debit note for the vendor return.
-reviewed: 2026-11-13
-fingerprint: 8f61910e5cacea2c
+reviewed: 2026-11-14
+fingerprint: 914e61937ec83002
 ---
 ## What it is for
 

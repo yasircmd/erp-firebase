@@ -3,6 +3,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const descriptions = require('./descriptions');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const stockStore = require('./stockStore');
 const { purchaseOrders, vendorInvoices } = require('./purchaseStore');
 const { sorted } = require('./docStore');
@@ -144,10 +145,10 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   const vendorData = vendorSnap.val();
   if (!vendorData || vendorData.Status !== 'Active') throw new HttpsError('invalid-argument', 'Unknown or inactive Vendor.');
 
-  const [itemsSnap, uomsSnap, orgUnitsSnap] = await Promise.all([
-    rtdb.ref('items').get(), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
+  // Only the lines' items (ITEMS_FIRESTORE.md, step 1), not the catalogue.
+  const [itemsData, uomsSnap, orgUnitsSnap] = await Promise.all([
+    itemStore.forLines(grnData.Lines), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
   ]);
-  const itemsData = itemsSnap.val() || {};
   const uomsData = uomsSnap.val() || {};
   const orgUnitsData = orgUnitsSnap.val() || {};
 
@@ -363,8 +364,7 @@ exports.postGrn = onCallWithMessages(onCallOptions, async (request) => {
 
 // Ported from commitGrnPosting_.
 async function commitGrnPosting(user, existing, grnId) {
-  const itemsSnap = await rtdb.ref('items').get();
-  const itemsData = itemsSnap.val() || {};
+  const itemsData = await itemStore.forLines(existing.Lines);
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
 
@@ -546,8 +546,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     if (existing.MatchedToInvoiceID) throw new HttpsError('failed-precondition', 'This GRN has already been matched to a Vendor Invoice and cannot be reversed. Reverse the invoice first.');
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const itemsSnap = await rtdb.ref('items').get();
-    const itemsData = itemsSnap.val() || {};
+    const itemsData = await itemStore.forLines(existing.Lines);
     const coaSnap = await rtdb.ref('coa').get();
     const coaData = coaSnap.val() || {};
 

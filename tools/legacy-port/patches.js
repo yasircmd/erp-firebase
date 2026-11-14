@@ -7,6 +7,7 @@
 // NEW DEVELOPMENT (after the migration) are features, not fixes; each is
 // recorded in its module's design doc under docs/modules/.
 const WHY = 'NEW DEVELOPMENT (owner, 2026-11-08; docs/modules/MIS.md, phase 1c, Q435-Q438): ';
+const ITEMS_WHY = "NEW DEVELOPMENT (owner, 2026-11-14; docs/modules/ITEMS_FIRESTORE.md, step 1, QI1): a document reads only its own items (by id, or by item code through the ItemCode index), not the whole catalogue (21 MB and about 2 s at 50,000 items). The map it builds has the same shape, so the rest of the function is unchanged.";
 module.exports = [
   {
     id: 'stock-ledger-report-transfers-and-multiline',
@@ -3504,7 +3505,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     const taxAccountId = resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account');`,
     replace: `  let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
   if (existing.TaxComponents) {
-    inputTax = purchaseTaxGl_(idToken, existing, coaData, firebaseDbRequest_('items', 'get', null, idToken) || {}, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+    inputTax = purchaseTaxGl_(idToken, existing, coaData, itemsForLines_(idToken, existing.TaxLines || []) || {}, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
       invoiceId: invoiceId, date: existing.InvoiceDate, actor: user.profile.username || user.uid });
     inputTax.glLines.forEach(l => glLines.push(l));
   } else if (existing.TaxAmount > 0) {
@@ -3524,7 +3525,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     const taxAccount = coaData[resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account')];`,
     replace: `  let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
   if (existing.TaxComponents) {
-    inputTax = purchaseTaxGl_(idToken, existing, coaData, firebaseDbRequest_('items', 'get', null, idToken) || {}, { reverse: true, description: 'Reversal of ' + existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+    inputTax = purchaseTaxGl_(idToken, existing, coaData, itemsForLines_(idToken, existing.TaxLines || []) || {}, { reverse: true, description: 'Reversal of ' + existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
       invoiceId: invoiceId, date: date, actor: user.profile.username || user.uid });
     inputTax.glLines.forEach(l => glLines.push(l));
   } else if (existing.TaxAmount > 0) {
@@ -3992,5 +3993,113 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     replace: `    if (companyId && parentCompanyId === companyId) throw new Error('A company cannot be its own parent.');
     assertActiveRoom_(idToken, 'company', companyId, status); // [NEW DEVELOPMENT corporate-limits]
 `
+  },
+  {
+    id: "items-only-their-own (saveBom)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const parentItem = itemsData[parentItemId];\n",
+    replace: "    const itemsData = itemsByIds_(idToken, [parentItemId].concat((bomData.Components || []).map(c => String((c && c.ComponentItemID) || '').trim()))) || {};\n    const parentItem = itemsData[parentItemId];\n"
+  },
+  {
+    id: "items-only-their-own (saveProductionDraft)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const uomsData = firebaseDbRequest_('uoms', 'get', null, idToken) || {};\n    const orgUnitsData = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {};\n\n    const rawLines = prodData.Lines || [];\n",
+    replace: "    const itemsData = itemsForLines_(idToken, prodData.Lines || []) || {};\n    const uomsData = firebaseDbRequest_('uoms', 'get', null, idToken) || {};\n    const orgUnitsData = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {};\n\n    const rawLines = prodData.Lines || [];\n"
+  },
+  {
+    id: "items-only-their-own (commitProductionPosting_)",
+    why: ITEMS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  const coaData = getCoaData_(idToken);\n\n  // Every line is inbound \u2014 the produced item entering stock.\n",
+    replace: "  const itemsData = itemsForLines_(idToken, existing.Lines || []) || {};\n  const coaData = getCoaData_(idToken);\n\n  // Every line is inbound \u2014 the produced item entering stock.\n"
+  },
+  {
+    id: "items-only-their-own (reverseProduction)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const coaData = getCoaData_(idToken);\n\n    const movementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'Out' }));\n",
+    replace: "    const itemsData = itemsForLines_(idToken, existing.Lines || []) || {};\n    const coaData = getCoaData_(idToken);\n\n    const movementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'Out' }));\n"
+  },
+  {
+    id: "items-only-their-own (saveDeliveryNoteDraft)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    // Source SOs referenced by any line, cached once \u2014 a single\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, (dnData.Lines || []).map(l => String((l && l.ItemCode) || '').trim())) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    // Source SOs referenced by any line, cached once \u2014 a single\n"
+  },
+  {
+    id: "items-only-their-own (commitDeliveryNotePosting_)",
+    why: ITEMS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  const coaData = getCoaData_(idToken);\n\n  const movementLines = existing.Lines.map(l => Object.assign({ Direction: 'Out' }, l));\n",
+    replace: "  const itemsData = itemsForLines_(idToken, existing.Lines || []) || {};\n  const coaData = getCoaData_(idToken);\n\n  const movementLines = existing.Lines.map(l => Object.assign({ Direction: 'Out' }, l));\n"
+  },
+  {
+    id: "items-only-their-own (reverseDeliveryNote)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const coaData = getCoaData_(idToken);\n\n    // Same lines, movement direction flipped \u2014 an 'In' movement puts\n",
+    replace: "    const itemsData = itemsForLines_(idToken, existing.Lines || []) || {};\n    const coaData = getCoaData_(idToken);\n\n    // Same lines, movement direction flipped \u2014 an 'In' movement puts\n"
+  },
+  {
+    id: "items-only-their-own (savePhysicalCountDraft)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const uomsData = firebaseDbRequest_('uoms', 'get', null, idToken) || {};\n    const orgUnitsData = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {};\n\n    const rawLines = pcData.Lines || [];\n",
+    replace: "    const itemsData = itemsForLines_(idToken, pcData.Lines || []) || {};\n    const uomsData = firebaseDbRequest_('uoms', 'get', null, idToken) || {};\n    const orgUnitsData = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {};\n\n    const rawLines = pcData.Lines || [];\n"
+  },
+  {
+    id: "items-only-their-own (postPhysicalCount)",
+    why: ITEMS_WHY,
+    find: "    const itemsDataPreview = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const coaDataPreview = getCoaData_(idToken);\n    if (preview.adjustmentLines.length) {\n",
+    replace: "    const itemsDataPreview = itemsForLines_(idToken, existing.Lines || []) || {};\n    const coaDataPreview = getCoaData_(idToken);\n    if (preview.adjustmentLines.length) {\n"
+  },
+  {
+    id: "items-only-their-own (commitPhysicalCountPosting_)",
+    why: ITEMS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  const coaData = getCoaData_(idToken);\n  const { finalLines, adjustmentLines } = buildPhysicalCountLines_(idToken, existing);\n",
+    replace: "  const itemsData = itemsForLines_(idToken, existing.Lines || []) || {};\n  const coaData = getCoaData_(idToken);\n  const { finalLines, adjustmentLines } = buildPhysicalCountLines_(idToken, existing);\n"
+  },
+  {
+    id: "items-only-their-own (reversePhysicalCount)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const coaData = getCoaData_(idToken);\n\n    const varianceLines = (existing.Lines || []).filter(l => Math.abs(l.Variance || 0) >= 0.000001);\n",
+    replace: "    const itemsData = itemsForLines_(idToken, existing.Lines || []) || {};\n    const coaData = getCoaData_(idToken);\n\n    const varianceLines = (existing.Lines || []).filter(l => Math.abs(l.Variance || 0) >= 0.000001);\n"
+  },
+  {
+    id: "items-only-their-own (saveDraftInventoryPurchaseRequisition)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    // Deliberately no Category/type restriction on which items are\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, (header.Lines || []).map(l => String((l && l.ItemCode) || '').trim())) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    // Deliberately no Category/type restriction on which items are\n"
+  },
+  {
+    id: "items-only-their-own (savePriceListLine)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === itemCode);\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, [itemCode]) || {};\n    const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === itemCode);\n"
+  },
+  {
+    id: "items-only-their-own (saveDraftSalesOrder)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    let total = 0;\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, (header.Lines || []).map(l => String((l && l.ItemCode) || '').trim())) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    let total = 0;\n"
+  },
+  {
+    id: "items-only-their-own (confirmSalesOrder)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    const year = (new Date(existing.SODate)).getFullYear() || new Date().getFullYear();\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, (existing.Lines || []).map(l => l && l.ItemCode)) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n\n    const year = (new Date(existing.SODate)).getFullYear() || new Date().getFullYear();\n"
+  },
+  {
+    id: "items-only-their-own (claimStockForSalesOrderLine)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === line.ItemCode);\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, [line.ItemCode]) || {};\n    const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === line.ItemCode);\n"
+  },
+  {
+    id: "items-only-their-own (saveDraftJobOrderBatch)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n    const boms = firebaseDbRequest_('boms', 'get', null, idToken) || {};\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, (header.Lines || []).map(l => String((l && l.ItemCode) || '').trim())) || {};\n    const itemByCode = {};\n    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });\n    const boms = firebaseDbRequest_('boms', 'get', null, idToken) || {};\n"
+  },
+  {
+    id: "items-only-their-own (saveDraftPurchaseOrder)",
+    why: ITEMS_WHY,
+    find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const categoriesData = firebaseDbRequest_('requisitionCategories', 'get', null, idToken) || {};\n",
+    replace: "    const itemsData = itemsByCodes_(idToken, (poData.Lines || []).map(l => l && l.ItemCode)) || {};\n    const categoriesData = firebaseDbRequest_('requisitionCategories', 'get', null, idToken) || {};\n"
   }
 ];

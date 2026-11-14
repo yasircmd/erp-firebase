@@ -31,7 +31,9 @@ test('every Status index in the rules is one a path is read by', () => {
       else if (n[k] && typeof n[k] === 'object' && !Array.isArray(n[k])) walk(n[k], at ? at + '/' + k : k);
     });
   })(rules, '');
-  assert.deepEqual(indexed.sort(), [...STATUS_INDEXED_PATHS].sort(), 'an index in database.rules.json that no path in rtdbStatus.js uses');
+  // The one other index: the items by ItemCode, for itemStore.byCodes (ITEMS_FIRESTORE.md, step 1).
+  assert.deepEqual(rules.items, { '.indexOn': ['ItemCode'] });
+  assert.deepEqual(indexed.filter(p => p !== 'items').sort(), [...STATUS_INDEXED_PATHS].sort(), 'an index in database.rules.json that no path in rtdbStatus.js uses');
 });
 
 test('the rules stay deny-all: an index opens nothing', () => {

@@ -16,6 +16,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const engine = require('./taxEngine');
@@ -154,9 +155,7 @@ async function invoiceTax(p) {
   (Array.isArray(d.LineTaxCodes) ? d.LineTaxCodes : []).forEach(x => { if (x && x.Key && x.TaxCode) asked[text(x.Key, 80)] = text(x.TaxCode, 12).toUpperCase(); });
   const before = {};
   ((p.before || {}).TaxLines || []).forEach(t => { before[t.Key] = t.TaxCode; });
-  const [items, salesTypes] = await Promise.all([rtdb.ref('items').get().then(s => s.val() || {}), rtdb.ref('salesTypes').get().then(s => s.val() || {})]);
-  const itemByCode = {};
-  Object.keys(items).forEach(id => { itemByCode[items[id].ItemCode] = items[id]; });
+  const salesTypes = (await rtdb.ref('salesTypes').get()).val() || {};
   const soCache = {};
   const raw = [];
   for (const dn of p.sourceDeliveryNotes || []) {
@@ -175,6 +174,10 @@ async function invoiceTax(p) {
     raw.push({ Key: 'item#' + (i + 1), Label: 'Item line ' + (i + 1) + ' ' + l.ItemCode, ItemCode: l.ItemCode, SalesTypeID: d.ItemSalesTypeID, Amount: l.Amount, Inclusive: await priceListIncludesTax(soCache, l.SourceSOID) });
   }
   (p.directLines || []).forEach((l, i) => raw.push({ Key: 'direct#' + (i + 1), Label: 'Direct line ' + (i + 1) + (l.Description ? ' ' + text(l.Description, 60) : ''), SalesTypeID: l.SalesTypeID, Amount: l.Amount, Inclusive: false }));
+  // Only the lines' items, by code (ITEMS_FIRESTORE.md, step 1).
+  const items = await itemStore.byCodes(raw.map(l => l.ItemCode));
+  const itemByCode = {};
+  Object.keys(items).forEach(id => { itemByCode[items[id].ItemCode] = items[id]; });
 
   let mayChange = null;
   const lines = [];
@@ -276,7 +279,7 @@ async function orderTax(d) {
   if (!config) return { configured: false };
   try {
     const [items, party, pl] = await Promise.all([
-      rtdb.ref('items').get().then(x => x.val() || {}),
+      itemStore.byCodes((Array.isArray(d.Lines) ? d.Lines : []).slice(0, 300).map(l => l && text(l.ItemCode, 60))), // only the lines' items (ITEMS_FIRESTORE.md)
       d.PartyID ? rtdb.ref((purchase ? 'vendors/' : 'customers/') + text(d.PartyID, 80)).get().then(x => x.val() || {}) : {},
       !purchase && d.PriceListID ? rtdb.ref('priceLists/' + text(d.PriceListID, 80)).get().then(x => x.val() || {}) : {}
     ]);

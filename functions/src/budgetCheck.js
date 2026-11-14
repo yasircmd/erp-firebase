@@ -24,6 +24,7 @@
 // consent rides with the request, as the period lock's does (callable.js).
 'use strict';
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { moduleHasCapability } = require('./auth');
 const { purchaseOrders } = require('./purchaseStore');
 const B = require('./budget');
@@ -51,7 +52,17 @@ async function rateOf(code, date, base) {
 // A Purchase Order's lines as debits in the base currency: a category line
 // to its GL account, an item line to its inventory account; the PO's cost
 // centre (a PO line has none). Open: the quantity not yet received.
+// The items a PO's lines name, by code, fetched once each (ITEMS_FIRESTORE.md,
+// step 1: not the whole catalogue).
+async function loadItemCodes(refs, lines) {
+  const missing = [...new Set((lines || []).map(l => l && !l.CategoryID && l.ItemCode).filter(c => c && !(c in refs.itemsByCode)))];
+  if (!missing.length) return;
+  const found = await itemStore.byCodes(missing);
+  missing.forEach(c => { refs.itemsByCode[c] = null; });
+  Object.values(found).forEach(i => { if (i && i.ItemCode) refs.itemsByCode[i.ItemCode] = i; });
+}
 async function poLines(po, refs, base, open) {
+  await loadItemCodes(refs, po.Lines);
   const rate = await rateOf(po.Currency || '', po.PODate, base);
   return (po.Lines || []).map(l => {
     const qty = open ? Math.max(0, (Number(l.Quantity) || 0) - (Number(l.ReceivedQuantity) || 0)) : Number(l.Quantity) || 0;
@@ -80,11 +91,9 @@ async function checkDocument(user, moduleId, doc) {
   const lifeBudgets = setup.ProjectBudgets === 'LifeOfProject' ? all.filter(b => b.Kind === 'Project' && b.Status === 'Approved' && b.Current) : [];
   if (!budget && !lifeBudgets.length) return null; // Q351
   const months = C.monthsOf(yearStart), month = months.indexOf(date.slice(0, 7));
-  const [coa, categories, items, base] = await Promise.all([
-    rtdb.ref('coa').get().then(s => s.val() || {}), rtdb.ref('requisitionCategories').get().then(s => s.val() || {}),
-    moduleId === 'PURCHASEORDER' || setup.Committed === 'ActualsAndPOs' ? rtdb.ref('items').get().then(s => s.val() || {}) : {}, baseCode()]);
-  const refs = { categories, itemsByCode: {}, byCode: {} };
-  Object.values(items).forEach(i => { if (i && i.ItemCode) refs.itemsByCode[i.ItemCode] = i; });
+  const [coa, categories, base] = await Promise.all([
+    rtdb.ref('coa').get().then(s => s.val() || {}), rtdb.ref('requisitionCategories').get().then(s => s.val() || {}), baseCode()]);
+  const refs = { categories, itemsByCode: {}, byCode: {} }; // itemsByCode: filled by poLines
   Object.keys(coa).forEach(id => { refs.byCode[String(coa[id].AccountCode)] = id; });
   const accounts = {};
   Object.keys(coa).forEach(id => { accounts[id] = { AccountType: coa[id].AccountType }; });
