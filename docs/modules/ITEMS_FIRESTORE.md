@@ -408,6 +408,7 @@ the sales and purchase screens, the portals and the shell's item codes.
   itemBarcodes, itemCategories, labelPrinting, smoke. Negative controls:
   a pack's units, the fragments read from the words, a code-only cursor,
   a scan dropped while another is asked: each caught.
+- **Regression:** 889 emulator tests and 298 unit tests passed.
 - **Deploy:** after items-3a. The "database rules" task first, then set
   **items-3b-1** (34 functions, 5 new: their invoker bindings) with
   **--screens**; the screens release redeploys Hosting, which carries the
