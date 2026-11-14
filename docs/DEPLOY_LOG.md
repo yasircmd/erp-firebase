@@ -2096,3 +2096,31 @@ from, and how it was verified. The deploy procedure is in the
   with it). No new function, no rules change. Live: every changing request
   and every document's creation and status change written to `auditLog`
   (no screen yet: step 3).
+- **2026-11-13, Audit log step 2 (PR #280, from `c38dd05`):** "functions
+  set" `audit-log-2`, run
+  [#370](https://github.com/yasircmd/erp-firebase/actions/runs/43477314761)
+  (17:53–20:26 UTC), success: every function (726, the new recordSignOut
+  among them, with its invoker binding); screens unchanged ("the active
+  release matches screens/"). Its hosting change (the shell's and the
+  portal's sign-out) went out with step 3's screens release below. Live:
+  the masters' and settings' changed fields, sensitive fields as
+  "changed", sign-ins, the firm's changes in the client's log.
+- **2026-11-13, Audit log step 3 (PRs #282, #283, from `20e79e0`):**
+  "database rules", run
+  [#371](https://github.com/yasircmd/erp-firebase/actions/runs/43502199221)
+  stopped at "Check help" before deploying anything: the Audit Log page had
+  been stamped before the last change to audit.js (fixed by PR #283, the
+  page re-stamped). "database rules", run
+  [#372](https://github.com/yasircmd/erp-firebase/actions/runs/43503079728)
+  (20:36–20:37 UTC), success: the five `auditLog` indexes, and the rules to
+  900, C101 and C102 (their trees brought up to date). "functions set, then
+  screens" `audit-log-3`, run
+  [#373](https://github.com/yasircmd/erp-firebase/actions/runs/43503582911)
+  (20:39–23:16 UTC, 122 batches of 6), success: `SUMMARY: functions
+  deployed: 728 …; access granted: 727 (none for: sweepTaskMail); screens
+  released: yes` (getAuditLog and getAuditLogFilters new; the AUDITLOG
+  screen; the styles and Hosting redeployed with it, carrying step 2's
+  sign-out and the Help). Live: the Audit Log screen (Admin only, every
+  corporate), the 7-year daily sweep, Data Reset's Audit Log category. To
+  do in the app: Audit Log in the menu (Tree Management, SYSTEM ADMIN),
+  then a "database rules" run to bring the client trees up to date.
