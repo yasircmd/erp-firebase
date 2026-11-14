@@ -2124,3 +2124,17 @@ from, and how it was verified. The deploy procedure is in the
   corporate), the 7-year daily sweep, Data Reset's Audit Log category. To
   do in the app: Audit Log in the menu (Tree Management, SYSTEM ADMIN),
   then a "database rules" run to bring the client trees up to date.
+- **2026-11-14, Audit Log in the client menus (from `9b9125c`):** "database
+  rules", run
+  [#375](https://github.com/yasircmd/erp-firebase/actions/runs/43559455201)
+  (05:01–05:02 UTC), success: after Audit Log was added to Corporate 100's
+  menu (Tree Management), the client corporates' trees brought up to date.
+- **2026-11-14, Large item catalogues step 1 (PR #286, from `42fae86`):**
+  "database rules", run
+  [#376](https://github.com/yasircmd/erp-firebase/actions/runs/43567337666)
+  (06:38–06:39 UTC), success: the ItemCode index on items, to this project
+  and the client corporates, before the functions. "functions set"
+  `items-1`, run
+  [#377](https://github.com/yasircmd/erp-firebase/actions/runs/43567550483)
+  (06:41–09:05 UTC), success: every function. Live: every document reads
+  only its own items (ITEMS_FIRESTORE.md, step 1).
