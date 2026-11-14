@@ -21,6 +21,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const stockStore = require('./stockStore');
 const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
@@ -227,8 +228,11 @@ function replayLayers(transactions) {
 }
 
 async function inventoryAging(companyId, asOf, warehouseId, category, onlyWithStock) {
-  const [txSnap, itemSnap, unitSnap, uomSnap] = await Promise.all([stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), rtdb.ref('items').get(), rtdb.ref('orgUnits').get(), rtdb.ref('uoms').get()]);
-  const items = itemSnap.val() || {}, units = unitSnap.val() || {}, uoms = uomSnap.val() || {};
+  const [txSnap, unitSnap, uomSnap] = await Promise.all([stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), rtdb.ref('orgUnits').get(), rtdb.ref('uoms').get()]);
+  const units = unitSnap.val() || {}, uoms = uomSnap.val() || {};
+  // Only the items the company's stock moved (ITEMS_FIRESTORE.md, step 2, QI4).
+  const movedIds = [].concat(...Object.values(txSnap.val() || {}).map(t => (t.Lines || []).map(l => l.ItemID)));
+  const items = await itemStore.forReport(movedIds, companyId);
   const st = replayLayers(countedTransactions(txSnap.val(), companyId, asOf));
   // One row per item (per warehouse when one is chosen).
   const rows = {};

@@ -18,6 +18,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
@@ -38,9 +39,13 @@ async function checkAccess(user, moduleId, label, d) {
   return companyId;
 }
 
-async function masters(companyId) {
-  const [itemSnap, unitSnap, uomSnap] = await Promise.all([rtdb.ref('items').get(), rtdb.ref('orgUnits').get(), rtdb.ref('uoms').get()]);
-  const items = itemSnap.val() || {}, units = unitSnap.val() || {}, uoms = uomSnap.val() || {};
+// The items a set of stock transactions names.
+const txItemIds = txs => [].concat(...Object.values(txs || {}).map(t => (t.Lines || []).map(l => l.ItemID)));
+
+// items: the report's own (ITEMS_FIRESTORE.md, step 2, QI4), not the catalogue.
+async function masters(companyId, items) {
+  const [unitSnap, uomSnap] = await Promise.all([rtdb.ref('orgUnits').get(), rtdb.ref('uoms').get()]);
+  const units = unitSnap.val() || {}, uoms = uomSnap.val() || {};
   const warehouses = Object.entries(units).filter(([, u]) => u.Type === 'Warehouse' && (!u.CompanyID || u.CompanyID === companyId))
     .map(([id, u]) => ({ ID: id, Label: (u.Code ? u.Code + ' — ' : '') + (u.Name || '') })).sort((a, b) => a.Label.localeCompare(b.Label));
   const categories = [...new Set(Object.values(items).filter(i => !i.CompanyID || i.CompanyID === companyId).map(i => i.Category).filter(Boolean))].sort();
@@ -111,7 +116,9 @@ function replayBatches(transactions) {
 
 async function batchExpiry(companyId, asOf, warehouseId, category, withinDays, batchTrackedOnly) {
   // The company's posted stock transactions (stockStore.js), not every one.
-  const [txSnap, m] = await Promise.all([stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), masters(companyId)]);
+  const txs = await stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' });
+  const txSnap = { val: () => txs };
+  const m = await masters(companyId, await itemStore.forReport(txItemIds(txs), companyId));
   const st = replayBatches(countedTransactions(txSnap.val(), companyId, asOf));
   const until = new Date(Date.parse(asOf + 'T00:00:00Z') + withinDays * 86400000).toISOString().slice(0, 10);
   const rows = [];
@@ -162,10 +169,19 @@ exports.getBatchExpiryReport = onCallWithMessages(onCallOptions, async (request)
 // ---------- Reorder / Low Stock ----------
 
 async function reorder(companyId, warehouseId, category, onlyBelow) {
-  const [ledgerSnap, resSnap, poSnap, txSnap, m] = await Promise.all([
+  const [ledgerSnap, resSnap, poSnap, txSnap, levelled] = await Promise.all([
     stockStore.allLedger(warehouseId ? { WarehouseID: warehouseId } : undefined).then(v => ({ val: () => v })), require('./salesStore').reservations.query({ CompanyID: companyId, Status: 'Active' }).then(v => ({ val: () => v })), require('./purchaseStore').purchaseOrders.query({ Status: 'Approved', CompanyID: companyId }).then(v => ({ val: () => v })),
-    stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), masters(companyId)
+    stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), itemStore.withReorderLevel(companyId)
   ]);
+  // Its items (ITEMS_FIRESTORE.md, step 2): those with a reorder level (QI7), and
+  // those its stock, reservations, orders and movements name (QI4).
+  const poList = Object.values(poSnap.val() || {});
+  const named = Object.keys(ledgerSnap.val() || {}).concat(Object.values(resSnap.val() || {}).map(r => r.ItemID), txItemIds(txSnap.val()),
+    ...poList.map(po => (po.Lines || []).map(l => l.ItemID)));
+  const reportItems = Object.assign({}, levelled, await itemStore.forReport(named.filter(id => id && !levelled[id]), companyId));
+  const unresolved = [].concat(...poList.map(po => (po.Lines || []).filter(l => !l.ItemID && l.ItemCode).map(l => l.ItemCode)));
+  if (unresolved.length) Object.assign(reportItems, await itemStore.byCodes(unresolved));
+  const m = await masters(companyId, reportItems);
   const ledger = ledgerSnap.val() || {}, reservations = resSnap.val() || {}, pos = poSnap.val() || {};
   const myWh = new Set(m.warehouses.map(w => w.ID));
   const counts = wh => (warehouseId ? wh === warehouseId : myWh.has(wh));

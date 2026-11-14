@@ -7,6 +7,7 @@
 // NEW DEVELOPMENT (after the migration) are features, not fixes; each is
 // recorded in its module's design doc under docs/modules/.
 const WHY = 'NEW DEVELOPMENT (owner, 2026-11-08; docs/modules/MIS.md, phase 1c, Q435-Q438): ';
+const ITEMS_REPORTS_WHY = "NEW DEVELOPMENT (owner, 2026-11-14; docs/modules/ITEMS_FIRESTORE.md, step 2, QI4): a report reads only the items it covers (those its stock, reservations, documents or BOMs name), not the whole catalogue; above 2,000 of them, one read of the list.";
 const ITEMS_WHY = "NEW DEVELOPMENT (owner, 2026-11-14; docs/modules/ITEMS_FIRESTORE.md, step 1, QI1): a document reads only its own items (by id, or by item code through the ItemCode index), not the whole catalogue (21 MB and about 2 s at 50,000 items). The map it builds has the same shape, so the rest of the function is unchanged.";
 module.exports = [
   {
@@ -4101,5 +4102,71 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     why: ITEMS_WHY,
     find: "    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n    const categoriesData = firebaseDbRequest_('requisitionCategories', 'get', null, idToken) || {};\n",
     replace: "    const itemsData = itemsByCodes_(idToken, (poData.Lines || []).map(l => l && l.ItemCode)) || {};\n    const categoriesData = firebaseDbRequest_('requisitionCategories', 'get', null, idToken) || {};\n"
+  },
+  {
+    id: "items-reports (getStockValuationReport)",
+    why: ITEMS_REPORTS_WHY,
+    find: "  const ledgerData = firebaseDbRequest_('stock/ledger', 'get', null, idToken) || {};\n  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  const orgUnitsData = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {};\n",
+    replace: "  const ledgerData = firebaseDbRequest_('stock/ledger', 'get', null, idToken) || {};\n  const itemsData = itemsForReport_(idToken, Object.keys(ledgerData), companyId) || {}; // only the items with stock (ITEMS_FIRESTORE.md, step 2)\n  const orgUnitsData = firebaseDbRequest_('orgUnits', 'get', null, idToken) || {};\n"
+  },
+  {
+    id: "items-reports (getStockLedgerReport)",
+    why: ITEMS_REPORTS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  const item = itemsData[itemId];\n  if (!item) throw new Error('Item not found.');\n",
+    replace: "  const itemsData = itemsByIds_(idToken, [itemId]) || {}; // only this item (ITEMS_FIRESTORE.md, step 2)\n  const item = itemsData[itemId];\n  if (!item) throw new Error('Item not found.');\n"
+  },
+  {
+    id: "items-reports (getMaterialVarianceReport read)",
+    why: ITEMS_REPORTS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  const bomsByParent = groupBomsByParent_(idToken);\n",
+    replace: "  const bomsByParent = groupBomsByParent_(idToken);\n"
+  },
+  {
+    id: "items-reports (getMaterialVarianceReport items)",
+    why: ITEMS_REPORTS_WHY,
+    find: ".filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);\n\n  // Expected consumption: walk every Production line individually,",
+    replace: ".filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);\n  // Only the items its documents and BOMs name (ITEMS_FIRESTORE.md, step 2).\n  const bomItemLines = [];\n  Object.keys(bomsByParent).forEach(p => { bomItemLines.push({ ItemID: p }); (bomsByParent[p] || []).forEach(b => (b.Components || []).forEach(c => bomItemLines.push({ ItemID: c.ComponentItemID }))); });\n  const itemsData = itemsForReportLines_(idToken, itemsLinesOf_(inWindow).concat(bomItemLines), '') || {};\n\n  // Expected consumption: walk every Production line individually,"
+  },
+  {
+    id: "items-reports (getProductionConsumptionReport read)",
+    why: ITEMS_REPORTS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  const subCatsData = firebaseDbRequest_('itemSubCategories', 'get', null, idToken) || {};\n",
+    replace: "  const subCatsData = firebaseDbRequest_('itemSubCategories', 'get', null, idToken) || {};\n"
+  },
+  {
+    id: "items-reports (getProductionConsumptionReport items)",
+    why: ITEMS_REPORTS_WHY,
+    find: ".filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);\n\n  const qtyByItem = {};",
+    replace: ".filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);\n  const itemsData = itemsForReportLines_(idToken, itemsLinesOf_(inWindow), '') || {}; // only its documents' items (ITEMS_FIRESTORE.md, step 2)\n\n  const qtyByItem = {};"
+  },
+  {
+    id: "items-reports (getStockAvailabilityList read)",
+    why: ITEMS_REPORTS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  // Restricted to sellable items \u2014 same definition as Sales Order's own\n  // item picker (has a price assigned on any price list), not a\n  // hardcoded item Category check. This screen exists so Sales can see\n  // what's available to promise to customers; raw materials and WIP\n  // that nobody's ever priced for sale would just be noise here.\n  const sellableCodes = getSellableItemCodes_(idToken);\n  const companyItemIds = new Set(Object.keys(itemsData).filter(id => itemsData[id].CompanyID === companyId && sellableCodes.has(itemsData[id].ItemCode)));\n",
+    replace: "  // Restricted to sellable items \u2014 same definition as Sales Order's own\n  // item picker (has a price assigned on any price list), not a\n  // hardcoded item Category check. This screen exists so Sales can see\n  // what's available to promise to customers; raw materials and WIP\n  // that nobody's ever priced for sale would just be noise here.\n  const sellableCodes = getSellableItemCodes_(idToken);\n  // Filled once the stock and reservations are read: only their items (ITEMS_FIRESTORE.md, step 2).\n  let itemsData = {}, companyItemIds = new Set();\n"
+  },
+  {
+    id: "items-reports (getStockAvailabilityList items)",
+    why: ITEMS_REPORTS_WHY,
+    find: "  const reservationsData = queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active' }]) || {}; // [NEW DEVELOPMENT sales-queries] the active ones, not every reservation (T2)\n",
+    replace: "  const reservationsData = queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active' }]) || {}; // [NEW DEVELOPMENT sales-queries] the active ones, not every reservation (T2)\n  itemsData = itemsForReport_(idToken, Object.keys(ledgerData).concat(Object.values(reservationsData).map(r => r.ItemID)), companyId) || {};\n  companyItemIds = new Set(Object.keys(itemsData).filter(id => itemsData[id].CompanyID === companyId && sellableCodes.has(itemsData[id].ItemCode)));\n"
+  },
+  {
+    id: "items-reports (recalculateStockLedger read)",
+    why: ITEMS_REPORTS_WHY,
+    find: "      const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n      const coaData = getCoaData_(idToken);\n      const allTx = ",
+    replace: "      const coaData = getCoaData_(idToken);\n      const allTx = "
+  },
+  {
+    id: "items-reports (recalculateStockLedger items)",
+    why: ITEMS_REPORTS_WHY,
+    find: "        .sort((a, b) => (a.PostedAt || a.CreatedAt || '').localeCompare(b.PostedAt || b.CreatedAt || ''));\n",
+    replace: "        .sort((a, b) => (a.PostedAt || a.CreatedAt || '').localeCompare(b.PostedAt || b.CreatedAt || ''));\n      const itemsData = itemsForReportLines_(idToken, itemsLinesOf_(posted), '') || {}; // only the items the postings name (ITEMS_FIRESTORE.md, step 2)\n"
+  },
+  {
+    id: "items-reports (getBoms)",
+    why: ITEMS_REPORTS_WHY,
+    find: "  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};\n  return Object.keys(data).map(id => {\n",
+    replace: "  const itemsData = itemsByIds_(idToken, Object.keys(data).map(id => (data[id] || {}).ParentItemID)) || {}; // only the parents (ITEMS_FIRESTORE.md, step 2)\n  return Object.keys(data).map(id => {\n"
   }
 ];

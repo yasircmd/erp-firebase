@@ -32,6 +32,66 @@ async function byCodes(list) {
   return out;
 }
 
+// ---------- reports (step 2, QI4, QI7) ----------
+
+// Above this many, one read of the list is quicker than as many single
+// reads; the report still gets only the items it asked for.
+const BULK_AT = 2000;
+const companyOk = (item, companyId) => !companyId || !item.CompanyID || item.CompanyID === companyId;
+
+// The items a report covers (those with stock or movement, which the
+// report already knows from its ledger or documents), of the company.
+async function forReport(list, companyId) {
+  const want = ids(list);
+  let found;
+  if (want.length > BULK_AT) {
+    const all = (await rtdb.ref('items').get()).val() || {};
+    found = {};
+    want.forEach(id => { if (all[id]) found[id] = all[id]; });
+  } else {
+    found = await byIds(want);
+  }
+  const out = {};
+  Object.keys(found).forEach(id => { if (companyOk(found[id], companyId)) out[id] = found[id]; });
+  return out;
+}
+
+// The items a set of document lines names, by ItemID or (a line with
+// only a code) by ItemCode: a report over many documents.
+async function forReportLines(lines, companyId) {
+  const list = listOf(lines).filter(l => l && typeof l === 'object');
+  const idList = ids(list.map(l => l.ItemID));
+  const codes = [...new Set(list.filter(l => !l.ItemID && l.ItemCode).map(l => String(l.ItemCode).trim()).filter(Boolean))];
+  if (idList.length + codes.length > BULK_AT) {
+    const all = (await rtdb.ref('items').get()).val() || {};
+    const idSet = new Set(idList), codeSet = new Set(codes), out = {};
+    Object.keys(all).forEach(id => { if ((idSet.has(id) || codeSet.has(all[id].ItemCode)) && companyOk(all[id], companyId)) out[id] = all[id]; });
+    return out;
+  }
+  const out = Object.assign({}, await forReport(idList, companyId), codes.length ? await byCodes(codes) : {});
+  Object.keys(out).forEach(id => { if (!companyOk(out[id], companyId)) delete out[id]; });
+  return out;
+}
+
+// The lines of a set of documents: every array of objects at their top.
+const linesOf = docs => [].concat(...listOf(docs).filter(Boolean).map(d => [].concat(...Object.values(d).filter(Array.isArray).map(a => a.filter(x => x && typeof x === 'object')))));
+
+// Every item with stock or movement: each has a stock ledger entry (kept
+// at zero once it has moved).
+async function stocked(companyId) {
+  const ledger = await require('./stockStore').allLedger();
+  return forReport(Object.keys(ledger || {}), companyId);
+}
+
+// The items with a reorder level (QI7): the Reorder report lists them even
+// before their first receipt. database.rules.json indexes ReorderLevel.
+async function withReorderLevel(companyId) {
+  const found = (await rtdb.ref('items').orderByChild('ReorderLevel').startAt(0.000001).get()).val() || {};
+  const out = {};
+  Object.keys(found).forEach(id => { if (Number(found[id].ReorderLevel) > 0 && companyOk(found[id], companyId)) out[id] = found[id]; });
+  return out;
+}
+
 // The item ids a document's lines name (ItemID, and a line's own
 // components where it has them).
 function lineItemIds(lines) {
@@ -46,4 +106,4 @@ function lineItemIds(lines) {
 // The items of these lines: byIds(lineItemIds(lines)).
 const forLines = (...lineLists) => byIds([].concat(...lineLists.map(lineItemIds)));
 
-module.exports = { byIds, byCodes, forLines, lineItemIds };
+module.exports = { byIds, byCodes, forLines, lineItemIds, forReport, forReportLines, linesOf, stocked, withReorderLevel, BULK_AT };

@@ -97,6 +97,9 @@ const MAPPED = {
   itemsByIds_: ['itemStore', 'byIds', 'dropCtx'],
   itemsForLines_: ['itemStore', 'forLines', 'dropCtx'],
   itemsByCodes_: ['itemStore', 'byCodes', 'dropCtx'],
+  itemsForReport_: ['itemStore', 'forReport', 'dropCtx'], // step 2: reports
+  itemsForReportLines_: ['itemStore', 'forReportLines', 'dropCtx'],
+  itemsLinesOf_: ['itemStore', 'linesOf', 'pure'],
   projectFields_: ['projects', 'projectFields', 'dropCtx'], // docs/modules/PROJECTS_DIMENSIONS.md (patch projects)
   cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
   needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],

@@ -20,6 +20,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const stockStore = require('./stockStore');
@@ -138,7 +139,8 @@ function rowsOf(kind, doc, source, party, extra) {
 // Every row of the period, and what was left out (documents with one tax %).
 async function gather(companyId, from, to) {
   const docs = await postedDocuments(companyId, from, to);
-  const [items, uoms] = await Promise.all([rtdb.ref('items').get().then(s => s.val() || {}), rtdb.ref('uoms').get().then(s => s.val() || {})]);
+  // Only the documents' items (ITEMS_FIRESTORE.md, step 2): a reversal's lines are its original's.
+  const [items, uoms] = await Promise.all([itemStore.forReportLines(itemStore.linesOf([].concat(...Object.values(docs))), companyId), rtdb.ref('uoms').get().then(s => s.val() || {})]);
   const parties = {};
   const partyOf = async (kind, id) => {
     if (!id) return {};

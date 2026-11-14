@@ -5,8 +5,8 @@ order: 14
 modules: [REORDER]
 sources: [functions/src/stockReports.js]
 summary: Identify items below their reorder level and see any recommended purchase shortfall.
-reviewed: 2026-10-30
-fingerprint: 3d08c65b76e18b41
+reviewed: 2026-11-14
+fingerprint: a02e3ac48018282a
 ---
 ## What it is for
 

@@ -31,6 +31,21 @@ test('the document readers never read the whole catalogue', () => {
   assert.match(q.slice(q.indexOf('async function portalQuoteItems(')), /^async function portalQuoteItems\([\s\S]*?ref\('items'\)\.get\(/);
 });
 
+// Step 2 (QI4, QI7): the reports read only the items they cover.
+const REPORT_FILES = ['stockReports.js', 'agingReports.js', 'taxReports.js', 'periodClosing.js', 'correctionJv.js', 'itemBarcodes.js'];
+const PORTED_REPORTS = ['getStockValuationReport', 'getStockLedgerReport', 'getMaterialVarianceReport', 'getProductionConsumptionReport',
+  'getStockAvailabilityList', 'recalculateStockLedger', 'getBoms'];
+
+test('the reports and barcode lookups never read the whole catalogue (step 2)', () => {
+  assert.deepEqual(REPORT_FILES.filter(f => WHOLE.test(read(f))), []);
+  const code = read('legacy/codegs.js');
+  const body = fn => { const i = code.indexOf('\nasync function ' + fn + '('); assert.ok(i >= 0, fn); return code.slice(i, code.indexOf('\n}\n', i)); };
+  assert.deepEqual(PORTED_REPORTS.filter(fn => WHOLE.test(body(fn))), []);
+  // The one place a whole read is allowed: the store itself, for a report over more than BULK_AT items.
+  const store = read('itemStore.js');
+  assert.equal((store.match(/ref\('items'\)\.get\(\)/g) || []).length, 2, 'forReport and forReportLines, above BULK_AT only');
+});
+
 test('the ids a document\'s lines name: each once, none blank, none a path', () => {
   assert.deepEqual(lineItemIds([{ ItemID: 'I1' }, { ItemID: 'I2' }, { ItemID: 'I1' }, { ItemID: '' }, {}, null, { CategoryID: 'C1' }]), ['I1', 'I2']);
   assert.deepEqual(lineItemIds({ a: { ItemID: ' I3 ' } }), ['I3'], 'lines kept as an object, trimmed');

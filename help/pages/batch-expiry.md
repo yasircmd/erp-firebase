@@ -5,8 +5,8 @@ order: 13
 modules: [BATCHEXPIRY]
 sources: [functions/src/stockReports.js]
 summary: Review batches and expiry dates to see which stock is close to expiry or needs action.
-reviewed: 2026-10-30
-fingerprint: 4f1ed89f87d66d52
+reviewed: 2026-11-14
+fingerprint: 3b370f78a232cf57
 ---
 ## What it is for
 
