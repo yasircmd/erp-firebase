@@ -6,7 +6,7 @@ modules: [MASTERIMPORT]
 sources: [functions/src/masterImport.js]
 summary: Add or update ERP masters, employee records, opening balances and item barcodes from an Excel paste.
 reviewed: 2026-11-14
-fingerprint: 68debda1d5726ae6
+fingerprint: ddfc25bd9ec3a6f3
 ---
 ## What it is for
 

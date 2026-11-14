@@ -339,6 +339,10 @@ deploys the rules (indexes) first.
   export and the deletion; finish refused while the check fails, and the
   Client Management call), the earlier item tests on Firestore, and the
   unit guards (movedReads lists the items' whole readers until 3b).
+- **Regression:** 882 emulator tests and 298 unit tests passed. The first
+  run caught Master Import's undo and update, which put the items back
+  straight into the Realtime Database (now through movedPaths), and the
+  stockModules suite, which seeded its items there.
 - **Deploy, in this order:**
   1. Set **items-3a-move** (moveDeveloperItems) with **--screens**: Client
      Management gets the Items move panel.
