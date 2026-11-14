@@ -1,6 +1,6 @@
 # Large item catalogues (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Steps 1, 2 and 3a built 2026-11-14** (see *As built*); step 3b next.
+Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Steps 1, 2, 3a and 3b-1 built 2026-11-14** (see *As built*); 3b-2 (the stock screens' pickers) and 3b-3 (sales and purchase screens, the portals, the shell's item codes) next.
 Item 3 of UX batch 4 (docs/modules/UX4.md), decision Q510: "design first,
 for everyone": moving the items to Firestore for every corporate, with
 screens searching items on the server as you type instead of loading them
@@ -351,3 +351,66 @@ deploys the rules (indexes) first.
   3. Set **items-3a**: every function.
   4. For each corporate: **Copy** again, **Check**, then **Finish**. Users
      may edit items again.
+
+## As built: step 3b-1 (2026-11-14)
+
+Step 3b is three PRs (owner, 2026-11-14): 3b-1 the search itself, Item
+Master and the Retail Sales counter; 3b-2 the stock screens' pickers; 3b-3
+the sales and purchase screens, the portals and the shell's item codes.
+
+- **itemSearch.js (new):** the candidates of a text come from the search
+  fields only, never the whole catalogue. A barcode typed whole
+  (`itemBarcodes/{code}`); the code's and user code's start (range reads on
+  `_q.CodeLower` and `_q.UserCodeLower`, 60 each); from 3 letters up to
+  three 3-letter fragments of the longest word (`_q.Grams`, array-contains,
+  300 each, QI2), below 3 the exact word (`_q.Words`). The candidates are
+  then ranked: the code or user code's start, the name's start, a word's
+  start, anywhere; every word typed must be in the item.
+  - `searchItems` {q, companyId, status, category, stockOnly, sellable,
+    limit}: the caller's companies only; sellable is "on a price list"
+    (priceListLines by ItemCode).
+  - `getItemsByIds` {ids}: a document's items, of the caller's companies.
+  - `getItemsPage` {q, companyId, category, status, after} (QI3): 100 at a
+    time in code order, read 300 at a time up to 3,000 a call; the cursor is
+    the last item's code and id (two items with one code are both listed).
+    With q, the search's best 200.
+  - `getItemsExport` (QI3): every item the filters and search keep, as
+    tab-separated text built on the server (the one whole read of this
+    module, guarded by unit/itemStore).
+- **itemBarcodes.js:** `getItemBarcodes` takes `itemIds` (by the ItemID
+  index), and `generateItemBarcodes` chooses the items without a barcode
+  of a category on the server (`withoutBarcode`, up to 500).
+- **The shell's picker server mode** (public/index.html,
+  `window.itemSearchList(datalist, { value, onItem, filters })`): a list
+  that asks `searchItems` as you type (2 letters, 250 ms after the last
+  key), with "Searching…", "Type at least 2 letters." and "The best N: type
+  more to narrow." in its footer, and its recent picks kept per list.
+- **Item Master:** the list a page at a time with **Load more**, its
+  filters and search on the server, **Copy to Excel** from
+  `getItemsExport`, the page's barcodes with it; the labels panel searches
+  on the server and keeps the items given a number.
+- **Retail Sales:** the counter holds no catalogue (`getRetailCounter`
+  returns `items: []`). `findRetailItems` {companyId, warehouseId, date,
+  q | ids} answers a scan (the barcode, with a pack's units), a code or a
+  name, and refreshes the lines' stock and prices. Its price is the price
+  list's line by ItemCode on that date. Scans made quickly one after
+  another queue: none is dropped (the old screen held the whole list and
+  never waited).
+- **Indexes:** RTDB priceListLines ItemCode and itemBarcodes ItemID
+  (database.rules.json); Firestore's own single-field indexes serve the
+  code order and the search fields (unit/firestoreIndexes lists the page's
+  sort).
+- **Tests:** emulator itemSearch (3) and itemPages (4: pages to the end with
+  two items of one code across the page boundary, the filters and a search,
+  Copy to Excel, barcodes by item and the items without one); retailSales
+  (findRetailItems by ids in order, a pack's scan, a code, a name, the price
+  on a date) and retailTax; UI: retailSales (11, a double Enter included),
+  itemBarcodes, itemCategories, labelPrinting, smoke. Negative controls:
+  a pack's units, the fragments read from the words, a code-only cursor,
+  a scan dropped while another is asked: each caught.
+- **Regression:** 889 emulator tests and 298 unit tests passed.
+- **Deploy:** after items-3a. The "database rules" task first, then set
+  **items-3b-1** (34 functions, 5 new: their invoker bindings) with
+  **--screens**; the screens release redeploys Hosting, which carries the
+  shell's server mode.
+

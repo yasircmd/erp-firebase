@@ -6,7 +6,7 @@ modules: [RETAILSALES]
 sources: [functions/src/retailSales.js]
 summary: Process a retail transaction at the counter, settle the sale and print or record the receipt.
 reviewed: 2026-11-14
-fingerprint: 42a492bdafb27957
+fingerprint: 8ab18a4ef91b0773
 ---
 ## What it is for
 
@@ -26,7 +26,7 @@ fingerprint: 42a492bdafb27957
 1. Select company, date, customer, Sales Type, and store warehouse. Enter optional invoice bill-to details when needed.
    **Sales Rep**: choose the rep who made the sale, or leave **No rep**. A named customer brings their own rep (from [Customer Master](customer-master.html#sales-rep)); the Retail Customer has none. A return takes the sale's rep.
    To find a customer, type part of their code, name or mobile number in **Find** above the customer list. If no customer has that mobile number, **New customer with this mobile** adds one there (you enter the name), for a user who may add customers in Customer Master. The new customer is a Local customer of the company, on the Retail Customer's receivables account; complete their details in Customer Master later if needed. A mobile number belongs to one customer of a company.
-2. Scan the item's barcode or enter its code/name. Confirm stock, quantity, price, and any allowed line discount. A barcode configured as a pack can add its pack quantity.
+2. Scan the item's barcode or enter its code/name. Confirm stock, quantity, price, and any allowed line discount. A barcode configured as a pack can add its pack quantity. The counter finds each item as you scan or type it: type at least 2 letters of a code or name (part of a word from 3) and choose from the matches, or press **Enter** to add the best one. Scans made quickly one after another are each added, in turn.
 3. Add one or more payment lines. Cash may be over-tendered and produces change; non-cash methods cannot exceed the sale total. A Retail Customer must pay in full; an existing customer may leave an on-account balance.
 4. Review the totals: **Items** is the number of units on the sale; with a discount, **Subtotal** is the amount before it. Then the tax-inclusive total, tax (by each item's rate, when the company has a Tax Configuration), discount, paid amount, change, and any balance due. Confirm the sale. The screen assigns a transaction number and can print the configured receipt on confirmation.
 

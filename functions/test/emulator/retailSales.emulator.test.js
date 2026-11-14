@@ -95,7 +95,10 @@ test('setup: rights; the Retail Customer made once in Customer Master; payment m
 test('a Retail Customer sale: tax-inclusive prices, split across cash (over-tendered), card and a promotion; one entry with the stock', async () => {
   await ready();
   const counter = await call('u-admin', 'getRetailCounter', { companyId: 'C1', date: DAY });
-  assert.deepEqual(counter.items.map(i => [i.ItemCode, i.Price, i.InStock]), [['FG-002', 21, 4], ['RM-001', 52.5, 10]]);
+  // The counter holds no catalogue: it asks for the items (ITEMS_FIRESTORE.md, step 3b).
+  assert.deepEqual(counter.items, []);
+  const found = await call('u-admin', 'findRetailItems', { companyId: 'C1', date: DAY, ids: ['I2', 'I1'] });
+  assert.deepEqual(found.items.map(i => [i.ItemCode, i.Price, i.InStock]), [['FG-002', 21, 4], ['RM-001', 52.5, 10]]);
   assert.equal(counter.customers[0].CustomerName, 'Retail Customer');
   // 2 × 52.5 + 1 × 21 − 5 discount = 121 (tax 5% inside: 5.76).
   const r = await sell({
@@ -225,8 +228,14 @@ test('counter staff see only the sales they billed; the "report" right sees ever
 
 test('the counter gets each item\'s own barcodes, with a pack\'s units (docs/modules/ITEM_BARCODES.md)', async () => {
   await call('u-admin', 'saveItemBarcodes', { itemId: 'I1', barcodes: [{ Barcode: '6291041500213' }, { Barcode: '16291041500210', PackQty: 12 }] });
-  const counter = await call('u-admin', 'getRetailCounter', { companyId: 'C1', date: DAY });
+  const counter = await call('u-admin', 'findRetailItems', { companyId: 'C1', date: DAY, ids: ['I2', 'I1'] });
   assert.deepEqual(counter.items.map(i => [i.ItemCode, i.Barcodes]), [['FG-002', []], ['RM-001', [{ Barcode: '16291041500210', PackQty: 12 }, { Barcode: '6291041500213', PackQty: 1 }]]]);
+  // A scan (ITEMS_FIRESTORE.md, step 3b): the pack's barcode gives its item and its units; a code, a name.
+  const scan = await call('u-admin', 'findRetailItems', { companyId: 'C1', date: DAY, q: '16291041500210' });
+  assert.deepEqual([scan.scanned, scan.items.map(i => [i.ItemCode, i.Price])], [{ ItemID: 'I1', Units: 12 }, [['RM-001', 52.5]]]);
+  assert.deepEqual((await call('u-admin', 'findRetailItems', { companyId: 'C1', date: DAY, q: 'fg-002' })).items.map(i => i.ItemCode), ['FG-002']);
+  assert.deepEqual((await call('u-admin', 'findRetailItems', { companyId: 'C1', date: DAY, q: 'brack' })).items.map(i => i.ItemCode), ['FG-002'], 'part of the name');
+  assert.equal((await call('u-admin', 'findRetailItems', { companyId: 'C1', date: '2026-09-15', ids: ['I1'] })).items[0].Price, 50, 'the price in force on that date');
 });
 
 test('discounts switched off in Setup are refused at the counter; on by default for a company already selling; the receipt settings come with the sale (owner, 2026-10-10, decisions 114-117)', async () => {
