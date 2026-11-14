@@ -59,8 +59,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.waitForSelector('#im-modal.hidden', { state: 'attached', timeout: 60000 });
     await p.waitForFunction(() => /16291041500210 ×12, 6291041500213/.test((document.querySelector('#im-table-body tr .im-bc-list') || {}).textContent || ''), null, { timeout: 30000 });
     assert.deepEqual((await call('u-admin', 'getItemBarcodes', {})).barcodes.I1, [{ Barcode: '16291041500210', PackQty: 12 }, { Barcode: '6291041500213', PackQty: 1 }]);
-    await p.fill('#im-search-input', '629104150021');
-    assert.deepEqual(await p.$$eval('#im-table-body tr', t => t.map(r => r.cells[0].textContent.trim())), ['RM-001']);
+    // The search is the server's (ITEMS_FIRESTORE.md, step 3b): a barcode typed whole finds its item.
+    await p.fill('#im-search-input', '6291041500213');
+    await p.waitForFunction(() => [...document.querySelectorAll('#im-table-body tr')].map(r => r.cells[0].textContent.trim()).join() === 'RM-001', null, { timeout: 30000 });
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
     await p.close();
   });

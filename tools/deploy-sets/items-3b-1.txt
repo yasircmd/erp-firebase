@@ -1,0 +1,43 @@
+# Large item catalogues, step 3b-1 (owner, 2026-11-14; docs/modules/
+# ITEMS_FIRESTORE.md, QI2, QI3). AFTER items-3a (and its Copy, Check, Finish).
+# FIRST the "database rules" task (new indexes: priceListLines ItemCode,
+# itemBarcodes ItemID; without them these functions' queries are refused).
+# Then this set WITH --screens (ITEMMASTER, RETAILSALES; the release also
+# redeploys Hosting, which carries the shell's picker server mode).
+# NEW (add their invoker bindings): searchItems, getItemsByIds, getItemsPage,
+# getItemsExport, findRetailItems. The rest load itemSearch.js,
+# itemBarcodes.js or retailSales.js.
+checkMasterImport
+checkOpeningBalances
+confirmRetailReturn
+confirmRetailSale
+createRetailCustomer
+findOpeningBatch
+findRetailItems
+findRetailSaleForReturn
+generateItemBarcodes
+getBarcodeIndex
+getBarcodeSettings
+getItemBarcodes
+getItemsByIds
+getItemsExport
+getItemsPage
+getLabelSheet
+getMasterImportRecords
+getMasterImportSpecs
+getOpeningBalanceSetup
+getRetailCounter
+getRetailSale
+getRetailSales
+getRetailSalesSetup
+postOpeningBalances
+reverseOpeningBalanceBatch
+reverseRetailReturn
+reverseRetailSale
+runMasterImport
+saveBarcodeSettings
+saveItemBarcodes
+saveOpeningBalanceSettings
+saveRetailPaymentMethod
+saveRetailSalesSettings
+searchItems

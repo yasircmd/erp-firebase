@@ -302,7 +302,7 @@ const hrLeaveReports = require('./src/hrLeaveReports');
 
 // Direct Retail Sales (docs/modules/RETAIL_SALES.md).
 const retailSales = require('./src/retailSales');
-['getRetailSalesSetup', 'saveRetailSalesSettings', 'saveRetailPaymentMethod', 'getRetailCounter', 'createRetailCustomer', 'confirmRetailSale', 'getRetailSales', 'getRetailSale', 'reverseRetailSale', 'findRetailSaleForReturn', 'confirmRetailReturn', 'reverseRetailReturn'].forEach(n => { exports[n] = retailSales[n]; });
+['getRetailSalesSetup', 'saveRetailSalesSettings', 'saveRetailPaymentMethod', 'getRetailCounter', 'createRetailCustomer', 'confirmRetailSale', 'getRetailSales', 'getRetailSale', 'reverseRetailSale', 'findRetailSaleForReturn', 'confirmRetailReturn', 'reverseRetailReturn', 'findRetailItems'].forEach(n => { exports[n] = retailSales[n]; });
 
 // HR Payroll step 7b: Earnings & Deductions (docs/modules/HR_PAYROLL.md, step 7).
 const payrollInputs = require('./src/payrollInputs');
@@ -414,7 +414,7 @@ const support = require('./src/support');
 // Technical Reference (docs/modules/TECH_REFERENCE.md): firm-only, read only.
 ['getTechRefPart', 'searchTechRef'].forEach(n => { exports[n] = require('./src/techRef')[n]; });
 // The item search (docs/modules/ITEMS_FIRESTORE.md, step 3b).
-['searchItems', 'getItemsByIds'].forEach(n => { exports[n] = require('./src/itemSearch')[n]; });
+['searchItems', 'getItemsByIds', 'getItemsPage', 'getItemsExport'].forEach(n => { exports[n] = require('./src/itemSearch')[n]; });
 // The Audit Log (docs/modules/AUDIT_LOG.md, step 3).
 ['getAuditLog', 'getAuditLogFilters'].forEach(n => { exports[n] = require('./src/auditLog')[n]; });
 // MIS (docs/modules/MIS.md): the engine (phase 1).

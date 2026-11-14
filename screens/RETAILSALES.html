@@ -262,13 +262,19 @@
       renderCustomers($('rs-customer').value || c.settings.RetailCustomerID);
       $('rs-salestype').innerHTML = setup.salesTypes.map(x => opt(x.SalesTypeID, x.Name, x.SalesTypeID === ($('rs-salestype').value || c.settings.SalesTypeID))).join('');
       $('rs-warehouse').innerHTML = setup.warehouses.map(x => opt(x.ID, x.Label, x.ID === c.warehouseId)).join('');
-      $('rs-items').innerHTML = c.items.map(i => '<option value="' + escapeHtml(i.ItemCode + ' — ' + i.ItemName) + '"></option>').join('');
+      // The items are asked of the server as you type or scan (docs/modules/ITEMS_FIRESTORE.md, step 3b).
+      window.itemSearchList($('rs-items'), { value: i => i.ItemCode + ' — ' + i.ItemName, filters: () => ({ companyId: $('rs-company').value, stockOnly: true }) });
       if (keepLines) {
-        lines.forEach(l => {
-          const i = c.items.find(x => x.ItemID === l.ItemID);
-          l.InStock = i ? i.InStock : 0;
-          if (!c.settings.AllowPriceChange && i && i.Price !== null) l.UnitPrice = i.Price;
-        });
+        // This warehouse's stock and this date's prices for the lines entered.
+        if (lines.length) return call('findRetailItems', counterAsk({ ids: lines.map(l => l.ItemID) })).then(r => {
+          lines.forEach(l => {
+            const i = r.items.find(x => x.ItemID === l.ItemID);
+            l.InStock = i ? i.InStock : 0;
+            if (i) l.TaxPercent = i.TaxPercent;
+            if (!c.settings.AllowPriceChange && i && i.Price !== null) l.UnitPrice = i.Price;
+          });
+          renderLines();
+        }, err => appAlert(err.message || 'Unable to refresh the lines.'));
       } else {
         lines = [];
         payments = defaultPayments();
@@ -288,22 +294,29 @@
     const what = lines.length ? lines.length + (lines.length === 1 ? ' line' : ' lines') + (paid ? ' and the payments' : '') : 'the payments';
     appConfirm('Clear this sale? ' + what.charAt(0).toUpperCase() + what.slice(1) + ' entered will be removed.').then(ok => { if (ok) go(); });
   }
+  const counterAsk = extra => Object.assign({ companyId: $('rs-company').value, warehouseId: $('rs-warehouse').value || '', date: $('rs-date').value || today() }, extra);
+  // Each scan is asked in turn: a quick second scan waits for the first, never dropped.
+  let scans = Promise.resolve();
   function addItem() {
     const text = $('rs-item').value.trim();
     if (!text) return;
+    $('rs-item').value = '';
     const code = text.split(' — ')[0].trim().toLowerCase();
     // A scan is the product's own barcode first (a pack's adds its quantity;
-    // docs/modules/ITEM_BARCODES.md), then the item code, then the name.
-    let units = 1;
-    const scanned = counter.items.find(i => (i.Barcodes || []).some(b => { if (b.Barcode !== text.toUpperCase()) return false; units = b.PackQty || 1; return true; }));
-    const item = scanned || counter.items.find(i => i.ItemCode.toLowerCase() === code) ||
-      counter.items.find(i => (i.ItemCode + ' ' + i.ItemName).toLowerCase().includes(text.toLowerCase()));
+    // docs/modules/ITEM_BARCODES.md), then the item code, then the name: asked of
+    // the server (ITEMS_FIRESTORE.md, step 3b), the counter holds no catalogue.
+    scans = scans.then(() => call('findRetailItems', counterAsk({ q: text })).then(r => {
+      const units = r.scanned ? r.scanned.Units : 1;
+      const item = (r.scanned && r.items.find(i => i.ItemID === r.scanned.ItemID)) || r.items.find(i => i.ItemCode.toLowerCase() === code) || r.items[0];
+      addFound(item, units, text);
+    }, err => appAlert(err.message || 'Unable to find the item.')));
+  }
+  function addFound(item, units, text) {
     if (!item) { appAlert(/^\d{8,}$/.test(text) ? 'No item with barcode ' + text + ' for this company.' : 'No item "' + text + '" for this company.'); return; }
     if (item.Price === null && !counter.settings.AllowPriceChange) { appAlert(item.ItemCode + ' has no price on the retail price list.'); return; }
     const existing = lines.find(l => l.ItemID === item.ItemID);
     if (existing) existing.Quantity = r2(Number(existing.Quantity) + units);
-    else lines.push({ ItemID: item.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName, UOM: item.UOM, InStock: item.InStock, Quantity: units, UnitPrice: item.Price === null ? 0 : item.Price, Discount: 0 });
-    $('rs-item').value = '';
+    else lines.push({ ItemID: item.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName, UOM: item.UOM, InStock: item.InStock, TaxPercent: item.TaxPercent, Quantity: units, UnitPrice: item.Price === null ? 0 : item.Price, Discount: 0 });
     renderLines();
   }
   const lineAmount = l => r2((Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0) - (Number(l.Discount) || 0));
@@ -316,7 +329,7 @@
     const paid = r2(payments.reduce((s, p) => s + (Number(p.Amount) || 0), 0));
     // Line tax (TAX_ENGINE.md, part 4): each line's tax at its item's rate, out of its price.
     const tax = counter.lineTax
-      ? r2(lines.reduce((s, l) => { const it = counter.items.find(i => i.ItemID === l.ItemID) || {}; const r = Number(it.TaxPercent) || 0; return s + r2(lineAmount(l) * r / (100 + r)); }, 0))
+      ? r2(lines.reduce((s, l) => { const r = Number(l.TaxPercent) || 0; return s + r2(lineAmount(l) * r / (100 + r)); }, 0)) // each line's own rate (ITEMS_FIRESTORE.md)
       : r2(total * rate / (100 + rate));
     return { rate: counter.lineTax ? null : rate, qty, list, discount, total, tax, paid, change: r2(Math.max(0, paid - total)), due: r2(Math.max(0, total - paid)) };
   }

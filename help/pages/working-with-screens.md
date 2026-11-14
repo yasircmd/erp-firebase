@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html, functions/src/flows.js]
-reviewed: 2026-11-13
-fingerprint: ddc40347337a09b8
+reviewed: 2026-11-14
+fingerprint: 8393d1e3ce78a8f6
 ---
 ## The page
 
@@ -133,6 +133,10 @@ entry from a long list, you can search it:
 - The last five entries you chose from each list appear first, under
   **Recent**. They are kept in this browser.
 - On a phone the list fills the screen, with a box to type in.
+- Where a list is too long to keep on the screen, such as the items at the
+  Retail Sales counter, the matches come from the server as you type: type
+  at least 2 letters (part of a word from 3, a barcode whole). The best
+  matches show; type more to narrow them.
 
 Short drop-downs (a status, a company) work as before. The list offers
 the same entries as before: for example, a journal offers only the

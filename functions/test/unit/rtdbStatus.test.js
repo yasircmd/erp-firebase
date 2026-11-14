@@ -35,7 +35,8 @@ test('every Status index in the rules is one a path is read by', () => {
   assert.deepEqual(rules.items, { '.indexOn': ['ItemCode', 'ReorderLevel'] }); // ReorderLevel: the Reorder report (step 2, QI7)
   // priceListLines by ItemCode: the item search's sellable check (ITEMS_FIRESTORE.md, step 3b).
   assert.deepEqual(rules.priceListLines, { '.indexOn': ['ItemCode'] });
-  assert.deepEqual(indexed.filter(p => p !== 'items' && p !== 'priceListLines').sort(), [...STATUS_INDEXED_PATHS].sort(), 'an index in database.rules.json that no path in rtdbStatus.js uses');
+  assert.deepEqual(rules.itemBarcodes, { '.indexOn': ['ItemID'] }); // an item's barcodes (step 3b)
+  assert.deepEqual(indexed.filter(p => !['items', 'priceListLines', 'itemBarcodes'].includes(p)).sort(), [...STATUS_INDEXED_PATHS].sort(), 'an index in database.rules.json that no path in rtdbStatus.js uses');
 });
 
 test('the rules stay deny-all: an index opens nothing', () => {

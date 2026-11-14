@@ -124,4 +124,85 @@ exports.getItemsByIds = onCallWithMessages(onCallOptions, async (request) => {
   return Object.keys(found).filter(id => userCanAccessCompany(user.profile, found[id].CompanyID)).map(id => pickFields(id, found[id]));
 });
 
+// ---------- Item Master: a page at a time (QI3) ----------
+
+const PAGE = 100, SCAN = 300, SCAN_MAX = 3000;
+const ownCategory = i => (i.CustomCategoryID ? 'X-' + i.CustomCategoryID : i.Category);
+const full = (id, i) => { const o = Object.assign({ ItemID: id }, i); delete o._q; return o; };
+async function requireItemMasterAccess(user) {
+  if (!(await moduleHasCapability('ITEMMASTER', 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to Item Master.');
+}
+function filtersOf(user, d) {
+  const companyId = String(d.companyId || '').trim();
+  const category = String(d.category || '').trim(), status = String(d.status || '').trim();
+  return it => userCanAccessCompany(user.profile, it.CompanyID) && (!companyId || it.CompanyID === companyId) &&
+    (!category || ownCategory(it) === category) && (!status || it.Status === status);
+}
+
+// The page cursor, from the screen as it was given: [ItemCode, id], or none.
+function cursorOf(v) {
+  try { const c = JSON.parse(String(v || '')); return Array.isArray(c) && c.length === 2 && c.every(x => typeof x === 'string') ? c : null; } catch (e) { return null; }
+}
+
+// data: { q, companyId, category, status, after }: { items (whole records), next (the cursor, '' at the end), searched }
+exports.getItemsPage = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireItemMasterAccess(user);
+  const d = request.data || {};
+  const keep = filtersOf(user, d);
+  const q = String(d.q || '').trim().slice(0, 80);
+  if (q) {
+    // Typed: the search's best 200 (it reads its candidates only).
+    const { items, barcodeId } = await candidates(q);
+    const words = lower(q).split(/\s+/).filter(Boolean);
+    const rows = Object.keys(items).map(id => ({ id, it: items[id], r: id === barcodeId ? -1 : rank(items[id], words) }))
+      .filter(x => (x.r >= 0 || x.id === barcodeId) && keep(x.it)).sort((a, b) => a.r - b.r || lower(a.it.ItemCode).localeCompare(lower(b.it.ItemCode), undefined, { numeric: true }));
+    return { items: rows.slice(0, 200).map(x => full(x.id, x.it)), next: '', searched: true, more: rows.length > 200 };
+  }
+  // In code order, from the cursor, the filters kept, until a page is full (or SCAN_MAX read: "Load more" goes on).
+  const out = [];
+  // The cursor is the last item's code and id: two items with one code (two companies, an import) are both listed.
+  let after = cursorOf(d.after), scanned = 0, ended = false;
+  const { FieldPath } = require('firebase-admin/firestore');
+  while (out.length < PAGE && scanned < SCAN_MAX) {
+    let qy = col().orderBy('ItemCode').orderBy(FieldPath.documentId()).limit(SCAN);
+    if (after) qy = qy.startAfter(after[0], after[1]);
+    const snap = await qy.get();
+    scanned += snap.size;
+    let used = 0;
+    for (const doc of snap.docs) {
+      used++;
+      after = [doc.get('ItemCode'), doc.id];
+      const it = fromStore(doc.data());
+      if (it && keep(it)) out.push(full(doc.id, it));
+      if (out.length >= PAGE) break;
+    }
+    // The end: the last read was short and every document of it was used.
+    if (snap.size < SCAN) { ended = used === snap.size; break; }
+  }
+  return { items: out, next: ended || !after ? '' : JSON.stringify(after), searched: false };
+});
+
+// Copy to Excel (QI3): every item the filters keep, as tab-separated text, built here.
+exports.getItemsExport = onCallWithMessages(Object.assign({}, onCallOptions, { timeoutSeconds: 300, memory: '1GiB' }), async (request) => {
+  const user = await requireUser(request);
+  await requireItemMasterAccess(user);
+  const d = request.data || {};
+  const keep = filtersOf(user, d);
+  const q = String(d.q || '').trim();
+  let list;
+  if (q) {
+    const { items } = await candidates(q);
+    const words = lower(q).split(/\s+/).filter(Boolean);
+    list = Object.keys(items).filter(id => rank(items[id], words) >= 0).map(id => [id, items[id]]);
+  } else list = Object.entries(await itemStore.all());
+  list = list.filter(([, it]) => keep(it)).sort((a, b) => lower(a[1].ItemCode).localeCompare(lower(b[1].ItemCode), undefined, { numeric: true }));
+  const [subs, uoms, companies] = await Promise.all(['itemSubCategories', 'uoms', 'companies'].map(p => firebaseAdmin.rtdb.ref(p).get().then(x => x.val() || {})));
+  const cell = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ');
+  const lines = [['Item Code', 'User Code', 'Item Name', 'Category', 'Sub-Category', 'UOM', 'Company', 'Batch Tracked', 'Status'].join('\t')];
+  list.forEach(([, i]) => lines.push([i.ItemCode, i.UserCode, i.ItemName, ownCategory(i), (subs[i.SubCategoryID] || {}).Name, (uoms[i.UOMID] || {}).Code,
+    i.CompanyID ? (companies[i.CompanyID] || {}).LegalName || i.CompanyID : 'Shared', i.BatchTracked ? 'Yes' : 'No', i.Status].map(cell).join('\t')));
+  return { tsv: lines.join('\n'), count: list.length };
+});
+
 module.exports = Object.assign(exports, { search, rank, pickFields, MAX });

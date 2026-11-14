@@ -4,6 +4,7 @@
     ".write": false,
     "recurringJournals": { ".indexOn": ["Status"] },
     "items": { ".indexOn": ["ItemCode", "ReorderLevel"] },
-    "priceListLines": { ".indexOn": ["ItemCode"] }
+    "priceListLines": { ".indexOn": ["ItemCode"] },
+    "itemBarcodes": { ".indexOn": ["ItemID"] }
   }
 }

@@ -41,10 +41,14 @@ const PORTED_REPORTS = ['getStockValuationReport', 'getStockLedgerReport', 'getM
   'getStockAvailabilityList', 'recalculateStockLedger', 'getBoms'];
 
 test('the reports and barcode lookups never read the whole catalogue (step 2)', () => {
-  // Retail Sales: every sale's own reads by its lines; only the counter's item list (a picker, step 3b) reads them all.
+  // Retail Sales: every sale's own reads by its lines; the counter asks for the items it shows (findRetailItems, step 3b).
   const retail = read('retailSales.js');
-  assert.equal((retail.match(/itemStore\.all\(\)/g) || []).length, 1);
-  assert.match(retail.slice(retail.indexOf('exports.getRetailCounter')), /^exports\.getRetailCounter[\s\S]*?itemStore\.all\(\)/);
+  assert.equal((retail.match(/itemStore\.all\(\)/g) || []).length, 0);
+  // The search and the pages read their candidates only; Copy to Excel (QI3) is the one whole read, built on the server.
+  const search = read('itemSearch.js');
+  assert.equal((search.match(/\.all\(\)/g) || []).length, 1);
+  assert.match(search.slice(search.indexOf('exports.getItemsExport')), /^exports\.getItemsExport[\s\S]*?itemStore\.all\(\)[\s\S]*?\n\}\);/);
+  assert.doesNotMatch(search.slice(0, search.indexOf('exports.getItemsExport')), /\.all\(\)/);
   assert.deepEqual(REPORT_FILES.filter(f => WHOLE.test(read(f))), []);
   const code = read('legacy/codegs.js');
   const body = fn => { const i = code.indexOf('\nasync function ' + fn + '('); assert.ok(i >= 0, fn); return code.slice(i, code.indexOf('\n}\n', i)); };

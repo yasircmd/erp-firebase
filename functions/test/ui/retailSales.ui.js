@@ -54,6 +54,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     return page;
   }
   const until = async (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: 30000 });
+  // The counter asks the server for the item typed or scanned (ITEMS_FIRESTORE.md, step 3b): wait for its line.
+  const lineIn = (p, n) => until(p, n => document.querySelectorAll('#rs-lines tr[data-i]').length === n, n || 1);
 
   await check('Setup: saving creates the Retail Customer; a Cash method mapped to its ledger', async () => {
     const p = await open('RETAILSALES', 'u-admin');
@@ -84,7 +86,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   let saleId = '';
   await check('the counter: items by code, cash over-tendered with a card, the change shown; confirmed; the invoice prints with no customer block and no Discount column', async () => {
     const p = await open('RETAILSALES', 'u-admin');
-    await until(p, () => !document.getElementById('rs-counter-body').classList.contains('hidden') && document.getElementById('rs-items').options.length === 1);
+    await until(p, () => !document.getElementById('rs-counter-body').classList.contains('hidden') && document.getElementById('rs-salestype').options.length >= 1);
     assert.equal(await p.inputValue('#rs-customer'), (await val('retailSales/settings/C1')).RetailCustomerID);
     await p.fill('#rs-item', 'RM-001');
     await p.press('#rs-item', 'Enter');
@@ -122,11 +124,12 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('an existing customer: their details on the invoice; a line discount, so the Discount column prints; a balance left on account', async () => {
     const p = await open('RETAILSALES', 'u-admin');
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     await p.selectOption('#rs-customer', 'CU1');
     assert.equal(await p.inputValue('#rs-billto-name'), 'Beta Trading');
     await p.fill('#rs-item', 'RM-001');
     await p.press('#rs-item', 'Enter');
+    await lineIn(p);
     await p.fill('#rs-lines [data-f="Discount"]', '2.5');
     await until(p, () => document.getElementById('rs-total').textContent === '50.00');
     // With a discount: Items 1, the amount before it as Subtotal, then the discount.
@@ -147,7 +150,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('a sale reversed with a reason; its journal opens the sale', async () => {
     const p = await open('RETAILSALES', 'u-admin', d => (d.type() === 'prompt' ? 'Wrong item' : undefined));
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     const jv = (await val('stock/transactions/' + saleId)).LinkedJVID;
     await p.evaluate(id => openModule('RETAILSALES', { OpenEntryId: id }), jv);
     await until(p, () => !document.getElementById('rs-sale-view').classList.contains('hidden') && /RS-/.test(document.getElementById('rs-sale-heading').textContent));
@@ -162,9 +165,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('a Viewer sees the counter but cannot confirm or change the setup', async () => {
     const p = await open('RETAILSALES', 'u-viewer');
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     await p.fill('#rs-item', 'RM-001');
     await p.press('#rs-item', 'Enter');
+    await lineIn(p);
     await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '60');
     assert.ok(await p.isDisabled('#rs-confirm'));
     await p.click('.rs-tab[data-tab="setup"]');
@@ -180,9 +184,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await onAppDialog(p, d => { p.__dialogs.push(d.message()); return p.__answer ? d.accept() : d.dismiss(); });
     await p.goto('http://127.0.0.1:8178/?module=RETAILSALES&uid=u-admin');
     await p.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     await p.fill('#rs-item', 'RM-001');
     await p.press('#rs-item', 'Enter');
+    await lineIn(p);
     await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '60');
     await p.click('#rs-clear');
     for (let i = 0; i < 150 && !p.__dialogs.length; i++) await new Promise(r => setTimeout(r, 100));
@@ -201,15 +206,17 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   });
 
   await check('scanning the product\'s own barcode adds the item; a carton\'s adds its units; an unknown barcode is named', async () => {
-    const item = (await call('u-admin', 'getRetailCounter', { companyId: 'C1' })).items[0];
+    const item = (await call('u-admin', 'findRetailItems', { companyId: 'C1', ids: ['I1'] })).items[0];
     await call('u-admin', 'saveItemBarcodes', { itemId: item.ItemID, barcodes: [{ Barcode: '6291041500213' }, { Barcode: '16291041500210', PackQty: 12 }] });
     const p = await open('RETAILSALES', 'u-admin');
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     const scan = async code => { await p.fill('#rs-item', code); await p.press('#rs-item', 'Enter'); };
     await scan('6291041500213');
+    await lineIn(p);
     assert.equal(await p.inputValue('#rs-lines tr[data-i="0"] [data-f="Quantity"]'), '1');
     assert.match(await p.textContent('#rs-lines tr[data-i="0"]'), new RegExp(item.ItemCode));
     await scan('16291041500210');
+    await until(p, () => document.querySelector('#rs-lines tr[data-i="0"] [data-f="Quantity"]').value === '13');
     assert.equal(await p.inputValue('#rs-lines tr[data-i="0"] [data-f="Quantity"]'), '13', 'the carton adds 12');
     await scan('4006381333931');
     for (let i = 0; i < 50 && p.__dialogs.length < 1; i++) await new Promise(r => setTimeout(r, 100));
@@ -226,7 +233,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const today = new Date().toISOString().substring(0, 10);
     const own = await call('u-cash1', 'confirmRetailSale', { CompanyID: 'C1', SaleDate: today, Lines: [{ ItemID: 'I1', Quantity: 1 }], Payments: [{ MethodID: cashId, Amount: 60 }] });
     const c = await open('RETAILSALES', 'u-cash1');
-    await until(c, () => document.getElementById('rs-items').options.length === 1);
+    await until(c, () => document.getElementById('rs-salestype').options.length >= 1);
     await c.click('.rs-tab[data-tab="sales"]');
     await c.fill('#rs-from', today); await c.fill('#rs-to', today); await c.click('#rs-run');
     await until(c, () => document.querySelectorAll('#rs-sales-body tr[data-id]').length === 1);
@@ -243,7 +250,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await onAppDialog(p, d => { p.__dialogs.push(d.message()); d.accept(); });
     await p.goto('http://127.0.0.1:8178/?module=RETAILSALES&uid=u-admin');
     await until(p, () => window.__moduleReady === true);
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     await p.click('.rs-tab[data-tab="sales"]');
     await p.fill('#rs-from', today); await p.fill('#rs-to', today); await p.click('#rs-run');
     await until(p, () => document.querySelectorAll('#rs-sales-body tr[data-id]').length === 4);
@@ -284,7 +291,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('the sales list: an older request answering late never puts back its rows or resets "Billed by"', async () => {
     const p = await open('RETAILSALES', 'u-admin');
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     const today = new Date().toISOString().substring(0, 10);
     await p.click('.rs-tab[data-tab="sales"]');
     await p.fill('#rs-from', today); await p.fill('#rs-to', today); await p.click('#rs-run');
@@ -316,7 +323,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('Setup: discounts off, an 80 mm roll with a footer, printed on Confirm: no Discount column at the counter; the receipt prints by itself, on the roll; 58 mm narrower (owner, 2026-10-10)', async () => {
     const p = await open('RETAILSALES', 'u-admin');
-    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await until(p, () => document.getElementById('rs-salestype').options.length >= 1);
     await p.click('.rs-tab[data-tab="setup"]');
     await p.uncheck('#rs-s-discount');
     await p.selectOption('#rs-s-paper', '80');
@@ -361,7 +368,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await check('the counter finds a customer by code, name or mobile; an unknown mobile becomes a new customer; counter staff without Customer Master\'s right cannot add one (UX_TIER3.md E)', async () => {
     await require('../emulator/_helpers').rtdb.ref('customers/CU1/Phone').set('050 765 4321');
     const p = await open('RETAILSALES', 'u-admin', d => d.type() === 'prompt' ? 'Dana Walk' : undefined);
-    await until(p, () => !document.getElementById('rs-counter-body').classList.contains('hidden') && document.getElementById('rs-items').options.length === 1);
+    await until(p, () => !document.getElementById('rs-counter-body').classList.contains('hidden') && document.getElementById('rs-salestype').options.length >= 1);
     for (const q of ['7654321', '+971 50 765 4321', 'beta', 'CL-000001']) {
       await p.fill('#rs-customer-find', q);
       assert.equal(await p.inputValue('#rs-customer'), 'CU1', q);
@@ -388,7 +395,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await until(c, () => !document.getElementById('rs-counter-body').classList.contains('hidden'));
     await c.fill('#rs-customer-find', '055 111 2222');
     release();
-    await until(c, () => document.getElementById('rs-items').options.length >= 1);
+    await until(c, () => document.getElementById('rs-salestype').options.length >= 1);
     assert.ok(await c.isVisible('#rs-customer-none'));
     assert.ok(await c.isHidden('#rs-customer-new'), 'no right to add customers');
     await c.fill('#rs-customer-find', '055 999 8888');
