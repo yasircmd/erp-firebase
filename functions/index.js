@@ -413,6 +413,8 @@ const support = require('./src/support');
 ['getCorrectionJvs', 'getEntryForCorrection', 'getCorrectionJv', 'saveCorrectionJvDraft'].forEach(n => { exports[n] = require('./src/correctionJv')[n]; });
 // Technical Reference (docs/modules/TECH_REFERENCE.md): firm-only, read only.
 ['getTechRefPart', 'searchTechRef'].forEach(n => { exports[n] = require('./src/techRef')[n]; });
+// The item search (docs/modules/ITEMS_FIRESTORE.md, step 3b).
+['searchItems', 'getItemsByIds'].forEach(n => { exports[n] = require('./src/itemSearch')[n]; });
 // The Audit Log (docs/modules/AUDIT_LOG.md, step 3).
 ['getAuditLog', 'getAuditLogFilters'].forEach(n => { exports[n] = require('./src/auditLog')[n]; });
 // MIS (docs/modules/MIS.md): the engine (phase 1).
