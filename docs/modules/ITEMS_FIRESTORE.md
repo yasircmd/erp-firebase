@@ -1,6 +1,6 @@
 # Large item catalogues (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Steps 1, 2, 3a and 3b-1 built 2026-11-14** (see *As built*); 3b-2 (the stock screens' pickers) and 3b-3 (sales and purchase screens, the portals, the shell's item codes) next.
+Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Steps 1, 2, 3a, 3b-1 and 3b-2 built 2026-11-14** (see *As built*); 3b-3 (sales and purchase screens, the portals, the shell's item codes) next.
 Item 3 of UX batch 4 (docs/modules/UX4.md), decision Q510: "design first,
 for everyone": moving the items to Firestore for every corporate, with
 screens searching items on the server as you type instead of loading them
@@ -413,4 +413,46 @@ the sales and purchase screens, the portals and the shell's item codes.
   **items-3b-1** (34 functions, 5 new: their invoker bindings) with
   **--screens**; the screens release redeploys Hosting, which carries the
   shell's server mode.
+
+## As built: step 3b-2 (2026-11-14)
+
+The stock screens no longer read every item (`getActiveItems`): GRN,
+Material Issue, Stock Adjustment, Warehouse Movement, Physical Count,
+Production, BOM and Stock Ledger.
+
+- **The shell's item catalogue** (public/index.html, `window.itemCatalog`):
+  the items a screen has met, kept in one list (`cat.list`, which the
+  screen's own `items` is, so its lookups by code and id are unchanged).
+  - Items come in from the screen's documents (the list's page brings its
+    lines' items, `forDocs`), from the item box's server search (3b-1),
+    from "Search items" (`results`, 2 letters), from a paste
+    (`ensureCodes` of the item column), and from a scan (`prepare`: the
+    barcode's item, else the code).
+  - A code typed in full is asked of the server when typing pauses
+    (300 ms) or the box is left. Every box holding it then gets its
+    input and change events again, so a line redrawn meanwhile is filled
+    too.
+  - Production with a Job Order lists that Job Order's items, as before:
+    asked by their codes when its Job Orders load. A GRN's Purchase Orders
+    bring their lines' items.
+  - BOM: the parent and component filters ask the server from 2 letters.
+    The BOMs' own items (parent and components) come with the list.
+- **getItemsByCodes** (itemSearch.js) {codes, companyId}: active items by
+  item code or user code, ignoring case, of the company and shared, up to
+  500. `pickFields` now carries WriteOffAccountID too.
+- **Tests:** emulator itemSearch (+1: codes, any case, user code, the
+  inactive and another company's left out); UI stockModules 14/14 (after
+  its emulator suite, which seeds it), production, stockScanning,
+  stockLedgerBack, gridClipboard, lineGrids, labelPrinting,
+  warehouseCostCenter, createNext, draftTasks, entryLayoutWave, listPaging,
+  singleCompany, stockReports, compactForms, dynamicToggle and smoke.
+  stockModules now checks the screens never call getActiveItems.
+  Negative controls, each caught:
+  - the Active filter dropped;
+  - a paste not asked first (BOM);
+  - a scan not asked first (GRN);
+  - the answer given only to the box that asked (Stock Adjustment's line,
+    redrawn meanwhile).
+- **Deploy:** after items-3b-1. Set **items-3b-2** (35 functions; getItemsByCodes
+  new: its invoker binding) with **--screens**; no rules.
 

@@ -222,7 +222,11 @@
   let canPost = false;
   let entries = [];
   let entriesTotal = 0;
-  let items = [];
+  // The items this screen has met (its documents', those searched, chosen, typed,
+  // pasted or scanned), asked of the server: never the whole catalogue
+  // (docs/modules/ITEMS_FIRESTORE.md, step 3b-2). items is its list, kept in place.
+  const itemCat = window.itemCatalog({ datalist: 'mi-item-datalist', filters: () => ({ companyId: document.getElementById('mi-form-company').value }) });
+  const items = itemCat.list;
   let uoms = [];
   let companies = [];
   let orgUnits = [];
@@ -286,7 +290,7 @@
   // entry (docs/modules/LIST_PAGING.md).
   const listPager = createListPager({
     notice: 'mi-list-notice', noun: 'Material Issues',
-    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getMaterialIssueEntries({ page: page }),
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(r => itemCat.forDocs((r && r.entries) || []).then(() => ok(r))).withFailureHandler(fail).getMaterialIssueEntries({ page: page }),
     filters: () => ({
       search: document.getElementById('mi-search-input').value,
       CompanyID: document.getElementById('mi-company-filter').value,
@@ -422,16 +426,8 @@
   // alongside the magnifying-glass modal, not instead of it. The modal
   // stays for browsing/searching by name; this is for when you already
   // know roughly what you're typing and want it to autocomplete inline.
-  function populateItemDatalist() {
-    const list = document.getElementById('mi-item-datalist');
-    if (!list) return;
-    list.innerHTML = '';
-    itemsForCurrentCompany().forEach(i => {
-      const opt = document.createElement('option');
-      opt.value = i.ItemCode + ' — ' + i.ItemName;
-      list.appendChild(opt);
-    });
-  }
+  // The item boxes' list is the server's search (itemCat, ITEMS_FIRESTORE.md step 3b-2).
+  function populateItemDatalist() {}
 
   function updateCompanyRequiredNote() {
     document.getElementById('mi-company-required-note').classList.toggle('hidden', Boolean(document.getElementById('mi-form-company').value));
@@ -459,31 +455,19 @@
     pickerRow = -1;
   }
 
-  // Empty query lists everything (capped) so the picker is useful for
-  // browsing, not only for searching — matters when someone doesn't know
-  // the code or the exact name.
+  // The server's matches as you type (ITEMS_FIRESTORE.md, step 3b-2).
   function renderItemResults(query) {
-    const q = String(query || '').trim().toLowerCase();
-    const results = document.getElementById('mi-item-results');
-    const matches = itemsForCurrentCompany()
-      .filter(i => !q || String(i.ItemCode).toLowerCase().includes(q) || String(i.ItemName).toLowerCase().includes(q))
-      .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }))
-      .slice(0, 100);
-
-    if (!matches.length) {
-      results.innerHTML = '<div class="p-4 text-center text-slate-500">' + (itemsForCurrentCompany().length ? 'No items match that search.' : 'No items showing for this company — either none exist yet, or your account isn\'t assigned to this company in User Management. Check with an admin if you expect items here.') + '</div>';
-      return;
-    }
-
-    results.innerHTML = matches.map(m =>
+    itemCat.results(document.getElementById('mi-item-results'), query, {
+      row: m =>
       `<button type="button" class="mi-item-option w-full text-left px-3 py-2 rounded hover:bg-slate-700 flex justify-between gap-3" data-code="${escapeHtml(m.ItemCode)}">
         <span><span class="font-mono text-slate-200">${escapeHtml(m.ItemCode)}</span> <span class="text-slate-400">— ${escapeHtml(m.ItemName)}</span></span>
         <span class="text-slate-500 text-xs shrink-0">${escapeHtml((uomById(m.UOMID) || {}).Code || '')}</span>
-      </button>`
-    ).join('');
-
-    results.querySelectorAll('.mi-item-option').forEach(btn => {
-      btn.addEventListener('click', () => selectItemForRow(pickerRow, btn.getAttribute('data-code')));
+      </button>`,
+      bind: results => {
+      results.querySelectorAll('.mi-item-option').forEach(btn => {
+        btn.addEventListener('click', () => selectItemForRow(pickerRow, btn.getAttribute('data-code')));
+      });
+      }
     });
   }
 
@@ -560,7 +544,9 @@
   const addQty = (a, b) => Math.round(((Number(a) || 0) + b) * 1000) / 1000;
   // The Scan box: the item's line gets the units (decision 69: an item
   // already on the document adds to its line), else the first empty line.
-  function scanItem(text) {
+  // A scan's item is asked of the server first (ITEMS_FIRESTORE.md, step 3b-2).
+  function scanItem(text) { return itemCat.prepare(text, barcodeIndex).then(() => scanItemNow(text)); }
+  function scanItemNow(text) {
     text = String(text || '').trim();
     if (!text) return;
     const hit = barcodeItem(text) || (itemByCode(text) ? { code: itemByCode(text).ItemCode, units: 1 } : null);
@@ -580,7 +566,8 @@
   // A barcode in a line's item cell (on Enter or leaving it, not on every
   // key: a scanner types the digits one by one): the item, and a pack's
   // units as the quantity when none is entered.
-  function itemCellBarcode(el) {
+  function itemCellBarcode(el) { const v = el.value; return itemCat.prepare(v, barcodeIndex).then(() => { if (el.value === v) itemCellBarcodeNow(el); }); }
+  function itemCellBarcodeNow(el) {
     const row = parseInt(el.getAttribute('data-row'), 10);
     const hit = gridLines[row] && barcodeItem(el.value);
     if (!hit) return;
@@ -843,7 +830,12 @@
   // editable-column left-to-right order (skipping the two display-only
   // columns, Item Name and Total Value).
 
+  // A paste's item codes are asked of the server first (ITEMS_FIRESTORE.md, step 3b-2).
   function distributePastedText(text, startRow, startCol) {
+    const col = COLUMNS.indexOf('item') - startCol;
+    return itemCat.ensureCodes(col >= 0 ? itemCat.codesIn(text, col) : []).then(() => distributePastedTextNow(text, startRow, startCol));
+  }
+  function distributePastedTextNow(text, startRow, startCol) {
     isDirty = true;
     const rows = text.replace(/\r/g, '').split('\n').filter((r, idx, arr) => !(idx === arr.length - 1 && r === ''));
     if (rows.length && isHeadingRow(rows[0])) rows.shift(); // the copied headings row
@@ -1424,10 +1416,7 @@
   }
 
   function loadReferenceData() {
-    rpc
-      .withSuccessHandler(result => { items = result || []; updateCompanyRequiredNote(); })
-      .withFailureHandler(err => console.error(err))
-      .getActiveItems();
+    updateCompanyRequiredNote(); // the items: asked as needed (itemCat)
 
     rpc
       .withSuccessHandler(result => { uoms = result || []; })

@@ -29,7 +29,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await onAppDialog(page, d => d.accept());
   await page.goto('http://127.0.0.1:8162/?module=STOCKLEDGER&uid=u-admin');
   await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
-  await page.waitForFunction(() => document.querySelectorAll('#sl-location option').length > 1 && document.querySelectorAll('#sl-item-datalist option').length > 0, null, { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelectorAll('#sl-location option').length > 1, null, { timeout: 30000 });
 
   await check('Back from an entry reopens the report with its filters, already run', async () => {
     await page.selectOption('#sl-company', 'C1');

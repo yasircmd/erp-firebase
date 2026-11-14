@@ -77,7 +77,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
       assert.deepEqual(await rpcFailures(page), []);
       assert.deepEqual(page.__errors, []);
       const calls = await rpcCalls(page);
-      for (const fn of ['getActiveItems', 'getActiveUOMs', 'getActiveCompanies', 'getActiveOrgUnits', 'getModulePermissionsForUser']) assert.ok(calls.includes(fn), 'called ' + fn);
+      for (const fn of ['getActiveUOMs', 'getActiveCompanies', 'getActiveOrgUnits', 'getModulePermissionsForUser']) assert.ok(calls.includes(fn), 'called ' + fn);
+      assert.ok(!calls.includes('getActiveItems'), 'never the whole catalogue (ITEMS_FIRESTORE.md, step 3b-2)');
       assert.ok(await page.isVisible('#' + p + '-new-btn'), 'New button visible for a drafter');
       if (mod !== 'STOCKADJUSTMENT') assert.ok((await page.locator('#' + p + '-table-body tr').count()) >= 1, 'list shows the seeded entry');
       await page.close();

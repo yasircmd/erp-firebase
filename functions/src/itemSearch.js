@@ -70,7 +70,7 @@ const pickFields = (id, i) => ({
   ItemID: id, ItemCode: i.ItemCode || '', ItemName: i.ItemName || '', UserCode: i.UserCode || '', Category: i.Category || '',
   SubCategoryID: i.SubCategoryID || '', UOMID: i.UOMID || '', AltUOMID: i.AltUOMID || '', ConversionFactor: i.ConversionFactor || 0,
   CompanyID: i.CompanyID || '', Status: i.Status || '', DefaultWarehouseID: i.DefaultWarehouseID || '', InventoryAccountID: i.InventoryAccountID || '',
-  ConsumptionAccountID: i.ConsumptionAccountID || '', SalesCogsAccountID: i.SalesCogsAccountID || '', BatchTracked: Boolean(i.BatchTracked), TaxCode: i.TaxCode || ''
+  ConsumptionAccountID: i.ConsumptionAccountID || '', SalesCogsAccountID: i.SalesCogsAccountID || '', WriteOffAccountID: i.WriteOffAccountID || '', BatchTracked: Boolean(i.BatchTracked), TaxCode: i.TaxCode || ''
 });
 
 // Whether an item is on a price list (Sales Order's sellable items): one
@@ -122,6 +122,20 @@ exports.getItemsByIds = onCallWithMessages(onCallOptions, async (request) => {
   const ids = (Array.isArray((request.data || {}).ids) ? request.data.ids : []).slice(0, 500);
   const found = await itemStore.byIds(ids);
   return Object.keys(found).filter(id => userCanAccessCompany(user.profile, found[id].CompanyID)).map(id => pickFields(id, found[id]));
+});
+
+// The active items with these codes or user codes, ignoring case, of the
+// company (and the shared ones): a code typed or pasted on a line
+// (ITEMS_FIRESTORE.md, step 3b-2). data: { codes, companyId }
+exports.getItemsByCodes = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const companyId = String(d.companyId || '').trim();
+  if (companyId && !userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  const codes = [...new Set((Array.isArray(d.codes) ? d.codes : []).map(c => String(c == null ? '' : c).trim()).filter(Boolean))].slice(0, 500);
+  const found = Object.assign({}, ...(await Promise.all(codes.map(c => itemStore.byCodeIgnoringCase(c)))));
+  return Object.keys(found).filter(id => found[id].Status === 'Active' && userCanAccessCompany(user.profile, found[id].CompanyID) &&
+    (!companyId || !found[id].CompanyID || found[id].CompanyID === companyId)).map(id => pickFields(id, found[id]));
 });
 
 // ---------- Item Master: a page at a time (QI3) ----------

@@ -13,6 +13,12 @@ screen.
 
 ## 14/11/2026
 
+- **Items found as you type on the stock entries.** On a GRN, Material
+  Issue, Stock Adjustment, Warehouse Movement, Physical Count or Production
+  line, in BOM and in Stock Ledger, type 2 letters of an item's code or name
+  and choose from the matches; **Search items** works the same way. A code
+  typed in full, pasted or scanned still finds its item. See
+  [Working with screens](working-with-screens.html#finding-an-account-item-customer-or-vendor).
 - **Item Master a page at a time.** The item list shows 100 items at a
   time with **Load more**, and its search, filters and **Copy to Excel**
   cover every item: search by code, user code, a word or part of one, or a

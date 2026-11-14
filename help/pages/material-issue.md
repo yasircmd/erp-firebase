@@ -6,7 +6,7 @@ modules: [MATERIALISSUE]
 sources: [functions/src/materialIssue.js, functions/src/stockMovement.js]
 summary: Issue stock to a department or process and keep the warehouse quantity and cost records aligned.
 reviewed: 2026-11-14
-fingerprint: 2ba79ec946ad0111
+fingerprint: f417d5cbad024a04
 ---
 ## What it is for
 

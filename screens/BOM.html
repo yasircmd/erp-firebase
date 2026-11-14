@@ -41,7 +41,7 @@
     <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
       <label class="block text-xs font-medium text-slate-300">Parent Item <span class="text-slate-500">(Finished or Semi-Finished Good)</span></label>
       <p id="bom-parent-selected" class="text-sm text-slate-200">None selected</p>
-      <input type="text" id="bom-parent-filter" placeholder="Type to filter by code or name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      <input type="text" id="bom-parent-filter" placeholder="Type 2 letters of a code or name to find items..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
       <!-- No `size` attribute — a multi-row listbox (size > 1) is
            reliably respected on desktop browsers, but mobile Safari and
            Chrome collapse it to the SAME thin single-line control as a
@@ -51,7 +51,6 @@
            the honest, correctly-behaving version of the same control —
            tapping it opens the native OS picker either way. -->
       <select id="bom-parent-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></select>
-      <p id="bom-parent-empty-note" class="hidden text-xs text-amber-400">No Finished Good or Semi-Finished Good items found. Create one in Item Master first — this list only shows those two categories.</p>
       <p class="text-xs text-slate-500">Click an item in the list, or filter first then click. This is a plain, standard list box — no custom search box that can silently fail.</p>
     </div>
     <div class="grid grid-cols-1 gap-4">
@@ -70,9 +69,8 @@
     <label class="block text-xs font-medium text-slate-300">Add Component <span class="text-slate-500">(Raw Material, Semi-Finished Good, or Consumable)</span></label>
     <div class="flex gap-3">
       <div class="flex-1 space-y-2">
-        <input type="text" id="bom-component-filter" placeholder="Type to filter by code or name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        <input type="text" id="bom-component-filter" placeholder="Type 2 letters of a code or name to find items..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
         <select id="bom-component-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></select>
-        <p id="bom-component-empty-note" class="hidden text-xs text-amber-400">No eligible components found — create Raw Material, Semi-Finished Good, or Consumable items in Item Master first.</p>
       </div>
       <div class="flex flex-col justify-end">
         <button id="bom-add-component-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap"><i class="fa-solid fa-plus"></i> Add to BOM</button>
@@ -141,7 +139,18 @@
   function stillActive() { return window.__activeModuleToken === myModuleToken; }
   let canWrite = false;
   let boms = [];
-  let items = [];
+  // The items this screen has met (its BOMs', those found), asked of the server:
+  // never the whole catalogue (docs/modules/ITEMS_FIRESTORE.md, step 3b-2).
+  const itemCat = window.itemCatalog({});
+  const items = itemCat.list;
+  // The BOMs' own items (parent and components), asked before the list shows them.
+  const bomItems = list => itemCat.ensureIds([].concat(...(list || []).map(b => [b.ParentItemID].concat((b.Components || []).map(c => c.ComponentItemID)))));
+  // A filter's text, from 2 letters, searched on the server; the list is then rebuilt.
+  function searchThen(inputId, render) {
+    const q = document.getElementById(inputId).value.trim();
+    render();
+    if (q.length >= 2) itemCat.search(q, { limit: 100 }).then(() => { if (document.getElementById(inputId).value.trim() === q) render(); });
+  }
   let uoms = [];
   let currentBom = null;
   let parentItem = null;
@@ -180,7 +189,7 @@
 
   function fetchAndRender() {
     rpc
-      .withSuccessHandler(result => { if (!stillActive()) return; boms = result || []; renderList(); })
+      .withSuccessHandler(result => { if (!stillActive()) return; bomItems(result).then(() => { if (!stillActive()) return; boms = result || []; renderList(); }); })
       .withFailureHandler(err => { if (!stillActive()) return; alert(err.message || 'Unable to load BOMs.'); })
       .getBoms();
   }
@@ -279,11 +288,10 @@
     }
     select.innerHTML = pool.map(i =>
       `<option value="${i.ItemID}"${parentItem && i.ItemID === parentItem.ItemID ? ' selected' : ''}>${escapeHtml(i.ItemCode)} — ${escapeHtml(i.ItemName)} (${escapeHtml(CATEGORY_LABELS[i.Category] || i.Category)})</option>`
-    ).join('') || `<option value="" disabled>${query ? 'No matching items' : 'None available'}</option>`;
+    ).join('') || `<option value="" disabled>${query.length >= 2 ? 'No matching items' : 'Type at least 2 letters of a code or name'}</option>`;
     // Visible regardless of whether the select is tapped/opened — the
     // select's own empty state is easy to miss, especially on mobile
     // where it renders as a thin, single-line control.
-    document.getElementById('bom-parent-empty-note').classList.toggle('hidden', allEligible.length > 0);
   }
 
   function onParentSelected() {
@@ -320,8 +328,7 @@
       .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
     select.innerHTML = pool.map(i =>
       `<option value="${i.ItemID}">${escapeHtml(i.ItemCode)} — ${escapeHtml(i.ItemName)} (${escapeHtml(CATEGORY_LABELS[i.Category] || i.Category)})</option>`
-    ).join('') || `<option value="" disabled>${query ? 'No matching items' : 'None available'}</option>`;
-    document.getElementById('bom-component-empty-note').classList.toggle('hidden', allEligible.length > 0);
+    ).join('') || `<option value="" disabled>${query.length >= 2 ? 'No matching items' : 'Type at least 2 letters of a code or name'}</option>`;
   }
 
   function addSelectedComponent() {
@@ -385,8 +392,12 @@
     });
   }
 
+  // A paste's item codes are asked of the server first (ITEMS_FIRESTORE.md, step 3b-2).
   function applyPastedText(text) {
     if (!text) return;
+    return itemCat.ensureCodes(itemCat.codesIn(text, 0), '').then(() => applyPastedTextNow(text));
+  }
+  function applyPastedTextNow(text) {
     const rows = text.replace(/\r/g, '').split('\n').filter(r => r.trim() !== '');
     if (rows.length && isHeadingRow(rows[0])) rows.shift(); // the copied headings row
     let skipped = 0;
@@ -571,11 +582,6 @@
 
   function loadReferenceData() {
     rpc
-      .withSuccessHandler(result => { if (!stillActive()) return; items = result || []; })
-      .withFailureHandler(err => console.error(err))
-      .getActiveItems();
-
-    rpc
       .withSuccessHandler(result => { if (!stillActive()) return; uoms = result || []; })
       .withFailureHandler(err => console.error(err))
       .getActiveUOMs();
@@ -596,9 +602,9 @@
       document.getElementById('bom-active-note').classList.toggle('hidden', document.getElementById('bom-form-status').value !== 'Active');
     });
 
-    document.getElementById('bom-parent-filter').addEventListener('input', renderParentOptions);
+    document.getElementById('bom-parent-filter').addEventListener('input', () => searchThen('bom-parent-filter', renderParentOptions));
     document.getElementById('bom-parent-select').addEventListener('change', onParentSelected);
-    document.getElementById('bom-component-filter').addEventListener('input', renderComponentOptions);
+    document.getElementById('bom-component-filter').addEventListener('input', () => searchThen('bom-component-filter', renderComponentOptions));
     document.getElementById('bom-add-component-btn').addEventListener('click', addSelectedComponent);
     // Double-click an option as a quick shortcut for "Add to BOM".
     document.getElementById('bom-component-select').addEventListener('dblclick', addSelectedComponent);

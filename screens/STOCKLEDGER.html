@@ -79,7 +79,10 @@
 <script>
 (function () {
   let token = '';
-  let items = [];
+  // The items this report has met, asked of the server: never the whole catalogue
+  // (docs/modules/ITEMS_FIRESTORE.md, step 3b-2). items is its list, kept in place.
+  const itemCat = window.itemCatalog({ datalist: 'sl-item-datalist', filters: () => ({ companyId: document.getElementById('sl-company').value }) });
+  const items = itemCat.list;
   let companies = [];
   let orgUnits = [];
   let lastParams = null; // the filters of the last run (for Back from a drill-through)
@@ -130,20 +133,8 @@
       });
   }
 
-  function populateItemDatalist() {
-    const companyId = document.getElementById('sl-company').value;
-    // Same client-side company scoping every stock entry module uses —
-    // getActiveItems returns everything the USER can access, not
-    // filtered to one company, so that's done here.
-    const filtered = items.filter(i => !i.CompanyID || i.CompanyID === companyId);
-    const list = document.getElementById('sl-item-datalist');
-    list.innerHTML = '';
-    filtered.forEach(i => {
-      const opt = document.createElement('option');
-      opt.value = i.ItemCode + ' — ' + i.ItemName;
-      list.appendChild(opt);
-    });
-  }
+  // The item box's list is the server's search (itemCat, ITEMS_FIRESTORE.md step 3b-2).
+  function populateItemDatalist() {}
 
   // Back from an entry opened from this report: put its filters back and
   // run it again, once the company, location and item lists have loaded
@@ -156,6 +147,9 @@
     pendingParams = null;
     document.getElementById('sl-company').value = p.CompanyID || '';
     populateItemDatalist();
+    itemCat.ensureCodes([p.ItemCode], p.CompanyID || '').then(() => applyParams(p));
+  }
+  function applyParams(p) {
     const item = items.find(i => i.ItemCode === p.ItemCode);
     if (item) document.getElementById('sl-item-input').value = item.ItemCode + ' — ' + item.ItemName;
     document.getElementById('sl-location').value = p.WarehouseID || '';
@@ -186,13 +180,13 @@
       .withFailureHandler(err => console.error(err))
       .getActiveOrgUnits();
 
-    rpc
-      .withSuccessHandler(result => { items = result || []; populateItemDatalist(); loaded.items = true; applyPendingParams(); })
-      .withFailureHandler(err => console.error(err))
-      .getActiveItems();
+    loaded.items = true; // the items: asked as needed (itemCat)
+    applyPendingParams();
   }
 
-  function runReport() {
+  // The item typed is asked of the server first (ITEMS_FIRESTORE.md, step 3b-2).
+  function runReport() { return itemCat.ensureCodes([document.getElementById('sl-item-input').value]).then(runReportNow); }
+  function runReportNow() {
     const error = document.getElementById('sl-error');
     error.classList.add('hidden');
     document.getElementById('sl-results').classList.add('hidden');

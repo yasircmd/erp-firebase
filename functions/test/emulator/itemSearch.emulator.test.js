@@ -55,3 +55,12 @@ test('a document\'s items by id: only those, of the caller\'s companies', async 
   const r = await call('u-admin', 'getItemsByIds', { ids: ['I1', 'I4', 'NOPE'] });
   assert.deepEqual(r.map(i => i.ItemID), ['I1'], 'another company\'s item and an unknown id left out');
 });
+
+test('codes typed or pasted on a line: the item code or user code, any case; active, of the company (step 3b-2)', async () => {
+  await seed();
+  const r = await call('u-admin', 'getItemsByCodes', { codes: ['rm-001', 'BLT-08', ' FG-001 ', 'RM-003', 'RM-004', 'NOPE', ''], companyId: 'C1' });
+  assert.deepEqual(r.map(i => i.ItemCode).sort(), ['FG-001', 'RM-001', 'RM-002'], 'the inactive, another company\'s and an unknown code left out');
+  assert.equal(r.find(i => i.ItemCode === 'RM-001').InventoryAccountID, 'A-INV', 'the fields a line needs');
+  await assert.rejects(call('u-admin', 'getItemsByCodes', { codes: ['RM-004'], companyId: 'C2' }), /do not have access to that company/);
+  assert.deepEqual(await call('u-admin', 'getItemsByCodes', { codes: [] }), []);
+});

@@ -237,7 +237,11 @@
   let canPost = false;
   let entries = [];
   let entriesTotal = 0;
-  let items = [];
+  // The items this screen has met (its documents', those searched, chosen, typed,
+  // pasted or scanned), asked of the server: never the whole catalogue
+  // (docs/modules/ITEMS_FIRESTORE.md, step 3b-2). items is its list, kept in place.
+  const itemCat = window.itemCatalog({ datalist: 'prd-item-datalist', filters: () => ({ companyId: document.getElementById('prd-form-company').value }) });
+  const items = itemCat.list;
   let uoms = [];
   let companies = [];
   let orgUnits = [];
@@ -312,7 +316,7 @@
   // entry (docs/modules/LIST_PAGING.md).
   const listPager = createListPager({
     notice: 'prd-list-notice', noun: 'Production Entries',
-    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getProductionEntries({ page: page }),
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(r => itemCat.forDocs((r && r.entries) || []).then(() => ok(r))).withFailureHandler(fail).getProductionEntries({ page: page }),
     filters: () => ({
       search: document.getElementById('prd-search-input').value,
       CompanyID: document.getElementById('prd-company-filter').value,
@@ -459,6 +463,9 @@
     const list = document.getElementById('prd-item-datalist');
     if (!list) return;
     list.innerHTML = '';
+    // A Job Order's own items, listed here; otherwise the server's search (itemCat).
+    if (!document.getElementById('prd-form-joborder').value) { window.itemSearchList(list, { value: i => i.ItemCode + ' — ' + i.ItemName, filters: () => ({ companyId: document.getElementById('prd-form-company').value }), onItem: i => itemCat.add([i]) }); return; }
+    delete list.__itemSearch;
     itemsForCurrentCompany().forEach(i => {
       const opt = document.createElement('option');
       opt.value = i.ItemCode + ' — ' + i.ItemName;
@@ -500,6 +507,8 @@
         // Which line actually gets credited resolves from the produced
         // item, not from anything picked here.
         eligibleJobOrders = result || [];
+        // Their items (codes only on the lines), asked of the server before the list is narrowed to them (ITEMS_FIRESTORE.md, step 3b-2).
+        const codesReady = itemCat.ensureCodes([].concat(...eligibleJobOrders.map(b => (b.Lines || []).map(l => l.ItemCode))));
         select.innerHTML = '<option value="">Not linked to a Job Order</option>';
         eligibleJobOrders.forEach(batch => {
           const opt = document.createElement('option');
@@ -519,7 +528,7 @@
         // have run once (synchronously) before this async load
         // resolved, using whatever was selected at that earlier
         // moment, which is stale once this restores a different value.
-        populateItemDatalist();
+        codesReady.then(() => { if (load === jobOrderLoads) populateItemDatalist(); });
         updateJobOrderStopNote();
       })
       .withFailureHandler(() => { if (load === jobOrderLoads) eligibleJobOrders = []; })
@@ -561,10 +570,24 @@
     pickerRow = -1;
   }
 
-  // Empty query lists everything (capped) so the picker is useful for
-  // browsing, not only for searching — matters when someone doesn't know
-  // the code or the exact name.
+  // The server's matches as you type (ITEMS_FIRESTORE.md, step 3b-2); with a
+  // Job Order, its own items (listed here, as before).
   function renderItemResults(query) {
+    if (!document.getElementById('prd-form-joborder').value) {
+      itemCat.results(document.getElementById('prd-item-results'), query, {
+        row: m =>
+        `<button type="button" class="prd-item-option w-full text-left px-3 py-2 rounded hover:bg-slate-700 flex justify-between gap-3" data-code="${escapeHtml(m.ItemCode)}">
+          <span><span class="font-mono text-slate-200">${escapeHtml(m.ItemCode)}</span> <span class="text-slate-400">— ${escapeHtml(m.ItemName)}</span></span>
+          <span class="text-slate-500 text-xs shrink-0">${escapeHtml((uomById(m.UOMID) || {}).Code || '')}</span>
+        </button>`,
+        bind: results => {
+        results.querySelectorAll('.prd-item-option').forEach(btn => {
+          btn.addEventListener('click', () => selectItemForRow(pickerRow, btn.getAttribute('data-code')));
+        });
+        }
+      });
+      return;
+    }
     const q = String(query || '').trim().toLowerCase();
     const results = document.getElementById('prd-item-results');
     const matches = itemsForCurrentCompany()
@@ -927,7 +950,12 @@
   // editable-column left-to-right order (skipping the two display-only
   // columns, Item Name and Total Value).
 
+  // A paste's item codes are asked of the server first (ITEMS_FIRESTORE.md, step 3b-2).
   function distributePastedText(text, startRow, startCol) {
+    const col = COLUMNS.indexOf('item') - startCol;
+    return itemCat.ensureCodes(col >= 0 ? itemCat.codesIn(text, col) : []).then(() => distributePastedTextNow(text, startRow, startCol));
+  }
+  function distributePastedTextNow(text, startRow, startCol) {
     isDirty = true;
     const rows = text.replace(/\r/g, '').split('\n').filter((r, idx, arr) => !(idx === arr.length - 1 && r === ''));
     if (rows.length && isHeadingRow(rows[0])) rows.shift(); // the copied headings row
@@ -1543,10 +1571,7 @@
     const settle = () => { let done; answered.push(new Promise(r => { done = r; })); return done; };
     const itemsDone = settle(), uomsDone = settle(), companiesDone = settle(), orgUnitsDone = settle();
     referenceReady = Promise.all(answered);
-    rpc
-      .withSuccessHandler(result => { items = result || []; itemsDone(); updateCompanyRequiredNote(); })
-      .withFailureHandler(err => { console.error(err); itemsDone(); })
-      .getActiveItems();
+    itemsDone(); updateCompanyRequiredNote(); // the items: asked as needed (itemCat)
 
     rpc
       .withSuccessHandler(result => { uoms = result || []; uomsDone(); })
