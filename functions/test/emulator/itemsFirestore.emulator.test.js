@@ -2,6 +2,7 @@
 // step 3a, QI6, QI8): saved through the old path into Firestore with their
 // search fields; the inventory-account summary kept on every write; the
 // move: copy (the newer edit wins), check, finish (export, then delete).
+process.env.FIREBASE_STORAGE_EMULATOR_HOST = process.env.FIREBASE_STORAGE_EMULATOR_HOST || '127.0.0.1:9199'; // the old items' export (QI6)
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { call, reset, baseFixture, rtdb, firestore, val } = require('./_helpers');
