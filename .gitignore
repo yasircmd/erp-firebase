@@ -16,3 +16,6 @@ functions/lazy-exports.json
 
 # Test-only secrets for the functions emulator (TASK_MAIL_KEY): never committed
 functions/.secret.local
+
+# The item-catalogue measurement's last output (functions/test/perf/items50k.perf.js)
+functions/test/perf/*.last.json
