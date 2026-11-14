@@ -5,8 +5,8 @@ order: 8
 modules: [RETAILSALES]
 sources: [functions/src/retailSales.js]
 summary: Process a retail transaction at the counter, settle the sale and print or record the receipt.
-reviewed: 2026-11-08
-fingerprint: 6146f268087f6e2f
+reviewed: 2026-11-14
+fingerprint: 9684e72ff662e2ef
 ---
 ## What it is for
 

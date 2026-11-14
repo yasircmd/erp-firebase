@@ -44,6 +44,7 @@ function rateOfCode(config, code, date) {
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const stockStore = require('./stockStore');
 const { postStock, postedFields } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
@@ -403,7 +404,7 @@ async function buildSale(user, d) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Enter the sale date.');
 
   const [customers, items, uoms, units, coa, methods] = await Promise.all([
-    val('customers'), val('items'), val('uoms'), val('orgUnits'), val('coa'), methodsOf(companyId)
+    val('customers'), itemStore.forLines(d.Lines), val('uoms'), val('orgUnits'), val('coa'), methodsOf(companyId) // only the sale's items (ITEMS_FIRESTORE.md)
   ]);
   const customerId = String(d.CustomerID || '').trim() || settings.RetailCustomerID;
   const customer = (customers || {})[customerId];
@@ -541,7 +542,7 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
   return withGlobalLock(user.uid, async () => {
     const s = await buildSale(user, d);
     const companyId = s.header.CompanyID;
-    const items = (await val('items')) || {};
+    const items = await itemStore.forLines(s.lines); // only the sale's items (ITEMS_FIRESTORE.md)
     // Out at the average cost, as a Delivery Note; refused when short.
     const movement = await computeStockMovement(items, s.coa, s.lines);
     const dims = { CostCenterID: s.costCenterId, ProfitCenterID: '' };
@@ -736,7 +737,7 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
 
     const date = String(d.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
     if (date < t.TransactionDate) throw new HttpsError('invalid-argument', 'The reversal date can\'t be before the sale (' + t.TransactionDate + ').');
-    const [items, coa] = await Promise.all([val('items'), val('coa')]);
+    const [items, coa] = await Promise.all([itemStore.forLines(t.Lines), val('coa')]); // only its items (ITEMS_FIRESTORE.md)
     const movementLines = (t.Lines || []).map(l => Object.assign({}, l, { Direction: 'In' }));
     const movement = await computeStockMovement(items || {}, coa || {}, movementLines);
     const glLines = (glEntry.Lines || []).map(l => {
@@ -988,7 +989,7 @@ async function buildReturn(user, d) {
   }
   const reason = String(d.reason || '').trim();
   const [txs, items, uoms, coa, customers, salesTypes, methods] = await Promise.all([
-    saleReturns(saleId), val('items'), val('uoms'), val('coa'), val('customers'), val('salesTypes'), methodsOf(sale.CompanyID)
+    saleReturns(saleId), itemStore.forLines(sale.Lines), val('uoms'), val('coa'), val('customers'), val('salesTypes'), methodsOf(sale.CompanyID)
   ]);
   const prior = returnedSoFar(returnsOf(txs, saleId));
   const itemUoms = {};
@@ -1142,7 +1143,7 @@ exports.reverseRetailReturn = onCallWithMessages(onCallOptions, async (request) 
     await assertEntryReversible(t.LinkedJVID, Object.assign({}, glEntry, { ReversalOfJV: '' }));
 
     const date = today() < t.TransactionDate ? t.TransactionDate : today();
-    const [items, coa] = await Promise.all([val('items'), val('coa')]);
+    const [items, coa] = await Promise.all([itemStore.forLines(t.Lines), val('coa')]); // only its items (ITEMS_FIRESTORE.md)
     const movementLines = (t.Lines || []).map(l => Object.assign({}, l, { Direction: 'Out', AtCost: true }));
     const movement = await computeStockMovement(items || {}, coa || {}, movementLines);
     const glLines = (glEntry.Lines || []).map(l => {

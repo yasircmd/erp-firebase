@@ -255,13 +255,26 @@ deploys the rules (indexes) first.
   recalculation (the postings'), the BOM list (its parents).
   `generate.js` maps `itemsForReport_`, `itemsForReportLines_` and
   `itemsLinesOf_`.
+- **Found after step 1 (2026-11-14):** about 20 more reads of the whole
+  catalogue went through a `val('items')` helper, which step 1's search
+  (for `ref('items')`) did not match. Converted here: Retail Sales' sale
+  building, confirming, returns and reversals (their lines), an invoice's
+  stock lines (each item as met, by code or id), e-invoicing's lines (by
+  code), dimension rules (by id), the rep portal's order (by code), and
+  the MIS stock tiles and stock on hand (the ledger's items). The
+  remaining ones are pickers (the retail counter's list, the rep portal's
+  catalogue: step 3b) or need every item (below).
 - **Kept reading every item, for step 3:** period closing's stock check
   and the Correction JV's inventory accounts. They need the inventory
   account of every item, moved or not (an inventory account with a GL
   balance and no stock is what the check finds; a CJV may not move a line
   onto any inventory account). The regression caught this when they read
   only the stocked items. Step 3 keeps a summary of the items' inventory
-  accounts, updated on every item write.
+  accounts, updated on every item write. The same goes for the MIS
+  control accounts (misData.controlAccounts) and Opening Balances (every
+  item's inventory account, and stock lines matched by code or exact name:
+  step 3's lower-case search fields). Master Import's duplicate check and
+  the MIS builder's item data set genuinely compare against every item.
 - **Still reading the whole catalogue, for step 3:** the pickers
   (`getActiveItems`, `getSellableItems`, eligible Job Order items, item
   user codes, built-module links, the portal's price-list items), the Item

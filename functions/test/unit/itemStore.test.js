@@ -13,7 +13,9 @@ const WHOLE = /ref\('items'\)\.(get|once)\(|firebaseDbRequest_\('items', 'get'/;
 
 // Hand-written document readers: no whole read anywhere in the file.
 const FILES = ['grn.js', 'materialIssue.js', 'stockAdjustment.js', 'warehouseMovement.js', 'purchaseReturn.js', 'salesReturn.js',
-  'purchaseTax.js', 'salesTax.js', 'budgetCheck.js', 'productionPosting.js', 'builtActions.js'];
+  'purchaseTax.js', 'salesTax.js', 'budgetCheck.js', 'productionPosting.js', 'builtActions.js',
+  // read through val('items'), found after step 1: an invoice's stock lines, e-invoicing, dimension rules, MIS
+  'invoiceStock.js', 'eInvoicing.js', 'dimensionRules.js', 'mis.js'];
 // Ported document readers (patched): no whole read in the function.
 const PORTED = ['saveBom', 'saveProductionDraft', 'commitProductionPosting_', 'reverseProduction', 'saveDeliveryNoteDraft', 'commitDeliveryNotePosting_',
   'reverseDeliveryNote', 'savePhysicalCountDraft', 'postPhysicalCount', 'commitPhysicalCountPosting_', 'reversePhysicalCount',
@@ -39,6 +41,10 @@ const PORTED_REPORTS = ['getStockValuationReport', 'getStockLedgerReport', 'getM
   'getStockAvailabilityList', 'recalculateStockLedger', 'getBoms'];
 
 test('the reports and barcode lookups never read the whole catalogue (step 2)', () => {
+  // Retail Sales: every sale's own reads by its lines; only the counter's item list (a picker, step 3b) reads them all.
+  const retail = read('retailSales.js');
+  assert.equal((retail.match(/val\('items'\)/g) || []).length, 1);
+  assert.match(retail.slice(retail.indexOf('exports.getRetailCounter')), /^exports\.getRetailCounter[\s\S]*?val\('items'\)/);
   assert.deepEqual(REPORT_FILES.filter(f => WHOLE.test(read(f))), []);
   const code = read('legacy/codegs.js');
   const body = fn => { const i = code.indexOf('\nasync function ' + fn + '('); assert.ok(i >= 0, fn); return code.slice(i, code.indexOf('\n}\n', i)); };

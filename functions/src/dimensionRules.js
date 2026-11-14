@@ -90,7 +90,7 @@ async function needsCostCenter({ accountIds, salesTypeIds, itemIds } = {}) {
   const coa = await val('coa');
   const ids = (accountIds || []).slice();
   if ((salesTypeIds || []).length) { const st = await val('salesTypes'); salesTypeIds.forEach(id => ids.push((st[id] || {}).GLAccountID || '')); }
-  if ((itemIds || []).length) { const items = await val('items'); itemIds.forEach(id => { const it = items[id] || {}; ids.push(it.SalesCogsAccountID || it.ConsumptionAccountID || ''); }); }
+  if ((itemIds || []).length) { const items = await require('./itemStore').byIds(itemIds); itemIds.forEach(id => { const it = items[id] || {}; ids.push(it.SalesCogsAccountID || it.ConsumptionAccountID || ''); }); }
   return ids.some(id => !coa[id] || ruleOf(coa[id], coa, 'CostCenter').rule === 'Required');
 }
 
