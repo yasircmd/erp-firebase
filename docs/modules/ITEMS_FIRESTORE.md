@@ -1,6 +1,6 @@
 # Large item catalogues (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Step 1 built 2026-11-14** (see *As built: step 1*); steps 2 and 3 next.
+Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Steps 1 and 2 built 2026-11-14** (see *As built*); step 3 next.
 Item 3 of UX batch 4 (docs/modules/UX4.md), decision Q510: "design first,
 for everyone": moving the items to Firestore for every corporate, with
 screens searching items on the server as you type instead of loading them
@@ -159,6 +159,13 @@ loads go back to the 500-item times, whatever the catalogue's size.
 - **QI4:** the reports read only the items with stock or movement in the
   company.
 - **QI5:** every corporate at once, the same code everywhere.
+- **QI7** (2026-11-14, asked while building step 2): the Reorder report
+  also reads the items that have a reorder level, so an item never
+  received stays on it, as before (an index on ReorderLevel).
+- **QI3, when** (2026-11-14): the Item Master list's paging moves to step
+  3, with its Barcodes & Labels search and every picker, built once on
+  Firestore's search (on the Realtime Database a server search would still
+  scan the list).
 - **QI6:** the old RTDB items are deleted at once, once the copy is
   checked (not kept 30 days). The migration writes a JSON export of them
   to the firm's Cloud Storage first, as the only way back.
@@ -168,11 +175,12 @@ loads go back to the 500-item times, whatever the catalogue's size.
 1. itemStore.js on the Realtime Database; the ~40 document readers to
    `byIds`, the ported ones by patch; the measurement again (a GRN save
    back near 71 ms).
-2. The reports to `forReport` (QI4); the Item Master list paged, with its
-   server-built Copy to Excel (QI3); the remaining readers.
+2. The reports to `forReport` (QI4, QI7); the barcode lookups.
 3. The move to Firestore: the store, movedPaths, the search fields and
    indexes, `searchItems` and the picker's server mode on every item
-   picker (QI2), the copy with its check, export and deletion (QI6),
+   picker (QI2), the Item Master list paged with its server-built Copy to
+   Excel and its labels search (QI3), the item master's own duplicate
+   checks, the copy with its check, export and deletion (QI6),
    Master Import, Data Reset, the audit log's list.
 
 Each step is its own PR with its own deploy set. Steps 1 and 2 touch most
@@ -225,3 +233,60 @@ deploys the rules (indexes) first.
   index: without it the database refuses the code queries). Then every
   function (the generated port and most stock and sales modules changed).
   No new function, screen or Hosting change.
+
+## As built: step 2 (2026-11-14)
+
+- **itemStore.js:** `forReport(ids, companyId)` (the items a report
+  covers, of the company; above `BULK_AT` = 2,000 of them, one read of
+  the list, keeping only those), `forReportLines(lines, companyId)` (a set
+  of documents' lines, by ItemID or ItemCode), `linesOf(docs)`,
+  `stocked(companyId)` (every item with a stock ledger entry: stock or
+  movement) and `withReorderLevel(companyId)` (QI7, the ReorderLevel index
+  in database.rules.json).
+- **Hand-written reports:** Batch Expiry and Reorder (their transactions',
+  ledger's, reservations' and orders' items, and those with a reorder
+  level), Inventory aging (the items moved), tax reports (the documents'
+  lines). Barcodes: an item's barcodes, generation and the
+  label sheet read only their items.
+- **Ported reports** (11 more patches, items-reports): Stock Valuation (the
+  ledger's items), Stock Ledger (its one item), Material Variance (its
+  documents' and BOMs' items), Production & Consumption (its documents'),
+  Stock Availability (the ledger's and reservations'), the ledger
+  recalculation (the postings'), the BOM list (its parents).
+  `generate.js` maps `itemsForReport_`, `itemsForReportLines_` and
+  `itemsLinesOf_`.
+- **Found after step 1 (2026-11-14):** about 20 more reads of the whole
+  catalogue went through a `val('items')` helper, which step 1's search
+  (for `ref('items')`) did not match. Converted here: Retail Sales' sale
+  building, confirming, returns and reversals (their lines), an invoice's
+  stock lines (each item as met, by code or id), e-invoicing's lines (by
+  code), dimension rules (by id), the rep portal's order (by code), and
+  the MIS stock tiles and stock on hand (the ledger's items). The
+  remaining ones are pickers (the retail counter's list, the rep portal's
+  catalogue: step 3b) or need every item (below).
+- **Kept reading every item, for step 3:** period closing's stock check
+  and the Correction JV's inventory accounts. They need the inventory
+  account of every item, moved or not (an inventory account with a GL
+  balance and no stock is what the check finds; a CJV may not move a line
+  onto any inventory account). The regression caught this when they read
+  only the stocked items. Step 3 keeps a summary of the items' inventory
+  accounts, updated on every item write. The same goes for the MIS
+  control accounts (misData.controlAccounts) and Opening Balances (every
+  item's inventory account, and stock lines matched by code or exact name:
+  step 3's lower-case search fields). Master Import's duplicate check and
+  the MIS builder's item data set genuinely compare against every item.
+- **Still reading the whole catalogue, for step 3:** the pickers
+  (`getActiveItems`, `getSellableItems`, eligible Job Order items, item
+  user codes, built-module links, the portal's price-list items), the Item
+  Master list and its labels panel (`getItems`), and the item master's
+  duplicate checks (saveItem, saveItemSubCategory: they compare codes
+  ignoring case, which Firestore's lower-case search fields answer).
+- **Tests:** unit itemStore (3: also the reports and barcodes never read
+  the whole catalogue), emulator itemStore (7: also forReport,
+  forReportLines, stocked, withReorderLevel; the bulk path; the Reorder
+  report keeping a never-received item with a level; Stock Valuation from
+  its ledger). Negative controls: no reorder-level items, the company not
+  filtered, the bulk path returning everything, Stock Valuation reading no
+  items: each failed a test.
+- **Deploy:** set items-2. FIRST the "database rules" task (the
+  ReorderLevel index), then every function. No new function, no screen.

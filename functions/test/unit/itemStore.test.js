@@ -13,7 +13,9 @@ const WHOLE = /ref\('items'\)\.(get|once)\(|firebaseDbRequest_\('items', 'get'/;
 
 // Hand-written document readers: no whole read anywhere in the file.
 const FILES = ['grn.js', 'materialIssue.js', 'stockAdjustment.js', 'warehouseMovement.js', 'purchaseReturn.js', 'salesReturn.js',
-  'purchaseTax.js', 'salesTax.js', 'budgetCheck.js', 'productionPosting.js', 'builtActions.js'];
+  'purchaseTax.js', 'salesTax.js', 'budgetCheck.js', 'productionPosting.js', 'builtActions.js',
+  // read through val('items'), found after step 1: an invoice's stock lines, e-invoicing, dimension rules, MIS
+  'invoiceStock.js', 'eInvoicing.js', 'dimensionRules.js', 'mis.js'];
 // Ported document readers (patched): no whole read in the function.
 const PORTED = ['saveBom', 'saveProductionDraft', 'commitProductionPosting_', 'reverseProduction', 'saveDeliveryNoteDraft', 'commitDeliveryNotePosting_',
   'reverseDeliveryNote', 'savePhysicalCountDraft', 'postPhysicalCount', 'commitPhysicalCountPosting_', 'reversePhysicalCount',
@@ -29,6 +31,27 @@ test('the document readers never read the whole catalogue', () => {
   const q = read('quotations.js');
   assert.equal((q.match(/ref\('items'\)\.get\(/g) || []).length, 1);
   assert.match(q.slice(q.indexOf('async function portalQuoteItems(')), /^async function portalQuoteItems\([\s\S]*?ref\('items'\)\.get\(/);
+});
+
+// Step 2 (QI4, QI7): the reports read only the items they cover.
+// periodClosing.js and correctionJv.js still read every item's inventory account (an item that never moved
+// counts too): step 3 keeps a summary of them on every item write.
+const REPORT_FILES = ['stockReports.js', 'agingReports.js', 'taxReports.js', 'itemBarcodes.js'];
+const PORTED_REPORTS = ['getStockValuationReport', 'getStockLedgerReport', 'getMaterialVarianceReport', 'getProductionConsumptionReport',
+  'getStockAvailabilityList', 'recalculateStockLedger', 'getBoms'];
+
+test('the reports and barcode lookups never read the whole catalogue (step 2)', () => {
+  // Retail Sales: every sale's own reads by its lines; only the counter's item list (a picker, step 3b) reads them all.
+  const retail = read('retailSales.js');
+  assert.equal((retail.match(/val\('items'\)/g) || []).length, 1);
+  assert.match(retail.slice(retail.indexOf('exports.getRetailCounter')), /^exports\.getRetailCounter[\s\S]*?val\('items'\)/);
+  assert.deepEqual(REPORT_FILES.filter(f => WHOLE.test(read(f))), []);
+  const code = read('legacy/codegs.js');
+  const body = fn => { const i = code.indexOf('\nasync function ' + fn + '('); assert.ok(i >= 0, fn); return code.slice(i, code.indexOf('\n}\n', i)); };
+  assert.deepEqual(PORTED_REPORTS.filter(fn => WHOLE.test(body(fn))), []);
+  // The one place a whole read is allowed: the store itself, for a report over more than BULK_AT items.
+  const store = read('itemStore.js');
+  assert.equal((store.match(/ref\('items'\)\.get\(\)/g) || []).length, 2, 'forReport and forReportLines, above BULK_AT only');
 });
 
 test('the ids a document\'s lines name: each once, none blank, none a path', () => {

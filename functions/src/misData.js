@@ -56,7 +56,8 @@ async function fyStartMonth(companyId) {
 
 // Stock on hand of the company's items: { itemId: { qty, value, warehouses: { id: { qty, value } } } }.
 async function stockOnHand(companyId) {
-  const [ledger, items] = await Promise.all([require('./stockStore').allLedger(), val('items')]);
+  const ledger = await require('./stockStore').allLedger();
+  const items = await require('./itemStore').forReport(Object.keys(ledger || {}), ''); // only the ledger's items (ITEMS_FIRESTORE.md)
   const out = {};
   Object.keys(ledger).forEach(itemId => {
     const it = items[itemId];

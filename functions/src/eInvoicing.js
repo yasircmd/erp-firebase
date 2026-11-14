@@ -17,6 +17,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
@@ -75,7 +76,7 @@ async function recordEInvoice(kind, sourceId) {
     let rec;
     if (doc.TaxRegime === 'IN_GST') {
       // India (TAX_ENGINE.md, Q321): the IRP's JSON, each line by its item's name and unit.
-      const [items, uoms, config, source] = await Promise.all([val('items'), val('uoms'), require('./taxConfig').configFor(doc.CompanyID),
+      const [items, uoms, config, source] = await Promise.all([itemStore.byCodes((facts.EInvoiceLines || []).map(l => l.ItemCode)), val('uoms'), require('./taxConfig').configFor(doc.CompanyID),
         kind === 'CreditNote' && doc.SourceInvoiceID ? val('customerInvoices/' + doc.SourceInvoiceID) : null]);
       const byCode = {};
       Object.values(items || {}).forEach(it => { byCode[it.ItemCode] = it; });

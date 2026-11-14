@@ -74,6 +74,9 @@ const assertActiveRoom_ = (idToken, ...a) => __limits.assertRoom(...a);
 const itemsByIds_ = (idToken, ...a) => __itemStore.byIds(...a);
 const itemsForLines_ = (idToken, ...a) => __itemStore.forLines(...a);
 const itemsByCodes_ = (idToken, ...a) => __itemStore.byCodes(...a);
+const itemsForReport_ = (idToken, ...a) => __itemStore.forReport(...a);
+const itemsForReportLines_ = (idToken, ...a) => __itemStore.forReportLines(...a);
+const itemsLinesOf_ = (...a) => __itemStore.linesOf(...a);
 const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
 const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
 const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
@@ -2749,7 +2752,7 @@ async function getBoms(idToken) {
   }
   const data = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
   // [PORT FIX bom-current-parent-name] the parent's CURRENT code and name.
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const itemsData = (await itemsByIds_(idToken, Object.keys(data).map(id => (data[id] || {}).ParentItemID))) || {}; // only the parents (ITEMS_FIRESTORE.md, step 2)
   return Object.keys(data).map(id => {
     const bom = Object.assign({ BOMID: id }, data[id]);
     const parent = itemsData[bom.ParentItemID];
@@ -5502,7 +5505,6 @@ async function recalculateStockLedger(idToken, confirmPhrase) {
     const lock = LockService.getScriptLock();
     await lock.waitLock(10000);
     try {
-      const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
       const coaData = await getCoaData_(idToken);
       const allTx = (await queryStockTx_(idToken, { Status: 'Posted' })) || {}; // [NEW DEVELOPMENT stock-queries] the posted ones, not every stock transaction (T1c)
 
@@ -5510,6 +5512,7 @@ async function recalculateStockLedger(idToken, confirmPhrase) {
         .map(id => Object.assign({ _id: id }, allTx[id]))
         .filter(t => t.Status === 'Posted' && t.Lines && t.Lines.length)
         .sort((a, b) => (a.PostedAt || a.CreatedAt || '').localeCompare(b.PostedAt || b.CreatedAt || ''));
+      const itemsData = (await itemsForReportLines_(idToken, itemsLinesOf_(posted), '')) || {}; // only the items the postings name (ITEMS_FIRESTORE.md, step 2)
 
       const oldShapeCounts = posted
         .filter(t => t.TransactionType === 'PhysicalCount' && t.Lines.some(l => Number(l.Variance) && !l.Direction))
@@ -6203,7 +6206,7 @@ async function getStockValuationReport(idToken, params) {
   const aggregateRacks = params.AggregateRacks !== false; // default true
 
   const ledgerData = (await firebaseDbRequest_('stock/ledger', 'get', null, idToken)) || {};
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const itemsData = (await itemsForReport_(idToken, Object.keys(ledgerData), companyId)) || {}; // only the items with stock (ITEMS_FIRESTORE.md, step 2)
   const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
 
   const rowsMap = {};
@@ -6294,7 +6297,7 @@ async function getStockLedgerReport(idToken, params) {
   const toDate = String(params.ToDate || '').trim();
   if (!fromDate || !toDate) throw new Error('Select a date range.');
 
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const itemsData = (await itemsByIds_(idToken, [itemId])) || {}; // only this item (ITEMS_FIRESTORE.md, step 2)
   const item = itemsData[itemId];
   if (!item) throw new Error('Item not found.');
   if (item.CompanyID && !userCanAccessCompany_(user.profile, item.CompanyID)) throw new Error('You do not have access to that company.');
@@ -6407,12 +6410,15 @@ async function getMaterialVarianceReport(idToken, params) {
   const toDate = String(params.ToDate || '').trim();
   if (!fromDate || !toDate) throw new Error('Select a date range.');
 
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
   const bomsByParent = await groupBomsByParent_(idToken);
   const allTx = (await queryStockTx_(idToken, { CompanyID: String(companyId || ''), Status: 'Posted' })) || {}; // [NEW DEVELOPMENT stock-queries] the company's posted ones, not every stock transaction (T1c)
 
   const inWindow = Object.keys(allTx).map(id => allTx[id])
     .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+  // Only the items its documents and BOMs name (ITEMS_FIRESTORE.md, step 2).
+  const bomItemLines = [];
+  Object.keys(bomsByParent).forEach(p => { bomItemLines.push({ ItemID: p }); (bomsByParent[p] || []).forEach(b => (b.Components || []).forEach(c => bomItemLines.push({ ItemID: c.ComponentItemID }))); });
+  const itemsData = (await itemsForReportLines_(idToken, itemsLinesOf_(inWindow).concat(bomItemLines), '')) || {};
 
   // Expected consumption: walk every Production line individually,
   // resolving the BOM effective on THAT transaction's own date.
@@ -6513,13 +6519,13 @@ async function getProductionConsumptionReport(idToken, params) {
   const toDate = String(params.ToDate || '').trim();
   if (!fromDate || !toDate) throw new Error('Select a date range.');
 
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
   const subCatsData = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
   const uomsData = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
   const allTx = (await queryStockTx_(idToken, { CompanyID: String(companyId || ''), Status: 'Posted' })) || {}; // [NEW DEVELOPMENT stock-queries] the company's posted ones, not every stock transaction (T1c)
 
   const inWindow = Object.keys(allTx).map(id => allTx[id])
     .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+  const itemsData = (await itemsForReportLines_(idToken, itemsLinesOf_(inWindow), '')) || {}; // only its documents' items (ITEMS_FIRESTORE.md, step 2)
 
   const qtyByItem = {};
   const valueByItem = {};
@@ -9408,17 +9414,19 @@ async function getStockAvailabilityList(idToken, companyId) {
   if (!companyId) throw new Error('Select a Company.');
   if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
 
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
   // Restricted to sellable items — same definition as Sales Order's own
   // item picker (has a price assigned on any price list), not a
   // hardcoded item Category check. This screen exists so Sales can see
   // what's available to promise to customers; raw materials and WIP
   // that nobody's ever priced for sale would just be noise here.
   const sellableCodes = await getSellableItemCodes_(idToken);
-  const companyItemIds = new Set(Object.keys(itemsData).filter(id => itemsData[id].CompanyID === companyId && sellableCodes.has(itemsData[id].ItemCode)));
+  // Filled once the stock and reservations are read: only their items (ITEMS_FIRESTORE.md, step 2).
+  let itemsData = {}, companyItemIds = new Set();
 
   const ledgerData = (await firebaseDbRequest_('stock/ledger', 'get', null, idToken)) || {};
   const reservationsData = (await queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active' }])) || {}; // [NEW DEVELOPMENT sales-queries] the active ones, not every reservation (T2)
+  itemsData = (await itemsForReport_(idToken, Object.keys(ledgerData).concat(Object.values(reservationsData).map(r => r.ItemID)), companyId)) || {};
+  companyItemIds = new Set(Object.keys(itemsData).filter(id => itemsData[id].CompanyID === companyId && sellableCodes.has(itemsData[id].ItemCode)));
 
   // Key every combination by itemId|warehouseId so on-hand and
   // reserved figures for the SAME combo merge into one row, whichever

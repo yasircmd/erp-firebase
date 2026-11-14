@@ -170,7 +170,8 @@ async function build(type, ctx) {
       notes: ['Each document\'s own rep: invoices and retail sales before tax, less their returns. Documents made before the rep field have none.'] };
   }
   if (type === 'stockInHand') {
-    const [onHand, items] = await Promise.all([D.stockOnHand(companyId), D.val('items')]);
+    const onHand = await D.stockOnHand(companyId);
+    const items = await require('./itemStore').forReport(Object.keys(onHand), ''); // only the items in hand (ITEMS_FIRESTORE.md)
     const by = {};
     Object.keys(onHand).forEach(id => { const k = (items[id] || {}).Category || 'Other'; by[k] = M.round2((by[k] || 0) + onHand[id].value); });
     const rows = Object.keys(by).sort().map(k => Object.assign(row(k, k, by[k], 0, 'none'), { compare: null, abs: null, pct: null }));
@@ -181,8 +182,9 @@ async function build(type, ctx) {
     const setup = await setupFor(companyId, coa);
     const t = setup.StockCover;
     const months = M.monthsBetween(M.monthOf(new Date(Date.now() - t.days * 86400000).toISOString()), M.monthOf(new Date().toISOString()));
-    const [onHand, moved, items] = await Promise.all([D.stockOnHand(companyId), D.stockMoved(companyId, months), D.val('items')]);
+    const [onHand, moved] = await Promise.all([D.stockOnHand(companyId), D.stockMoved(companyId, months)]);
     const ids = [...new Set(Object.keys(onHand).concat(Object.keys(moved)))];
+    const items = await require('./itemStore').forReport(ids, ''); // only these items (ITEMS_FIRESTORE.md)
     const list = ids.map(id => {
       const c = M.stockCover((onHand[id] || {}).qty || 0, moved[id] || 0, t.days, t);
       return { key: id, label: ((items[id] || {}).ItemCode || id) + ' ' + ((items[id] || {}).ItemName || ''), onHand: (onHand[id] || {}).qty || 0, value: (onHand[id] || {}).value || 0, moved: moved[id] || 0, cover: c.cover, class: c.class };

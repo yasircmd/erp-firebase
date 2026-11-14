@@ -34,6 +34,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
@@ -263,7 +264,9 @@ async function placeOrder(me, d) {
   if (!ccId) throw failed('Your employee record has no cost center: ask HR, then place the order.');
   const priceList = await L().resolvePriceListForClassification_(CTX, me.emp.CompanyID, customer.Classification || '');
   if (!priceList) throw failed('This customer has no price list: the office prices its orders.');
-  const [byItem, items, units] = await Promise.all([L().groupPriceListLinesByItem_(CTX, priceList.PriceListID), val('items'), val('orgUnits')]);
+  // Only the order's items, by code (ITEMS_FIRESTORE.md).
+  const [byItem, items, units] = await Promise.all([L().groupPriceListLinesByItem_(CTX, priceList.PriceListID),
+    itemStore.byCodes((Array.isArray(d.lines) ? d.lines : []).map(l => l && text(l.ItemCode))), val('orgUnits')]);
   const byCode = {};
   Object.keys(items || {}).forEach(id => { byCode[items[id].ItemCode] = Object.assign({ ItemID: id }, items[id]); });
   const raw = (Array.isArray(d.lines) ? d.lines : []).filter(l => text(l.ItemCode));

@@ -1,6 +1,6 @@
 ---
-fingerprint: a294ec0260c509a4
-reviewed: 2026-10-30
+fingerprint: 731629600c708890
+reviewed: 2026-11-14
 title: Tax Reports
 area: finance
 order: 16

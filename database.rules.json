@@ -3,6 +3,6 @@
     ".read": false,
     ".write": false,
     "recurringJournals": { ".indexOn": ["Status"] },
-    "items": { ".indexOn": ["ItemCode"] }
+    "items": { ".indexOn": ["ItemCode", "ReorderLevel"] }
   }
 }

@@ -9,6 +9,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const BarcodeSvg = require('./barcodeSvg');
@@ -78,7 +79,9 @@ exports.saveItemBarcodes = onCallWithMessages(onCallOptions, async (request) => 
   await requireItemMaster(user, 'write');
   const d = request.data || {};
   const itemId = String(d.itemId || '').trim();
-  const items = (await rtdb.ref('items').get()).val() || {};
+  // This item, and the items another barcode here already belongs to (ITEMS_FIRESTORE.md, step 2).
+  const owners = await all(); // barcode → { ItemID }: who already has the barcodes given
+  const items = await itemStore.byIds([itemId].concat((Array.isArray(d.barcodes) ? d.barcodes : []).map(r => (owners[checkBarcode((r || {}).Barcode).code] || {}).ItemID)));
   if (!itemId || !items[itemId]) throw new HttpsError('not-found', 'Item not found.');
   const rows = (Array.isArray(d.barcodes) ? d.barcodes : []).filter(r => String((r || {}).Barcode || '').trim());
   if (rows.length > 50) bad('Up to 50 barcodes an item.');
@@ -184,7 +187,7 @@ exports.generateItemBarcodes = onCallWithMessages(onCallOptions, async (request)
   if (!ids.length) bad('Choose the items.');
   if (ids.length > 500) bad('Up to 500 items at a time.');
   const run = async () => {
-    const [items, map, settings] = await Promise.all([rtdb.ref('items').get().then(s => s.val() || {}), all(), settingsOf(co)]);
+    const [items, map, settings] = await Promise.all([itemStore.byIds(ids), all(), settingsOf(co)]); // only these items (ITEMS_FIRESTORE.md)
     const prefix = settings.GS1Prefix || '';
     const counterPath = 'barcodeCounters/' + (prefix ? 'gs1/' + prefix : 'instore');
     const has = byItem(map), taken = Object.fromEntries(Object.keys(map).map(k => [k, true]));
@@ -234,7 +237,7 @@ exports.getLabelSheet = onCallWithMessages(onCallOptions, async (request) => {
   if (lines.some(l => l.Copies > 1000)) bad('Up to 1,000 labels a line.');
   const total = lines.reduce((t, l) => t + l.Copies, 0);
   if (total > 3000) bad('Up to 3,000 labels at a time (' + total + ' asked).');
-  const [items, map, settings] = await Promise.all([rtdb.ref('items').get().then(s => s.val() || {}), all(), settingsOf(co)]);
+  const [items, map, settings] = await Promise.all([itemStore.byIds(lines.map(l => l.ItemID)), all(), settingsOf(co)]); // only the labels' items
   let prices = {};
   if (d.withPrice) {
     const R = require('./retailSales');

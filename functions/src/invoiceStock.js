@@ -15,6 +15,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { getReservationsForSource } = require('./reservations');
@@ -40,9 +41,16 @@ async function cleanItemLines(raw, companyId, customerId, invoiceId, headerCostC
   if (!rows.length) return [];
   if (!(await directStockAllowed(companyId))) throw new Error('This company does not invoice stock directly: deliver it with a Delivery Note (Sales Invoice Configuration → "Invoices may deliver stock directly").');
   if (rows.length > MAX_LINES) throw new Error('At most ' + MAX_LINES + ' item lines.');
-  const [items, units, uoms] = await Promise.all([val('items'), val('orgUnits'), val('uoms')]);
-  const byCode = {};
-  Object.entries(items || {}).forEach(([id, i]) => { byCode[i.ItemCode] = Object.assign({ ItemID: id }, i); });
+  const [units, uoms] = await Promise.all([val('orgUnits'), val('uoms')]);
+  // Each line's item, read as met, by code or id (ITEMS_FIRESTORE.md: not the catalogue).
+  const itemCache = {};
+  const itemOfCode = async code => {
+    const c = String(code || '').trim();
+    if (!c) return null;
+    if (!(c in itemCache)) { const f = await itemStore.byCodes([c]); const id = Object.keys(f)[0]; itemCache[c] = id ? Object.assign({ ItemID: id }, f[id]) : null; }
+    return itemCache[c];
+  };
+  const itemOfId = async id => { const f = id ? await itemStore.byIds([id]) : {}; return f[id] ? Object.assign({ ItemID: id }, f[id]) : null; };
   const soCache = {}, resCache = {};
   const so = async id => (id in soCache ? soCache[id] : (soCache[id] = await salesOrders.get(id)));
   const reserved = async (soId, lineId) => {
@@ -64,7 +72,7 @@ async function cleanItemLines(raw, companyId, customerId, invoiceId, headerCostC
       if (order.CompanyID !== companyId || order.CustomerID !== customerId) throw new Error(n + 'the Sales Order belongs to another company or customer.');
       const sl = (order.Lines || []).find(x => x.LineID === soLineId);
       if (!sl) throw new Error(n + 'the Sales Order line was not found.');
-      item = byCode[sl.ItemCode];
+      item = await itemOfCode(sl.ItemCode);
       warehouseId = sl.WarehouseID;
       unitPrice = Number(sl.UnitPrice) || 0;
       soNumber = order.SONumber || '';
@@ -74,7 +82,7 @@ async function cleanItemLines(raw, companyId, customerId, invoiceId, headerCostC
       const max = Math.min(remaining, await reserved(soId, soLineId));
       if (usedPerSoLine[key] > max + 0.000001) throw new Error(n + (soNumber || 'the order') + ', ' + sl.ItemCode + ': at most ' + max + ' can be invoiced now (remaining on the order ' + remaining + ', reserved ' + Math.min(max, remaining) + ').');
     } else {
-      item = byCode[text(l.ItemCode, 60)] || (l.ItemID && items[l.ItemID] ? Object.assign({ ItemID: l.ItemID }, items[l.ItemID]) : null);
+      item = (await itemOfCode(text(l.ItemCode, 60))) || (l.ItemID ? await itemOfId(String(l.ItemID)) : null);
       warehouseId = text(l.WarehouseID, 80);
       unitPrice = Number(String(l.UnitPrice == null ? '' : l.UnitPrice).replace(/,/g, ''));
       if (!(unitPrice >= 0) || !isFinite(unitPrice)) throw new Error(n + 'enter the price (zero or more).');
