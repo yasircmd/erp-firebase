@@ -1,6 +1,6 @@
 # Large item catalogues (design; owner, 2026-11-13)
 
-Status: **design, for the owner's decisions (QI1–QI6)**. Nothing is built.
+Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). Build next, in the three steps below.
 Item 3 of UX batch 4 (docs/modules/UX4.md), decision Q510: "design first,
 for everyone": moving the items to Firestore for every corporate, with
 screens searching items on the server as you type instead of loading them
@@ -81,8 +81,9 @@ Every reader goes through it, as the documents do through their stores
 
 - `byIds(ids)`: the items of a document's lines, one batched read.
 - `search({ q, companyId, status, category, sellable, limit })`: what a
-  picker shows as you type: the item code's start, an exact barcode, or
-  a word of the name starting with what was typed; 50 at most.
+  picker shows as you type: the item code's start, an exact barcode, a
+  word of the name starting with what was typed, or (from 3 characters)
+  any part of the code or name (QI2); 50 at most.
 - `page({ companyId, filters, after, size })`: the Item Master list, 100
   at a time.
 - `forReport(companyId, ids)`: the items a report covers.
@@ -95,7 +96,8 @@ tools/legacy-port/patches.js, as for T1.
 
 The shell's search picker (SEARCH_PICKER.md) gains a server mode. An item
 box marked `data-search="items"` asks `searchItems` as you type (after 2
-characters, a pause of 250 ms) instead of holding a list. Nothing else
+characters, a pause of 250 ms) instead of holding a list. It comes with
+the move to Firestore (step 3): the Realtime Database can't answer it. Nothing else
 about the picker changes: keys, recent picks (kept per browser), and the
 code-then-name order. A screen keeps its own rules about which items it
 offers (sellable, stock items, one company) by passing them to the search.
@@ -107,14 +109,20 @@ the documents did in T1:
 
 - `movedPaths.js` answers the old RTDB path, so code left on it keeps
   working while the move happens.
-- Each item gets a search field, the lowercased words of its code, name and
-  barcodes, for `array-contains` searches, and composite indexes for
-  company + status (+ category).
+- Each item gets two search fields, kept by the store on every save:
+  `Words` (the lowercased words of its code, name and barcodes, for a
+  word's start) and `Grams` (every 3-letter fragment of its code and name,
+  for "inside words", QI2). A search asks Firestore with `array-contains`
+  on one of them (the typed text's rarest fragment) plus the company and
+  status, then keeps the items that contain the whole text. Composite
+  indexes: company + status (+ category) with each search field.
 - Master Import, Data Reset, the audit log's wrapper (auditWrites.js: from
   its RTDB list to its Firestore list), period closing and the tests
   follow.
 - The move itself: a one-time copy per corporate, run with the release,
-  like T1's.
+  like T1's. It checks the copy (the count, and every item compared field
+  by field), writes a JSON export of the old RTDB items to the firm's
+  Cloud Storage, then deletes them (QI6). The export is the only way back.
 
 ### Cost and speed afterwards (estimated)
 
@@ -136,16 +144,37 @@ loads go back to the 500-item times, whatever the catalogue's size.
 | QI5 | When does a small corporate change? | (a) every corporate at once, the same code everywhere (Q510: "for everyone"); (b) only corporates over a size | **(a).** One code path to test and maintain; small catalogues get slightly faster too. |
 | QI6 | The old RTDB items after the move? | (a) kept read-only for 30 days, then deleted by the release; (b) deleted at once | **(a).** A way back if something was missed, as with T1. |
 
-## The steps, once agreed
+## The owner's decisions (2026-11-14)
+
+- **QI1:** the readers first, on the Realtime Database; then the move to
+  Firestore.
+- **QI2:** a picker matches the code's start, an exact barcode, a word's
+  start, and also any part of a word ("olt" finds "bolt"), from 3
+  characters.
+- **QI2b:** inside words through 3-letter fragments stored on each item in
+  Firestore: no other service, no item data outside the corporate's
+  project.
+- **QI3:** the Item Master list 100 at a time, with search and filters;
+  Copy to Excel exports the whole filtered list, built on the server.
+- **QI4:** the reports read only the items with stock or movement in the
+  company.
+- **QI5:** every corporate at once, the same code everywhere.
+- **QI6:** the old RTDB items are deleted at once, once the copy is
+  checked (not kept 30 days). The migration writes a JSON export of them
+  to the firm's Cloud Storage first, as the only way back.
+
+## The steps
 
 1. itemStore.js on the Realtime Database; the ~40 document readers to
-   `byIds`; the measurement again (GRN save back near 71 ms).
-2. `searchItems`, the picker's server mode, every item picker; the Item
-   Master list paged; the reports to `forReport`; the ported code's
-   patches.
-3. The move to Firestore: the store, movedPaths, the indexes, the search
-   field, the copy, Master Import, Data Reset, the audit log's list.
-4. 30 days later: the old RTDB items deleted.
+   `byIds`, the ported ones by patch; the measurement again (a GRN save
+   back near 71 ms).
+2. The reports to `forReport` (QI4); the Item Master list paged, with its
+   server-built Copy to Excel (QI3); the remaining readers.
+3. The move to Firestore: the store, movedPaths, the search fields and
+   indexes, `searchItems` and the picker's server mode on every item
+   picker (QI2), the copy with its check, export and deletion (QI6),
+   Master Import, Data Reset, the audit log's list.
 
 Each step is its own PR with its own deploy set. Steps 1 and 2 touch most
-stock and sales modules, so they deploy every function.
+stock and sales modules, so they deploy every function; step 3 also
+deploys the rules (indexes) first.
