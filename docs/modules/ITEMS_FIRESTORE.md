@@ -213,6 +213,14 @@ deploys the rules (indexes) first.
   unknown one; a ported Price Listing line by code). Negative controls:
   forLines reading nothing, byCodes finding nothing, a ported reader back
   to the whole read: each failed a test.
+- **Measured again** (emulators, 50,000 items): a 1-line GRN save takes
+  53–71 ms once its function is warm, against 1.9 s before this step, the
+  same as with 500 items (72–75 ms). The store's read of one item by id
+  is 4 ms, by code 89 ms. The pickers, lists and reports are unchanged
+  until step 2 (getActiveItems still 16 MB).
+- **Regression:** 874 emulator tests and 297 unit tests passed. The first
+  run caught the Delivery Note, whose lines name their Sales Order line,
+  not the item: its items are now those of the orders it ships.
 - **Deploy:** set items-1. FIRST the "database rules" task (the ItemCode
   index: without it the database refuses the code queries). Then every
   function (the generated port and most stock and sales modules changed).
