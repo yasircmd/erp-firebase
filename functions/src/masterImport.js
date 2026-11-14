@@ -19,6 +19,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { firestore, admin } = require('./firebaseAdmin');
@@ -1183,7 +1184,7 @@ async function saveUnit(m, ctx, user, rows, ex, opts) {
 }
 
 async function undoOne(u) {
-  if (u.rtdb) await rtdb.ref(u.rtdb).remove();
+  if (u.rtdb) await (movedPaths.isMoved(u.rtdb) ? movedPaths.request(u.rtdb, 'delete') : rtdb.ref(u.rtdb).remove()); // the items: in Firestore (ITEMS_FIRESTORE.md)
   if (u.firestore) await firestore.collection(u.firestore).doc(u.id).delete();
   if (u.history) for (const d of (await firestore.collection(u.history).where('EmployeeID', '==', u.id).get()).docs) await d.ref.delete();
   if (u.authUid) { try { await admin.auth().deleteUser(u.authUid); } catch (e) { /* already gone */ } }
@@ -1475,7 +1476,7 @@ async function updateRows(request, user, masterKey, resolved) {
   const store = u.store(m);
   const ex = await loadExisting();
   const recs = u.records(ex);
-  const read = async id => (store.firestore ? (await firestore.collection(store.firestore).doc(id).get()).data() : (await rtdb.ref(store.rtdb + '/' + id).get()).val());
+  const read = async id => (store.firestore ? (await firestore.collection(store.firestore).doc(id).get()).data() : movedPaths.val(store.rtdb + '/' + id)); // wherever it lives (items: Firestore)
   const started = new Date().toISOString();
   const done = [];
   let failure = null;
@@ -1491,7 +1492,7 @@ async function updateRows(request, user, masterKey, resolved) {
   if (!failure) return { updated: done.length };
   for (const d of done.slice().reverse()) {
     if (store.firestore) await firestore.collection(store.firestore).doc(d.id).set(d.before);
-    else await rtdb.ref(store.rtdb + '/' + d.id).set(d.before);
+    else await movedPaths.put(store.rtdb + '/' + d.id, d.before); // wherever it lives (items: Firestore)
     if (store.history) {
       const h = await firestore.collection(store.history).where('EmployeeID', '==', d.id).get();
       for (const x of h.docs) { const v = x.data(); if (v.Reason === store.reason && v.At >= started) await x.ref.delete(); }
