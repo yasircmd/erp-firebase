@@ -22,6 +22,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { withGlobalLock } = require('./lock');
@@ -84,7 +85,8 @@ async function priceListFor(companyId, classification) {
 
 // The lines, priced and totalled; the tax as on a Sales Order (salesTax.orderTax).
 async function priced(companyId, partyId, priceList, date, rawLines, listOnly) {
-  const items = (await rtdb.ref('items').get()).val() || {};
+  // Only the lines' items, by code (ITEMS_FIRESTORE.md, step 1).
+  const items = await itemStore.byCodes((Array.isArray(rawLines) ? rawLines : []).slice(0, 300).map(l => l && text(l.ItemCode, 60)));
   // A rep's price is the price list's, on the quotation's date (Q405): only the discount is theirs.
   const L = require('./legacy/codegs');
   const byItem = listOnly ? (priceList ? await L.groupPriceListLinesByItem_({}, priceList.PriceListID) : null) : null;
@@ -384,7 +386,7 @@ async function orderForRep(user, me, d) {
   if (q.LeadID) throw failed('This quotation is for a lead: the office converts the lead to a customer (CRM → Convert to Customer), then you can order.');
   await requireServed(user, q.CustomerID);
   const customer = Object.assign({ CustomerID: q.CustomerID }, (await rtdb.ref('customers/' + q.CustomerID).get()).val() || {});
-  const [items, units] = await Promise.all([rtdb.ref('items').get().then(s => s.val() || {}), rtdb.ref('orgUnits').get().then(s => s.val() || {})]);
+  const [items, units] = await Promise.all([itemStore.byCodes(q.Lines.map(l => l.ItemCode)), rtdb.ref('orgUnits').get().then(s => s.val() || {})]);
   const byCode = {};
   Object.values(items).forEach(it => { if (it && it.ItemCode) byCode[it.ItemCode] = it; });
   const wanted = text(d.warehouseId, 80);

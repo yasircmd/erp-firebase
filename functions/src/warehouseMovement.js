@@ -3,6 +3,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const descriptions = require('./descriptions');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const stockStore = require('./stockStore');
 const { postStock } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
@@ -53,10 +54,10 @@ exports.saveWarehouseMovementDraft = onCallWithMessages(onCallOptions, async (re
   const costCenterId = String(moveData.CostCenterID || '').trim();
   const profitCenterId = String(moveData.ProfitCenterID || '').trim();
 
-  const [itemsSnap, uomsSnap, orgUnitsSnap] = await Promise.all([
-    rtdb.ref('items').get(), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
+  // Only the lines' items (ITEMS_FIRESTORE.md, step 1), not the catalogue.
+  const [itemsData, uomsSnap, orgUnitsSnap] = await Promise.all([
+    itemStore.forLines(moveData.Lines), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
   ]);
-  const itemsData = itemsSnap.val() || {};
   const uomsData = uomsSnap.val() || {};
   const orgUnitsData = orgUnitsSnap.val() || {};
 
@@ -166,8 +167,7 @@ exports.postWarehouseMovement = onCallWithMessages(onCallOptions, async (request
     // check against: the value of goods being moved, from the SAME
     // read-only preview the actual commit will redo. Nothing here
     // writes anything.
-    const itemsSnap = await rtdb.ref('items').get();
-    const itemsDataPreview = itemsSnap.val() || {};
+    const itemsDataPreview = await itemStore.forLines(existing.Lines);
     const coaSnap = await rtdb.ref('coa').get();
     const coaDataPreview = coaSnap.val() || {};
     const previewOutLines = existing.Lines.map(l => Object.assign({ Direction: 'Out', WarehouseID: l.FromWarehouseID }, l));
@@ -202,8 +202,7 @@ exports.postWarehouseMovement = onCallWithMessages(onCallOptions, async (request
 // disagree with. The only writes are the stock balances and the
 // transaction record's own status, in one Firestore batch (postStock).
 async function commitWarehouseMovementPosting(user, existing, moveId) {
-  const itemsSnap = await rtdb.ref('items').get();
-  const itemsData = itemsSnap.val() || {};
+  const itemsData = await itemStore.forLines(existing.Lines);
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
 
@@ -341,8 +340,7 @@ exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (requ
     if (existing.ReversedByWarehouseMovement) throw new HttpsError('failed-precondition', 'This Warehouse Movement has already been reversed.');
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const itemsSnap = await rtdb.ref('items').get();
-    const itemsData = itemsSnap.val() || {};
+    const itemsData = await itemStore.forLines(existing.Lines);
     const coaSnap = await rtdb.ref('coa').get();
     const coaData = coaSnap.val() || {};
 

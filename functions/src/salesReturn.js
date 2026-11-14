@@ -20,6 +20,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const descriptions = require('./descriptions');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { approvalInstances } = require('./approvalStore');
 const stockStore = require('./stockStore');
 const { customerInvoices } = require('./salesStore');
@@ -170,10 +171,11 @@ const invoiceTaxKey = (inv, l) => (inv.AutoDeliveryNoteID && l.SourceDNID === in
 // Quantity, WarehouseID } rows against what's returnable now. Used at save
 // and again at commit (under the global lock — the authoritative check).
 async function buildLines(rawLines, invoiceId, inv, excludeReturnId) {
-  const [available, itemsSnap, uomsSnap, unitsSnap] = await Promise.all([
-    invoiceDnLines(invoiceId, inv, excludeReturnId), rtdb.ref('items').get(), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
+  const [available, uomsSnap, unitsSnap] = await Promise.all([
+    invoiceDnLines(invoiceId, inv, excludeReturnId), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
   ]);
-  const items = itemsSnap.val() || {};
+  // Only the invoice's items (ITEMS_FIRESTORE.md, step 1).
+  const items = await itemStore.forLines(available);
   const uoms = uomsSnap.val() || {};
   const units = unitsSnap.val() || {};
   const byKey = new Map(available.map(a => [dnLineKey(a.SourceDNID, a.SourceDNLineNo), a]));
@@ -391,10 +393,9 @@ async function commitSalesReturnPosting(user, existing, returnId) {
   const lines = await buildLines(existing.Lines, existing.SourceInvoiceID, inv, returnId);
   const values = computeValues(lines, inv);
 
-  const [itemsSnap, coaSnap, customerSnap, salesTypesSnap] = await Promise.all([
-    rtdb.ref('items').get(), rtdb.ref('coa').get(), rtdb.ref('customers/' + existing.CustomerID).get(), rtdb.ref('salesTypes').get()
+  const [itemsData, coaSnap, customerSnap, salesTypesSnap] = await Promise.all([
+    itemStore.forLines(lines), rtdb.ref('coa').get(), rtdb.ref('customers/' + existing.CustomerID).get(), rtdb.ref('salesTypes').get()
   ]);
-  const itemsData = itemsSnap.val() || {};
   const coaData = coaSnap.val() || {};
   const customer = customerSnap.val();
   if (!customer || !customer.TradeReceivablesAccountID) throw new Error('This Customer has no Trade Receivables Account configured. Set one in Customer Master Data before posting.');
@@ -553,8 +554,7 @@ exports.reverseSalesReturn = onCallWithMessages(onCallOptions, async (request) =
     await assertEntryReversible(existing.LinkedJVID, Object.assign({}, glEntry, { ReversalOfJV: '' }));
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const [itemsSnap, coaSnap] = await Promise.all([rtdb.ref('items').get(), rtdb.ref('coa').get()]);
-    const itemsData = itemsSnap.val() || {};
+    const [itemsData, coaSnap] = await Promise.all([itemStore.forLines(existing.Lines), rtdb.ref('coa').get()]);
     const coaData = coaSnap.val() || {};
     const movementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'Out' }));
     const movement = await computeStockMovement(itemsData, coaData, movementLines);

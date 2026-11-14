@@ -25,6 +25,7 @@ const __fx = require('../fx');
 const __glWriting = require('../glWriting');
 const __invoiceStock = require('../invoiceStock');
 const __itemCategories = require('../itemCategories');
+const __itemStore = require('../itemStore');
 const __limits = require('../limits');
 const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
@@ -70,6 +71,9 @@ const assertPartyCurrencyKept_ = (idToken, ...a) => __fx.assertPartyCurrencyKept
 const accountCurrency_ = (idToken, ...a) => __fx.accountCurrency(...a);
 const ledgerFcBalances_ = (...a) => __fx.ledgerFcBalances(...a);
 const assertActiveRoom_ = (idToken, ...a) => __limits.assertRoom(...a);
+const itemsByIds_ = (idToken, ...a) => __itemStore.byIds(...a);
+const itemsForLines_ = (idToken, ...a) => __itemStore.forLines(...a);
+const itemsByCodes_ = (idToken, ...a) => __itemStore.byCodes(...a);
 const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
 const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
 const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
@@ -2837,7 +2841,7 @@ async function saveBom(idToken, bomData) {
 
     if (!parentItemId) throw new Error('Select a parent item.');
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByIds_(idToken, [parentItemId].concat((bomData.Components || []).map(c => String((c && c.ComponentItemID) || '').trim())))) || {};
     const parentItem = itemsData[parentItemId];
     if (!parentItem) throw new Error('Parent item not found.');
     if (BOM_PARENT_CATEGORIES.indexOf(parentItem.Category) === -1) {
@@ -3031,7 +3035,7 @@ async function saveProductionDraft(idToken, prodData) {
       if (batch.CompanyID !== companyId) throw new Error('Selected Job Order belongs to a different company.');
     }
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsForLines_(idToken, prodData.Lines || [])) || {};
     const uomsData = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
     const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
 
@@ -3186,7 +3190,7 @@ async function postProduction(idToken, prodId) {
 // postProduction itself (no gate configured) OR decideProductionApproval
 // (once approved). Caller MUST already hold LockService.getScriptLock().
 async function commitProductionPosting_(idToken, user, existing, prodId) {
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const itemsData = (await itemsForLines_(idToken, existing.Lines || [])) || {};
   const coaData = await getCoaData_(idToken);
 
   // Every line is inbound — the produced item entering stock.
@@ -3342,7 +3346,7 @@ async function reverseProduction(idToken, prodId, reversalDate) {
     if (existing.ReversalOfProduction) throw new Error('A reversal entry cannot itself be reversed.');
 
     const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsForLines_(idToken, existing.Lines || [])) || {};
     const coaData = await getCoaData_(idToken);
 
     const movementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'Out' }));
@@ -3724,7 +3728,7 @@ async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
 
   let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
   if (existing.TaxComponents) {
-    inputTax = await purchaseTaxGl_(idToken, existing, coaData, (await firebaseDbRequest_('items', 'get', null, idToken)) || {}, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+    inputTax = await purchaseTaxGl_(idToken, existing, coaData, (await itemsForLines_(idToken, existing.TaxLines || [])) || {}, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
       invoiceId: invoiceId, date: existing.InvoiceDate, actor: user.profile.username || user.uid });
     inputTax.glLines.forEach(l => glLines.push(l));
   } else if (existing.TaxAmount > 0) {
@@ -3863,7 +3867,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
   }
   let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
   if (existing.TaxComponents) {
-    inputTax = await purchaseTaxGl_(idToken, existing, coaData, (await firebaseDbRequest_('items', 'get', null, idToken)) || {}, { reverse: true, description: 'Reversal of ' + existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+    inputTax = await purchaseTaxGl_(idToken, existing, coaData, (await itemsForLines_(idToken, existing.TaxLines || [])) || {}, { reverse: true, description: 'Reversal of ' + existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
       invoiceId: invoiceId, date: date, actor: user.profile.username || user.uid });
     inputTax.glLines.forEach(l => glLines.push(l));
   } else if (existing.TaxAmount > 0) {
@@ -4891,7 +4895,14 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
     const customerData = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);
     if (!customerData || customerData.Status !== 'Active') throw new Error('Unknown or inactive Customer.');
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    // The items of the Sales Order lines this note ships (its lines name the SO line, not the item).
+    const itemCodesShipped = [];
+    const soIdsShipped = Array.from(new Set((dnData.Lines || []).map(l => String((l && l.SourceSOID) || '').trim()).filter(Boolean)));
+    for (const soIdShipped of soIdsShipped) {
+      const soShipped = await firebaseDbRequest_('salesOrders/' + soIdShipped, 'get', null, idToken);
+      ((soShipped && soShipped.Lines) || []).forEach(l => itemCodesShipped.push(l.ItemCode));
+    }
+    const itemsData = (await itemsByCodes_(idToken, itemCodesShipped)) || {};
     const itemByCode = {};
     Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
 
@@ -5125,7 +5136,7 @@ async function assertDeliveryNoteStillShippable_(idToken, dn) {
 
 async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
   await assertDeliveryNoteStillShippable_(idToken, existing);
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const itemsData = (await itemsForLines_(idToken, existing.Lines || [])) || {};
   const coaData = await getCoaData_(idToken);
 
   const movementLines = existing.Lines.map(l => Object.assign({ Direction: 'Out' }, l));
@@ -5250,7 +5261,7 @@ async function reverseDeliveryNote(idToken, dnId, reversalDate) {
     if (existing.ReversalOfDeliveryNoteID) throw new Error('A reversal entry cannot itself be reversed.');
     if (existing.MatchedToInvoiceID) throw new Error('This Delivery Note has already been matched to a Customer Invoice and cannot be reversed. Reverse the invoice first.');
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsForLines_(idToken, existing.Lines || [])) || {};
     const coaData = await getCoaData_(idToken);
 
     // Same lines, movement direction flipped — an 'In' movement puts
@@ -5736,7 +5747,7 @@ async function savePhysicalCountDraft(idToken, pcData) {
     const costCenterId = String(pcData.CostCenterID || '').trim();
     const profitCenterId = String(pcData.ProfitCenterID || '').trim();
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsForLines_(idToken, pcData.Lines || [])) || {};
     const uomsData = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
     const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
 
@@ -5893,7 +5904,7 @@ async function postPhysicalCount(idToken, pcId) {
     // each line but writes nothing) or every preview would silently
     // sum to zero. Guarded for the clean-count case, where
     // computeStockMovement_ would otherwise throw on an empty array.
-    const itemsDataPreview = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsDataPreview = (await itemsForLines_(idToken, existing.Lines || [])) || {};
     const coaDataPreview = await getCoaData_(idToken);
     if (preview.adjustmentLines.length) {
       await computeStockMovement_(idToken, itemsDataPreview, coaDataPreview, preview.adjustmentLines);
@@ -5934,7 +5945,7 @@ async function postPhysicalCount(idToken, pcId) {
 // fresh against the ledger AT THIS MOMENT — see buildPhysicalCountLines_.
 // Caller MUST already hold LockService.getScriptLock().
 async function commitPhysicalCountPosting_(idToken, user, existing, pcId) {
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const itemsData = (await itemsForLines_(idToken, existing.Lines || [])) || {};
   const coaData = await getCoaData_(idToken);
   const { finalLines, adjustmentLines } = await buildPhysicalCountLines_(idToken, existing);
 
@@ -6088,7 +6099,7 @@ async function reversePhysicalCount(idToken, pcId, reversalDate) {
     if (!existing.LinkedJVID) throw new Error('This was a clean count with no adjustment — there is nothing to reverse.');
 
     const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsForLines_(idToken, existing.Lines || [])) || {};
     const coaData = await getCoaData_(idToken);
 
     const varianceLines = (existing.Lines || []).filter(l => Math.abs(l.Variance || 0) >= 0.000001);
@@ -7776,7 +7787,7 @@ async function saveDraftInventoryPurchaseRequisition(idToken, header) {
     const priority = String(header.Priority || 'Normal').trim();
     if (priority !== 'Normal' && priority !== 'Urgent') throw new Error('Priority must be Normal or Urgent.');
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByCodes_(idToken, (header.Lines || []).map(l => String((l && l.ItemCode) || '').trim()))) || {};
     const itemByCode = {};
     Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
 
@@ -8241,7 +8252,7 @@ async function savePriceListLine(idToken, lineData) {
 
     const itemCode = String(lineData.ItemCode || '').trim();
     if (!itemCode) throw new Error('Select an item.');
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByCodes_(idToken, [itemCode])) || {};
     const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === itemCode);
     if (!itemEntry || itemsData[itemEntry].Status !== 'Active') throw new Error('Item not found or inactive: ' + itemCode);
 
@@ -8494,7 +8505,7 @@ async function saveDraftSalesOrder(idToken, header) {
     const soDate = header.SODate || new Date().toISOString().substring(0, 10);
     const priceList = await resolvePriceListForClassification_(idToken, companyId, customer.Classification || '');
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByCodes_(idToken, (header.Lines || []).map(l => String((l && l.ItemCode) || '').trim()))) || {};
     const itemByCode = {};
     Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
 
@@ -8574,7 +8585,7 @@ async function confirmSalesOrder(idToken, soId) {
     // [NEW DEVELOPMENT credit-check-so] the credit check (docs/modules/CREDIT_CONTROL.md, step C2).
     const creditCheck = await creditCheckDocument_(idToken, user, 'SALESORDER', existing);
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByCodes_(idToken, (existing.Lines || []).map(l => l && l.ItemCode))) || {};
     const itemByCode = {};
     Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
 
@@ -8699,7 +8710,7 @@ async function claimStockForSalesOrderLine(idToken, soId, lineId, quantity, reas
     const shortfall = Number(line.OrderedQuantity) - reserved;
     if (qty > shortfall) throw new Error('Cannot claim more than this line\'s outstanding shortfall (' + shortfall + ').');
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByCodes_(idToken, [line.ItemCode])) || {};
     const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === line.ItemCode);
     if (!itemEntry) throw new Error('Item not found: ' + line.ItemCode);
     const available = await getAvailableQuantity_(idToken, itemEntry, line.WarehouseID);
@@ -9022,7 +9033,7 @@ async function saveDraftJobOrderBatch(idToken, header) {
       }), idToken);
     }
 
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByCodes_(idToken, (header.Lines || []).map(l => String((l && l.ItemCode) || '').trim()))) || {};
     const itemByCode = {};
     Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
     const boms = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
@@ -9743,7 +9754,7 @@ async function saveDraftPurchaseOrder(idToken, poData) {
     // approved requisition item with one urgent, un-requisitioned item
     // is a normal, legitimate case, not an edge case to special-case
     // around.
-    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemsData = (await itemsByCodes_(idToken, (poData.Lines || []).map(l => l && l.ItemCode))) || {};
     const categoriesData = (await firebaseDbRequest_('requisitionCategories', 'get', null, idToken)) || {};
     const lines = (poData.Lines || []).filter(l => l.ItemCode || l.CategoryID);
     if (!lines.length) throw new Error('Add at least one line — from a requisition, or entered directly.');

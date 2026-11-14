@@ -2,6 +2,7 @@
   "rules": {
     ".read": false,
     ".write": false,
-    "recurringJournals": { ".indexOn": ["Status"] }
+    "recurringJournals": { ".indexOn": ["Status"] },
+    "items": { ".indexOn": ["ItemCode"] }
   }
 }

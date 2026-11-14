@@ -29,6 +29,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const B = require('./builtDefinitions');
@@ -251,7 +252,7 @@ async function resolve(def, a, recs) {
     }
   }
   if (a.kind === 'item') {
-    const items = (await rtdb.ref('items').get()).val() || {};
+    const items = await itemStore.byIds(ids(a.item)); // only the records' items (ITEMS_FIRESTORE.md, step 1)
     ids(a.item).forEach(id => { if (items[id]) ctx.items[id] = items[id].ItemCode; });
   }
   return ctx;

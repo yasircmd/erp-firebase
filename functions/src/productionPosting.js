@@ -98,7 +98,9 @@ async function planProduction(actor, { mode, prodId, lineQuantities, lineIds, in
       const shortfall = Number(soLine.OrderedQuantity) - reserved;
       if (shortfall > 0) candidates.push({ SOID: link.SOID, SONumber: so.SONumber, SOLineID: link.SOLineID, WarehouseID: soLine.WarehouseID, Shortfall: shortfall, CompanyID: so.CompanyID });
     }
-    if (!items) items = (await firebaseAdmin.rtdb.ref('items').get()).val() || {};
+    // Only this line's item, by its code (ITEMS_FIRESTORE.md, step 1).
+    if (!items) items = {};
+    if (!Object.keys(items).some(id => items[id].ItemCode === l.ItemCode)) Object.assign(items, await require('./itemStore').byCodes([l.ItemCode]));
     const itemId = Object.keys(items).find(id => items[id].ItemCode === l.ItemCode) || '';
     const touchedOrders = new Set();
     for (const c of candidates) {

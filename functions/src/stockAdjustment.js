@@ -3,6 +3,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const descriptions = require('./descriptions');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const stockStore = require('./stockStore');
 const { postStock, postedFields } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
@@ -53,10 +54,10 @@ exports.saveStockAdjustmentDraft = onCallWithMessages(onCallOptions, async (requ
   const costCenterId = String(adjData.CostCenterID || '').trim();
   const profitCenterId = String(adjData.ProfitCenterID || '').trim();
 
-  const [itemsSnap, uomsSnap, orgUnitsSnap] = await Promise.all([
-    rtdb.ref('items').get(), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
+  // Only the lines' items (ITEMS_FIRESTORE.md, step 1), not the catalogue.
+  const [itemsData, uomsSnap, orgUnitsSnap] = await Promise.all([
+    itemStore.forLines(adjData.Lines), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
   ]);
-  const itemsData = itemsSnap.val() || {};
   const uomsData = uomsSnap.val() || {};
   const orgUnitsData = orgUnitsSnap.val() || {};
 
@@ -168,8 +169,7 @@ async function buildStockAdjustmentMovementLines(existingLines) {
 // marker sequence, the GL line construction, the ordering guarantees —
 // is unchanged.
 async function commitStockAdjustmentPosting(user, existing, adjId) {
-  const itemsSnap = await rtdb.ref('items').get();
-  const itemsData = itemsSnap.val() || {};
+  const itemsData = await itemStore.forLines(existing.Lines);
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
 
@@ -233,8 +233,7 @@ exports.postStockAdjustment = onCallWithMessages(onCallOptions, async (request) 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
 
-    const itemsSnap = await rtdb.ref('items').get();
-    const itemsDataPreview = itemsSnap.val() || {};
+    const itemsDataPreview = await itemStore.forLines(existing.Lines);
     const coaSnap = await rtdb.ref('coa').get();
     const coaDataPreview = coaSnap.val() || {};
     const previewMovementLines = await buildStockAdjustmentMovementLines(existing.Lines);
@@ -346,8 +345,7 @@ exports.reverseStockAdjustment = onCallWithMessages(onCallOptions, async (reques
     if (existing.ReversedByAdjustment) throw new HttpsError('failed-precondition', 'This Stock Adjustment has already been reversed.');
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const itemsSnap = await rtdb.ref('items').get();
-    const itemsData = itemsSnap.val() || {};
+    const itemsData = await itemStore.forLines(existing.Lines);
     const coaSnap = await rtdb.ref('coa').get();
     const coaData = coaSnap.val() || {};
 

@@ -3,6 +3,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const descriptions = require('./descriptions');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const stockStore = require('./stockStore');
 const { postStock, postedFields } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
@@ -55,10 +56,10 @@ exports.saveMaterialIssueDraft = onCallWithMessages(onCallOptions, async (reques
   const costCenterId = String(miData.CostCenterID || '').trim();
   const profitCenterId = String(miData.ProfitCenterID || '').trim();
 
-  const [itemsSnap, uomsSnap, orgUnitsSnap] = await Promise.all([
-    rtdb.ref('items').get(), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
+  // Only the lines' items (ITEMS_FIRESTORE.md, step 1), not the catalogue.
+  const [itemsData, uomsSnap, orgUnitsSnap] = await Promise.all([
+    itemStore.forLines(miData.Lines), rtdb.ref('uoms').get(), rtdb.ref('orgUnits').get()
   ]);
-  const itemsData = itemsSnap.val() || {};
   const uomsData = uomsSnap.val() || {};
   const orgUnitsData = orgUnitsSnap.val() || {};
 
@@ -165,8 +166,7 @@ exports.postMaterialIssue = onCallWithMessages(onCallOptions, async (request) =>
     // this is a pre-existing behavior from the original Code.gs, not
     // something introduced by this port, and changing it silently
     // during a migration is its own risk.
-    const itemsSnap = await rtdb.ref('items').get();
-    const itemsDataPreview = itemsSnap.val() || {};
+    const itemsDataPreview = await itemStore.forLines(existing.Lines);
     const coaSnap = await rtdb.ref('coa').get();
     const coaDataPreview = coaSnap.val() || {};
     const previewLines = existing.Lines.map(l => Object.assign({ Direction: 'Out' }, l));
@@ -196,8 +196,7 @@ exports.postMaterialIssue = onCallWithMessages(onCallOptions, async (request) =>
 // against whatever the ledger's WAC actually is AT THIS MOMENT —
 // deliberately not reusing postMaterialIssue's own earlier preview.
 async function commitMaterialIssuePosting(user, existing, miId) {
-  const itemsSnap = await rtdb.ref('items').get();
-  const itemsData = itemsSnap.val() || {};
+  const itemsData = await itemStore.forLines(existing.Lines);
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
   const isReturn = existing.EntryType === 'Return';
@@ -336,8 +335,7 @@ exports.reverseMaterialIssue = onCallWithMessages(onCallOptions, async (request)
     if (existing.ReversedByMI) throw new HttpsError('failed-precondition', 'This Material Issue has already been reversed.');
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const itemsSnap = await rtdb.ref('items').get();
-    const itemsData = itemsSnap.val() || {};
+    const itemsData = await itemStore.forLines(existing.Lines);
     const coaSnap = await rtdb.ref('coa').get();
     const coaData = coaSnap.val() || {};
 

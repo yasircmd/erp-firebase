@@ -1,6 +1,6 @@
 # Large item catalogues (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). Build next, in the three steps below.
+Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Step 1 built 2026-11-14** (see *As built: step 1*); steps 2 and 3 next.
 Item 3 of UX batch 4 (docs/modules/UX4.md), decision Q510: "design first,
 for everyone": moving the items to Firestore for every corporate, with
 screens searching items on the server as you type instead of loading them
@@ -178,3 +178,50 @@ loads go back to the 500-item times, whatever the catalogue's size.
 Each step is its own PR with its own deploy set. Steps 1 and 2 touch most
 stock and sales modules, so they deploy every function; step 3 also
 deploys the rules (indexes) first.
+
+## As built: step 1 (2026-11-14)
+
+- **functions/src/itemStore.js:** `byIds(ids)`, `forLines(...lineLists)`
+  (the ids a document's lines name) and `byCodes(codes)`, each returning
+  `{ id: item }`, the shape a whole read gave, so the callers' code after
+  the read is unchanged. `byCodes` is one query per code on `ItemCode`,
+  which database.rules.json now indexes on `items` (unit/rtdbStatus allows
+  that one index besides the Status ones).
+- **Hand-written document readers** (every save, post and reverse of GRN,
+  Material Issue, Stock Adjustment, Warehouse Movement, Purchase and Sales
+  Return; the purchase and sales tax previews; the budget check; the
+  allocation of production to sales orders; a built module's item actions;
+  quotations' pricing and the rep's order) read only their documents'
+  items, by id or by code.
+- **Ported document readers** (20: BOM, Production, Delivery Note,
+  Physical Count, Inventory PR, Price Listing line, Sales Order save,
+  confirm and claim, Job Order, Purchase Order, the Vendor Invoice's tax
+  on posting and reversal) through 18 new patches (items-only-their-own)
+  and the two tax patches' arguments; generate.js maps `itemsByIds_`,
+  `itemsForLines_` and `itemsByCodes_` to the store.
+- **Still reading the whole catalogue, for step 2:** the reports (stock
+  reports, aging, tax reports, period closing's stock check, material
+  variance, production consumption, stock ledger recalculation), the
+  pickers and lists (`getActiveItems`, `getItems`, `getSellableItems`,
+  eligible Job Order items, item user codes, built-module links, the
+  portal's price-list items), the BOM list, barcodes and labels, the
+  Correction JV's inventory accounts, and the item master's own
+  uniqueness checks (saveItem, saveItemSubCategory).
+- **Tests:** unit itemStore (2: the document readers never read the whole
+  catalogue, hand-written and ported; the line ids), emulator itemStore
+  (3: by id, by line and by code; a GRN finds its item and refuses an
+  unknown one; a ported Price Listing line by code). Negative controls:
+  forLines reading nothing, byCodes finding nothing, a ported reader back
+  to the whole read: each failed a test.
+- **Measured again** (emulators, 50,000 items): a 1-line GRN save takes
+  53–71 ms once its function is warm, against 1.9 s before this step, the
+  same as with 500 items (72–75 ms). The store's read of one item by id
+  is 4 ms, by code 89 ms. The pickers, lists and reports are unchanged
+  until step 2 (getActiveItems still 16 MB).
+- **Regression:** 874 emulator tests and 297 unit tests passed. The first
+  run caught the Delivery Note, whose lines name their Sales Order line,
+  not the item: its items are now those of the orders it ships.
+- **Deploy:** set items-1. FIRST the "database rules" task (the ItemCode
+  index: without it the database refuses the code queries). Then every
+  function (the generated port and most stock and sales modules changed).
+  No new function, screen or Hosting change.

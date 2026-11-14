@@ -5,8 +5,8 @@ order: 6
 modules: [STOCKADJUSTMENT]
 sources: [functions/src/stockAdjustment.js]
 summary: Correct the item quantity or value after a count, loss, damage or writing off stock.
-reviewed: 2026-11-13
-fingerprint: 38412237fbd969f4
+reviewed: 2026-11-14
+fingerprint: 7cbcbc3ee215ee60
 ---
 ## What it is for
 
