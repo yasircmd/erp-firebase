@@ -52,7 +52,7 @@ async function allDatasets() {
 }
 
 async function names(defs) {
-  const [customers, vendors, items, coa, units] = await Promise.all(['customers', 'vendors', 'items', 'coa', 'orgUnits'].map(D.val));
+  const [customers, vendors, items, coa, units] = await Promise.all(['customers', 'vendors', 'items', 'coa', 'orgUnits'].map(p => (p === 'items' ? require('./itemStore').all() : D.val(p))));
   const unit = id => (units[id] ? [units[id].Code, units[id].Name].filter(Boolean).join(' ') : id || '');
   const itemOf = id => items[id] || {};
   const byCode = {};

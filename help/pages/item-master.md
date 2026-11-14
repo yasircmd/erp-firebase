@@ -5,8 +5,8 @@ order: 1
 modules: [ITEMMASTER]
 sources: [functions/src/masterData.js, functions/src/itemCategories.js]
 summary: Maintain the master item record used by purchase, stock movement, valuations and stock reports.
-reviewed: 2026-11-13
-fingerprint: e22cf9c73c8e6c5c
+reviewed: 2026-11-14
+fingerprint: b2dda14b7993a37b
 ---
 ## What it is for
 

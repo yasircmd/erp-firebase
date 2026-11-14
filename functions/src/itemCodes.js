@@ -8,6 +8,7 @@
 'use strict';
 const { onCallInCorporate } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 
@@ -16,7 +17,7 @@ const onCallOptions = { region: 'us-central1' };
 // { [ItemCode]: UserCode } for the items that have one.
 exports.getItemUserCodes = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  const items = (await rtdb.ref('items').get()).val() || {};
+  const items = await itemStore.all(); // every item, in Firestore (ITEMS_FIRESTORE.md, step 3; step 3b: a server search)
   const out = {};
   Object.values(items).forEach(i => {
     if (i && i.ItemCode && i.UserCode && userCanAccessCompany(user.profile, i.CompanyID)) out[i.ItemCode] = i.UserCode;

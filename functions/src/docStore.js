@@ -221,7 +221,8 @@ function makeStore(spec) {
   // deletion or status change; in a batch, once the request has succeeded.
   const told = async (id, before, after, inBatch) => {
     if (spec.afterWrite) await spec.afterWrite(String(id), before, after);
-    await require('./audit').documentChanged(name, String(id), before, after, inBatch);
+    // A master (spec.auditDocuments false: the items) gets its changed fields instead (auditWrites.js).
+    if (spec.auditDocuments !== false) await require('./audit').documentChanged(name, String(id), before, after, inBatch);
   };
   async function set(id, doc, tx) {
     const r = ref(id);
@@ -303,6 +304,14 @@ function makeStore(spec) {
     await writeAll(Object.keys(v).map(id => [ref(id), stored(v[id])]));
   }
 
+  // Writes these documents as they are, in batches, leaving the others: a
+  // copy into the collection (itemMigration.js). No afterWrite, no audit.
+  async function putMany(map) {
+    const v = normalize(map) || {};
+    await writeAll(Object.keys(v).map(id => [ref(id), stored(v[id])]));
+    return Object.keys(v).length;
+  }
+
   // RTDB's get / put / patch / post / delete on the path, or below it
   // (parts: the path's segments after the collection's own).
   async function rtdbStyle(rest, method, payload) {
@@ -344,7 +353,7 @@ function makeStore(spec) {
     throw new Error(name + ': ' + m + ' on ' + [path].concat(rest).join('/') + ' is not supported.');
   }
 
-  return { name, path, collection, fields: filters, ref, get, snap, getMany, all, set, update, remove, transact, query, setAll, rtdbStyle };
+  return { name, path, collection, fields: filters, ref, get, snap, getMany, all, set, update, remove, transact, query, setAll, putMany, rtdbStyle };
 }
 
 module.exports = { Q, BATCH, INT, keyOrder, normalize, toStore, fromStore, setAt, applyUpdate, sorted, getPath, cleanPath, deleteAll, writeAll, makeStore };

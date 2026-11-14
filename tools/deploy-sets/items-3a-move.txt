@@ -1,0 +1,6 @@
+# Large item catalogues, step 3a, first part (owner, 2026-11-14; docs/
+# modules/ITEMS_FIRESTORE.md, QI8). ONLY moveDeveloperItems (new: add its
+# invoker binding), WITH --screens (DEVELOPER: Client Management's Items
+# move panel). Then, before the items-3a set: ask users not to edit items,
+# and in Client Management → Items move, Copy each corporate (100 too).
+moveDeveloperItems

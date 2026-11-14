@@ -37,7 +37,7 @@ async function seed(size) {
   for (let i = 0; i < ids.length; i += 2500) {
     const part = {};
     ids.slice(i, i + 2500).forEach(id => { part[id] = items[id]; });
-    await rtdb.ref('items').update(part);
+    await require('../../src/itemStore').store.putMany(part);
   }
   return { ms: Date.now() - t, mb: Buffer.byteLength(JSON.stringify(items)) / 1048576 };
 }

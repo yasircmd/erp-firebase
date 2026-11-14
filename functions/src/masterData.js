@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
@@ -31,7 +32,7 @@ exports.getModulePermissionsForUser = onCallWithMessages(onCallOptions, async (r
 // Ported from getActiveItems.
 exports.getActiveItems = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  const data = (await rtdb.ref('items').get()).val() || {};
+  const data = await itemStore.all(); // every item, in Firestore (ITEMS_FIRESTORE.md, step 3; step 3b: a server search)
   return Object.keys(data)
     .filter(id => data[id].Status === 'Active')
     .filter(id => userCanAccessCompany(user.profile, data[id].CompanyID))

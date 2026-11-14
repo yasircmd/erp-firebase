@@ -370,7 +370,7 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
   const date = String(d.date || '').trim() || new Date().toISOString().substring(0, 10);
   const config = await taxConfig.configFor(companyId); // line tax (TAX_ENGINE.md, part 4)
   const [methods, customers, items, uoms, ledger, prices, barcodes, canAddCustomer] = await Promise.all([
-    methodsOf(companyId), val('customers'), val('items'), val('uoms'), stockStore.allLedger({ WarehouseID: warehouseId }), pricesOn(settings.PriceListID, date), Barcodes.all(),
+    methodsOf(companyId), val('customers'), itemStore.all(), val('uoms'), stockStore.allLedger({ WarehouseID: warehouseId }), pricesOn(settings.PriceListID, date), Barcodes.all(),
     moduleHasCapability('CUSTOMERMASTER', 'write', user.profile.role)
   ]);
   const codesOf = Barcodes.byItem(barcodes); // the products' own barcodes (docs/modules/ITEM_BARCODES.md)

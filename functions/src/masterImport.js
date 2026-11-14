@@ -562,7 +562,8 @@ async function masterFor(k) {
 async function loadExisting() {
   const paths = ['companies', 'orgUnits', 'coa', 'uoms', 'itemSubCategories', 'customerClassifications', 'items', 'vendors', 'customers',
     'currencies', 'salesTypes', 'requisitionCategories', 'boms', 'inventoryValuationLines', 'priceLists', 'priceListLines', 'users', 'roles', 'itemBarcodes'];
-  const vals = (await Promise.all(paths.map(p => rtdb.ref(p).get()))).map(s => s.val() || {});
+  // Wherever each lives now (the items are in Firestore: ITEMS_FIRESTORE.md, step 3).
+  const vals = (await Promise.all(paths.map(p => require('./movedPaths').val(p)))).map(v => v || {});
   const data = {};
   paths.forEach((p, i) => { data[p] = vals[i]; });
   const fsDocs = async col => { const o = {}; (await firestore.collection(col).get()).docs.forEach(d => { o[d.id] = d.data(); }); return o; };

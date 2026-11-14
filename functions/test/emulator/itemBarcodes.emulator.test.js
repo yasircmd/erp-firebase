@@ -93,7 +93,7 @@ test('step 3: label settings per company (Item Master\'s write): defaults, check
   assert.equal((await call('u-viewer', 'getBarcodeSettings', { companyId: 'C1' })).settings.RollWidthMm, 40, 'readable by any user of the company (for printing)');
   // Items for the rest: two own products without a barcode, a shared one, another company's.
   const it = (code, co, cat) => ({ ItemCode: code, ItemName: 'Item ' + code, Category: cat || 'FinishedGood', Status: 'Active', CompanyID: co, UOMID: 'UOM-PCS', InventoryAccountID: 'A-INV', ConsumptionAccountID: 'A-CONS' });
-  await rtdb.ref('items').update({ I3: it('FG-002', 'C1'), I4: it('FG-003', 'C1'), I5: it('FG-004', ''), I6: it('FG-005', 'C2') });
+  await require('../../src/itemStore').store.putMany({ I3: it('FG-002', 'C1'), I4: it('FG-003', 'C1'), I5: it('FG-004', ''), I6: it('FG-005', 'C2') });
 });
 
 test('step 3: numbers for own products: previewed (nothing kept), saved as each item\'s barcode; in-store 200…, then the GS1 prefix', async () => {

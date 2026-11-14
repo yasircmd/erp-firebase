@@ -244,14 +244,15 @@ async function partyControl(partyType, companyId, month) {
 // against those accounts' GL balances at the month's end.
 async function stockControl(companyId, month) {
   const end = lastDay(month);
-  const [inv, itemSnap, coaSnap, jvSnap] = await Promise.all([
-    aging.inventoryAging(companyId, end, '', '', false), rtdb.ref('items').get(), rtdb.ref('coa').get(),
+  const [inv, accountsUsed, coaSnap, jvSnap] = await Promise.all([
+    aging.inventoryAging(companyId, end, '', '', false), require('./itemStore').inventoryAccounts(companyId), rtdb.ref('coa').get(),
     firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get()
   ]);
-  const items = itemSnap.val() || {}, coa = coaSnap.val() || {};
+  // The stock's items, and every inventory account an item of the company uses, moved or not (itemStore's summary).
+  const items = await require('./itemStore').forReport(inv.Rows.map(r => r.ItemID), ''), coa = coaSnap.val() || {};
   const stock = {};
   inv.Rows.forEach(r => { const acc = (items[r.ItemID] || {}).InventoryAccountID || ''; stock[acc] = round2((stock[acc] || 0) + r.Value); });
-  Object.values(items).forEach(i => { if (i.InventoryAccountID && (!i.CompanyID || i.CompanyID === companyId) && !(i.InventoryAccountID in stock)) stock[i.InventoryAccountID] = 0; });
+  Object.keys(accountsUsed).forEach(acc => { if (!(acc in stock)) stock[acc] = 0; });
   const accounts = Object.keys(stock).filter(Boolean);
   if (!accounts.length) return { findings: [], note: 'No stock items.' };
   const gl = {};

@@ -18,6 +18,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 
@@ -73,7 +74,7 @@ async function assertDocumentNotCorrected(documentId) {
 async function accountRoles(companyId) {
   const partyLedger = require('./partyLedger');
   const [items, parties, taxDoc, fa] = await Promise.all([
-    rtdb.ref('items').get().then(s => s.val() || {}),
+    itemStore.inventoryAccounts(companyId), // every inventory account an item uses, moved or not (ITEMS_FIRESTORE.md)
     partyLedger.loadParties(),
     firestore.collection('taxConfig').doc(String(companyId)).get(),
     require('./fixedAssetsCommon').controlledAccountIds()
@@ -83,7 +84,7 @@ async function accountRoles(companyId) {
   // Every customer's receivables, vendor's payables and the reps' Rep Cash Clearing.
   Object.keys(partyLedger.PARTY_TYPES).forEach(pt => Object.values(parties[pt] || {}).forEach(p => set(p && p[partyLedger.PARTY_TYPES[pt].accountField], 'control')));
   fa.forEach(id => set(id, 'fixedAsset'));
-  Object.values(items).forEach(i => set(i && i.InventoryAccountID, 'inventory'));
+  Object.keys(items).forEach(acc => set(acc, 'inventory'));
   const cfg = taxDoc.exists ? taxDoc.data() : null;
   ((cfg && cfg.Components) || []).forEach(c => { set(c.OutputAccountID, 'tax'); set(c.InputAccountID, 'tax'); });
   return roles;

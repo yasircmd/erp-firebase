@@ -21,7 +21,7 @@ const MANY = 50;
 
 // Realtime Database: root -> [module, depth].
 const RTDB = {
-  items: ['ITEMMASTER', 2], itemSubCategories: ['ITEMSUBCAT', 2], uoms: ['UOM', 2], boms: ['BOM', 2],
+itemSubCategories: ['ITEMSUBCAT', 2], uoms: ['UOM', 2], boms: ['BOM', 2],
   vendors: ['VENDORMASTER', 2], customers: ['CUSTOMERMASTER', 2], customerClassifications: ['CUSTOMERMASTER', 2],
   salesReps: ['CUSTOMERMASTER', 2], salesTypes: ['SALESINVOICESETUP', 2], requisitionCategories: ['PROCUREMENTSETUP', 2],
   coa: ['COA', 2], companies: ['COMPANYMASTER', 2], orgUnits: ['ORGUNITS', 2],
@@ -32,11 +32,12 @@ const RTDB = {
   periodClosing: ['PERIODCLOSE', 2], recurringJournals: ['RECURRINGJV', 2]
 };
 // Roots too large to read whole: a write to the whole list is a summary.
-const LARGE = ['items', 'customers', 'vendors', 'priceListLines', 'coa'];
+const LARGE = ['customers', 'vendors', 'priceListLines', 'coa'];
 
 // Firestore (a corporate's): collection -> module, and the fields a posting
 // keeps up to date there (not a change to the master: QA2).
 const FIRESTORE = {
+  items: 'ITEMMASTER', // in Firestore since ITEMS_FIRESTORE.md step 3
   employees: 'EMPLOYEES', employeeCompensation: 'EMPLOYEES', essAccounts: 'EMPLOYEES',
   hrDesignations: 'HRSETUP', hrDocumentTypes: 'HRSETUP', hrFields: 'HRSETUP', hrGrades: 'HRSETUP', hrWorkSchedules: 'HRSETUP', hrLeavingReasons: 'HRSETUP',
   hrLeaveTypes: 'LEAVE', hrWorkCalendars: 'LEAVE',

@@ -100,6 +100,8 @@ const MAPPED = {
   itemsForReport_: ['itemStore', 'forReport', 'dropCtx'], // step 2: reports
   itemsForReportLines_: ['itemStore', 'forReportLines', 'dropCtx'],
   itemsLinesOf_: ['itemStore', 'linesOf', 'pure'],
+  itemsByCodeIgnoringCase_: ['itemStore', 'byCodeIgnoringCase', 'dropCtx'], // step 3: the item master's duplicate checks
+  itemsBySubCategory_: ['itemStore', 'bySubCategory', 'dropCtx'],
   projectFields_: ['projects', 'projectFields', 'dropCtx'], // docs/modules/PROJECTS_DIMENSIONS.md (patch projects)
   cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
   needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],

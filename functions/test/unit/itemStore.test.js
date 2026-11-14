@@ -9,7 +9,7 @@ const { lineItemIds } = require('../../src/itemStore');
 
 const SRC = path.join(__dirname, '../../src');
 const read = f => fs.readFileSync(path.join(SRC, f), 'utf8');
-const WHOLE = /ref\('items'\)\.(get|once)\(|firebaseDbRequest_\('items', 'get'/;
+const WHOLE = /ref\('items'\)\.(get|once)\(|firebaseDbRequest_\('items', 'get'|itemStore\.all\(\)|val\('items'\)/;
 
 // Hand-written document readers: no whole read anywhere in the file.
 const FILES = ['grn.js', 'materialIssue.js', 'stockAdjustment.js', 'warehouseMovement.js', 'purchaseReturn.js', 'salesReturn.js',
@@ -29,8 +29,8 @@ test('the document readers never read the whole catalogue', () => {
   assert.deepEqual(PORTED.filter(fn => WHOLE.test(body(fn))), []);
   // quotations.js: its documents (priced, orderForRep) by code; its portal price list is a picker (step 2).
   const q = read('quotations.js');
-  assert.equal((q.match(/ref\('items'\)\.get\(/g) || []).length, 1);
-  assert.match(q.slice(q.indexOf('async function portalQuoteItems(')), /^async function portalQuoteItems\([\s\S]*?ref\('items'\)\.get\(/);
+  assert.equal((q.match(/itemStore\.all\(\)/g) || []).length, 1);
+  assert.match(q.slice(q.indexOf('async function portalQuoteItems(')), /^async function portalQuoteItems\([\s\S]*?itemStore\.all\(\)/);
 });
 
 // Step 2 (QI4, QI7): the reports read only the items they cover.
@@ -43,15 +43,15 @@ const PORTED_REPORTS = ['getStockValuationReport', 'getStockLedgerReport', 'getM
 test('the reports and barcode lookups never read the whole catalogue (step 2)', () => {
   // Retail Sales: every sale's own reads by its lines; only the counter's item list (a picker, step 3b) reads them all.
   const retail = read('retailSales.js');
-  assert.equal((retail.match(/val\('items'\)/g) || []).length, 1);
-  assert.match(retail.slice(retail.indexOf('exports.getRetailCounter')), /^exports\.getRetailCounter[\s\S]*?val\('items'\)/);
+  assert.equal((retail.match(/itemStore\.all\(\)/g) || []).length, 1);
+  assert.match(retail.slice(retail.indexOf('exports.getRetailCounter')), /^exports\.getRetailCounter[\s\S]*?itemStore\.all\(\)/);
   assert.deepEqual(REPORT_FILES.filter(f => WHOLE.test(read(f))), []);
   const code = read('legacy/codegs.js');
   const body = fn => { const i = code.indexOf('\nasync function ' + fn + '('); assert.ok(i >= 0, fn); return code.slice(i, code.indexOf('\n}\n', i)); };
   assert.deepEqual(PORTED_REPORTS.filter(fn => WHOLE.test(body(fn))), []);
   // The one place a whole read is allowed: the store itself, for a report over more than BULK_AT items.
   const store = read('itemStore.js');
-  assert.equal((store.match(/ref\('items'\)\.get\(\)/g) || []).length, 2, 'forReport and forReportLines, above BULK_AT only');
+  assert.equal((store.match(/store\.all\(\)/g) || []).length, 4, 'forReport and forReportLines above BULK_AT, rebuildAccounts, all()');
 });
 
 test('the ids a document\'s lines name: each once, none blank, none a path', () => {

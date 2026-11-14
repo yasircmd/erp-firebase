@@ -17,6 +17,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const itemStore = require('./itemStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const B = require('./builtDefinitions');
@@ -161,7 +162,7 @@ async function linkOptions(target, companyId, user) {
   };
   if (target === 'CUSTOMER') return pick((await rtdb.ref('customers').get()).val(), 'CustomerCode', 'CustomerName', true);
   if (target === 'VENDOR') return pick((await rtdb.ref('vendors').get()).val(), 'VendorCode', 'VendorName', true);
-  if (target === 'ITEM') return pick((await rtdb.ref('items').get()).val(), 'ItemCode', 'ItemName', true);
+  if (target === 'ITEM') return pick(await itemStore.all(), 'ItemCode', 'ItemName', true); // every item, in Firestore (ITEMS_FIRESTORE.md, step 3; step 3b: a server search)
   if (target === 'ACCOUNT') {
     const m = new Map();
     Object.entries((await rtdb.ref('coa').get()).val() || {}).forEach(([id, a]) => {

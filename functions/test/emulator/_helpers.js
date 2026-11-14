@@ -128,6 +128,8 @@ async function reset(fixture) {
   });
   await rtdb.ref('/').set(rest);
   for (const [p, v] of moved) await movedPaths.request(p, 'put', v);
+  // Items written whole skip the store's per-write summary: build it, as the move does (ITEMS_FIRESTORE.md, step 3).
+  if (moved.some(([p]) => p === 'items')) await require('../../src/itemStore').rebuildAccounts();
 }
 
 // A path's value, set and update, wherever it lives now (the moved

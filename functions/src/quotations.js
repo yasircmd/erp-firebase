@@ -366,7 +366,7 @@ async function portalQuoteItems(user, d) {
   if (!pl) return { priceList: null, items: [] };
   const L = require('./legacy/codegs');
   const date = isDate(d.date) ? d.date : todayIn();
-  const [byItem, items] = await Promise.all([L.groupPriceListLinesByItem_({}, pl.PriceListID), rtdb.ref('items').get().then(s => s.val() || {})]);
+  const [byItem, items] = await Promise.all([L.groupPriceListLinesByItem_({}, pl.PriceListID), itemStore.all()]);
   const out = [];
   Object.values(items).forEach(it => {
     if (!it || it.Status !== 'Active' || (it.CompanyID && it.CompanyID !== companyId)) return;

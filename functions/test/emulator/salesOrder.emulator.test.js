@@ -164,7 +164,7 @@ test('validation, list and access', async () => {
 
   // An item deleted after the draft was saved.
   const gone = await draft([line({ ItemCode: 'FG-003' })]);
-  await rtdb.ref('items/I3').remove();
+  await require('../../src/itemStore').store.remove('I3');
   assert.match((await call('u-admin', 'confirmSalesOrder', { soId: gone.soId })).error, /no longer exists: FG-003/);
 
   const list = await call('u-admin', 'getSalesOrderEntries', { limit: 2 });

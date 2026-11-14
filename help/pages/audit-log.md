@@ -1,6 +1,6 @@
 ---
-fingerprint: 4e02c5c9a41ee920
-reviewed: 2026-11-13
+fingerprint: e7826213ca5cd918
+reviewed: 2026-11-14
 title: Audit Log
 area: admin
 order: 7.5

@@ -1,6 +1,6 @@
 # Large item catalogues (design; owner, 2026-11-13)
 
-Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Steps 1 and 2 built 2026-11-14** (see *As built*); step 3 next.
+Status: **design agreed 2026-11-14** (QI1–QI6; see *The owner's decisions*). **Steps 1, 2 and 3a built 2026-11-14** (see *As built*); step 3b next.
 Item 3 of UX batch 4 (docs/modules/UX4.md), decision Q510: "design first,
 for everyone": moving the items to Firestore for every corporate, with
 screens searching items on the server as you type instead of loading them
@@ -162,6 +162,13 @@ loads go back to the 500-item times, whatever the catalogue's size.
 - **QI7** (2026-11-14, asked while building step 2): the Reorder report
   also reads the items that have a reorder level, so an item never
   received stays on it, as before (an index on ReorderLevel).
+- **QI8** (2026-11-14, asked while building step 3): the items are copied
+  to Firestore before the deploy and again after it, the newer edit of
+  each item winning, then checked, exported and deleted. Users do not
+  edit items (Item Master, Master Import) between the two copies.
+- **Step 3 in two** (2026-11-14): 3a moves the items (this section's
+  as-built), 3b brings the server search to the pickers and pages Item
+  Master.
 - **QI3, when** (2026-11-14): the Item Master list's paging moves to step
   3, with its Barcodes & Labels search and every picker, built once on
   Firestore's search (on the Realtime Database a server search would still
@@ -290,3 +297,53 @@ deploys the rules (indexes) first.
   items: each failed a test.
 - **Deploy:** set items-2. FIRST the "database rules" task (the
   ReorderLevel index), then every function. No new function, no screen.
+
+## As built: step 3a (2026-11-14)
+
+- **itemStore.js on Firestore:** `items/{id}`, a document store
+  (docStore.makeStore) with equality queries on Status, CompanyID,
+  ItemCode, Category, SubCategoryID and, under `_q`, CodeLower,
+  UserCodeLower, NameLower, Words (array), Grams (array: every 3-letter
+  fragment of each word, QI2) and Reorder ('yes' with a reorder level,
+  QI7). Its calls stay (byIds, byCodes, forLines, forReport,
+  forReportLines, stocked, withReorderLevel), plus byCodeIgnoringCase,
+  byNameIgnoringCase, bySubCategory, all, inventoryAccounts and
+  rebuildAccounts.
+- **movedPaths.js** answers the old path `items` from it, so the ported
+  code reads and writes the items unchanged. The audit log's wrapper keeps
+  the items' changed fields from Firestore now (auditWrites FIRESTORE), and
+  docStore no longer records a master's "document" entries
+  (spec.auditDocuments false).
+- **itemAccounts:** `{company or *}_{account}` with a Count, kept on every
+  item write (the store's afterWrite) and rebuilt after the copy: period
+  closing's stock check, the Correction JV, MIS's control accounts read it
+  instead of every item. Data Reset's Item Master clears it too (a patch).
+- **The item master's duplicate checks** (saveItem's user code,
+  saveItemSubCategory's other company): by the lower-case fields and the
+  sub-category, not every item (the two patches' reads).
+- **Every other reader** of the item list goes through the store: the
+  pickers and the Item Master list read every item (`all()`) until step
+  3b's server search; Opening Balances and Master Import read the items
+  through movedPaths; the MIS builder through the store.
+- **The move (QI6, QI8):** itemMigration.js `copy` (the old items not in
+  Firestore, or newer there by UpdatedAt / CreatedAt; then the summary
+  rebuilt), `check` (every old item in Firestore, the same or newer) and
+  `finish` (check, then a JSON export of the old items to the firm's Cloud
+  Storage, `item-exports/{corporate}/{time}.json`, then their deletion
+  from the Realtime Database). Client Management → **Items move** runs
+  them for one corporate (100 too): `moveDeveloperItems`, Developer write,
+  in that corporate through the functions' own grant.
+- **Tests:** emulator itemsFirestore (4: an item saved through the old
+  path, in Firestore with its search fields; the summary through create,
+  change and delete; the move with the newer edit winning, the check, the
+  export and the deletion; finish refused while the check fails, and the
+  Client Management call), the earlier item tests on Firestore, and the
+  unit guards (movedReads lists the items' whole readers until 3b).
+- **Deploy, in this order:**
+  1. Set **items-3a-move** (moveDeveloperItems) with **--screens**: Client
+     Management gets the Items move panel.
+  2. Ask users not to edit items. In Client Management → Items move, for
+     each corporate (100 and every Active client): **Copy**.
+  3. Set **items-3a**: every function.
+  4. For each corporate: **Copy** again, **Check**, then **Finish**. Users
+     may edit items again.
